@@ -105,7 +105,7 @@ export default function EditHabitScreen() {
           style: "destructive",
           onPress: async () => {
             await db.delete(habit).where(eq(habit.id, habitId));
-            router.back();
+            router.dismissAll();
           },
         },
       ],
