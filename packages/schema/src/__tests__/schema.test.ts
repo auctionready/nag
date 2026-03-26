@@ -52,6 +52,17 @@ describe("schema", () => {
     expect(queried.title).toBe("Exercise");
   });
 
+  it("should insert a habit without description", async () => {
+    const [inserted] = await db
+      .insert(schema.habit)
+      .values({ title: "Stretch" })
+      .returning();
+
+    expect(inserted.id).toBeDefined();
+    expect(inserted.title).toBe("Stretch");
+    expect(inserted.description).toBeNull();
+  });
+
   it("should insert a check_in referencing a habit", async () => {
     const [habit] = await db
       .insert(schema.habit)

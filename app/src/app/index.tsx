@@ -14,8 +14,17 @@ export default function HomeScreen() {
         keyExtractor={(item) => String(item.id)}
         renderItem={({ item }) => (
           <View style={styles.habitRow}>
-            <Text style={styles.habitTitle}>{item.title}</Text>
-            <Text style={styles.habitDescription}>{item.description}</Text>
+            <View style={styles.habitInfo}>
+              <Text style={styles.habitTitle}>{item.title}</Text>
+              {item.description ? (
+                <Text style={styles.habitDescription}>{item.description}</Text>
+              ) : null}
+            </View>
+            <Link href={`/edit-habit/${item.id}`} asChild>
+              <Pressable style={styles.editButton}>
+                <Text style={styles.editButtonText}>Edit</Text>
+              </Pressable>
+            </Link>
           </View>
         )}
         ListEmptyComponent={
@@ -42,9 +51,14 @@ const styles = StyleSheet.create({
     flexGrow: 1,
   },
   habitRow: {
+    flexDirection: "row",
+    alignItems: "center",
     paddingVertical: 12,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: "#ccc",
+  },
+  habitInfo: {
+    flex: 1,
   },
   habitTitle: {
     fontSize: 18,
@@ -60,6 +74,15 @@ const styles = StyleSheet.create({
     color: "#999",
     marginTop: 32,
     fontSize: 16,
+  },
+  editButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  editButtonText: {
+    color: "#007AFF",
+    fontSize: 14,
+    fontWeight: "600",
   },
   addButton: {
     backgroundColor: "#007AFF",
