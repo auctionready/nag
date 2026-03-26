@@ -1,3 +1,4 @@
+import "../db/devMenu";
 import { Stack } from "expo-router";
 import { DatabaseProvider } from "../db/DatabaseProvider";
 

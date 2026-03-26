@@ -4,7 +4,10 @@ import { useRouter } from "expo-router";
 import { db } from "../db";
 import { habit, goal, regularityValues, type Regularity } from "@nag/schema";
 
-const regularityLabels: Record<Regularity, string> = {
+type FormRegularity = Regularity | "none";
+const formRegularityValues: FormRegularity[] = ["none", ...regularityValues];
+const regularityLabels: Record<FormRegularity, string> = {
+  none: "None",
   day: "Daily",
   week: "Weekly",
   month: "Monthly",
@@ -13,7 +16,7 @@ const regularityLabels: Record<Regularity, string> = {
 type FormData = {
   title: string;
   description: string;
-  regularity: Regularity;
+  regularity: FormRegularity;
   frequency: string;
 };
 
@@ -22,15 +25,17 @@ export default function AddHabitScreen() {
   const {
     control,
     handleSubmit,
+    watch,
     formState: { errors },
   } = useForm<FormData>({
     defaultValues: {
       title: "",
       description: "",
-      regularity: "day",
+      regularity: "none",
       frequency: "1",
     },
   });
+  const watchedRegularity = watch("regularity");
 
   const onSubmit = async (data: FormData) => {
     const [inserted] = await db
@@ -40,11 +45,13 @@ export default function AddHabitScreen() {
         description: data.description || null,
       })
       .returning({ id: habit.id });
-    await db.insert(goal).values({
-      habitId: inserted.id,
-      regularity: data.regularity,
-      frequency: Number(data.frequency),
-    });
+    if (data.regularity !== "none") {
+      await db.insert(goal).values({
+        habitId: inserted.id,
+        regularity: data.regularity,
+        frequency: Number(data.frequency),
+      });
+    }
     router.back();
   };
 
@@ -101,7 +108,7 @@ export default function AddHabitScreen() {
           name="regularity"
           render={({ field: { onChange, value } }) => (
             <View style={styles.segmentedRow}>
-              {regularityValues.map((r) => (
+              {formRegularityValues.map((r) => (
                 <Pressable
                   key={r}
                   style={[
@@ -124,34 +131,45 @@ export default function AddHabitScreen() {
           )}
         />
 
-        <Text style={styles.label}>Frequency</Text>
-        <Controller
-          control={control}
-          name="frequency"
-          rules={{
-            required: "Frequency is required",
-            validate: (v) => {
-              const n = Number(v);
-              return (Number.isInteger(n) && n >= 1) || "Must be at least 1";
-            },
-          }}
-          render={({ field: { onChange, onBlur, value } }) => (
-            <TextInput
-              style={[
-                styles.input,
-                styles.frequencyInput,
-                errors.frequency && styles.inputError,
-              ]}
-              onBlur={onBlur}
-              onChangeText={onChange}
-              value={value}
-              keyboardType="number-pad"
-              placeholder="1"
-            />
-          )}
-        />
-        {errors.frequency && (
-          <Text style={styles.error}>{errors.frequency.message}</Text>
+        {watchedRegularity !== "none" && (
+          <>
+            <Text style={styles.label}>Frequency</Text>
+            <View style={styles.frequencyRow}>
+              <Controller
+                control={control}
+                name="frequency"
+                rules={{
+                  validate: (v) => {
+                    if (watchedRegularity === "none") return true;
+                    const n = Number(v);
+                    return (
+                      (Number.isInteger(n) && n >= 1) || "Must be at least 1"
+                    );
+                  },
+                }}
+                render={({ field: { onChange, onBlur, value } }) => (
+                  <TextInput
+                    style={[
+                      styles.input,
+                      styles.frequencyInput,
+                      errors.frequency && styles.inputError,
+                    ]}
+                    onBlur={onBlur}
+                    onChangeText={onChange}
+                    value={value}
+                    keyboardType="number-pad"
+                    placeholder="1"
+                  />
+                )}
+              />
+              <Text style={styles.frequencySuffix}>
+                per {watchedRegularity}
+              </Text>
+            </View>
+            {errors.frequency && (
+              <Text style={styles.error}>{errors.frequency.message}</Text>
+            )}
+          </>
         )}
       </View>
 
@@ -184,8 +202,17 @@ const styles = StyleSheet.create({
   multilineInput: {
     minHeight: 120,
   },
+  frequencyRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
   frequencyInput: {
     width: 80,
+  },
+  frequencySuffix: {
+    fontSize: 14,
+    color: "#666",
   },
   inputError: {
     borderColor: "#ff3b30",
