@@ -202,7 +202,6 @@ export default function EditHabitScreen() {
                 name="frequency"
                 rules={{
                   validate: (v) => {
-                    if (watchedRegularity === "none") return true;
                     const n = Number(v);
                     return (
                       (Number.isInteger(n) && n >= 1) || "Must be at least 1"
