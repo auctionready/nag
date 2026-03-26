@@ -5,3 +5,4 @@ approveBuilds: better-sqlite3
 
 catalog:
   drizzle-orm: ^0.45.1
+  typescript: ^6.0.2
