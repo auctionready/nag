@@ -24,6 +24,25 @@ jobs:
 
       - run: pnpm run typecheck
 
+  build-app:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: volta-cli/action@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: package.json
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - run: npx expo export --platform web
+        working-directory: app
+
   test:
     runs-on: ubuntu-latest
     services:
