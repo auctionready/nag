@@ -1,7 +1,7 @@
 import { sqliteTable, integer, text, index, unique } from "drizzle-orm/sqlite-core";
 import { relations } from "drizzle-orm";
-import { habit } from "./habit.js";
-import { regularityValues } from "./regularity.js";
+import { habit } from "./habit";
+import { regularityValues } from "./regularity";
 
 export const goal = sqliteTable("goal", {
   id: integer("id", { mode: "number" }).primaryKey({ autoIncrement: true }),

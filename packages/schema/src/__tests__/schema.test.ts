@@ -4,8 +4,8 @@ import { drizzle } from "drizzle-orm/better-sqlite3";
 import { eq } from "drizzle-orm";
 import Database from "better-sqlite3";
 import { unlinkSync } from "node:fs";
-import * as schema from "../index.js";
-import { regularityValues } from "../regularity.js";
+import * as schema from "../index";
+import { regularityValues } from "../regularity";
 
 const TEST_DB = "test.db";
 let sqlite: InstanceType<typeof Database>;

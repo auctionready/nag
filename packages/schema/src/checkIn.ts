@@ -1,6 +1,6 @@
 import { sqliteTable, integer, text, index } from "drizzle-orm/sqlite-core";
 import { relations } from "drizzle-orm";
-import { habit } from "./habit.js";
+import { habit } from "./habit";
 
 export const checkIn = sqliteTable("check_in", {
   id: integer("id", { mode: "number" }).primaryKey({ autoIncrement: true }),
