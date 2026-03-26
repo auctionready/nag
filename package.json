@@ -1,5 +1,8 @@
 {
   "name": "nag",
   "private": true,
-  "type": "module"
+  "type": "module",
+  "volta": {
+    "node": "24.0.0"
+  }
 }
