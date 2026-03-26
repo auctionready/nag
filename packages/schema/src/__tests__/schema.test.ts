@@ -11,8 +11,8 @@ let client: ReturnType<typeof postgres>;
 let db: ReturnType<typeof drizzle>;
 
 beforeAll(async () => {
-  execSync("pnpm db:push --force", {
-    cwd: new URL("../../..", import.meta.url).pathname,
+  execSync("pnpm exec drizzle-kit push --force", {
+    cwd: new URL("../..", import.meta.url).pathname,
     env: { ...process.env },
     stdio: "inherit",
   });
