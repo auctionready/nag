@@ -1,0 +1,25 @@
+{
+  "name": "@nag/app",
+  "version": "1.0.0",
+  "main": "expo-router/entry",
+  "scripts": {
+    "start": "expo start",
+    "android": "expo start --android",
+    "ios": "expo start --ios"
+  },
+  "dependencies": {
+    "@nag/schema": "workspace:*",
+    "expo": "~55.0.8",
+    "expo-router": "~55.0.7",
+    "expo-status-bar": "~55.0.4",
+    "react": "~19.2.4",
+    "react-native": "0.83.2",
+    "react-native-safe-area-context": "~5.4.0",
+    "react-native-screens": "~4.12.0"
+  },
+  "devDependencies": {
+    "@types/react": "~19.2.2",
+    "typescript": "~5.9.2"
+  },
+  "private": true
+}
