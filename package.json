@@ -2,6 +2,7 @@
   "name": "nag",
   "private": true,
   "type": "module",
+  "packageManager": "pnpm@10.33.0",
   "volta": {
     "node": "24.14.1",
     "pnpm": "10.33.0"
