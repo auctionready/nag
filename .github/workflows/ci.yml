@@ -23,3 +23,37 @@ jobs:
       - run: pnpm install --frozen-lockfile
 
       - run: pnpm --filter @nag/schema exec tsc --noEmit
+
+  test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: nag
+          POSTGRES_PASSWORD: nag
+          POSTGRES_DB: nag_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U nag"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=5
+    env:
+      DATABASE_URL: postgresql://nag:nag@localhost:5432/nag_test
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: volta-cli/action@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: package.json
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - run: pnpm --filter @nag/schema test

@@ -10,16 +10,18 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:push": "drizzle-kit push",
-    "db:studio": "drizzle-kit studio"
+    "db:studio": "drizzle-kit studio",
+    "test": "vitest run"
   },
   "dependencies": {
     "drizzle-orm": "^0.45.1",
     "postgres": "^3.4.5"
   },
   "devDependencies": {
+    "@types/node": "^25.5.0",
     "drizzle-kit": "^0.31.10",
     "typescript": "^6.0.2",
-    "@types/node": "^25.5.0"
+    "vitest": "^4.1.1"
   },
   "volta": {
     "extends": "../../package.json"
