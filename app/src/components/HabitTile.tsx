@@ -5,7 +5,7 @@ import { useRouter } from "expo-router";
 import { desc, eq } from "drizzle-orm";
 import { formatDistanceToNow } from "date-fns";
 import { db } from "../db";
-import { checkIn } from "@nag/schema";
+import { checkIn, goal, getTitle } from "@nag/schema";
 
 interface HabitTileProps {
   id: number;
@@ -15,6 +15,16 @@ interface HabitTileProps {
 export function HabitTile({ id, title }: HabitTileProps) {
   const router = useRouter();
   const scale = useRef(new Animated.Value(1)).current;
+
+  const { data: goals } = useLiveQuery(
+    db
+      .select({ frequency: goal.frequency, regularity: goal.regularity })
+      .from(goal)
+      .where(eq(goal.habitId, id))
+      .limit(1),
+  );
+  const goalData = goals?.[0];
+  const goalText = goalData ? getTitle(goalData) : null;
 
   const { data: lastCheckIns } = useLiveQuery(
     db
@@ -52,6 +62,7 @@ export function HabitTile({ id, title }: HabitTileProps) {
     >
       <Animated.View style={[styles.tile, { transform: [{ scale }] }]}>
         <Text style={styles.title}>{title}</Text>
+        {goalText && <Text style={styles.subtitle}>{goalText}</Text>}
         {lastCheckIn && (
           <Text style={styles.lastCheckIn}>
             {formatDistanceToNow(new Date(lastCheckIn.timestamp), {
@@ -81,6 +92,11 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     textAlign: "center",
     color: "#fff",
+  },
+  subtitle: {
+    fontSize: 12,
+    color: "rgba(255, 255, 255, 0.85)",
+    marginTop: 2,
   },
   lastCheckIn: {
     fontSize: 11,

@@ -11,7 +11,7 @@ import { useLiveQuery } from "drizzle-orm/expo-sqlite";
 import { desc, eq } from "drizzle-orm";
 import { format } from "date-fns";
 import { db } from "../../db";
-import { checkIn, habit } from "@nag/schema";
+import { checkIn, habit, goal, getTitle } from "@nag/schema";
 
 export default function HabitScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -22,6 +22,11 @@ export default function HabitScreen() {
     db.select().from(habit).where(eq(habit.id, habitId)),
   );
   const habitData = habits?.[0];
+
+  const { data: goals } = useLiveQuery(
+    db.select().from(goal).where(eq(goal.habitId, habitId)),
+  );
+  const goalData = goals?.[0];
 
   const { data: checkIns } = useLiveQuery(
     db
@@ -50,12 +55,15 @@ export default function HabitScreen() {
     );
   }
 
+  const goalText = goalData ? getTitle(goalData) : null;
+
   return (
     <View style={styles.container}>
       <Text style={styles.title}>{habitData.title}</Text>
       {habitData.description && (
         <Text style={styles.description}>{habitData.description}</Text>
       )}
+      {goalText && <Text style={styles.goal}>Goal: {goalText}</Text>}
 
       <FlatList
         data={checkIns}
@@ -110,6 +118,12 @@ const styles = StyleSheet.create({
   description: {
     fontSize: 15,
     color: "#666",
+    marginBottom: 4,
+  },
+  goal: {
+    fontSize: 15,
+    color: "#007AFF",
+    fontWeight: "600",
     marginBottom: 16,
   },
   emptyText: {

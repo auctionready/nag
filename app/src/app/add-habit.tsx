@@ -2,11 +2,19 @@ import { StyleSheet, Text, TextInput, View, Pressable } from "react-native";
 import { useForm, Controller } from "react-hook-form";
 import { useRouter } from "expo-router";
 import { db } from "../db";
-import { habit } from "@nag/schema";
+import { habit, goal, regularityValues, type Regularity } from "@nag/schema";
+
+const regularityLabels: Record<Regularity, string> = {
+  day: "Daily",
+  week: "Weekly",
+  month: "Monthly",
+};
 
 type FormData = {
   title: string;
   description: string;
+  regularity: Regularity;
+  frequency: string;
 };
 
 export default function AddHabitScreen() {
@@ -16,13 +24,26 @@ export default function AddHabitScreen() {
     handleSubmit,
     formState: { errors },
   } = useForm<FormData>({
-    defaultValues: { title: "", description: "" },
+    defaultValues: {
+      title: "",
+      description: "",
+      regularity: "day",
+      frequency: "1",
+    },
   });
 
   const onSubmit = async (data: FormData) => {
-    await db.insert(habit).values({
-      title: data.title,
-      description: data.description || null,
+    const [inserted] = await db
+      .insert(habit)
+      .values({
+        title: data.title,
+        description: data.description || null,
+      })
+      .returning({ id: habit.id });
+    await db.insert(goal).values({
+      habitId: inserted.id,
+      regularity: data.regularity,
+      frequency: Number(data.frequency),
     });
     router.back();
   };
@@ -71,6 +92,69 @@ export default function AddHabitScreen() {
         <Text style={styles.error}>{errors.description.message}</Text>
       )}
 
+      <View style={styles.goalSection}>
+        <Text style={styles.sectionTitle}>Goal</Text>
+
+        <Text style={styles.label}>Regularity</Text>
+        <Controller
+          control={control}
+          name="regularity"
+          render={({ field: { onChange, value } }) => (
+            <View style={styles.segmentedRow}>
+              {regularityValues.map((r) => (
+                <Pressable
+                  key={r}
+                  style={[
+                    styles.segmentButton,
+                    value === r && styles.segmentButtonActive,
+                  ]}
+                  onPress={() => onChange(r)}
+                >
+                  <Text
+                    style={[
+                      styles.segmentText,
+                      value === r && styles.segmentTextActive,
+                    ]}
+                  >
+                    {regularityLabels[r]}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+          )}
+        />
+
+        <Text style={styles.label}>Frequency</Text>
+        <Controller
+          control={control}
+          name="frequency"
+          rules={{
+            required: "Frequency is required",
+            validate: (v) => {
+              const n = Number(v);
+              return (Number.isInteger(n) && n >= 1) || "Must be at least 1";
+            },
+          }}
+          render={({ field: { onChange, onBlur, value } }) => (
+            <TextInput
+              style={[
+                styles.input,
+                styles.frequencyInput,
+                errors.frequency && styles.inputError,
+              ]}
+              onBlur={onBlur}
+              onChangeText={onChange}
+              value={value}
+              keyboardType="number-pad"
+              placeholder="1"
+            />
+          )}
+        />
+        {errors.frequency && (
+          <Text style={styles.error}>{errors.frequency.message}</Text>
+        )}
+      </View>
+
       <Pressable style={styles.saveButton} onPress={handleSubmit(onSubmit)}>
         <Text style={styles.saveButtonText}>Save</Text>
       </Pressable>
@@ -100,6 +184,9 @@ const styles = StyleSheet.create({
   multilineInput: {
     minHeight: 120,
   },
+  frequencyInput: {
+    width: 80,
+  },
   inputError: {
     borderColor: "#ff3b30",
   },
@@ -107,6 +194,41 @@ const styles = StyleSheet.create({
     color: "#ff3b30",
     fontSize: 12,
     marginTop: 4,
+  },
+  goalSection: {
+    marginTop: 24,
+    paddingTop: 16,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: "#e0e0e0",
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    marginBottom: 4,
+  },
+  segmentedRow: {
+    flexDirection: "row",
+    gap: 8,
+  },
+  segmentButton: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#ccc",
+    alignItems: "center",
+  },
+  segmentButtonActive: {
+    backgroundColor: "#007AFF",
+    borderColor: "#007AFF",
+  },
+  segmentText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#333",
+  },
+  segmentTextActive: {
+    color: "#fff",
   },
   saveButton: {
     backgroundColor: "#007AFF",
