@@ -1,37 +1,38 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { execSync } from "node:child_process";
-import { drizzle } from "drizzle-orm/postgres-js";
-import { sql } from "drizzle-orm";
+import { drizzle } from "drizzle-orm/better-sqlite3";
 import { eq } from "drizzle-orm";
-import postgres from "postgres";
+import Database from "better-sqlite3";
+import { unlinkSync } from "node:fs";
 import * as schema from "../index.js";
+import { regularityValues } from "../regularity.js";
 
-const connectionString = process.env.DATABASE_URL!;
-let client: ReturnType<typeof postgres>;
+const TEST_DB = "test.db";
+let sqlite: InstanceType<typeof Database>;
 let db: ReturnType<typeof drizzle>;
 
-beforeAll(async () => {
+beforeAll(() => {
   execSync("pnpm exec drizzle-kit push --force", {
     cwd: new URL("../..", import.meta.url).pathname,
-    env: { ...process.env },
+    env: { ...process.env, DATABASE_URL: TEST_DB },
     stdio: "inherit",
   });
 
-  client = postgres(connectionString);
-  db = drizzle(client, { schema });
+  sqlite = new Database(TEST_DB);
+  sqlite.pragma("foreign_keys = ON");
+  db = drizzle(sqlite, { schema });
 });
 
-afterAll(async () => {
-  await client.end();
+afterAll(() => {
+  sqlite.close();
+  try {
+    unlinkSync(TEST_DB);
+  } catch {}
 });
 
 describe("schema", () => {
-  it("should have created the regularity enum", async () => {
-    const result = await db.execute(
-      sql`SELECT unnest(enum_range(NULL::regularity))::text AS value`,
-    );
-    const values = result.map((r) => r.value);
-    expect(values).toEqual(["day", "week", "month"]);
+  it("should export regularity values", () => {
+    expect(regularityValues).toEqual(["day", "week", "month"]);
   });
 
   it("should insert and query a habit", async () => {

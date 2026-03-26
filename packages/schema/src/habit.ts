@@ -1,15 +1,15 @@
-import { pgTable, uuid, varchar, text, timestamp } from "drizzle-orm/pg-core";
+import { sqliteTable, integer, text } from "drizzle-orm/sqlite-core";
 import { relations } from "drizzle-orm";
 import { checkIn } from "./checkIn.js";
 import { goal } from "./goal.js";
 
-export const habit = pgTable("habit", {
-  id: uuid("id").defaultRandom().primaryKey(),
-  title: varchar("title", { length: 255 }).notNull(),
+export const habit = sqliteTable("habit", {
+  id: integer("id", { mode: "number" }).primaryKey({ autoIncrement: true }),
+  title: text("title").notNull(),
   description: text("description").notNull(),
-  icon: varchar("icon", { length: 255 }),
-  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  icon: text("icon"),
+  createdAt: text("created_at").notNull().$defaultFn(() => new Date().toISOString()),
+  updatedAt: text("updated_at").notNull().$defaultFn(() => new Date().toISOString()),
 });
 
 export const habitRelations = relations(habit, ({ many }) => ({

@@ -3,8 +3,7 @@
   "version": "0.1.0",
   "type": "module",
   "exports": {
-    ".": "./src/index.ts",
-    "./db": "./src/db.ts"
+    ".": "./src/index.ts"
   },
   "scripts": {
     "db:generate": "drizzle-kit generate",
@@ -15,11 +14,12 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "drizzle-orm": "^0.45.1",
-    "postgres": "^3.4.5"
+    "drizzle-orm": "^0.45.1"
   },
   "devDependencies": {
+    "@types/better-sqlite3": "^7.0.0",
     "@types/node": "^25.5.0",
+    "better-sqlite3": "^11.0.0",
     "drizzle-kit": "^0.31.10",
     "typescript": "^6.0.2",
     "vitest": "^4.1.1"
