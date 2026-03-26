@@ -1,7 +1,6 @@
 import { sqliteTable, integer, text, index, unique } from "drizzle-orm/sqlite-core";
-import { relations } from "drizzle-orm";
-import { habit } from "./habit.js";
-import { regularityValues } from "./regularity.js";
+import { habit } from "./habit";
+import { regularityValues } from "./regularity";
 
 export const goal = sqliteTable("goal", {
   id: integer("id", { mode: "number" }).primaryKey({ autoIncrement: true }),
@@ -14,10 +13,3 @@ export const goal = sqliteTable("goal", {
   index("goal_habit_id_idx").on(table.habitId),
   unique("goal_habit_regularity_uniq").on(table.habitId, table.regularity),
 ]);
-
-export const goalRelations = relations(goal, ({ one }) => ({
-  habit: one(habit, {
-    fields: [goal.habitId],
-    references: [habit.id],
-  }),
-}));

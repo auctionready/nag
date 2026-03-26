@@ -4,15 +4,15 @@ import { drizzle } from "drizzle-orm/better-sqlite3";
 import { eq } from "drizzle-orm";
 import Database from "better-sqlite3";
 import { unlinkSync } from "node:fs";
-import * as schema from "../index.js";
-import { regularityValues } from "../regularity.js";
+import * as schema from "../index";
+import { regularityValues } from "../regularity";
 
 const TEST_DB = "test.db";
 let sqlite: InstanceType<typeof Database>;
 let db: ReturnType<typeof drizzle>;
 
 beforeAll(() => {
-  execSync("pnpm exec drizzle-kit push --force", {
+  execSync("pnpm exec drizzle-kit push --force --config=drizzle.config.test.ts", {
     cwd: new URL("../..", import.meta.url).pathname,
     env: { ...process.env, DATABASE_URL: TEST_DB },
     stdio: "inherit",
