@@ -1,7 +1,10 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from "vitest";
 import { drizzle } from "drizzle-orm/better-sqlite3";
+import { migrate } from "drizzle-orm/better-sqlite3/migrator";
 import Database from "better-sqlite3";
 import { unlinkSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+import { resolve, dirname } from "node:path";
 import * as schema from "@nag/schema";
 import { goalForHabit, checkInCount, recentCheckIns } from "../queries";
 import { subDays } from "date-fns";
@@ -13,32 +16,11 @@ let db: ReturnType<typeof drizzle>;
 beforeAll(() => {
   sqlite = new Database(TEST_DB);
   sqlite.pragma("foreign_keys = ON");
-  sqlite.exec(`
-    CREATE TABLE IF NOT EXISTS habit (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      title TEXT NOT NULL,
-      description TEXT,
-      icon TEXT,
-      created_at TEXT NOT NULL,
-      updated_at TEXT NOT NULL
-    );
-    CREATE TABLE IF NOT EXISTS check_in (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      habit_id INTEGER NOT NULL REFERENCES habit(id) ON DELETE CASCADE,
-      timestamp TEXT NOT NULL,
-      created_at TEXT NOT NULL,
-      updated_at TEXT NOT NULL
-    );
-    CREATE TABLE IF NOT EXISTS goal (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      habit_id INTEGER NOT NULL REFERENCES habit(id) ON DELETE CASCADE,
-      regularity TEXT NOT NULL,
-      frequency INTEGER NOT NULL,
-      created_at TEXT NOT NULL,
-      updated_at TEXT NOT NULL
-    );
-  `);
   db = drizzle(sqlite, { schema });
+  const __dirname = dirname(fileURLToPath(import.meta.url));
+  migrate(db, {
+    migrationsFolder: resolve(__dirname, "../../../schema/drizzle"),
+  });
 });
 
 afterAll(() => {
