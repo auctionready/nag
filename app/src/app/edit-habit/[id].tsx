@@ -1,7 +1,17 @@
-import { StyleSheet, Text, TextInput, View, Pressable } from "react-native";
+import {
+  Alert,
+  Pressable,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from "react-native";
 import { useForm, Controller } from "react-hook-form";
-import { useRouter } from "expo-router";
-import { db } from "../db";
+import { useLocalSearchParams, useRouter } from "expo-router";
+import { useLiveQuery } from "drizzle-orm/expo-sqlite";
+import { eq } from "drizzle-orm";
+import { useEffect } from "react";
+import { db } from "../../db";
 import { habit } from "@nag/schema";
 
 type FormData = {
@@ -9,23 +19,71 @@ type FormData = {
   description: string;
 };
 
-export default function AddHabitScreen() {
+export default function EditHabitScreen() {
+  const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
+  const habitId = Number(id);
+
+  const { data: habits } = useLiveQuery(
+    db.select().from(habit).where(eq(habit.id, habitId)),
+  );
+  const habitData = habits?.[0];
+
   const {
     control,
     handleSubmit,
+    reset,
     formState: { errors },
   } = useForm<FormData>({
     defaultValues: { title: "", description: "" },
   });
 
+  useEffect(() => {
+    if (habitData) {
+      reset({
+        title: habitData.title,
+        description: habitData.description ?? "",
+      });
+    }
+  }, [habitData, reset]);
+
   const onSubmit = async (data: FormData) => {
-    await db.insert(habit).values({
-      title: data.title,
-      description: data.description || null,
-    });
+    await db
+      .update(habit)
+      .set({
+        title: data.title,
+        description: data.description || null,
+        updatedAt: new Date().toISOString(),
+      })
+      .where(eq(habit.id, habitId));
     router.back();
   };
+
+  const onDelete = () => {
+    Alert.alert(
+      "Delete Habit",
+      "Are you sure? This will also delete all check-ins and goals for this habit.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: async () => {
+            await db.delete(habit).where(eq(habit.id, habitId));
+            router.back();
+          },
+        },
+      ],
+    );
+  };
+
+  if (!habitData) {
+    return (
+      <View style={styles.container}>
+        <Text>Loading...</Text>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
@@ -44,7 +102,9 @@ export default function AddHabitScreen() {
           />
         )}
       />
-      {errors.title && <Text style={styles.error}>{errors.title.message}</Text>}
+      {errors.title && (
+        <Text style={styles.error}>{errors.title.message}</Text>
+      )}
 
       <Text style={styles.label}>Description</Text>
       <Controller
@@ -62,12 +122,13 @@ export default function AddHabitScreen() {
           />
         )}
       />
-      {errors.description && (
-        <Text style={styles.error}>{errors.description.message}</Text>
-      )}
 
       <Pressable style={styles.saveButton} onPress={handleSubmit(onSubmit)}>
         <Text style={styles.saveButtonText}>Save</Text>
+      </Pressable>
+
+      <Pressable style={styles.deleteButton} onPress={onDelete}>
+        <Text style={styles.deleteButtonText}>Delete Habit</Text>
       </Pressable>
     </View>
   );
@@ -109,6 +170,19 @@ const styles = StyleSheet.create({
   },
   saveButtonText: {
     color: "#fff",
+    fontSize: 16,
+    fontWeight: "600",
+  },
+  deleteButton: {
+    marginTop: 16,
+    padding: 16,
+    borderRadius: 8,
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "#ff3b30",
+  },
+  deleteButtonText: {
+    color: "#ff3b30",
     fontSize: 16,
     fontWeight: "600",
   },
