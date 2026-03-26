@@ -24,7 +24,7 @@
     "drizzle-kit": "^0.31.10",
     "drizzle-orm": "catalog:",
     "typescript": "catalog:",
-    "vitest": "^4.1.1"
+    "vitest": "catalog:"
   },
   "volta": {
     "extends": "../../package.json"

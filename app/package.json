@@ -8,6 +8,7 @@
     "ios": "expo run:ios"
   },
   "dependencies": {
+    "@nag/core": "workspace:*",
     "@nag/schema": "workspace:*",
     "date-fns": "^4.1.0",
     "drizzle-orm": "catalog:",
