@@ -76,7 +76,7 @@ export default function HabitScreen() {
         renderItem={({ item }) => (
           <View style={styles.row}>
             <Text style={styles.timestamp}>
-              {format(new Date(item.timestamp), "EEE, MMM d, yyyy h:mm a")}
+              {format(item.timestamp, "EEE, MMM d, yyyy h:mm a")}
             </Text>
             <Pressable
               onPress={() => handleRemove(item.id)}

@@ -2,10 +2,10 @@ import { useCallback, useRef } from "react";
 import { Animated, Pressable, StyleSheet, Text } from "react-native";
 import { useLiveQuery } from "drizzle-orm/expo-sqlite";
 import { useRouter } from "expo-router";
-import { and, count, desc, eq, gte } from "drizzle-orm";
 import { formatDistanceToNow } from "date-fns";
 import { db } from "../db";
-import { checkIn, goal, getTitle, type Regularity } from "@nag/schema";
+import { checkIn, getTitle, type Regularity } from "@nag/schema";
+import { goalForHabit, checkInCount, recentCheckIns } from "@nag/core";
 import { periodStart, tileColor } from "./getComplianceColor";
 
 const periodLabels: Record<Regularity, string> = {
@@ -37,28 +37,16 @@ interface HabitTileProps {
 }
 
 const useHabitGoalSummary = (habitId: number) => {
-  const { data: goals } = useLiveQuery(
-    db
-      .select({
-        frequency: goal.frequency,
-        regularity: goal.regularity,
-        createdAt: goal.createdAt,
-      })
-      .from(goal)
-      .where(eq(goal.habitId, habitId))
-      .limit(1),
-  );
+  const { data: goals } = useLiveQuery(goalForHabit(db, habitId));
 
   const goalData = goals?.[0];
   if (!goalData) return null;
 
-  const { regularity, frequency, createdAt } = goalData;
-
   return {
-    regularity,
-    frequency,
+    regularity: goalData.regularity,
+    frequency: goalData.frequency,
     title: getTitle(goalData),
-    createdAt: new Date(createdAt),
+    createdAt: goalData.createdAt,
   };
 };
 
@@ -66,51 +54,24 @@ export type HabitGoalSummary = NonNullable<
   ReturnType<typeof useHabitGoalSummary>
 >;
 
-const useHabitComplance = (habitId: number, goal: HabitGoalSummary | null) => {
-  const periodStartIso = goal
-    ? periodStart(goal.regularity).toISOString()
-    : null;
+const useHabitCompliance = (habitId: number, goal: HabitGoalSummary | null) => {
+  const periodStartDate = goal
+    ? periodStart(goal.regularity)
+    : undefined;
 
   const { data: countRows } = useLiveQuery(
-    db
-      .select({ value: count() })
-      .from(checkIn)
-      .where(
-        periodStartIso
-          ? and(
-              eq(checkIn.habitId, habitId),
-              gte(checkIn.timestamp, periodStartIso),
-            )
-          : eq(checkIn.habitId, habitId),
-      ),
-    [habitId, periodStartIso],
+    checkInCount(db, habitId, periodStartDate),
   );
 
-  const checkInCount = countRows?.[0]?.value ?? 0;
+  const count = countRows?.[0]?.value ?? 0;
 
-  const { data: recentCheckIns } = useLiveQuery(
-    db
-      .select({ timestamp: checkIn.timestamp })
-      .from(checkIn)
-      .where(
-        periodStartIso
-          ? and(
-              eq(checkIn.habitId, habitId),
-              gte(checkIn.timestamp, periodStartIso),
-            )
-          : eq(checkIn.habitId, habitId),
-      )
-      .orderBy(desc(checkIn.timestamp))
-      .limit(3),
-    [habitId, periodStartIso],
+  const { data: recent } = useLiveQuery(
+    recentCheckIns(db, habitId, periodStartDate),
   );
 
   return {
-    checkInCount,
-    recentCheckIns: recentCheckIns.map((c) => ({
-      ...c,
-      timestamp: new Date(c.timestamp),
-    })),
+    checkInCount: count,
+    recentCheckIns: recent ?? [],
   };
 };
 
@@ -119,9 +80,9 @@ export function HabitTile({ id, title }: HabitTileProps) {
   const scale = useRef(new Animated.Value(1)).current;
 
   const goal = useHabitGoalSummary(id);
-  const { checkInCount, recentCheckIns } = useHabitComplance(id, goal);
+  const { checkInCount: count, recentCheckIns: recent } = useHabitCompliance(id, goal);
 
-  const color = tileColor(goal, checkInCount);
+  const color = tileColor(goal, count);
 
   const handlePress = useCallback(async () => {
     await db.insert(checkIn).values({ habitId: id });
@@ -156,18 +117,18 @@ export function HabitTile({ id, title }: HabitTileProps) {
         {goal && <Text style={styles.subtitle}>{goal.title}</Text>}
         {goal ? (
           <Text style={styles.periodCount}>
-            {checkInCount > 0
-              ? `${formatCount(checkInCount)} ${periodLabels[goal.regularity]}`
+            {count > 0
+              ? `${formatCount(count)} ${periodLabels[goal.regularity]}`
               : `none ${periodLabels[goal.regularity]}`}
           </Text>
         ) : (
-          checkInCount === 0 && (
+          count === 0 && (
             <Text style={styles.periodCount}>no check-ins</Text>
           )
         )}
-        {recentCheckIns && recentCheckIns.length > 0 && (
+        {recent.length > 0 && (
           <Text style={styles.lastCheckIn}>
-            {recentCheckIns
+            {recent
               .map((c) => formatDistanceToNow(c.timestamp, { addSuffix: true }))
               .join(" · ")}
           </Text>

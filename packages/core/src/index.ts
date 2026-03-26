@@ -4,3 +4,4 @@ export {
   colorForRatio,
   tileColor,
 } from "./compliance";
+export { goalForHabit, checkInCount, recentCheckIns } from "./queries";

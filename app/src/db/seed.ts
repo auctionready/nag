@@ -80,7 +80,7 @@ export async function clearAll() {
 
 export async function seedSampleData() {
   const now = new Date();
-  const goalCreatedAt = subDays(now, 30).toISOString();
+  const goalCreatedAt = subDays(now, 30);
 
   for (const entry of sampleData) {
     const [inserted] = await db
@@ -99,7 +99,7 @@ export async function seedSampleData() {
 
     if (entry.checkIns) {
       for (const ci of entry.checkIns) {
-        const timestamp = subDays(now, ci.daysAgo).toISOString();
+        const timestamp = subDays(now, ci.daysAgo);
         await db.insert(checkIn).values({ habitId: inserted.id, timestamp });
       }
     }

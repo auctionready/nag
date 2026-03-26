@@ -13,11 +13,15 @@
     "@nag/schema": "workspace:*"
   },
   "peerDependencies": {
-    "date-fns": "^4.0.0"
+    "date-fns": "^4.0.0",
+    "drizzle-orm": "catalog:"
   },
   "devDependencies": {
+    "@types/better-sqlite3": "^7.0.0",
     "@types/node": "^25.5.0",
+    "better-sqlite3": "^11.0.0",
     "date-fns": "^4.1.0",
+    "drizzle-orm": "catalog:",
     "typescript": "catalog:",
     "vitest": "catalog:"
   },

@@ -81,12 +81,21 @@ importers:
         specifier: workspace:*
         version: link:../schema
     devDependencies:
+      '@types/better-sqlite3':
+        specifier: ^7.0.0
+        version: 7.6.13
       '@types/node':
         specifier: ^25.5.0
         version: 25.5.0
+      better-sqlite3:
+        specifier: ^11.0.0
+        version: 11.10.0
       date-fns:
         specifier: ^4.1.0
         version: 4.1.0
+      drizzle-orm:
+        specifier: 'catalog:'
+        version: 0.45.1(@types/better-sqlite3@7.6.13)(better-sqlite3@11.10.0)(expo-sqlite@55.0.11(expo@55.0.8)(react-native@0.83.2(@babel/core@7.29.0)(@types/react@19.2.14)(react@19.2.4))(react@19.2.4))(gel@2.2.0)(postgres@3.4.8)
       typescript:
         specifier: 'catalog:'
         version: 6.0.2

@@ -78,7 +78,7 @@ export default function EditHabitScreen() {
       .set({
         title: data.title,
         description: data.description || null,
-        updatedAt: new Date().toISOString(),
+        updatedAt: new Date(),
       })
       .where(eq(habit.id, habitId));
 

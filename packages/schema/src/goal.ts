@@ -6,6 +6,7 @@ import {
   unique,
 } from "drizzle-orm/sqlite-core";
 import { habit } from "./habit";
+import { isoTimestamp } from "./isoTimestamp";
 import { type Regularity, regularityValues } from "./regularity";
 
 const regularityLabels: Record<Regularity, string> = {
@@ -27,12 +28,12 @@ export const goal = sqliteTable(
       .references(() => habit.id, { onDelete: "cascade" }),
     regularity: text("regularity", { enum: regularityValues }).notNull(),
     frequency: integer("frequency").notNull(),
-    createdAt: text("created_at")
+    createdAt: isoTimestamp("created_at")
       .notNull()
-      .$defaultFn(() => new Date().toISOString()),
-    updatedAt: text("updated_at")
+      .$defaultFn(() => new Date()),
+    updatedAt: isoTimestamp("updated_at")
       .notNull()
-      .$defaultFn(() => new Date().toISOString()),
+      .$defaultFn(() => new Date()),
   },
   (table) => [
     index("goal_habit_id_idx").on(table.habitId),
