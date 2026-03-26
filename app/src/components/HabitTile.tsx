@@ -2,10 +2,11 @@ import { useCallback, useRef } from "react";
 import { Animated, Pressable, StyleSheet, Text } from "react-native";
 import { useLiveQuery } from "drizzle-orm/expo-sqlite";
 import { useRouter } from "expo-router";
-import { desc, eq } from "drizzle-orm";
+import { and, count, desc, eq, gte } from "drizzle-orm";
 import { formatDistanceToNow } from "date-fns";
 import { db } from "../db";
-import { checkIn, goal, getTitle } from "@nag/schema";
+import { checkIn, goal, getTitle, type Regularity } from "@nag/schema";
+import { periodStart, tileColor } from "./getComplianceColor";
 
 interface HabitTileProps {
   id: number;
@@ -18,13 +19,35 @@ export function HabitTile({ id, title }: HabitTileProps) {
 
   const { data: goals } = useLiveQuery(
     db
-      .select({ frequency: goal.frequency, regularity: goal.regularity })
+      .select({
+        frequency: goal.frequency,
+        regularity: goal.regularity,
+        createdAt: goal.createdAt,
+      })
       .from(goal)
       .where(eq(goal.habitId, id))
       .limit(1),
   );
   const goalData = goals?.[0];
   const goalText = goalData ? getTitle(goalData) : null;
+
+  const periodStartIso = goalData
+    ? periodStart(goalData.regularity as Regularity)
+    : null;
+
+  const { data: countRows } = useLiveQuery(
+    db
+      .select({ value: count() })
+      .from(checkIn)
+      .where(
+        periodStartIso
+          ? and(eq(checkIn.habitId, id), gte(checkIn.timestamp, periodStartIso))
+          : eq(checkIn.habitId, id),
+      ),
+  );
+  const checkInCount = countRows?.[0]?.value ?? 0;
+
+  const color = tileColor(goalData ?? null, checkInCount);
 
   const { data: lastCheckIns } = useLiveQuery(
     db
@@ -60,7 +83,12 @@ export function HabitTile({ id, title }: HabitTileProps) {
       onLongPress={() => router.push(`/habit/${id}`)}
       style={styles.wrapper}
     >
-      <Animated.View style={[styles.tile, { transform: [{ scale }] }]}>
+      <Animated.View
+        style={[
+          styles.tile,
+          { backgroundColor: color, transform: [{ scale }] },
+        ]}
+      >
         <Text style={styles.title}>{title}</Text>
         {goalText && <Text style={styles.subtitle}>{goalText}</Text>}
         {lastCheckIn && (
@@ -81,7 +109,6 @@ const styles = StyleSheet.create({
   },
   tile: {
     flex: 1,
-    backgroundColor: "#007AFF",
     borderRadius: 12,
     padding: 16,
     justifyContent: "center",
