@@ -12,7 +12,7 @@ let sqlite: InstanceType<typeof Database>;
 let db: ReturnType<typeof drizzle>;
 
 beforeAll(() => {
-  execSync("pnpm exec drizzle-kit push --force", {
+  execSync("pnpm exec drizzle-kit push --force --config=drizzle.config.test.ts", {
     cwd: new URL("../..", import.meta.url).pathname,
     env: { ...process.env, DATABASE_URL: TEST_DB },
     stdio: "inherit",

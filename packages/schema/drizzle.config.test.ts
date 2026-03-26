@@ -4,5 +4,7 @@ export default defineConfig({
   out: "./drizzle",
   schema: "./src/index.ts",
   dialect: "sqlite",
-  driver: "expo",
+  dbCredentials: {
+    url: process.env.DATABASE_URL ?? "test.db",
+  },
 });

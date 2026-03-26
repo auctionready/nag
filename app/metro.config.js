@@ -22,4 +22,7 @@ config.resolver.unstable_enableSymlinks = true;
 config.resolver.unstable_enablePackageExports = true;
 config.resolver.unstable_conditionNames = ["import", "require"];
 
+// Allow importing .sql files for Drizzle migrations (inlined by babel-plugin-inline-import)
+config.resolver.sourceExts.push("sql");
+
 module.exports = config;
