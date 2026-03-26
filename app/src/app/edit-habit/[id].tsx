@@ -102,9 +102,7 @@ export default function EditHabitScreen() {
           />
         )}
       />
-      {errors.title && (
-        <Text style={styles.error}>{errors.title.message}</Text>
-      )}
+      {errors.title && <Text style={styles.error}>{errors.title.message}</Text>}
 
       <Text style={styles.label}>Description</Text>
       <Controller
@@ -113,12 +111,17 @@ export default function EditHabitScreen() {
         rules={{}}
         render={({ field: { onChange, onBlur, value } }) => (
           <TextInput
-            style={[styles.input, errors.description && styles.inputError]}
+            style={[
+              styles.input,
+              styles.multilineInput,
+              errors.description && styles.inputError,
+            ]}
             onBlur={onBlur}
             onChangeText={onChange}
             value={value}
             placeholder="Describe the habit"
             multiline
+            textAlignVertical="top"
           />
         )}
       />
@@ -152,6 +155,9 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     padding: 12,
     fontSize: 16,
+  },
+  multilineInput: {
+    minHeight: 120,
   },
   inputError: {
     borderColor: "#ff3b30",

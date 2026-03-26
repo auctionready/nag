@@ -53,12 +53,17 @@ export default function AddHabitScreen() {
         rules={{}}
         render={({ field: { onChange, onBlur, value } }) => (
           <TextInput
-            style={[styles.input, errors.description && styles.inputError]}
+            style={[
+              styles.input,
+              styles.multilineInput,
+              errors.description && styles.inputError,
+            ]}
             onBlur={onBlur}
             onChangeText={onChange}
             value={value}
             placeholder="Describe the habit"
             multiline
+            textAlignVertical="top"
           />
         )}
       />
@@ -91,6 +96,9 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     padding: 12,
     fontSize: 16,
+  },
+  multilineInput: {
+    minHeight: 120,
   },
   inputError: {
     borderColor: "#ff3b30",
