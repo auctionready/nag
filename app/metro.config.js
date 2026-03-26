@@ -22,7 +22,4 @@ config.resolver.unstable_enableSymlinks = true;
 config.resolver.unstable_enablePackageExports = true;
 config.resolver.unstable_conditionNames = ["import", "require"];
 
-// Allow importing .sql files for Drizzle migrations
-config.resolver.sourceExts = [...config.resolver.sourceExts, "sql"];
-
 module.exports = config;
