@@ -36,10 +36,7 @@ interface HabitTileProps {
   title: string;
 }
 
-export function HabitTile({ id, title }: HabitTileProps) {
-  const router = useRouter();
-  const scale = useRef(new Animated.Value(1)).current;
-
+const useHabitGoalSummary = (habitId: number) => {
   const { data: goals } = useLiveQuery(
     db
       .select({
@@ -48,14 +45,30 @@ export function HabitTile({ id, title }: HabitTileProps) {
         createdAt: goal.createdAt,
       })
       .from(goal)
-      .where(eq(goal.habitId, id))
+      .where(eq(goal.habitId, habitId))
       .limit(1),
   );
-  const goalData = goals?.[0];
-  const goalText = goalData ? getTitle(goalData) : null;
 
-  const periodStartIso = goalData
-    ? periodStart(goalData.regularity as Regularity)
+  const goalData = goals?.[0];
+  if (!goalData) return null;
+
+  const { regularity, frequency, createdAt } = goalData;
+
+  return {
+    regularity,
+    frequency,
+    title: getTitle(goalData),
+    createdAt: new Date(createdAt),
+  };
+};
+
+export type HabitGoalSummary = NonNullable<
+  ReturnType<typeof useHabitGoalSummary>
+>;
+
+const useHabitComplance = (habitId: number, goal: HabitGoalSummary | null) => {
+  const periodStartIso = goal
+    ? periodStart(goal.regularity).toISOString()
     : null;
 
   const { data: countRows } = useLiveQuery(
@@ -64,13 +77,16 @@ export function HabitTile({ id, title }: HabitTileProps) {
       .from(checkIn)
       .where(
         periodStartIso
-          ? and(eq(checkIn.habitId, id), gte(checkIn.timestamp, periodStartIso))
-          : eq(checkIn.habitId, id),
+          ? and(
+              eq(checkIn.habitId, habitId),
+              gte(checkIn.timestamp, periodStartIso),
+            )
+          : eq(checkIn.habitId, habitId),
       ),
+    [habitId, periodStartIso],
   );
-  const checkInCount = countRows?.[0]?.value ?? 0;
 
-  const color = tileColor(goalData ?? null, checkInCount);
+  const checkInCount = countRows?.[0]?.value ?? 0;
 
   const { data: recentCheckIns } = useLiveQuery(
     db
@@ -78,12 +94,34 @@ export function HabitTile({ id, title }: HabitTileProps) {
       .from(checkIn)
       .where(
         periodStartIso
-          ? and(eq(checkIn.habitId, id), gte(checkIn.timestamp, periodStartIso))
-          : eq(checkIn.habitId, id),
+          ? and(
+              eq(checkIn.habitId, habitId),
+              gte(checkIn.timestamp, periodStartIso),
+            )
+          : eq(checkIn.habitId, habitId),
       )
       .orderBy(desc(checkIn.timestamp))
       .limit(3),
+    [habitId, periodStartIso],
   );
+
+  return {
+    checkInCount,
+    recentCheckIns: recentCheckIns.map((c) => ({
+      ...c,
+      timestamp: new Date(c.timestamp),
+    })),
+  };
+};
+
+export function HabitTile({ id, title }: HabitTileProps) {
+  const router = useRouter();
+  const scale = useRef(new Animated.Value(1)).current;
+
+  const goal = useHabitGoalSummary(id);
+  const { checkInCount, recentCheckIns } = useHabitComplance(id, goal);
+
+  const color = tileColor(goal, checkInCount);
 
   const handlePress = useCallback(async () => {
     await db.insert(checkIn).values({ habitId: id });
@@ -115,12 +153,12 @@ export function HabitTile({ id, title }: HabitTileProps) {
         ]}
       >
         <Text style={styles.title}>{title}</Text>
-        {goalText && <Text style={styles.subtitle}>{goalText}</Text>}
-        {goalData ? (
+        {goal && <Text style={styles.subtitle}>{goal.title}</Text>}
+        {goal ? (
           <Text style={styles.periodCount}>
             {checkInCount > 0
-              ? `${formatCount(checkInCount)} ${periodLabels[goalData.regularity as Regularity]}`
-              : `none ${periodLabels[goalData.regularity as Regularity]}`}
+              ? `${formatCount(checkInCount)} ${periodLabels[goal.regularity]}`
+              : `none ${periodLabels[goal.regularity]}`}
           </Text>
         ) : (
           checkInCount === 0 && (
@@ -130,9 +168,7 @@ export function HabitTile({ id, title }: HabitTileProps) {
         {recentCheckIns && recentCheckIns.length > 0 && (
           <Text style={styles.lastCheckIn}>
             {recentCheckIns
-              .map((c) =>
-                formatDistanceToNow(new Date(c.timestamp), { addSuffix: true }),
-              )
+              .map((c) => formatDistanceToNow(c.timestamp, { addSuffix: true }))
               .join(" · ")}
           </Text>
         )}

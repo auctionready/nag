@@ -3,6 +3,7 @@ import {
   tileColor as coreTileColor,
   type ComplianceColors,
 } from "@nag/core";
+import type { Regularity } from "@nag/schema";
 
 const colors: ComplianceColors = {
   default: "#007AFF",
@@ -14,7 +15,7 @@ const colors: ComplianceColors = {
 export { periodStart };
 
 export function tileColor(
-  goal: { frequency: number; regularity: string; createdAt: string } | null,
+  goal: { frequency: number; regularity: Regularity; createdAt: Date } | null,
   checkInCount: number,
 ): string {
   return coreTileColor(goal, checkInCount, colors);
