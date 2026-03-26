@@ -8,7 +8,11 @@ import { HabitTile } from "../components/HabitTile";
 export default function BoardScreen() {
   const { data: habits } = useLiveQuery(db.select().from(habit));
 
-  if (!habits?.length) {
+  if (!habits) {
+    return null;
+  }
+
+  if (!habits.length) {
     return (
       <View style={styles.emptyContainer}>
         <Text style={styles.emptyText}>You have no habits set</Text>

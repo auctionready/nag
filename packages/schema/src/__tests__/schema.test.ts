@@ -12,11 +12,14 @@ let sqlite: InstanceType<typeof Database>;
 let db: ReturnType<typeof drizzle>;
 
 beforeAll(() => {
-  execSync("pnpm exec drizzle-kit push --force --config=drizzle.config.test.ts", {
-    cwd: new URL("../..", import.meta.url).pathname,
-    env: { ...process.env, DATABASE_URL: TEST_DB },
-    stdio: "inherit",
-  });
+  execSync(
+    "pnpm exec drizzle-kit push --force --config=drizzle.config.test.ts",
+    {
+      cwd: new URL("../..", import.meta.url).pathname,
+      env: { ...process.env, DATABASE_URL: TEST_DB },
+      stdio: "inherit",
+    },
+  );
 
   sqlite = new Database(TEST_DB);
   sqlite.pragma("foreign_keys = ON");
@@ -86,12 +89,12 @@ describe("schema", () => {
 
     const [goal] = await db
       .insert(schema.goal)
-      .values({ habitId: habit.id, regularity: "day", count: 1 })
+      .values({ habitId: habit.id, regularity: "day", frequency: 1 })
       .returning();
 
     expect(goal.habitId).toBe(habit.id);
     expect(goal.regularity).toBe("day");
-    expect(goal.count).toBe(1);
+    expect(goal.frequency).toBe(1);
   });
 
   it("should enforce unique constraint on goal (habitId, regularity)", async () => {
@@ -102,12 +105,12 @@ describe("schema", () => {
 
     await db
       .insert(schema.goal)
-      .values({ habitId: habit.id, regularity: "week", count: 3 });
+      .values({ habitId: habit.id, regularity: "week", frequency: 3 });
 
     await expect(
       db
         .insert(schema.goal)
-        .values({ habitId: habit.id, regularity: "week", count: 5 }),
+        .values({ habitId: habit.id, regularity: "week", frequency: 5 }),
     ).rejects.toThrow();
   });
 
@@ -137,7 +140,7 @@ describe("schema", () => {
 
     await db
       .insert(schema.goal)
-      .values({ habitId: habit.id, regularity: "month", count: 2 });
+      .values({ habitId: habit.id, regularity: "month", frequency: 2 });
 
     await db.delete(schema.habit).where(eq(schema.habit.id, habit.id));
 
