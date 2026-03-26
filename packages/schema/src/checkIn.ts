@@ -1,5 +1,4 @@
 import { sqliteTable, integer, text, index } from "drizzle-orm/sqlite-core";
-import { relations } from "drizzle-orm";
 import { habit } from "./habit";
 
 export const checkIn = sqliteTable("check_in", {
@@ -12,10 +11,3 @@ export const checkIn = sqliteTable("check_in", {
   index("check_in_habit_id_idx").on(table.habitId),
   index("check_in_timestamp_idx").on(table.timestamp),
 ]);
-
-export const checkInRelations = relations(checkIn, ({ one }) => ({
-  habit: one(habit, {
-    fields: [checkIn.habitId],
-    references: [habit.id],
-  }),
-}));

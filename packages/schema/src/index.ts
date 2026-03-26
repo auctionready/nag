@@ -1,4 +1,5 @@
 export { regularityValues, type Regularity } from "./regularity";
-export { habit, habitRelations } from "./habit";
-export { checkIn, checkInRelations } from "./checkIn";
-export { goal, goalRelations } from "./goal";
+export { habit } from "./habit";
+export { checkIn } from "./checkIn";
+export { goal } from "./goal";
+export { habitRelations, checkInRelations, goalRelations } from "./relations";
