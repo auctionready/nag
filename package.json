@@ -2,6 +2,10 @@
   "name": "nag",
   "private": true,
   "type": "module",
+  "scripts": {
+    "test": "pnpm -r run test",
+    "typecheck": "tsc -b"
+  },
   "packageManager": "pnpm@10.33.0",
   "volta": {
     "node": "24.14.1",
