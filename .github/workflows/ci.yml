@@ -40,7 +40,7 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
-      - run: npx expo export --platform web
+      - run: npx expo export --platform ios
         working-directory: app
 
   test:
