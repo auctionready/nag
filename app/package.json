@@ -9,6 +9,7 @@
   },
   "dependencies": {
     "@nag/schema": "workspace:*",
+    "date-fns": "^4.1.0",
     "drizzle-orm": "catalog:",
     "expo": "~55.0.8",
     "expo-router": "~55.0.7",
