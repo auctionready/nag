@@ -18,4 +18,7 @@ config.resolver.nodeModulesPaths = [
 // Enable symlink support for pnpm
 config.resolver.unstable_enableSymlinks = true;
 
+// Allow importing .sql files for Drizzle migrations
+config.resolver.sourceExts = [...config.resolver.sourceExts, "sql"];
+
 module.exports = config;
