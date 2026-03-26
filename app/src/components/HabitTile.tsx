@@ -1,6 +1,7 @@
 import { useCallback, useRef } from "react";
 import { Animated, Pressable, StyleSheet, Text } from "react-native";
 import { useLiveQuery } from "drizzle-orm/expo-sqlite";
+import { useRouter } from "expo-router";
 import { desc, eq } from "drizzle-orm";
 import { formatDistanceToNow } from "date-fns";
 import { db } from "../db";
@@ -12,6 +13,7 @@ interface HabitTileProps {
 }
 
 export function HabitTile({ id, title }: HabitTileProps) {
+  const router = useRouter();
   const scale = useRef(new Animated.Value(1)).current;
 
   const { data: lastCheckIns } = useLiveQuery(
@@ -43,7 +45,11 @@ export function HabitTile({ id, title }: HabitTileProps) {
   }, [id, scale]);
 
   return (
-    <Pressable onPress={handlePress} style={styles.wrapper}>
+    <Pressable
+      onPress={handlePress}
+      onLongPress={() => router.push(`/habit/${id}`)}
+      style={styles.wrapper}
+    >
       <Animated.View style={[styles.tile, { transform: [{ scale }] }]}>
         <Text style={styles.title}>{title}</Text>
         {lastCheckIn && (
