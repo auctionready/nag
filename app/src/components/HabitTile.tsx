@@ -1,0 +1,84 @@
+import { useCallback, useRef } from "react";
+import { Animated, Pressable, StyleSheet, Text } from "react-native";
+import { useLiveQuery } from "drizzle-orm/expo-sqlite";
+import { desc, eq } from "drizzle-orm";
+import { formatDistanceToNow } from "date-fns";
+import { db } from "../db";
+import { checkIn } from "@nag/schema";
+
+interface HabitTileProps {
+  id: number;
+  title: string;
+}
+
+export function HabitTile({ id, title }: HabitTileProps) {
+  const scale = useRef(new Animated.Value(1)).current;
+
+  const { data: lastCheckIns } = useLiveQuery(
+    db
+      .select({ timestamp: checkIn.timestamp })
+      .from(checkIn)
+      .where(eq(checkIn.habitId, id))
+      .orderBy(desc(checkIn.timestamp))
+      .limit(1),
+  );
+
+  const lastCheckIn = lastCheckIns?.[0];
+
+  const handlePress = useCallback(async () => {
+    await db.insert(checkIn).values({ habitId: id });
+
+    Animated.sequence([
+      Animated.timing(scale, {
+        toValue: 1.1,
+        duration: 120,
+        useNativeDriver: true,
+      }),
+      Animated.timing(scale, {
+        toValue: 1,
+        duration: 180,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, [id, scale]);
+
+  return (
+    <Pressable onPress={handlePress} style={styles.wrapper}>
+      <Animated.View style={[styles.tile, { transform: [{ scale }] }]}>
+        <Text style={styles.title}>{title}</Text>
+        {lastCheckIn && (
+          <Text style={styles.lastCheckIn}>
+            {formatDistanceToNow(new Date(lastCheckIn.timestamp), {
+              addSuffix: true,
+            })}
+          </Text>
+        )}
+      </Animated.View>
+    </Pressable>
+  );
+}
+
+const styles = StyleSheet.create({
+  wrapper: {
+    flex: 1,
+  },
+  tile: {
+    flex: 1,
+    backgroundColor: "#007AFF",
+    borderRadius: 12,
+    padding: 16,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  title: {
+    fontSize: 16,
+    fontWeight: "600",
+    textAlign: "center",
+    color: "#fff",
+  },
+  lastCheckIn: {
+    fontSize: 11,
+    color: "rgba(255, 255, 255, 0.75)",
+    marginTop: 6,
+  },
+});

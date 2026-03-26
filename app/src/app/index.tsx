@@ -3,6 +3,7 @@ import { Link } from "expo-router";
 import { useLiveQuery } from "drizzle-orm/expo-sqlite";
 import { db } from "../db";
 import { habit } from "@nag/schema";
+import { HabitTile } from "../components/HabitTile";
 
 export default function BoardScreen() {
   const { data: habits } = useLiveQuery(db.select().from(habit));
@@ -25,9 +26,7 @@ export default function BoardScreen() {
       <View style={styles.grid}>
         {habits.map((item) => (
           <View key={item.id} style={styles.tileWrapper}>
-            <View style={styles.tile}>
-              <Text style={styles.tileTitle}>{item.title}</Text>
-            </View>
+            <HabitTile id={item.id} title={item.title} />
           </View>
         ))}
         <View style={styles.addTileWrapper}>
@@ -56,20 +55,6 @@ const styles = StyleSheet.create({
     width: "50%",
     aspectRatio: 1,
     padding: 4,
-  },
-  tile: {
-    flex: 1,
-    backgroundColor: "#007AFF",
-    borderRadius: 12,
-    padding: 16,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  tileTitle: {
-    fontSize: 16,
-    fontWeight: "600",
-    textAlign: "center",
-    color: "#fff",
   },
   addTileWrapper: {
     width: "50%",
