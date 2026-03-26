@@ -3,6 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "clean": "tsc -b --clean",
     "test": "pnpm -r run test",
     "typecheck": "tsc -b"
   },
