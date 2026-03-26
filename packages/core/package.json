@@ -1,27 +1,26 @@
 {
-  "name": "@nag/schema",
+  "name": "@nag/core",
   "version": "0.1.0",
   "type": "module",
   "exports": {
-    ".": "./src/index.ts",
-    "./migrations": "./drizzle/migrations.js"
+    ".": "./src/index.ts"
   },
   "scripts": {
-    "db:generate": "drizzle-kit generate",
-    "db:migrate": "drizzle-kit migrate",
-    "db:push": "drizzle-kit push",
-    "db:studio": "drizzle-kit studio",
     "test": "vitest run",
     "typecheck": "tsc --noEmit"
   },
+  "dependencies": {
+    "@nag/schema": "workspace:*"
+  },
   "peerDependencies": {
+    "date-fns": "^4.0.0",
     "drizzle-orm": "catalog:"
   },
   "devDependencies": {
     "@types/better-sqlite3": "^7.0.0",
     "@types/node": "^25.5.0",
     "better-sqlite3": "^11.0.0",
-    "drizzle-kit": "^0.31.10",
+    "date-fns": "^4.1.0",
     "drizzle-orm": "catalog:",
     "typescript": "catalog:",
     "vitest": "catalog:"

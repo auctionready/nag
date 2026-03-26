@@ -11,5 +11,5 @@
     "rootDir": "./src"
   },
   "files": [],
-  "references": [{ "path": "packages/schema" }, { "path": "app" }]
+  "references": [{ "path": "packages/schema" }, { "path": "packages/core" }, { "path": "app" }]
 }

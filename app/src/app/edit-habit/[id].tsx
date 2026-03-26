@@ -78,7 +78,7 @@ export default function EditHabitScreen() {
       .set({
         title: data.title,
         description: data.description || null,
-        updatedAt: new Date().toISOString(),
+        updatedAt: new Date(),
       })
       .where(eq(habit.id, habitId));
 
@@ -105,7 +105,7 @@ export default function EditHabitScreen() {
           style: "destructive",
           onPress: async () => {
             await db.delete(habit).where(eq(habit.id, habitId));
-            router.back();
+            router.dismissAll();
           },
         },
       ],
@@ -202,7 +202,6 @@ export default function EditHabitScreen() {
                 name="frequency"
                 rules={{
                   validate: (v) => {
-                    if (watchedRegularity === "none") return true;
                     const n = Number(v);
                     return (
                       (Number.isInteger(n) && n >= 1) || "Must be at least 1"

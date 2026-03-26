@@ -78,7 +78,7 @@ describe("schema", () => {
       .returning();
 
     expect(checkIn.habitId).toBe(habit.id);
-    expect(checkIn.timestamp).toBeDefined();
+    expect(checkIn.timestamp).toBeInstanceOf(Date);
   });
 
   it("should insert a goal referencing a habit", async () => {

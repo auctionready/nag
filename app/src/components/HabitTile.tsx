@@ -2,10 +2,10 @@ import { useCallback, useRef } from "react";
 import { Animated, Pressable, StyleSheet, Text } from "react-native";
 import { useLiveQuery } from "drizzle-orm/expo-sqlite";
 import { useRouter } from "expo-router";
-import { and, count, desc, eq, gte } from "drizzle-orm";
 import { formatDistanceToNow } from "date-fns";
 import { db } from "../db";
-import { checkIn, goal, getTitle, type Regularity } from "@nag/schema";
+import { checkIn, getTitle, type Regularity } from "@nag/schema";
+import { goalForHabit, checkInCount, recentCheckIns } from "@nag/core";
 import { periodStart, tileColor } from "./getComplianceColor";
 
 const periodLabels: Record<Regularity, string> = {
@@ -36,54 +36,53 @@ interface HabitTileProps {
   title: string;
 }
 
+const useHabitGoalSummary = (habitId: number) => {
+  const { data: goals } = useLiveQuery(goalForHabit(db, habitId));
+
+  const goalData = goals?.[0];
+  if (!goalData) return null;
+
+  return {
+    regularity: goalData.regularity,
+    frequency: goalData.frequency,
+    title: getTitle(goalData),
+    createdAt: goalData.createdAt,
+  };
+};
+
+export type HabitGoalSummary = NonNullable<
+  ReturnType<typeof useHabitGoalSummary>
+>;
+
+const useHabitCompliance = (habitId: number, goal: HabitGoalSummary | null) => {
+  const periodStartDate = goal
+    ? periodStart(goal.regularity)
+    : undefined;
+
+  const { data: countRows } = useLiveQuery(
+    checkInCount(db, habitId, periodStartDate),
+  );
+
+  const count = countRows?.[0]?.value ?? 0;
+
+  const { data: recent } = useLiveQuery(
+    recentCheckIns(db, habitId, periodStartDate),
+  );
+
+  return {
+    checkInCount: count,
+    recentCheckIns: recent ?? [],
+  };
+};
+
 export function HabitTile({ id, title }: HabitTileProps) {
   const router = useRouter();
   const scale = useRef(new Animated.Value(1)).current;
 
-  const { data: goals } = useLiveQuery(
-    db
-      .select({
-        frequency: goal.frequency,
-        regularity: goal.regularity,
-        createdAt: goal.createdAt,
-      })
-      .from(goal)
-      .where(eq(goal.habitId, id))
-      .limit(1),
-  );
-  const goalData = goals?.[0];
-  const goalText = goalData ? getTitle(goalData) : null;
+  const goal = useHabitGoalSummary(id);
+  const { checkInCount: count, recentCheckIns: recent } = useHabitCompliance(id, goal);
 
-  const periodStartIso = goalData
-    ? periodStart(goalData.regularity as Regularity)
-    : null;
-
-  const { data: countRows } = useLiveQuery(
-    db
-      .select({ value: count() })
-      .from(checkIn)
-      .where(
-        periodStartIso
-          ? and(eq(checkIn.habitId, id), gte(checkIn.timestamp, periodStartIso))
-          : eq(checkIn.habitId, id),
-      ),
-  );
-  const checkInCount = countRows?.[0]?.value ?? 0;
-
-  const color = tileColor(goalData ?? null, checkInCount);
-
-  const { data: recentCheckIns } = useLiveQuery(
-    db
-      .select({ timestamp: checkIn.timestamp })
-      .from(checkIn)
-      .where(
-        periodStartIso
-          ? and(eq(checkIn.habitId, id), gte(checkIn.timestamp, periodStartIso))
-          : eq(checkIn.habitId, id),
-      )
-      .orderBy(desc(checkIn.timestamp))
-      .limit(3),
-  );
+  const color = tileColor(goal, count);
 
   const handlePress = useCallback(async () => {
     await db.insert(checkIn).values({ habitId: id });
@@ -115,24 +114,22 @@ export function HabitTile({ id, title }: HabitTileProps) {
         ]}
       >
         <Text style={styles.title}>{title}</Text>
-        {goalText && <Text style={styles.subtitle}>{goalText}</Text>}
-        {goalData ? (
+        {goal && <Text style={styles.subtitle}>{goal.title}</Text>}
+        {goal ? (
           <Text style={styles.periodCount}>
-            {checkInCount > 0
-              ? `${formatCount(checkInCount)} ${periodLabels[goalData.regularity as Regularity]}`
-              : `none ${periodLabels[goalData.regularity as Regularity]}`}
+            {count > 0
+              ? `${formatCount(count)} ${periodLabels[goal.regularity]}`
+              : `none ${periodLabels[goal.regularity]}`}
           </Text>
         ) : (
-          checkInCount === 0 && (
+          count === 0 && (
             <Text style={styles.periodCount}>no check-ins</Text>
           )
         )}
-        {recentCheckIns && recentCheckIns.length > 0 && (
+        {recent.length > 0 && (
           <Text style={styles.lastCheckIn}>
-            {recentCheckIns
-              .map((c) =>
-                formatDistanceToNow(new Date(c.timestamp), { addSuffix: true }),
-              )
+            {recent
+              .map((c) => formatDistanceToNow(c.timestamp, { addSuffix: true }))
               .join(" · ")}
           </Text>
         )}
