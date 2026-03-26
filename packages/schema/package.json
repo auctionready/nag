@@ -13,13 +13,13 @@
     "db:studio": "drizzle-kit studio"
   },
   "dependencies": {
-    "drizzle-orm": "^0.39.0",
+    "drizzle-orm": "^0.45.1",
     "postgres": "^3.4.5"
   },
   "devDependencies": {
-    "drizzle-kit": "^0.30.0",
-    "typescript": "^5.7.0",
-    "@types/node": "^22.0.0"
+    "drizzle-kit": "^0.31.10",
+    "typescript": "^6.0.2",
+    "@types/node": "^25.5.0"
   },
   "volta": {
     "extends": "../../package.json"
