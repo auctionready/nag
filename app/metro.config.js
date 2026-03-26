@@ -18,6 +18,10 @@ config.resolver.nodeModulesPaths = [
 // Enable symlink support for pnpm
 config.resolver.unstable_enableSymlinks = true;
 
+// Resolve package.json "exports" fields (needed for ESM packages like @nag/schema)
+config.resolver.unstable_enablePackageExports = true;
+config.resolver.unstable_conditionNames = ["import", "require"];
+
 // Allow importing .sql files for Drizzle migrations
 config.resolver.sourceExts = [...config.resolver.sourceExts, "sql"];
 
