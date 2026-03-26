@@ -8,6 +8,29 @@ import { db } from "../db";
 import { checkIn, goal, getTitle, type Regularity } from "@nag/schema";
 import { periodStart, tileColor } from "./getComplianceColor";
 
+const periodLabels: Record<Regularity, string> = {
+  day: "today",
+  week: "this week",
+  month: "this month",
+};
+
+const smallNumbers = [
+  "zero",
+  "one",
+  "two",
+  "three",
+  "four",
+  "five",
+  "six",
+  "seven",
+  "eight",
+  "nine",
+];
+
+function formatCount(n: number): string {
+  return n < smallNumbers.length ? smallNumbers[n] : String(n);
+}
+
 interface HabitTileProps {
   id: number;
   title: string;
@@ -49,16 +72,18 @@ export function HabitTile({ id, title }: HabitTileProps) {
 
   const color = tileColor(goalData ?? null, checkInCount);
 
-  const { data: lastCheckIns } = useLiveQuery(
+  const { data: recentCheckIns } = useLiveQuery(
     db
       .select({ timestamp: checkIn.timestamp })
       .from(checkIn)
-      .where(eq(checkIn.habitId, id))
+      .where(
+        periodStartIso
+          ? and(eq(checkIn.habitId, id), gte(checkIn.timestamp, periodStartIso))
+          : eq(checkIn.habitId, id),
+      )
       .orderBy(desc(checkIn.timestamp))
-      .limit(1),
+      .limit(3),
   );
-
-  const lastCheckIn = lastCheckIns?.[0];
 
   const handlePress = useCallback(async () => {
     await db.insert(checkIn).values({ habitId: id });
@@ -91,11 +116,24 @@ export function HabitTile({ id, title }: HabitTileProps) {
       >
         <Text style={styles.title}>{title}</Text>
         {goalText && <Text style={styles.subtitle}>{goalText}</Text>}
-        {lastCheckIn && (
+        {goalData ? (
+          <Text style={styles.periodCount}>
+            {checkInCount > 0
+              ? `${formatCount(checkInCount)} ${periodLabels[goalData.regularity as Regularity]}`
+              : `none ${periodLabels[goalData.regularity as Regularity]}`}
+          </Text>
+        ) : (
+          checkInCount === 0 && (
+            <Text style={styles.periodCount}>no check-ins</Text>
+          )
+        )}
+        {recentCheckIns && recentCheckIns.length > 0 && (
           <Text style={styles.lastCheckIn}>
-            {formatDistanceToNow(new Date(lastCheckIn.timestamp), {
-              addSuffix: true,
-            })}
+            {recentCheckIns
+              .map((c) =>
+                formatDistanceToNow(new Date(c.timestamp), { addSuffix: true }),
+              )
+              .join(" · ")}
           </Text>
         )}
       </Animated.View>
@@ -125,9 +163,16 @@ const styles = StyleSheet.create({
     color: "rgba(255, 255, 255, 0.85)",
     marginTop: 2,
   },
-  lastCheckIn: {
-    fontSize: 11,
-    color: "rgba(255, 255, 255, 0.75)",
+  periodCount: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: "rgba(255, 255, 255, 0.9)",
     marginTop: 6,
+  },
+  lastCheckIn: {
+    fontSize: 10,
+    color: "rgba(255, 255, 255, 0.65)",
+    marginTop: 3,
+    textAlign: "center",
   },
 });

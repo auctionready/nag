@@ -42,7 +42,9 @@ export default function HabitScreen() {
       {
         text: "Remove",
         style: "destructive",
-        onPress: () => db.delete(checkIn).where(eq(checkIn.id, checkInId)),
+        onPress: async () => {
+          await db.delete(checkIn).where(eq(checkIn.id, checkInId));
+        },
       },
     ]);
   };
@@ -74,7 +76,7 @@ export default function HabitScreen() {
         renderItem={({ item }) => (
           <View style={styles.row}>
             <Text style={styles.timestamp}>
-              {format(new Date(item.timestamp), "MMM d, yyyy h:mm a")}
+              {format(new Date(item.timestamp), "EEE, MMM d, yyyy h:mm a")}
             </Text>
             <Pressable
               onPress={() => handleRemove(item.id)}
@@ -89,7 +91,9 @@ export default function HabitScreen() {
       <View style={styles.footer}>
         <Pressable
           style={styles.checkInButton}
-          onPress={() => db.insert(checkIn).values({ habitId })}
+          onPress={async () => {
+            await db.insert(checkIn).values({ habitId });
+          }}
         >
           <Text style={styles.checkInButtonText}>Check-in</Text>
         </Pressable>
