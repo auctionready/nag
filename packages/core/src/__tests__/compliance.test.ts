@@ -10,25 +10,29 @@ const colors: ComplianceColors = {
 
 describe("periodStart", () => {
   it("returns start of day", () => {
-    const now = new Date("2025-06-15T14:30:00Z");
-    expect(periodStart("day", now)).toBe(
-      new Date("2025-06-15T00:00:00.000Z").toISOString(),
-    );
+    const now = new Date(2025, 5, 15, 14, 30); // June 15 local
+    const result = new Date(periodStart("day", now));
+    expect(result.getFullYear()).toBe(2025);
+    expect(result.getMonth()).toBe(5);
+    expect(result.getDate()).toBe(15);
+    expect(result.getHours()).toBe(0);
+    expect(result.getMinutes()).toBe(0);
   });
 
   it("returns start of week (Monday)", () => {
-    // 2025-06-15 is a Sunday, so week start (Monday) is 2025-06-09
-    const now = new Date("2025-06-15T14:30:00Z");
+    const now = new Date(2025, 5, 15, 14, 30); // June 15 2025 is a Sunday
     const result = new Date(periodStart("week", now));
     expect(result.getDay()).toBe(1); // Monday
     expect(result.getDate()).toBe(9);
   });
 
   it("returns start of month", () => {
-    const now = new Date("2025-06-15T14:30:00Z");
-    expect(periodStart("month", now)).toBe(
-      new Date("2025-06-01T00:00:00.000Z").toISOString(),
-    );
+    const now = new Date(2025, 5, 15, 14, 30); // June 15 local
+    const result = new Date(periodStart("month", now));
+    expect(result.getFullYear()).toBe(2025);
+    expect(result.getMonth()).toBe(5);
+    expect(result.getDate()).toBe(1);
+    expect(result.getHours()).toBe(0);
   });
 });
 
