@@ -1,10 +1,85 @@
 import { z } from "zod";
 import { regularityValues } from "@nag/schema";
 
-const GoalPayload = z.object({
-  regularity: z.enum(regularityValues),
-  frequency: z.int().min(1),
+const ScheduleEntry = z.object({
+  hour: z.int().min(0).max(23),
+  minute: z.int().min(0).max(59),
+  dayOfWeek: z.int().min(0).max(6).optional(),
+  dayOfMonth: z.int().min(1).max(31).optional(),
 });
+
+const GoalPayload = z
+  .object({
+    regularity: z.enum(regularityValues),
+    frequency: z.int().min(1).optional(),
+    schedules: z.array(ScheduleEntry).min(1).optional(),
+  })
+  .superRefine((data, ctx) => {
+    if (!data.frequency && !data.schedules) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Either frequency or schedules must be provided",
+      });
+    }
+    if (data.frequency && data.schedules) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Cannot provide both frequency and schedules",
+      });
+    }
+    if (data.schedules) {
+      for (const [i, entry] of data.schedules.entries()) {
+        if (data.regularity === "day") {
+          if (entry.dayOfWeek !== undefined) {
+            ctx.addIssue({
+              code: z.ZodIssueCode.custom,
+              message: `schedules[${i}]: daily schedules must not have dayOfWeek`,
+              path: ["schedules", i, "dayOfWeek"],
+            });
+          }
+          if (entry.dayOfMonth !== undefined) {
+            ctx.addIssue({
+              code: z.ZodIssueCode.custom,
+              message: `schedules[${i}]: daily schedules must not have dayOfMonth`,
+              path: ["schedules", i, "dayOfMonth"],
+            });
+          }
+        }
+        if (data.regularity === "week") {
+          if (entry.dayOfWeek === undefined) {
+            ctx.addIssue({
+              code: z.ZodIssueCode.custom,
+              message: `schedules[${i}]: dayOfWeek is required for weekly schedules`,
+              path: ["schedules", i, "dayOfWeek"],
+            });
+          }
+          if (entry.dayOfMonth !== undefined) {
+            ctx.addIssue({
+              code: z.ZodIssueCode.custom,
+              message: `schedules[${i}]: weekly schedules must not have dayOfMonth`,
+              path: ["schedules", i, "dayOfMonth"],
+            });
+          }
+        }
+        if (data.regularity === "month") {
+          if (entry.dayOfMonth === undefined) {
+            ctx.addIssue({
+              code: z.ZodIssueCode.custom,
+              message: `schedules[${i}]: dayOfMonth is required for monthly schedules`,
+              path: ["schedules", i, "dayOfMonth"],
+            });
+          }
+          if (entry.dayOfWeek !== undefined) {
+            ctx.addIssue({
+              code: z.ZodIssueCode.custom,
+              message: `schedules[${i}]: monthly schedules must not have dayOfWeek`,
+              path: ["schedules", i, "dayOfWeek"],
+            });
+          }
+        }
+      }
+    }
+  });
 
 export const CreateHabit = z.object({
   type: z.literal("CreateHabit"),

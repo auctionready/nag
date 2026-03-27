@@ -1,27 +1,50 @@
 import {
   Alert,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
   View,
 } from "react-native";
-import { useForm, Controller } from "react-hook-form";
+import { useForm, Controller, useFieldArray } from "react-hook-form";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useLiveQuery } from "drizzle-orm/expo-sqlite";
 import { eq } from "drizzle-orm";
 import { useEffect } from "react";
 import { db } from "../../db";
-import { habit, goal, regularityValues, type Regularity } from "@nag/schema";
+import {
+  habit,
+  goal,
+  schedule,
+  regularityValues,
+  type Regularity,
+} from "@nag/schema";
 import { processCommand } from "@nag/core";
 
 type FormRegularity = Regularity | "none";
 const formRegularityValues: FormRegularity[] = ["none", ...regularityValues];
 const regularityLabels: Record<FormRegularity, string> = {
-  none: "None",
+  none: "Ad-hoc",
   day: "Daily",
   week: "Weekly",
   month: "Monthly",
+};
+
+type GoalMode = "frequency" | "scheduled";
+const goalModeValues: GoalMode[] = ["frequency", "scheduled"];
+const goalModeLabels: Record<GoalMode, string> = {
+  frequency: "Frequency",
+  scheduled: "Scheduled",
+};
+
+const dayOfWeekLabels = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+type ScheduleEntry = {
+  hour: string;
+  minute: string;
+  dayOfWeek?: string;
+  dayOfMonth?: string;
 };
 
 type FormData = {
@@ -29,6 +52,8 @@ type FormData = {
   description: string;
   regularity: FormRegularity;
   frequency: string;
+  goalMode: GoalMode;
+  schedules: ScheduleEntry[];
 };
 
 export default function EditHabitScreen() {
@@ -46,11 +71,19 @@ export default function EditHabitScreen() {
   );
   const goalData = goals?.[0];
 
+  const goalId = goalData?.id ?? -1;
+  const { data: scheduleData } = useLiveQuery(
+    db.select().from(schedule).where(eq(schedule.goalId, goalId)),
+    [goalId],
+  );
+
   const {
     control,
     handleSubmit,
     reset,
     watch,
+    setValue,
+    getValues,
     formState: { errors },
   } = useForm<FormData>({
     defaultValues: {
@@ -58,31 +91,121 @@ export default function EditHabitScreen() {
       description: "",
       regularity: "none",
       frequency: "1",
+      goalMode: "frequency",
+      schedules: [{ hour: "9", minute: "00" }],
     },
   });
+  const { fields, append, remove } = useFieldArray({
+    control,
+    name: "schedules",
+  });
   const watchedRegularity = watch("regularity");
+  const watchedGoalMode = watch("goalMode");
 
-  useEffect(() => {
-    if (habitData) {
-      reset({
-        title: habitData.title,
-        description: habitData.description ?? "",
-        regularity: (goalData?.regularity as FormRegularity) ?? "none",
-        frequency: goalData ? String(goalData.frequency) : "1",
-      });
+  const changeRegularity = (
+    newValue: FormRegularity,
+    onChange: (v: FormRegularity) => void,
+  ) => {
+    const mode = getValues("goalMode");
+    const schedules = getValues("schedules");
+    const hasSchedules =
+      mode === "scheduled" && schedules.length > 0;
+
+    const apply = () => {
+      onChange(newValue);
+      if (hasSchedules) {
+        setValue("goalMode", "frequency");
+        setValue("schedules", [{ hour: "9", minute: "00" }]);
+      }
+    };
+
+    if (hasSchedules) {
+      Alert.alert(
+        "Clear Schedules",
+        "Changing regularity will clear your scheduled times. Continue?",
+        [
+          { text: "Cancel", style: "cancel" },
+          { text: "Continue", style: "destructive", onPress: apply },
+        ],
+      );
+    } else {
+      apply();
     }
-  }, [habitData, goalData, reset]);
+  };
+
+  const schedulesReady = scheduleData !== undefined;
+  useEffect(() => {
+    if (!habitData || !schedulesReady) return;
+    const hasSchedules = scheduleData && scheduleData.length > 0;
+    reset({
+      title: habitData.title,
+      description: habitData.description ?? "",
+      regularity: (goalData?.regularity as FormRegularity) ?? "none",
+      frequency: goalData ? String(goalData.frequency) : "1",
+      goalMode: hasSchedules ? "scheduled" : "frequency",
+      schedules: hasSchedules
+        ? scheduleData.map((s) => ({
+            hour: String(s.hour),
+            minute: String(s.minute).padStart(2, "0"),
+            ...(s.dayOfWeek != null
+              ? { dayOfWeek: String(s.dayOfWeek) }
+              : {}),
+            ...(s.dayOfMonth != null
+              ? { dayOfMonth: String(s.dayOfMonth) }
+              : {}),
+          }))
+        : [{ hour: "9", minute: "00" }],
+    });
+  }, [habitData, goalData, schedulesReady, scheduleData, reset]);
+
+  const changeGoalMode = (
+    newMode: GoalMode,
+    onChange: (v: GoalMode) => void,
+  ) => {
+    if (newMode === "scheduled") {
+      const freq = Math.max(1, parseInt(getValues("frequency"), 10) || 1);
+      const current = getValues("schedules");
+      if (current.length !== freq) {
+        const entries: ScheduleEntry[] = Array.from({ length: freq }, (_, i) =>
+          current[i] ?? { hour: "9", minute: "00" },
+        );
+        setValue("schedules", entries);
+      }
+    }
+    onChange(newMode);
+  };
 
   const onSubmit = async (data: FormData) => {
+    let goalPayload;
+    if (data.regularity !== "none") {
+      if (data.goalMode === "scheduled") {
+        goalPayload = {
+          regularity: data.regularity,
+          schedules: data.schedules.map((s) => ({
+            hour: Number(s.hour),
+            minute: Number(s.minute),
+            ...(data.regularity === "week"
+              ? { dayOfWeek: Number(s.dayOfWeek) }
+              : {}),
+            ...(data.regularity === "month"
+              ? { dayOfMonth: Number(s.dayOfMonth) }
+              : {}),
+          })),
+        };
+      } else {
+        goalPayload = {
+          regularity: data.regularity,
+          frequency: Number(data.frequency),
+        };
+      }
+    }
+
     await processCommand(db, {
       type: "UpdateHabit",
       habitId,
       title: data.title,
       description: data.description || null,
-      goal:
-        data.regularity !== "none"
-          ? { regularity: data.regularity, frequency: Number(data.frequency) }
-          : null,
+      goal: goalPayload ?? null,
     });
 
     router.back();
@@ -115,8 +238,7 @@ export default function EditHabitScreen() {
   }
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.label}>Title</Text>
+    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <Controller
         control={control}
         name="title"
@@ -133,7 +255,6 @@ export default function EditHabitScreen() {
       />
       {errors.title && <Text style={styles.error}>{errors.title.message}</Text>}
 
-      <Text style={styles.label}>Description</Text>
       <Controller
         control={control}
         name="description"
@@ -156,9 +277,6 @@ export default function EditHabitScreen() {
       />
 
       <View style={styles.goalSection}>
-        <Text style={styles.sectionTitle}>Goal</Text>
-
-        <Text style={styles.label}>Regularity</Text>
         <Controller
           control={control}
           name="regularity"
@@ -171,7 +289,7 @@ export default function EditHabitScreen() {
                     styles.segmentButton,
                     value === r && styles.segmentButtonActive,
                   ]}
-                  onPress={() => onChange(r)}
+                  onPress={() => changeRegularity(r, onChange)}
                 >
                   <Text
                     style={[
@@ -189,40 +307,243 @@ export default function EditHabitScreen() {
 
         {watchedRegularity !== "none" && (
           <>
-            <Text style={styles.label}>Frequency</Text>
-            <View style={styles.frequencyRow}>
-              <Controller
-                control={control}
-                name="frequency"
-                rules={{
-                  validate: (v) => {
-                    const n = Number(v);
-                    return (
-                      (Number.isInteger(n) && n >= 1) || "Must be at least 1"
-                    );
-                  },
-                }}
-                render={({ field: { onChange, onBlur, value } }) => (
-                  <TextInput
-                    style={[
-                      styles.input,
-                      styles.frequencyInput,
-                      errors.frequency && styles.inputError,
-                    ]}
-                    onBlur={onBlur}
-                    onChangeText={onChange}
-                    value={value}
-                    keyboardType="number-pad"
-                    placeholder="1"
+            <Controller
+              control={control}
+              name="goalMode"
+              render={({ field: { onChange, value } }) => (
+                <View style={styles.segmentedRow}>
+                  {goalModeValues.map((m) => (
+                    <Pressable
+                      key={m}
+                      style={[
+                        styles.segmentButton,
+                        value === m && styles.segmentButtonActive,
+                      ]}
+                      onPress={() => changeGoalMode(m, onChange)}
+                    >
+                      <Text
+                        style={[
+                          styles.segmentText,
+                          value === m && styles.segmentTextActive,
+                        ]}
+                      >
+                        {goalModeLabels[m]}
+                      </Text>
+                    </Pressable>
+                  ))}
+                </View>
+              )}
+            />
+
+            {watchedGoalMode === "frequency" ? (
+              <View style={styles.frequencyRow}>
+                  <Controller
+                    control={control}
+                    name="frequency"
+                    rules={{
+                      validate: (v) => {
+                        if (watchedGoalMode !== "frequency") return true;
+                        const n = Number(v);
+                        return (
+                          (Number.isInteger(n) && n >= 1) || "Must be at least 1"
+                        );
+                      },
+                    }}
+                    render={({ field: { onChange, onBlur, value } }) => (
+                      <TextInput
+                        style={[
+                          styles.input,
+                          styles.frequencyInput,
+                          errors.frequency && styles.inputError,
+                        ]}
+                        onBlur={onBlur}
+                        onChangeText={onChange}
+                        value={value}
+                        keyboardType="number-pad"
+                        placeholder="1"
+                      />
+                    )}
                   />
-                )}
-              />
-              <Text style={styles.frequencySuffix}>
-                per {watchedRegularity}
-              </Text>
-            </View>
-            {errors.frequency && (
-              <Text style={styles.error}>{errors.frequency.message}</Text>
+                  <Text style={styles.frequencySuffix}>
+                    per {watchedRegularity}
+                  </Text>
+                </View>
+            ) : (
+              <>
+                <Text style={styles.label}>
+                  Scheduled Times ({fields.length}x per {watchedRegularity})
+                </Text>
+                {fields.map((field, index) => (
+                  <View key={field.id} style={styles.scheduleRow}>
+                    {watchedRegularity === "week" && (
+                      <Controller
+                        control={control}
+                        name={`schedules.${index}.dayOfWeek`}
+                        rules={{
+                          validate: (v) => {
+                            if (watchedGoalMode !== "scheduled") return true;
+                            if (watchedRegularity !== "week") return true;
+                            const n = Number(v);
+                            return (
+                              (Number.isInteger(n) && n >= 0 && n <= 6) ||
+                              "0-6"
+                            );
+                          },
+                        }}
+                        render={({ field: { onChange, value } }) => (
+                          <View style={styles.dayOfWeekRow}>
+                            {dayOfWeekLabels.map((label, dow) => (
+                              <Pressable
+                                key={dow}
+                                style={[
+                                  styles.dayButton,
+                                  String(dow) === value &&
+                                    styles.dayButtonActive,
+                                ]}
+                                onPress={() => onChange(String(dow))}
+                              >
+                                <Text
+                                  style={[
+                                    styles.dayButtonText,
+                                    String(dow) === value &&
+                                      styles.dayButtonTextActive,
+                                  ]}
+                                >
+                                  {label}
+                                </Text>
+                              </Pressable>
+                            ))}
+                          </View>
+                        )}
+                      />
+                    )}
+
+                    {watchedRegularity === "month" && (
+                      <View style={styles.timeRow}>
+                        <Text style={styles.timeLabel}>Day</Text>
+                        <Controller
+                          control={control}
+                          name={`schedules.${index}.dayOfMonth`}
+                          rules={{
+                            validate: (v) => {
+                              if (watchedGoalMode !== "scheduled") return true;
+                              if (watchedRegularity !== "month") return true;
+                              const n = Number(v);
+                              return (
+                                (Number.isInteger(n) && n >= 1 && n <= 31) ||
+                                "1-31"
+                              );
+                            },
+                          }}
+                          render={({ field: { onChange, onBlur, value } }) => (
+                            <TextInput
+                              style={[styles.input, { width: 60, textAlign: "center" }]}
+                              onBlur={onBlur}
+                              onChangeText={onChange}
+                              value={value}
+                              keyboardType="number-pad"
+                              placeholder="1"
+                            />
+                          )}
+                        />
+                      </View>
+                    )}
+
+                    <View style={styles.timeRow}>
+                      <View style={styles.timePill}>
+                        <Controller
+                          control={control}
+                          name={`schedules.${index}.hour`}
+                          rules={{
+                            validate: (v) => {
+                              if (watchedGoalMode !== "scheduled") return true;
+                              const n = Number(v);
+                              return (
+                                (Number.isInteger(n) && n >= 0 && n <= 23) ||
+                                "0-23"
+                              );
+                            },
+                          }}
+                          render={({ field: { onChange, onBlur, value } }) => (
+                            <TextInput
+                              style={styles.timePillInput}
+                              onBlur={() => {
+                                const n = Math.min(23, Math.max(0, parseInt(value, 10) || 0));
+                                onChange(String(n));
+                                onBlur();
+                              }}
+                              onChangeText={onChange}
+                              value={value}
+                              keyboardType="number-pad"
+                              maxLength={2}
+                              placeholder="9"
+                              placeholderTextColor="#999"
+                              selectTextOnFocus
+                            />
+                          )}
+                        />
+                        <Text style={styles.timePillSeparator}>:</Text>
+                        <Controller
+                          control={control}
+                          name={`schedules.${index}.minute`}
+                          rules={{
+                            validate: (v) => {
+                              if (watchedGoalMode !== "scheduled") return true;
+                              const n = Number(v);
+                              return (
+                                (Number.isInteger(n) && n >= 0 && n <= 59) ||
+                                "0-59"
+                              );
+                            },
+                          }}
+                          render={({ field: { onChange, onBlur, value } }) => (
+                            <TextInput
+                              style={styles.timePillInput}
+                              onBlur={() => {
+                                const n = Math.min(59, Math.max(0, parseInt(value, 10) || 0));
+                                onChange(String(n).padStart(2, "0"));
+                                onBlur();
+                              }}
+                              onChangeText={onChange}
+                              value={value}
+                              keyboardType="number-pad"
+                              maxLength={2}
+                              placeholder="00"
+                              placeholderTextColor="#999"
+                              selectTextOnFocus
+                            />
+                          )}
+                        />
+                      </View>
+                      {fields.length > 1 && (
+                        <Pressable
+                          style={styles.removeButton}
+                          onPress={() => remove(index)}
+                        >
+                          <Text style={styles.removeButtonText}>Remove</Text>
+                        </Pressable>
+                      )}
+                    </View>
+                  </View>
+                ))}
+                <Pressable
+                  style={styles.addTimeButton}
+                  onPress={() =>
+                    append({
+                      hour: "9",
+                      minute: "00",
+                      ...(watchedRegularity === "week"
+                        ? { dayOfWeek: "1" }
+                        : {}),
+                      ...(watchedRegularity === "month"
+                        ? { dayOfMonth: "1" }
+                        : {}),
+                    })
+                  }
+                >
+                  <Text style={styles.addTimeButtonText}>+ Add Time</Text>
+                </Pressable>
+              </>
             )}
           </>
         )}
@@ -235,7 +556,7 @@ export default function EditHabitScreen() {
       <Pressable style={styles.deleteButton} onPress={onDelete}>
         <Text style={styles.deleteButtonText}>Delete Habit</Text>
       </Pressable>
-    </View>
+    </ScrollView>
   );
 }
 
@@ -243,13 +564,14 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#fff",
+  },
+  content: {
     padding: 16,
+    gap: 12,
   },
   label: {
     fontSize: 14,
     fontWeight: "600",
-    marginTop: 16,
-    marginBottom: 4,
   },
   input: {
     borderWidth: 1,
@@ -282,15 +604,8 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   goalSection: {
-    marginTop: 24,
-    paddingTop: 16,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: "#e0e0e0",
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: "700",
-    marginBottom: 4,
+    marginTop: 8,
+    gap: 12,
   },
   segmentedRow: {
     flexDirection: "row",
@@ -318,7 +633,6 @@ const styles = StyleSheet.create({
   },
   saveButton: {
     backgroundColor: "#007AFF",
-    marginTop: 24,
     padding: 16,
     borderRadius: 8,
     alignItems: "center",
@@ -329,7 +643,6 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   deleteButton: {
-    marginTop: 16,
     padding: 16,
     borderRadius: 8,
     alignItems: "center",
@@ -340,5 +653,93 @@ const styles = StyleSheet.create({
     color: "#ff3b30",
     fontSize: 16,
     fontWeight: "600",
+  },
+  scheduleRow: {
+    marginBottom: 12,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: "#e0e0e0",
+    borderRadius: 8,
+    gap: 8,
+  },
+  timeRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  timeLabel: {
+    fontSize: 14,
+    color: "#666",
+    width: 36,
+  },
+  timePill: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#f2f2f7",
+    borderRadius: 8,
+    paddingHorizontal: 4,
+    paddingVertical: 2,
+  },
+  timePillInput: {
+    fontSize: 20,
+    fontWeight: "500",
+    fontVariant: ["tabular-nums"],
+    color: "#007AFF",
+    textAlign: "center",
+    width: 40,
+    paddingVertical: 8,
+    paddingHorizontal: 4,
+  },
+  timePillSeparator: {
+    fontSize: 20,
+    fontWeight: "500",
+    color: "#007AFF",
+  },
+  removeButton: {
+    marginLeft: "auto",
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+  },
+  removeButtonText: {
+    color: "#ff3b30",
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  addTimeButton: {
+    marginTop: 4,
+    padding: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#007AFF",
+    alignItems: "center",
+  },
+  addTimeButtonText: {
+    color: "#007AFF",
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  dayOfWeekRow: {
+    flexDirection: "row",
+    gap: 4,
+  },
+  dayButton: {
+    flex: 1,
+    paddingVertical: 6,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: "#ccc",
+    alignItems: "center",
+  },
+  dayButtonActive: {
+    backgroundColor: "#007AFF",
+    borderColor: "#007AFF",
+  },
+  dayButtonText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#333",
+  },
+  dayButtonTextActive: {
+    color: "#fff",
   },
 });

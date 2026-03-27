@@ -1,4 +1,4 @@
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { Link } from "expo-router";
 import { useLiveQuery } from "drizzle-orm/expo-sqlite";
 import { db } from "../../db";
@@ -26,22 +26,20 @@ export default function BoardScreen() {
   }
 
   return (
-    <View style={styles.container}>
-      <View style={styles.grid}>
-        {habits.map((item) => (
-          <View key={item.id} style={styles.tileWrapper}>
-            <HabitTile id={item.id} title={item.title} />
-          </View>
-        ))}
-        <View style={styles.addTileWrapper}>
-          <Link href="/add-habit" asChild>
-            <Pressable style={styles.addTile}>
-              <Text style={styles.addTileText}>+ Add Habit</Text>
-            </Pressable>
-          </Link>
+    <ScrollView style={styles.container} contentContainerStyle={styles.grid}>
+      {habits.map((item) => (
+        <View key={item.id} style={styles.tileWrapper}>
+          <HabitTile id={item.id} title={item.title} />
         </View>
+      ))}
+      <View style={styles.addTileWrapper}>
+        <Link href="/add-habit" asChild>
+          <Pressable style={styles.addTile}>
+            <Text style={styles.addTileText}>+ Add Habit</Text>
+          </Pressable>
+        </Link>
       </View>
-    </View>
+    </ScrollView>
   );
 }
 

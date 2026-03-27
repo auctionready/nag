@@ -1,4 +1,4 @@
-import { habit, goal } from "@nag/schema";
+import { habit, goal, schedule } from "@nag/schema";
 import type { AnyDb } from "../../db";
 import type { CreateHabit } from "../schemas";
 
@@ -15,11 +15,30 @@ export async function handleCreateHabit(
     .returning({ id: habit.id });
 
   if (command.goal) {
-    await db.insert(goal).values({
-      habitId: inserted.id,
-      regularity: command.goal.regularity,
-      frequency: command.goal.frequency,
-    });
+    const frequency = command.goal.schedules
+      ? command.goal.schedules.length
+      : command.goal.frequency!;
+
+    const [insertedGoal] = await db
+      .insert(goal)
+      .values({
+        habitId: inserted.id,
+        regularity: command.goal.regularity,
+        frequency,
+      })
+      .returning({ id: goal.id });
+
+    if (command.goal.schedules) {
+      await db.insert(schedule).values(
+        command.goal.schedules.map((s) => ({
+          goalId: insertedGoal.id,
+          hour: s.hour,
+          minute: s.minute,
+          dayOfWeek: s.dayOfWeek ?? null,
+          dayOfMonth: s.dayOfMonth ?? null,
+        })),
+      );
+    }
   }
 
   return { habitId: inserted.id };
