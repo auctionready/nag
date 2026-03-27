@@ -1,6 +1,40 @@
 import { and, count, desc, eq, gte } from "drizzle-orm";
-import { checkIn, goal, schedule } from "@nag/schema";
+import { checkIn, goal, habit, schedule } from "@nag/schema";
 import type { AnyDb } from "./db";
+
+export function allHabits(db: AnyDb) {
+  return db.select().from(habit);
+}
+
+export function habitById(db: AnyDb, habitId: number) {
+  return db.select().from(habit).where(eq(habit.id, habitId));
+}
+
+export function goalForHabitFull(db: AnyDb, habitId: number) {
+  return db.select().from(goal).where(eq(goal.habitId, habitId));
+}
+
+export function checkInsForHabit(db: AnyDb, habitId: number) {
+  return db
+    .select()
+    .from(checkIn)
+    .where(eq(checkIn.habitId, habitId))
+    .orderBy(desc(checkIn.timestamp));
+}
+
+export function calendarCheckIns(db: AnyDb) {
+  return db
+    .select({
+      id: checkIn.id,
+      timestamp: checkIn.timestamp,
+      skipped: checkIn.skipped,
+      habitId: checkIn.habitId,
+      habitTitle: habit.title,
+    })
+    .from(checkIn)
+    .innerJoin(habit, eq(checkIn.habitId, habit.id))
+    .orderBy(desc(checkIn.timestamp));
+}
 
 export function goalForHabit(db: AnyDb, habitId: number) {
   return db

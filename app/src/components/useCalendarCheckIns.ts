@@ -1,9 +1,8 @@
 import { useMemo } from "react";
 import { useLiveQuery } from "drizzle-orm/expo-sqlite";
-import { desc, eq } from "drizzle-orm";
 import { isSameDay, startOfDay } from "date-fns";
 import { db } from "../db";
-import { checkIn, habit } from "@nag/schema";
+import { calendarCheckIns } from "@nag/core";
 
 export type CalendarCheckIn = {
   id: number;
@@ -14,19 +13,7 @@ export type CalendarCheckIn = {
 };
 
 export function useCalendarCheckIns() {
-  const { data: allCheckIns } = useLiveQuery(
-    db
-      .select({
-        id: checkIn.id,
-        timestamp: checkIn.timestamp,
-        skipped: checkIn.skipped,
-        habitId: checkIn.habitId,
-        habitTitle: habit.title,
-      })
-      .from(checkIn)
-      .innerJoin(habit, eq(checkIn.habitId, habit.id))
-      .orderBy(desc(checkIn.timestamp)),
-  );
+  const { data: allCheckIns } = useLiveQuery(calendarCheckIns(db));
 
   const checkInsByDate = useMemo(() => {
     const map = new Map<string, CalendarCheckIn[]>();
