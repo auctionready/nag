@@ -8,40 +8,37 @@ import {
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useLiveQuery } from "drizzle-orm/expo-sqlite";
-import { desc, eq } from "drizzle-orm";
 import { format } from "date-fns";
 import { db } from "../../db";
-import { checkIn, habit, goal, getTitle } from "@nag/schema";
-import { processCommand, periodStart, checkInCount } from "@nag/core";
+import { getTitle } from "@nag/schema";
+import {
+  habitById,
+  goalForHabitFull,
+  checkInsForHabit,
+  checkInCount,
+  processCommand,
+  periodStart,
+} from "@nag/core";
 
 export default function HabitScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const habitId = Number(id);
 
-  const { data: habits } = useLiveQuery(
-    db.select().from(habit).where(eq(habit.id, habitId)),
-  );
+  const { data: habits } = useLiveQuery(habitById(db, habitId), [habitId]);
   const habitData = habits?.[0];
 
-  const { data: goals } = useLiveQuery(
-    db.select().from(goal).where(eq(goal.habitId, habitId)),
-  );
+  const { data: goals } = useLiveQuery(goalForHabitFull(db, habitId), [habitId]);
   const goalData = goals?.[0];
 
-  const { data: checkIns } = useLiveQuery(
-    db
-      .select()
-      .from(checkIn)
-      .where(eq(checkIn.habitId, habitId))
-      .orderBy(desc(checkIn.timestamp)),
-  );
+  const { data: checkIns } = useLiveQuery(checkInsForHabit(db, habitId), [habitId]);
 
   const periodStartDate = goalData
     ? periodStart(goalData.regularity)
     : undefined;
   const { data: countRows } = useLiveQuery(
     checkInCount(db, habitId, periodStartDate),
+    [habitId, periodStartDate],
   );
   const currentCount = countRows?.[0]?.value ?? 0;
   const showSkip =

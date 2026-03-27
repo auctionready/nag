@@ -2,10 +2,10 @@ import { FlatList, Pressable, StyleSheet, Text, View } from "react-native";
 import { Link } from "expo-router";
 import { useLiveQuery } from "drizzle-orm/expo-sqlite";
 import { db } from "../db";
-import { habit } from "@nag/schema";
+import { allHabits } from "@nag/core";
 
 export default function AdminScreen() {
-  const { data: habits } = useLiveQuery(db.select().from(habit));
+  const { data: habits } = useLiveQuery(allHabits(db));
 
   return (
     <View style={styles.container}>

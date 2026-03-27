@@ -5,9 +5,14 @@ export {
   tileColor,
 } from "./compliance";
 export {
+  allHabits,
+  habitById,
   goalForHabit,
+  goalForHabitFull,
   checkInCount,
   recentCheckIns,
+  checkInsForHabit,
+  calendarCheckIns,
   schedulesForGoal,
 } from "./queries";
 export { processCommand, type CommandResult } from "./commands/processor";

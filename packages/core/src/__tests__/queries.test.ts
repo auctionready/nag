@@ -1,6 +1,15 @@
 import { describe, it, expect } from "vitest";
 import * as schema from "@nag/schema";
-import { goalForHabit, checkInCount, recentCheckIns } from "../queries";
+import {
+  allHabits,
+  habitById,
+  goalForHabitFull,
+  checkInsForHabit,
+  calendarCheckIns,
+  goalForHabit,
+  checkInCount,
+  recentCheckIns,
+} from "../queries";
 import { subDays } from "date-fns";
 import { setupTestDb } from "./testDb";
 
@@ -78,5 +87,84 @@ describe("recentCheckIns", () => {
 
     const rows = await recentCheckIns(db, h.id, undefined, 2);
     expect(rows).toHaveLength(2);
+  });
+});
+
+describe("allHabits", () => {
+  it("returns all habits", async () => {
+    const db = getDb();
+    await db.insert(schema.habit).values({ title: "A" });
+    await db.insert(schema.habit).values({ title: "B" });
+
+    const rows = await allHabits(db);
+    expect(rows).toHaveLength(2);
+    expect(rows.map((r) => r.title)).toContain("A");
+    expect(rows.map((r) => r.title)).toContain("B");
+  });
+
+  it("returns empty when no habits exist", async () => {
+    const db = getDb();
+    const rows = await allHabits(db);
+    expect(rows).toHaveLength(0);
+  });
+});
+
+describe("habitById", () => {
+  it("returns the habit with matching id", async () => {
+    const db = getDb();
+    const [h] = await db.insert(schema.habit).values({ title: "Find me" }).returning();
+
+    const rows = await habitById(db, h.id);
+    expect(rows).toHaveLength(1);
+    expect(rows[0].title).toBe("Find me");
+  });
+
+  it("returns empty for non-existent id", async () => {
+    const db = getDb();
+    const rows = await habitById(db, 9999);
+    expect(rows).toHaveLength(0);
+  });
+});
+
+describe("goalForHabitFull", () => {
+  it("returns full goal record for a habit", async () => {
+    const db = getDb();
+    const [h] = await db.insert(schema.habit).values({ title: "Goal" }).returning();
+    await db.insert(schema.goal).values({ habitId: h.id, regularity: "week", frequency: 5 });
+
+    const rows = await goalForHabitFull(db, h.id);
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toHaveProperty("id");
+    expect(rows[0]).toHaveProperty("habitId", h.id);
+    expect(rows[0].frequency).toBe(5);
+    expect(rows[0].regularity).toBe("week");
+  });
+});
+
+describe("checkInsForHabit", () => {
+  it("returns check-ins ordered by timestamp descending", async () => {
+    const db = getDb();
+    const [h] = await db.insert(schema.habit).values({ title: "CI" }).returning();
+    const t1 = subDays(new Date(), 2);
+    const t2 = new Date();
+    await db.insert(schema.checkIn).values({ habitId: h.id, timestamp: t1 });
+    await db.insert(schema.checkIn).values({ habitId: h.id, timestamp: t2 });
+
+    const rows = await checkInsForHabit(db, h.id);
+    expect(rows).toHaveLength(2);
+    expect(rows[0].timestamp.getTime()).toBeGreaterThan(rows[1].timestamp.getTime());
+  });
+});
+
+describe("calendarCheckIns", () => {
+  it("returns check-ins joined with habit title", async () => {
+    const db = getDb();
+    const [h] = await db.insert(schema.habit).values({ title: "Cal" }).returning();
+    await db.insert(schema.checkIn).values({ habitId: h.id });
+
+    const rows = await calendarCheckIns(db);
+    expect(rows).toHaveLength(1);
+    expect(rows[0].habitTitle).toBe("Cal");
+    expect(rows[0].habitId).toBe(h.id);
   });
 });

@@ -42,7 +42,7 @@ interface HabitTileProps {
 }
 
 const useHabitGoalSummary = (habitId: number) => {
-  const { data: goals } = useLiveQuery(goalForHabit(db, habitId));
+  const { data: goals } = useLiveQuery(goalForHabit(db, habitId), [habitId]);
 
   const goalData = goals?.[0];
   if (!goalData) return null;
@@ -64,12 +64,14 @@ const useHabitCompliance = (habitId: number, goal: HabitGoalSummary | null) => {
 
   const { data: countRows } = useLiveQuery(
     checkInCount(db, habitId, periodStartDate),
+    [habitId, periodStartDate],
   );
 
   const count = countRows?.[0]?.value ?? 0;
 
   const { data: recent } = useLiveQuery(
     recentCheckIns(db, habitId, periodStartDate),
+    [habitId, periodStartDate],
   );
 
   return {
