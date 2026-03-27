@@ -12,7 +12,7 @@ import { desc, eq } from "drizzle-orm";
 import { format } from "date-fns";
 import { db } from "../../db";
 import { checkIn, habit, goal, getTitle } from "@nag/schema";
-import { processCommand } from "@nag/core";
+import { processCommand, periodStart, checkInCount } from "@nag/core";
 
 export default function HabitScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -36,6 +36,16 @@ export default function HabitScreen() {
       .where(eq(checkIn.habitId, habitId))
       .orderBy(desc(checkIn.timestamp)),
   );
+
+  const periodStartDate = goalData
+    ? periodStart(goalData.regularity)
+    : undefined;
+  const { data: countRows } = useLiveQuery(
+    checkInCount(db, habitId, periodStartDate),
+  );
+  const currentCount = countRows?.[0]?.value ?? 0;
+  const showSkip =
+    goalData != null && currentCount < goalData.frequency;
 
   const handleRemove = (checkInId: number) => {
     Alert.alert("Remove Check-in", "Are you sure?", [
@@ -76,9 +86,14 @@ export default function HabitScreen() {
         }
         renderItem={({ item }) => (
           <View style={styles.row}>
-            <Text style={styles.timestamp}>
-              {format(item.timestamp, "EEE, MMM d, yyyy h:mm a")}
-            </Text>
+            <View>
+              <Text style={styles.timestamp}>
+                {format(item.timestamp, "EEE, MMM d, yyyy h:mm a")}
+              </Text>
+              {item.skipped && (
+                <Text style={styles.skippedLabel}>(skipped)</Text>
+              )}
+            </View>
             <Pressable
               onPress={() => handleRemove(item.id)}
               style={styles.removeButton}
@@ -98,6 +113,20 @@ export default function HabitScreen() {
         >
           <Text style={styles.checkInButtonText}>Check-in</Text>
         </Pressable>
+        {showSkip && (
+          <Pressable
+            style={styles.skipButton}
+            onPress={async () => {
+              await processCommand(db, {
+                type: "CreateCheckIn",
+                habitId,
+                skipped: true,
+              });
+            }}
+          >
+            <Text style={styles.skipButtonText}>Skip</Text>
+          </Pressable>
+        )}
         <Pressable
           style={styles.editButton}
           onPress={() => router.push(`/edit-habit/${habitId}`)}
@@ -177,6 +206,24 @@ const styles = StyleSheet.create({
     color: "#fff",
     fontSize: 16,
     fontWeight: "600",
+  },
+  skipButton: {
+    flex: 1,
+    padding: 16,
+    borderRadius: 8,
+    alignItems: "center",
+    backgroundColor: "#FF9500",
+  },
+  skipButtonText: {
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: "600",
+  },
+  skippedLabel: {
+    fontSize: 12,
+    color: "#FF9500",
+    fontWeight: "600",
+    marginTop: 2,
   },
   editButton: {
     flex: 1,

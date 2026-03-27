@@ -29,6 +29,7 @@ export const DeleteHabit = z.object({
 export const CreateCheckIn = z.object({
   type: z.literal("CreateCheckIn"),
   habitId: z.int().positive(),
+  skipped: z.boolean().optional(),
 });
 
 export const DeleteCheckIn = z.object({
