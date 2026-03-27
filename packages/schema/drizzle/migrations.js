@@ -5,6 +5,7 @@ import m0000 from './0000_jazzy_winter_soldier.sql';
 import m0001 from './0001_fresh_corsair.sql';
 import m0002 from './0002_premium_violations.sql';
 import m0003 from './0003_wise_bug.sql';
+import m0004 from './0004_glossy_the_hand.sql';
 
   export default {
     journal,
@@ -12,7 +13,8 @@ import m0003 from './0003_wise_bug.sql';
       m0000,
 m0001,
 m0002,
-m0003
+m0003,
+m0004
     }
   }
   

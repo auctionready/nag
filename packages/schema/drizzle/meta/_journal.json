@@ -29,6 +29,13 @@
       "when": 1774570493452,
       "tag": "0003_wise_bug",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1774573436586,
+      "tag": "0004_glossy_the_hand",
+      "breakpoints": true
     }
   ]
 }

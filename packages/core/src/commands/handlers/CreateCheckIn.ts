@@ -8,7 +8,7 @@ export async function handleCreateCheckIn(
 ): Promise<{ checkInId: number }> {
   const [inserted] = await db
     .insert(checkIn)
-    .values({ habitId: command.habitId })
+    .values({ habitId: command.habitId, skipped: command.skipped ?? false })
     .returning({ id: checkIn.id });
 
   return { checkInId: inserted.id };

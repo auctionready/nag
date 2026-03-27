@@ -1,0 +1,1 @@
+ALTER TABLE `check_in` ADD `skipped` integer DEFAULT false NOT NULL;
