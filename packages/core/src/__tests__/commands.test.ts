@@ -1,45 +1,15 @@
-import { describe, it, expect, beforeAll, afterAll, beforeEach } from "vitest";
-import { drizzle } from "drizzle-orm/better-sqlite3";
-import { migrate } from "drizzle-orm/better-sqlite3/migrator";
-import Database from "better-sqlite3";
-import { unlinkSync } from "node:fs";
-import { fileURLToPath } from "node:url";
-import { resolve, dirname } from "node:path";
+import { describe, it, expect } from "vitest";
 import { eq } from "drizzle-orm";
 import * as schema from "@nag/schema";
 import { ZodError } from "zod";
 import { processCommand } from "../commands/processor";
+import { setupTestDb } from "./testDb";
 
-const TEST_DB = "commands-test.db";
-let sqlite: InstanceType<typeof Database>;
-let db: ReturnType<typeof drizzle>;
-
-beforeAll(() => {
-  sqlite = new Database(TEST_DB);
-  sqlite.pragma("foreign_keys = ON");
-  db = drizzle(sqlite, { schema });
-  const __dirname = dirname(fileURLToPath(import.meta.url));
-  migrate(db, {
-    migrationsFolder: resolve(__dirname, "../../../schema/drizzle"),
-  });
-});
-
-afterAll(() => {
-  sqlite.close();
-  try {
-    unlinkSync(TEST_DB);
-  } catch {}
-});
-
-beforeEach(async () => {
-  await db.delete(schema.auditLog);
-  await db.delete(schema.checkIn);
-  await db.delete(schema.goal);
-  await db.delete(schema.habit);
-});
+const getDb = setupTestDb("commands-test.db");
 
 describe("CreateHabit", () => {
   it("creates a habit without a goal", async () => {
+    const db = getDb();
     const result = await processCommand(db, {
       type: "CreateHabit",
       title: "Exercise",
@@ -55,6 +25,7 @@ describe("CreateHabit", () => {
   });
 
   it("creates a habit with description", async () => {
+    const db = getDb();
     const result = await processCommand(db, {
       type: "CreateHabit",
       title: "Read",
@@ -69,6 +40,7 @@ describe("CreateHabit", () => {
   });
 
   it("creates a habit with a goal", async () => {
+    const db = getDb();
     const result = await processCommand(db, {
       type: "CreateHabit",
       title: "Meditate",
@@ -86,6 +58,7 @@ describe("CreateHabit", () => {
   });
 
   it("rejects invalid input", async () => {
+    const db = getDb();
     await expect(
       processCommand(db, { type: "CreateHabit", title: "" }),
     ).rejects.toThrow();
@@ -94,6 +67,7 @@ describe("CreateHabit", () => {
 
 describe("UpdateHabit", () => {
   it("updates the title", async () => {
+    const db = getDb();
     const { habitId } = (await processCommand(db, {
       type: "CreateHabit",
       title: "Old",
@@ -113,6 +87,7 @@ describe("UpdateHabit", () => {
   });
 
   it("clears description when null", async () => {
+    const db = getDb();
     const { habitId } = (await processCommand(db, {
       type: "CreateHabit",
       title: "Test",
@@ -133,6 +108,7 @@ describe("UpdateHabit", () => {
   });
 
   it("leaves description unchanged when undefined", async () => {
+    const db = getDb();
     const { habitId } = (await processCommand(db, {
       type: "CreateHabit",
       title: "Test",
@@ -153,6 +129,7 @@ describe("UpdateHabit", () => {
   });
 
   it("replaces the goal", async () => {
+    const db = getDb();
     const { habitId } = (await processCommand(db, {
       type: "CreateHabit",
       title: "Test",
@@ -175,6 +152,7 @@ describe("UpdateHabit", () => {
   });
 
   it("deletes the goal when null", async () => {
+    const db = getDb();
     const { habitId } = (await processCommand(db, {
       type: "CreateHabit",
       title: "Test",
@@ -195,6 +173,7 @@ describe("UpdateHabit", () => {
   });
 
   it("leaves goal unchanged when undefined", async () => {
+    const db = getDb();
     const { habitId } = (await processCommand(db, {
       type: "CreateHabit",
       title: "Test",
@@ -218,6 +197,7 @@ describe("UpdateHabit", () => {
 
 describe("DeleteHabit", () => {
   it("deletes the habit and cascades", async () => {
+    const db = getDb();
     const { habitId } = (await processCommand(db, {
       type: "CreateHabit",
       title: "Temp",
@@ -250,6 +230,7 @@ describe("DeleteHabit", () => {
 
 describe("CreateCheckIn", () => {
   it("creates a check-in for a habit", async () => {
+    const db = getDb();
     const { habitId } = (await processCommand(db, {
       type: "CreateHabit",
       title: "Test",
@@ -271,6 +252,7 @@ describe("CreateCheckIn", () => {
 
 describe("DeleteCheckIn", () => {
   it("deletes a specific check-in", async () => {
+    const db = getDb();
     const { habitId } = (await processCommand(db, {
       type: "CreateHabit",
       title: "Test",
@@ -295,11 +277,12 @@ describe("DeleteCheckIn", () => {
 
 describe("audit logging", () => {
   it("records an audit entry for each command", async () => {
-    const { habitId } = (await processCommand(db, {
+    const db = getDb();
+    await processCommand(db, {
       type: "CreateHabit",
       title: "Audit test",
       goal: { regularity: "week", frequency: 2 },
-    })) as { habitId: number };
+    });
 
     const logs = await db.select().from(schema.auditLog);
     expect(logs).toHaveLength(1);
@@ -311,7 +294,8 @@ describe("audit logging", () => {
     expect(payload.goal).toEqual({ regularity: "week", frequency: 2 });
   });
 
-  it("records null payload for commands with no extra fields", async () => {
+  it("records payload for commands with fields beyond type", async () => {
+    const db = getDb();
     const { habitId } = (await processCommand(db, {
       type: "CreateHabit",
       title: "Setup",
@@ -328,6 +312,7 @@ describe("audit logging", () => {
   });
 
   it("does not audit on validation failure", async () => {
+    const db = getDb();
     await expect(
       processCommand(db, { type: "CreateHabit", title: "" }),
     ).rejects.toThrow();
@@ -337,6 +322,7 @@ describe("audit logging", () => {
   });
 
   it("accumulates audit entries across commands", async () => {
+    const db = getDb();
     const { habitId } = (await processCommand(db, {
       type: "CreateHabit",
       title: "Multi",
@@ -361,6 +347,7 @@ describe("audit logging", () => {
 
 describe("processCommand validation", () => {
   it("rejects unknown command type", async () => {
+    const db = getDb();
     await expect(
       processCommand(db, { type: "DoSomething" }),
     ).rejects.toThrow(ZodError);
@@ -370,6 +357,7 @@ describe("processCommand validation", () => {
   });
 
   it("rejects missing required field (no title)", async () => {
+    const db = getDb();
     await expect(
       processCommand(db, { type: "CreateHabit" }),
     ).rejects.toThrow(ZodError);
@@ -379,6 +367,7 @@ describe("processCommand validation", () => {
   });
 
   it("rejects wrong field type (string instead of number)", async () => {
+    const db = getDb();
     await expect(
       processCommand(db, { type: "DeleteHabit", habitId: "abc" }),
     ).rejects.toThrow(ZodError);
@@ -388,6 +377,7 @@ describe("processCommand validation", () => {
   });
 
   it("rejects negative id", async () => {
+    const db = getDb();
     await expect(
       processCommand(db, { type: "CreateCheckIn", habitId: -1 }),
     ).rejects.toThrow(ZodError);
@@ -397,6 +387,7 @@ describe("processCommand validation", () => {
   });
 
   it("rejects invalid regularity enum", async () => {
+    const db = getDb();
     await expect(
       processCommand(db, {
         type: "CreateHabit",
@@ -410,6 +401,7 @@ describe("processCommand validation", () => {
   });
 
   it("rejects zero frequency in goal", async () => {
+    const db = getDb();
     await expect(
       processCommand(db, {
         type: "CreateHabit",
@@ -423,6 +415,7 @@ describe("processCommand validation", () => {
   });
 
   it("rejects empty object input", async () => {
+    const db = getDb();
     await expect(processCommand(db, {})).rejects.toThrow(ZodError);
 
     const logs = await db.select().from(schema.auditLog);
@@ -430,6 +423,7 @@ describe("processCommand validation", () => {
   });
 
   it("rejects non-object input", async () => {
+    const db = getDb();
     await expect(processCommand(db, "hello")).rejects.toThrow(ZodError);
 
     const logs = await db.select().from(schema.auditLog);
@@ -439,6 +433,7 @@ describe("processCommand validation", () => {
 
 describe("processCommand handler errors", () => {
   it("throws on FK violation (check-in for non-existent habit)", async () => {
+    const db = getDb();
     await expect(
       processCommand(db, { type: "CreateCheckIn", habitId: 99999 }),
     ).rejects.toThrow();
@@ -448,6 +443,7 @@ describe("processCommand handler errors", () => {
   });
 
   it("does not leave partial data after handler error", async () => {
+    const db = getDb();
     const habitsBefore = await db.select().from(schema.habit);
     const checkInsBefore = await db.select().from(schema.checkIn);
 
@@ -462,25 +458,21 @@ describe("processCommand handler errors", () => {
   });
 
   it("rolls back transaction on handler error (no audit written)", async () => {
-    // Create a valid habit first
+    const db = getDb();
     const { habitId } = (await processCommand(db, {
       type: "CreateHabit",
       title: "Valid",
     })) as { habitId: number };
 
-    // Clear audit log from setup
     await db.delete(schema.auditLog);
 
-    // Try to create a check-in for non-existent habit — should fail and rollback
     await expect(
       processCommand(db, { type: "CreateCheckIn", habitId: 99999 }),
     ).rejects.toThrow();
 
-    // Audit log should be empty — the transaction rolled back
     const logs = await db.select().from(schema.auditLog);
     expect(logs).toHaveLength(0);
 
-    // The valid habit should still exist (unaffected)
     const habits = await db
       .select()
       .from(schema.habit)
