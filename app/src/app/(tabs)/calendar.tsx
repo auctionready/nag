@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import {
   startOfMonth,
@@ -7,6 +7,8 @@ import {
   getDay,
   format,
   isSameDay,
+  isSameMonth,
+  isAfter,
   addMonths,
   subMonths,
   startOfDay,
@@ -19,10 +21,13 @@ import {
 const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
 export default function CalendarScreen() {
-  const [currentMonth, setCurrentMonth] = useState(() =>
-    startOfMonth(new Date()),
-  );
+  const today = startOfDay(new Date());
+  const currentMonthStart = startOfMonth(today);
+
+  const [currentMonth, setCurrentMonth] = useState(() => currentMonthStart);
   const [selectedDay, setSelectedDay] = useState<Date | null>(null);
+
+  const isCurrentMonth = isSameMonth(currentMonth, today);
 
   const { allCheckIns, checkInsByDate } = useCalendarCheckIns();
   const selectedDayCheckIns = useSelectedDayCheckIns(selectedDay, allCheckIns);
@@ -36,26 +41,42 @@ export default function CalendarScreen() {
   // Monday = 0 offset. getDay returns 0 for Sunday, so shift.
   const firstDayOffset = (getDay(days[0]) + 6) % 7;
 
-  const today = startOfDay(new Date());
+  const changeMonth = useCallback(
+    (dir: 1 | -1) => {
+      const next =
+        dir === 1 ? addMonths(currentMonth, 1) : subMonths(currentMonth, 1);
+      if (isAfter(startOfMonth(next), currentMonthStart)) return;
+      setCurrentMonth(next);
+      if (selectedDay && !isSameMonth(selectedDay, next)) {
+        setSelectedDay(null);
+      }
+    },
+    [currentMonth, selectedDay, currentMonthStart],
+  );
 
   return (
     <View style={styles.container}>
       {/* Month navigation */}
       <View style={styles.header}>
-        <Pressable
-          onPress={() => setCurrentMonth((m) => subMonths(m, 1))}
-          style={styles.navButton}
-        >
+        <Pressable onPress={() => changeMonth(-1)} style={styles.navButton}>
           <Text style={styles.navButtonText}>{"<"}</Text>
         </Pressable>
         <Text style={styles.monthTitle}>
           {format(currentMonth, "MMMM yyyy")}
         </Text>
         <Pressable
-          onPress={() => setCurrentMonth((m) => addMonths(m, 1))}
+          onPress={() => changeMonth(1)}
           style={styles.navButton}
+          disabled={isCurrentMonth}
         >
-          <Text style={styles.navButtonText}>{">"}</Text>
+          <Text
+            style={[
+              styles.navButtonText,
+              isCurrentMonth && styles.navButtonDisabled,
+            ]}
+          >
+            {">"}
+          </Text>
         </Pressable>
       </View>
 
@@ -80,18 +101,21 @@ export default function CalendarScreen() {
           const hasCheckIns = dayCheckIns && dayCheckIns.length > 0;
           const isSelected = selectedDay && isSameDay(day, selectedDay);
           const isToday = isSameDay(day, today);
+          const isFuture = isAfter(day, today);
 
           return (
             <Pressable
               key={key}
               style={[styles.dayCell, isSelected && styles.dayCellSelected]}
-              onPress={() => setSelectedDay(day)}
+              onPress={() => !isFuture && setSelectedDay(day)}
+              disabled={isFuture}
             >
               <Text
                 style={[
                   styles.dayText,
                   isToday && styles.dayTextToday,
                   isSelected && styles.dayTextSelected,
+                  isFuture && styles.dayTextFuture,
                 ]}
               >
                 {format(day, "d")}
@@ -117,7 +141,7 @@ export default function CalendarScreen() {
           {selectedDayCheckIns.length === 0 ? (
             <Text style={styles.emptyDetail}>No check-ins this day</Text>
           ) : (
-            <ScrollView style={styles.detailList}>
+            <ScrollView style={styles.detailScroll}>
               {selectedDayCheckIns.map((ci) => (
                 <View key={ci.id} style={styles.detailRow}>
                   <View style={styles.detailDot} />
@@ -157,6 +181,9 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: "600",
     color: "#007AFF",
+  },
+  navButtonDisabled: {
+    color: "#ccc",
   },
   monthTitle: {
     fontSize: 20,
@@ -204,6 +231,9 @@ const styles = StyleSheet.create({
     color: "#fff",
     fontWeight: "700",
   },
+  dayTextFuture: {
+    color: "#ccc",
+  },
   dotRow: {
     flexDirection: "row",
     gap: 2,
@@ -232,7 +262,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: "#999",
   },
-  detailList: {
+  detailScroll: {
     flex: 1,
   },
   detailRow: {
