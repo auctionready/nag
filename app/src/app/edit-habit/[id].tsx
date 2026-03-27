@@ -580,7 +580,6 @@ const styles = StyleSheet.create({
   },
   saveButton: {
     backgroundColor: "#007AFF",
-    marginTop: 24,
     padding: 16,
     borderRadius: 8,
     alignItems: "center",
@@ -591,7 +590,6 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   deleteButton: {
-    marginTop: 16,
     padding: 16,
     borderRadius: 8,
     alignItems: "center",
