@@ -342,7 +342,11 @@ export default function AddHabitScreen() {
                           render={({ field: { onChange, onBlur, value } }) => (
                             <TextInput
                               style={styles.timePillInput}
-                              onBlur={onBlur}
+                              onBlur={() => {
+                                const n = Math.min(23, Math.max(0, parseInt(value, 10) || 0));
+                                onChange(String(n));
+                                onBlur();
+                              }}
                               onChangeText={onChange}
                               value={value}
                               keyboardType="number-pad"
@@ -371,7 +375,8 @@ export default function AddHabitScreen() {
                             <TextInput
                               style={styles.timePillInput}
                               onBlur={() => {
-                                onChange(value.padStart(2, "0"));
+                                const n = Math.min(59, Math.max(0, parseInt(value, 10) || 0));
+                                onChange(String(n).padStart(2, "0"));
                                 onBlur();
                               }}
                               onChangeText={onChange}
