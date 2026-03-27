@@ -1,9 +1,9 @@
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { Link } from "expo-router";
 import { useLiveQuery } from "drizzle-orm/expo-sqlite";
-import { db } from "../db";
+import { db } from "../../db";
 import { habit } from "@nag/schema";
-import { HabitTile } from "../components/HabitTile";
+import { HabitTile } from "../../components/HabitTile";
 
 export default function BoardScreen() {
   const { data: habits } = useLiveQuery(db.select().from(habit));
