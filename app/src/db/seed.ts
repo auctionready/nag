@@ -1,6 +1,6 @@
 import { type InferInsertModel } from "drizzle-orm";
 import { subDays } from "date-fns";
-import { habit, goal, checkIn } from "@nag/schema";
+import { habit, goal, checkIn, auditLog } from "@nag/schema";
 import { db } from "./index";
 
 type HabitInsert = Omit<
@@ -76,6 +76,7 @@ export async function clearAll() {
   await db.delete(checkIn);
   await db.delete(goal);
   await db.delete(habit);
+  await db.delete(auditLog);
 }
 
 export async function seedSampleData() {

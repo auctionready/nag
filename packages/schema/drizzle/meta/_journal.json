@@ -22,6 +22,13 @@
       "when": 1774560320398,
       "tag": "0002_premium_violations",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1774570493452,
+      "tag": "0003_wise_bug",
+      "breakpoints": true
     }
   ]
 }

@@ -10,7 +10,8 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@nag/schema": "workspace:*"
+    "@nag/schema": "workspace:*",
+    "zod": "catalog:"
   },
   "peerDependencies": {
     "date-fns": "^4.0.0",

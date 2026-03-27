@@ -3,4 +3,5 @@ export { isoTimestamp } from "./isoTimestamp";
 export { habit } from "./habit";
 export { checkIn } from "./checkIn";
 export { goal, getTitle } from "./goal";
+export { auditLog } from "./auditLog";
 export { habitRelations, checkInRelations, goalRelations } from "./relations";
