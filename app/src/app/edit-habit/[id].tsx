@@ -3,8 +3,9 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { useLiveQuery } from "drizzle-orm/expo-sqlite";
 import { useMemo } from "react";
 import { db } from "../../db";
-import { habitById, goalForHabitFull, schedulesForGoal, processCommand } from "@nag/core";
+import { habitById, goalForHabitFull, schedulesForGoal } from "@nag/core";
 import { HabitForm, type HabitFormData } from "../../components/HabitForm";
+import { updateHabit, deleteHabit } from "../../saveHabit";
 
 export default function EditHabitScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -14,14 +15,15 @@ export default function EditHabitScreen() {
   const { data: habits } = useLiveQuery(habitById(db, habitId), [habitId]);
   const habitData = habits?.[0];
 
-  const { data: goals } = useLiveQuery(goalForHabitFull(db, habitId), [habitId]);
+  const { data: goals } = useLiveQuery(goalForHabitFull(db, habitId), [
+    habitId,
+  ]);
   const goalData = goals?.[0];
 
   const goalId = goalData?.id ?? -1;
-  const { data: scheduleData } = useLiveQuery(
-    schedulesForGoal(db, goalId),
-    [goalId],
-  );
+  const { data: scheduleData } = useLiveQuery(schedulesForGoal(db, goalId), [
+    goalId,
+  ]);
 
   const schedulesReady = scheduleData !== undefined;
 
@@ -47,39 +49,8 @@ export default function EditHabitScreen() {
     };
   }, [habitData, goalData, schedulesReady, scheduleData]);
 
-  const onSubmit = async (data: HabitFormData) => {
-    let goalPayload;
-    if (data.regularity !== "none") {
-      if (data.goalMode === "scheduled") {
-        goalPayload = {
-          regularity: data.regularity,
-          schedules: data.schedules.map((s) => ({
-            hour: Number(s.hour),
-            minute: Number(s.minute),
-            ...(data.regularity === "week"
-              ? { dayOfWeek: Number(s.dayOfWeek) }
-              : {}),
-            ...(data.regularity === "month"
-              ? { dayOfMonth: Number(s.dayOfMonth) }
-              : {}),
-          })),
-        };
-      } else {
-        goalPayload = {
-          regularity: data.regularity,
-          frequency: Number(data.frequency),
-        };
-      }
-    }
-
-    await processCommand(db, {
-      type: "UpdateHabit",
-      habitId,
-      title: data.title,
-      description: data.description || null,
-      goal: goalPayload ?? null,
-    });
-
+  const onSubmit = async (values: HabitFormData) => {
+    await updateHabit(habitId, values);
     router.back();
   };
 
@@ -93,7 +64,7 @@ export default function EditHabitScreen() {
           text: "Delete",
           style: "destructive",
           onPress: async () => {
-            await processCommand(db, { type: "DeleteHabit", habitId });
+            await deleteHabit(habitId);
             router.dismissAll();
           },
         },

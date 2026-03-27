@@ -16,6 +16,10 @@ export default function RootLayout() {
             name="edit-habit/[id]"
             options={{ title: "Edit Habit" }}
           />
+          <Stack.Screen
+            name="debug-notifications"
+            options={{ title: "Scheduled Notifications" }}
+          />
         </Stack>
       </DatabaseProvider>
     </GestureHandlerRootView>
