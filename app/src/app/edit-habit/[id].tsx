@@ -120,7 +120,7 @@ export default function EditHabitScreen() {
                 ? { dayOfMonth: String(s.dayOfMonth) }
                 : {}),
             }))
-          : [{ hour: "9", minute: "0" }],
+          : [{ hour: "9", minute: "00" }],
       });
     }
   }, [habitData, goalData, scheduleData, reset]);
