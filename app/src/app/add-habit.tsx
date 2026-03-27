@@ -1,4 +1,4 @@
-import { StyleSheet, Text, TextInput, View, Pressable, ScrollView } from "react-native";
+import { Alert, StyleSheet, Text, TextInput, View, Pressable, ScrollView } from "react-native";
 import { useForm, Controller, useFieldArray } from "react-hook-form";
 import { useRouter } from "expo-router";
 import { db } from "../db";
@@ -45,6 +45,8 @@ export default function AddHabitScreen() {
     control,
     handleSubmit,
     watch,
+    setValue,
+    getValues,
     formState: { errors },
   } = useForm<FormData>({
     defaultValues: {
@@ -62,6 +64,37 @@ export default function AddHabitScreen() {
   });
   const watchedRegularity = watch("regularity");
   const watchedGoalMode = watch("goalMode");
+
+  const changeRegularity = (
+    newValue: FormRegularity,
+    onChange: (v: FormRegularity) => void,
+  ) => {
+    const mode = getValues("goalMode");
+    const schedules = getValues("schedules");
+    const hasSchedules =
+      mode === "scheduled" && schedules.length > 0;
+
+    const apply = () => {
+      onChange(newValue);
+      if (hasSchedules) {
+        setValue("goalMode", "frequency");
+        setValue("schedules", [{ hour: "9", minute: "00" }]);
+      }
+    };
+
+    if (hasSchedules) {
+      Alert.alert(
+        "Clear Schedules",
+        "Changing regularity will clear your scheduled times. Continue?",
+        [
+          { text: "Cancel", style: "cancel" },
+          { text: "Continue", style: "destructive", onPress: apply },
+        ],
+      );
+    } else {
+      apply();
+    }
+  };
 
   const onSubmit = async (data: FormData) => {
     let goal;
@@ -152,7 +185,7 @@ export default function AddHabitScreen() {
                     styles.segmentButton,
                     value === r && styles.segmentButtonActive,
                   ]}
-                  onPress={() => onChange(r)}
+                  onPress={() => changeRegularity(r, onChange)}
                 >
                   <Text
                     style={[

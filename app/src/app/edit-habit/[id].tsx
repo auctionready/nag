@@ -82,6 +82,8 @@ export default function EditHabitScreen() {
     handleSubmit,
     reset,
     watch,
+    setValue,
+    getValues,
     formState: { errors },
   } = useForm<FormData>({
     defaultValues: {
@@ -99,6 +101,37 @@ export default function EditHabitScreen() {
   });
   const watchedRegularity = watch("regularity");
   const watchedGoalMode = watch("goalMode");
+
+  const changeRegularity = (
+    newValue: FormRegularity,
+    onChange: (v: FormRegularity) => void,
+  ) => {
+    const mode = getValues("goalMode");
+    const schedules = getValues("schedules");
+    const hasSchedules =
+      mode === "scheduled" && schedules.length > 0;
+
+    const apply = () => {
+      onChange(newValue);
+      if (hasSchedules) {
+        setValue("goalMode", "frequency");
+        setValue("schedules", [{ hour: "9", minute: "00" }]);
+      }
+    };
+
+    if (hasSchedules) {
+      Alert.alert(
+        "Clear Schedules",
+        "Changing regularity will clear your scheduled times. Continue?",
+        [
+          { text: "Cancel", style: "cancel" },
+          { text: "Continue", style: "destructive", onPress: apply },
+        ],
+      );
+    } else {
+      apply();
+    }
+  };
 
   const schedulesReady = scheduleData !== undefined;
   useEffect(() => {
@@ -239,7 +272,7 @@ export default function EditHabitScreen() {
                     styles.segmentButton,
                     value === r && styles.segmentButtonActive,
                   ]}
-                  onPress={() => onChange(r)}
+                  onPress={() => changeRegularity(r, onChange)}
                 >
                   <Text
                     style={[
