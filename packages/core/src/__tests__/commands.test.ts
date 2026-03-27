@@ -7,6 +7,7 @@ import { fileURLToPath } from "node:url";
 import { resolve, dirname } from "node:path";
 import { eq } from "drizzle-orm";
 import * as schema from "@nag/schema";
+import { ZodError } from "zod";
 import { processCommand } from "../commands/processor";
 
 const TEST_DB = "commands-test.db";
@@ -355,5 +356,135 @@ describe("audit logging", () => {
       "CreateCheckIn",
       "UpdateHabit",
     ]);
+  });
+});
+
+describe("processCommand validation", () => {
+  it("rejects unknown command type", async () => {
+    await expect(
+      processCommand(db, { type: "DoSomething" }),
+    ).rejects.toThrow(ZodError);
+
+    const logs = await db.select().from(schema.auditLog);
+    expect(logs).toHaveLength(0);
+  });
+
+  it("rejects missing required field (no title)", async () => {
+    await expect(
+      processCommand(db, { type: "CreateHabit" }),
+    ).rejects.toThrow(ZodError);
+
+    const logs = await db.select().from(schema.auditLog);
+    expect(logs).toHaveLength(0);
+  });
+
+  it("rejects wrong field type (string instead of number)", async () => {
+    await expect(
+      processCommand(db, { type: "DeleteHabit", habitId: "abc" }),
+    ).rejects.toThrow(ZodError);
+
+    const logs = await db.select().from(schema.auditLog);
+    expect(logs).toHaveLength(0);
+  });
+
+  it("rejects negative id", async () => {
+    await expect(
+      processCommand(db, { type: "CreateCheckIn", habitId: -1 }),
+    ).rejects.toThrow(ZodError);
+
+    const logs = await db.select().from(schema.auditLog);
+    expect(logs).toHaveLength(0);
+  });
+
+  it("rejects invalid regularity enum", async () => {
+    await expect(
+      processCommand(db, {
+        type: "CreateHabit",
+        title: "X",
+        goal: { regularity: "year", frequency: 1 },
+      }),
+    ).rejects.toThrow(ZodError);
+
+    const logs = await db.select().from(schema.auditLog);
+    expect(logs).toHaveLength(0);
+  });
+
+  it("rejects zero frequency in goal", async () => {
+    await expect(
+      processCommand(db, {
+        type: "CreateHabit",
+        title: "X",
+        goal: { regularity: "day", frequency: 0 },
+      }),
+    ).rejects.toThrow(ZodError);
+
+    const logs = await db.select().from(schema.auditLog);
+    expect(logs).toHaveLength(0);
+  });
+
+  it("rejects empty object input", async () => {
+    await expect(processCommand(db, {})).rejects.toThrow(ZodError);
+
+    const logs = await db.select().from(schema.auditLog);
+    expect(logs).toHaveLength(0);
+  });
+
+  it("rejects non-object input", async () => {
+    await expect(processCommand(db, "hello")).rejects.toThrow(ZodError);
+
+    const logs = await db.select().from(schema.auditLog);
+    expect(logs).toHaveLength(0);
+  });
+});
+
+describe("processCommand handler errors", () => {
+  it("throws on FK violation (check-in for non-existent habit)", async () => {
+    await expect(
+      processCommand(db, { type: "CreateCheckIn", habitId: 99999 }),
+    ).rejects.toThrow();
+
+    const logs = await db.select().from(schema.auditLog);
+    expect(logs).toHaveLength(0);
+  });
+
+  it("does not leave partial data after handler error", async () => {
+    const habitsBefore = await db.select().from(schema.habit);
+    const checkInsBefore = await db.select().from(schema.checkIn);
+
+    await expect(
+      processCommand(db, { type: "CreateCheckIn", habitId: 99999 }),
+    ).rejects.toThrow();
+
+    const habitsAfter = await db.select().from(schema.habit);
+    const checkInsAfter = await db.select().from(schema.checkIn);
+    expect(habitsAfter).toHaveLength(habitsBefore.length);
+    expect(checkInsAfter).toHaveLength(checkInsBefore.length);
+  });
+
+  it("rolls back transaction on handler error (no audit written)", async () => {
+    // Create a valid habit first
+    const { habitId } = (await processCommand(db, {
+      type: "CreateHabit",
+      title: "Valid",
+    })) as { habitId: number };
+
+    // Clear audit log from setup
+    await db.delete(schema.auditLog);
+
+    // Try to create a check-in for non-existent habit — should fail and rollback
+    await expect(
+      processCommand(db, { type: "CreateCheckIn", habitId: 99999 }),
+    ).rejects.toThrow();
+
+    // Audit log should be empty — the transaction rolled back
+    const logs = await db.select().from(schema.auditLog);
+    expect(logs).toHaveLength(0);
+
+    // The valid habit should still exist (unaffected)
+    const habits = await db
+      .select()
+      .from(schema.habit)
+      .where(eq(schema.habit.id, habitId));
+    expect(habits).toHaveLength(1);
   });
 });
