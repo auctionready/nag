@@ -162,15 +162,17 @@ export default function EditHabitScreen() {
     newMode: GoalMode,
     onChange: (v: GoalMode) => void,
   ) => {
-    onChange(newMode);
     if (newMode === "scheduled") {
       const freq = Math.max(1, parseInt(getValues("frequency"), 10) || 1);
-      const entries: ScheduleEntry[] = Array.from({ length: freq }, () => ({
-        hour: "9",
-        minute: "00",
-      }));
-      setValue("schedules", entries);
+      const current = getValues("schedules");
+      if (current.length !== freq) {
+        const entries: ScheduleEntry[] = Array.from({ length: freq }, (_, i) =>
+          current[i] ?? { hour: "9", minute: "00" },
+        );
+        setValue("schedules", entries);
+      }
     }
+    onChange(newMode);
   };
 
   const onSubmit = async (data: FormData) => {
