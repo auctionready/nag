@@ -3,8 +3,14 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { useLiveQuery } from "drizzle-orm/expo-sqlite";
 import { useMemo } from "react";
 import { db } from "../../db";
-import { habitById, goalForHabitFull, schedulesForGoal, processCommand } from "@nag/core";
+import {
+  habitById,
+  goalForHabitFull,
+  schedulesForGoal,
+  processCommand,
+} from "@nag/core";
 import { HabitForm, type HabitFormData } from "../../components/HabitForm";
+import { syncNotifications, cancelNotifications } from "../../notifications";
 
 export default function EditHabitScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -14,14 +20,15 @@ export default function EditHabitScreen() {
   const { data: habits } = useLiveQuery(habitById(db, habitId), [habitId]);
   const habitData = habits?.[0];
 
-  const { data: goals } = useLiveQuery(goalForHabitFull(db, habitId), [habitId]);
+  const { data: goals } = useLiveQuery(goalForHabitFull(db, habitId), [
+    habitId,
+  ]);
   const goalData = goals?.[0];
 
   const goalId = goalData?.id ?? -1;
-  const { data: scheduleData } = useLiveQuery(
-    schedulesForGoal(db, goalId),
-    [goalId],
-  );
+  const { data: scheduleData } = useLiveQuery(schedulesForGoal(db, goalId), [
+    goalId,
+  ]);
 
   const schedulesReady = scheduleData !== undefined;
 
@@ -80,6 +87,17 @@ export default function EditHabitScreen() {
       goal: goalPayload ?? null,
     });
 
+    if (goalPayload?.schedules) {
+      await syncNotifications(
+        habitId,
+        data.title,
+        goalPayload.schedules,
+        goalPayload.regularity,
+      );
+    } else {
+      await cancelNotifications(habitId);
+    }
+
     router.back();
   };
 
@@ -93,6 +111,7 @@ export default function EditHabitScreen() {
           text: "Delete",
           style: "destructive",
           onPress: async () => {
+            await cancelNotifications(habitId);
             await processCommand(db, { type: "DeleteHabit", habitId });
             router.dismissAll();
           },
