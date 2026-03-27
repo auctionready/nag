@@ -37,33 +37,35 @@ export async function syncNotifications(
 
   await cancelNotifications(habitId);
 
+  const { SchedulableTriggerInputTypes } = Notifications;
+
   for (const [i, entry] of schedules.entries()) {
-    let trigger: Notifications.CalendarTriggerInput;
+    let trigger:
+      | Notifications.DailyTriggerInput
+      | Notifications.WeeklyTriggerInput
+      | Notifications.MonthlyTriggerInput;
 
     if (regularity === "day") {
       trigger = {
-        type: "calendar",
+        type: SchedulableTriggerInputTypes.DAILY,
         hour: entry.hour,
         minute: entry.minute,
-        repeats: true,
       };
     } else if (regularity === "week") {
       // expo-notifications weekday: 1=Sunday, 2=Monday, etc.
       // our dayOfWeek: 0=Sunday, 1=Monday, etc.
       trigger = {
-        type: "calendar",
+        type: SchedulableTriggerInputTypes.WEEKLY,
         hour: entry.hour,
         minute: entry.minute,
         weekday: entry.dayOfWeek! + 1,
-        repeats: true,
       };
     } else {
       trigger = {
-        type: "calendar",
+        type: SchedulableTriggerInputTypes.MONTHLY,
         hour: entry.hour,
         minute: entry.minute,
         day: entry.dayOfMonth!,
-        repeats: true,
       };
     }
 
