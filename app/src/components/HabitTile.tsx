@@ -87,7 +87,7 @@ export function HabitTile({ id, title }: HabitTileProps) {
 
   const longPress = Gesture.LongPress()
     .minDuration(500)
-    .onEnd(() => router.push(`/habit/${id}`));
+    .onStart(() => router.push(`/habit/${id}`));
 
   const goal = useHabitGoalSummary(id);
   const { checkInCount: count, recentCheckIns: recent } = useHabitCompliance(
