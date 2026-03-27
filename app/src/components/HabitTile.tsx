@@ -1,5 +1,6 @@
 import { useCallback, useRef } from "react";
 import { Animated, Pressable, StyleSheet, Text } from "react-native";
+import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import { useLiveQuery } from "drizzle-orm/expo-sqlite";
 import { useRouter } from "expo-router";
 import { formatDistanceToNow } from "date-fns";
@@ -84,6 +85,10 @@ export function HabitTile({ id, title }: HabitTileProps) {
   const router = useRouter();
   const scale = useRef(new Animated.Value(1)).current;
 
+  const longPress = Gesture.LongPress()
+    .minDuration(500)
+    .onEnd(() => router.push(`/habit/${id}`));
+
   const goal = useHabitGoalSummary(id);
   const { checkInCount: count, recentCheckIns: recent } = useHabitCompliance(
     id,
@@ -110,37 +115,37 @@ export function HabitTile({ id, title }: HabitTileProps) {
   }, [id, scale]);
 
   return (
-    <Pressable
-      onPress={handlePress}
-      onLongPress={() => router.push(`/habit/${id}`)}
-      style={styles.wrapper}
-    >
-      <Animated.View
-        style={[
-          styles.tile,
-          { backgroundColor: color, transform: [{ scale }] },
-        ]}
-      >
-        <Text style={styles.title}>{title}</Text>
-        {goal && <Text style={styles.subtitle}>{goal.title}</Text>}
-        {goal ? (
-          <Text style={styles.periodCount}>
-            {count > 0
-              ? `${formatCount(count)} ${periodLabels[goal.regularity]}`
-              : `none ${periodLabels[goal.regularity]}`}
-          </Text>
-        ) : (
-          count === 0 && <Text style={styles.periodCount}>no check-ins</Text>
-        )}
-        {recent.length > 0 && (
-          <Text style={styles.lastCheckIn}>
-            {recent
-              .map((c) => formatDistanceToNow(c.timestamp, { addSuffix: true }))
-              .join(" · ")}
-          </Text>
-        )}
-      </Animated.View>
-    </Pressable>
+    <GestureDetector gesture={longPress}>
+      <Pressable onPress={handlePress} style={styles.wrapper}>
+        <Animated.View
+          style={[
+            styles.tile,
+            { backgroundColor: color, transform: [{ scale }] },
+          ]}
+        >
+          <Text style={styles.title}>{title}</Text>
+          {goal && <Text style={styles.subtitle}>{goal.title}</Text>}
+          {goal ? (
+            <Text style={styles.periodCount}>
+              {count > 0
+                ? `${formatCount(count)} ${periodLabels[goal.regularity]}`
+                : `none ${periodLabels[goal.regularity]}`}
+            </Text>
+          ) : (
+            count === 0 && <Text style={styles.periodCount}>no check-ins</Text>
+          )}
+          {recent.length > 0 && (
+            <Text style={styles.lastCheckIn}>
+              {recent
+                .map((c) =>
+                  formatDistanceToNow(c.timestamp, { addSuffix: true }),
+                )
+                .join(" · ")}
+            </Text>
+          )}
+        </Animated.View>
+      </Pressable>
+    </GestureDetector>
   );
 }
 
