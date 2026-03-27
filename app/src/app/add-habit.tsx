@@ -53,7 +53,7 @@ export default function AddHabitScreen() {
       regularity: "none",
       frequency: "1",
       goalMode: "frequency",
-      schedules: [{ hour: "9", minute: "0" }],
+      schedules: [{ hour: "9", minute: "00" }],
     },
   });
   const { fields, append, remove } = useFieldArray({
@@ -325,56 +325,66 @@ export default function AddHabitScreen() {
                     )}
 
                     <View style={styles.timeRow}>
-                      <Text style={styles.timeLabel}>Time</Text>
-                      <Controller
-                        control={control}
-                        name={`schedules.${index}.hour`}
-                        rules={{
-                          validate: (v) => {
-                            if (watchedGoalMode !== "scheduled") return true;
-                            const n = Number(v);
-                            return (
-                              (Number.isInteger(n) && n >= 0 && n <= 23) ||
-                              "0-23"
-                            );
-                          },
-                        }}
-                        render={({ field: { onChange, onBlur, value } }) => (
-                          <TextInput
-                            style={[styles.input, styles.timeInput]}
-                            onBlur={onBlur}
-                            onChangeText={onChange}
-                            value={value}
-                            keyboardType="number-pad"
-                            placeholder="9"
-                          />
-                        )}
-                      />
-                      <Text style={styles.timeSeparator}>:</Text>
-                      <Controller
-                        control={control}
-                        name={`schedules.${index}.minute`}
-                        rules={{
-                          validate: (v) => {
-                            if (watchedGoalMode !== "scheduled") return true;
-                            const n = Number(v);
-                            return (
-                              (Number.isInteger(n) && n >= 0 && n <= 59) ||
-                              "0-59"
-                            );
-                          },
-                        }}
-                        render={({ field: { onChange, onBlur, value } }) => (
-                          <TextInput
-                            style={[styles.input, styles.timeInput]}
-                            onBlur={onBlur}
-                            onChangeText={onChange}
-                            value={value}
-                            keyboardType="number-pad"
-                            placeholder="00"
-                          />
-                        )}
-                      />
+                      <View style={styles.timePill}>
+                        <Controller
+                          control={control}
+                          name={`schedules.${index}.hour`}
+                          rules={{
+                            validate: (v) => {
+                              if (watchedGoalMode !== "scheduled") return true;
+                              const n = Number(v);
+                              return (
+                                (Number.isInteger(n) && n >= 0 && n <= 23) ||
+                                "0-23"
+                              );
+                            },
+                          }}
+                          render={({ field: { onChange, onBlur, value } }) => (
+                            <TextInput
+                              style={styles.timePillInput}
+                              onBlur={onBlur}
+                              onChangeText={onChange}
+                              value={value}
+                              keyboardType="number-pad"
+                              maxLength={2}
+                              placeholder="9"
+                              placeholderTextColor="#999"
+                              selectTextOnFocus
+                            />
+                          )}
+                        />
+                        <Text style={styles.timePillSeparator}>:</Text>
+                        <Controller
+                          control={control}
+                          name={`schedules.${index}.minute`}
+                          rules={{
+                            validate: (v) => {
+                              if (watchedGoalMode !== "scheduled") return true;
+                              const n = Number(v);
+                              return (
+                                (Number.isInteger(n) && n >= 0 && n <= 59) ||
+                                "0-59"
+                              );
+                            },
+                          }}
+                          render={({ field: { onChange, onBlur, value } }) => (
+                            <TextInput
+                              style={styles.timePillInput}
+                              onBlur={() => {
+                                onChange(value.padStart(2, "0"));
+                                onBlur();
+                              }}
+                              onChangeText={onChange}
+                              value={value}
+                              keyboardType="number-pad"
+                              maxLength={2}
+                              placeholder="00"
+                              placeholderTextColor="#999"
+                              selectTextOnFocus
+                            />
+                          )}
+                        />
+                      </View>
                       {fields.length > 1 && (
                         <Pressable
                           style={styles.removeButton}
@@ -391,7 +401,7 @@ export default function AddHabitScreen() {
                   onPress={() =>
                     append({
                       hour: "9",
-                      minute: "0",
+                      minute: "00",
                       ...(watchedRegularity === "week"
                         ? { dayOfWeek: "1" }
                         : {}),
@@ -523,13 +533,28 @@ const styles = StyleSheet.create({
     color: "#666",
     width: 36,
   },
-  timeInput: {
-    width: 60,
-    textAlign: "center",
+  timePill: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#f2f2f7",
+    borderRadius: 8,
+    paddingHorizontal: 4,
+    paddingVertical: 2,
   },
-  timeSeparator: {
-    fontSize: 18,
-    fontWeight: "600",
+  timePillInput: {
+    fontSize: 20,
+    fontWeight: "500",
+    fontVariant: ["tabular-nums"],
+    color: "#007AFF",
+    textAlign: "center",
+    width: 40,
+    paddingVertical: 8,
+    paddingHorizontal: 4,
+  },
+  timePillSeparator: {
+    fontSize: 20,
+    fontWeight: "500",
+    color: "#007AFF",
   },
   removeButton: {
     marginLeft: "auto",
