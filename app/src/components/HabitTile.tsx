@@ -5,7 +5,12 @@ import { useRouter } from "expo-router";
 import { formatDistanceToNow } from "date-fns";
 import { db } from "../db";
 import { getTitle, type Regularity } from "@nag/schema";
-import { goalForHabit, checkInCount, recentCheckIns, processCommand } from "@nag/core";
+import {
+  goalForHabit,
+  checkInCount,
+  recentCheckIns,
+  processCommand,
+} from "@nag/core";
 import { periodStart, tileColor } from "./getComplianceColor";
 
 const periodLabels: Record<Regularity, string> = {
@@ -55,9 +60,7 @@ export type HabitGoalSummary = NonNullable<
 >;
 
 const useHabitCompliance = (habitId: number, goal: HabitGoalSummary | null) => {
-  const periodStartDate = goal
-    ? periodStart(goal.regularity)
-    : undefined;
+  const periodStartDate = goal ? periodStart(goal.regularity) : undefined;
 
   const { data: countRows } = useLiveQuery(
     checkInCount(db, habitId, periodStartDate),
@@ -80,7 +83,10 @@ export function HabitTile({ id, title }: HabitTileProps) {
   const scale = useRef(new Animated.Value(1)).current;
 
   const goal = useHabitGoalSummary(id);
-  const { checkInCount: count, recentCheckIns: recent } = useHabitCompliance(id, goal);
+  const { checkInCount: count, recentCheckIns: recent } = useHabitCompliance(
+    id,
+    goal,
+  );
 
   const color = tileColor(goal, count);
 
@@ -122,9 +128,7 @@ export function HabitTile({ id, title }: HabitTileProps) {
               : `none ${periodLabels[goal.regularity]}`}
           </Text>
         ) : (
-          count === 0 && (
-            <Text style={styles.periodCount}>no check-ins</Text>
-          )
+          count === 0 && <Text style={styles.periodCount}>no check-ins</Text>
         )}
         {recent.length > 0 && (
           <Text style={styles.lastCheckIn}>
