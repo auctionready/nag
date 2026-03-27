@@ -158,6 +158,21 @@ export default function EditHabitScreen() {
     });
   }, [habitData, goalData, schedulesReady, scheduleData, reset]);
 
+  const changeGoalMode = (
+    newMode: GoalMode,
+    onChange: (v: GoalMode) => void,
+  ) => {
+    onChange(newMode);
+    if (newMode === "scheduled") {
+      const freq = Math.max(1, parseInt(getValues("frequency"), 10) || 1);
+      const entries: ScheduleEntry[] = Array.from({ length: freq }, () => ({
+        hour: "9",
+        minute: "00",
+      }));
+      setValue("schedules", entries);
+    }
+  };
+
   const onSubmit = async (data: FormData) => {
     let goalPayload;
     if (data.regularity !== "none") {
@@ -302,7 +317,7 @@ export default function EditHabitScreen() {
                         styles.segmentButton,
                         value === m && styles.segmentButtonActive,
                       ]}
-                      onPress={() => onChange(m)}
+                      onPress={() => changeGoalMode(m, onChange)}
                     >
                       <Text
                         style={[
