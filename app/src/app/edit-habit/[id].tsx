@@ -1,6 +1,7 @@
 import {
   Alert,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -187,7 +188,7 @@ export default function EditHabitScreen() {
   }
 
   return (
-    <View style={styles.container}>
+    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <Controller
         control={control}
         name="title"
@@ -505,7 +506,7 @@ export default function EditHabitScreen() {
       <Pressable style={styles.deleteButton} onPress={onDelete}>
         <Text style={styles.deleteButtonText}>Delete Habit</Text>
       </Pressable>
-    </View>
+    </ScrollView>
   );
 }
 
@@ -513,6 +514,8 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#fff",
+  },
+  content: {
     padding: 16,
     gap: 12,
   },

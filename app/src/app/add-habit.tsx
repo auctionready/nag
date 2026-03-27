@@ -1,4 +1,4 @@
-import { StyleSheet, Text, TextInput, View, Pressable } from "react-native";
+import { StyleSheet, Text, TextInput, View, Pressable, ScrollView } from "react-native";
 import { useForm, Controller, useFieldArray } from "react-hook-form";
 import { useRouter } from "expo-router";
 import { db } from "../db";
@@ -98,7 +98,7 @@ export default function AddHabitScreen() {
   };
 
   return (
-    <View style={styles.container}>
+    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <Controller
         control={control}
         name="title"
@@ -415,7 +415,7 @@ export default function AddHabitScreen() {
       <Pressable style={styles.saveButton} onPress={handleSubmit(onSubmit)}>
         <Text style={styles.saveButtonText}>Save</Text>
       </Pressable>
-    </View>
+    </ScrollView>
   );
 }
 
@@ -423,6 +423,8 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#fff",
+  },
+  content: {
     padding: 16,
     gap: 12,
   },
