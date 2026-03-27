@@ -228,8 +228,6 @@ export default function EditHabitScreen() {
       />
 
       <View style={styles.goalSection}>
-        <Text style={styles.sectionTitle}>Goal</Text>
-
         <Text style={styles.label}>Regularity</Text>
         <Controller
           control={control}
@@ -564,15 +562,7 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   goalSection: {
-    marginTop: 24,
-    paddingTop: 16,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: "#e0e0e0",
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: "700",
-    marginBottom: 4,
+    marginTop: 8,
   },
   segmentedRow: {
     flexDirection: "row",
