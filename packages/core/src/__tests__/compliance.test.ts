@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 import type { Regularity } from "@nag/schema";
-import { periodStart, colorForRatio, tileColor, type ComplianceColors } from "../compliance";
+import {
+  periodStart,
+  colorForRatio,
+  tileColor,
+  type ComplianceColors,
+} from "../compliance";
 
 const colors: ComplianceColors = {
   default: "default",

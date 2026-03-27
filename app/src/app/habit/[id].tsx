@@ -28,10 +28,14 @@ export default function HabitScreen() {
   const { data: habits } = useLiveQuery(habitById(db, habitId), [habitId]);
   const habitData = habits?.[0];
 
-  const { data: goals } = useLiveQuery(goalForHabitFull(db, habitId), [habitId]);
+  const { data: goals } = useLiveQuery(goalForHabitFull(db, habitId), [
+    habitId,
+  ]);
   const goalData = goals?.[0];
 
-  const { data: checkIns } = useLiveQuery(checkInsForHabit(db, habitId), [habitId]);
+  const { data: checkIns } = useLiveQuery(checkInsForHabit(db, habitId), [
+    habitId,
+  ]);
 
   const periodStartDate = goalData
     ? periodStart(goalData.regularity)
@@ -41,8 +45,7 @@ export default function HabitScreen() {
     [habitId, periodStartDate],
   );
   const currentCount = countRows?.[0]?.value ?? 0;
-  const showSkip =
-    goalData != null && currentCount < goalData.frequency;
+  const showSkip = goalData != null && currentCount < goalData.frequency;
 
   const handleRemove = (checkInId: number) => {
     Alert.alert("Remove Check-in", "Are you sure?", [

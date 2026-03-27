@@ -18,8 +18,13 @@ const getDb = setupTestDb("core-test.db");
 describe("goalForHabit", () => {
   it("returns the goal for a habit", async () => {
     const db = getDb();
-    const [h] = await db.insert(schema.habit).values({ title: "Test" }).returning();
-    await db.insert(schema.goal).values({ habitId: h.id, regularity: "day", frequency: 3 });
+    const [h] = await db
+      .insert(schema.habit)
+      .values({ title: "Test" })
+      .returning();
+    await db
+      .insert(schema.goal)
+      .values({ habitId: h.id, regularity: "day", frequency: 3 });
 
     const goals = await goalForHabit(db, h.id);
     expect(goals).toHaveLength(1);
@@ -30,7 +35,10 @@ describe("goalForHabit", () => {
 
   it("returns empty when no goal exists", async () => {
     const db = getDb();
-    const [h] = await db.insert(schema.habit).values({ title: "No goal" }).returning();
+    const [h] = await db
+      .insert(schema.habit)
+      .values({ title: "No goal" })
+      .returning();
     const goals = await goalForHabit(db, h.id);
     expect(goals).toHaveLength(0);
   });
@@ -39,7 +47,10 @@ describe("goalForHabit", () => {
 describe("checkInCount", () => {
   it("counts all check-ins for a habit", async () => {
     const db = getDb();
-    const [h] = await db.insert(schema.habit).values({ title: "Count" }).returning();
+    const [h] = await db
+      .insert(schema.habit)
+      .values({ title: "Count" })
+      .returning();
     await db.insert(schema.checkIn).values({ habitId: h.id });
     await db.insert(schema.checkIn).values({ habitId: h.id });
 
@@ -49,11 +60,16 @@ describe("checkInCount", () => {
 
   it("counts only check-ins since a date", async () => {
     const db = getDb();
-    const [h] = await db.insert(schema.habit).values({ title: "Since" }).returning();
+    const [h] = await db
+      .insert(schema.habit)
+      .values({ title: "Since" })
+      .returning();
     const old = subDays(new Date(), 5);
     const recent = new Date();
     await db.insert(schema.checkIn).values({ habitId: h.id, timestamp: old });
-    await db.insert(schema.checkIn).values({ habitId: h.id, timestamp: recent });
+    await db
+      .insert(schema.checkIn)
+      .values({ habitId: h.id, timestamp: recent });
 
     const since = subDays(new Date(), 1);
     const [row] = await checkInCount(db, h.id, since);
@@ -64,7 +80,10 @@ describe("checkInCount", () => {
 describe("recentCheckIns", () => {
   it("returns check-ins in descending order", async () => {
     const db = getDb();
-    const [h] = await db.insert(schema.habit).values({ title: "Recent" }).returning();
+    const [h] = await db
+      .insert(schema.habit)
+      .values({ title: "Recent" })
+      .returning();
     const t1 = subDays(new Date(), 3);
     const t2 = subDays(new Date(), 1);
     const t3 = new Date();
@@ -74,13 +93,20 @@ describe("recentCheckIns", () => {
 
     const rows = await recentCheckIns(db, h.id);
     expect(rows).toHaveLength(3);
-    expect(rows[0].timestamp.getTime()).toBeGreaterThan(rows[1].timestamp.getTime());
-    expect(rows[1].timestamp.getTime()).toBeGreaterThan(rows[2].timestamp.getTime());
+    expect(rows[0].timestamp.getTime()).toBeGreaterThan(
+      rows[1].timestamp.getTime(),
+    );
+    expect(rows[1].timestamp.getTime()).toBeGreaterThan(
+      rows[2].timestamp.getTime(),
+    );
   });
 
   it("respects limit", async () => {
     const db = getDb();
-    const [h] = await db.insert(schema.habit).values({ title: "Limit" }).returning();
+    const [h] = await db
+      .insert(schema.habit)
+      .values({ title: "Limit" })
+      .returning();
     for (let i = 0; i < 5; i++) {
       await db.insert(schema.checkIn).values({ habitId: h.id });
     }
@@ -112,7 +138,10 @@ describe("allHabits", () => {
 describe("habitById", () => {
   it("returns the habit with matching id", async () => {
     const db = getDb();
-    const [h] = await db.insert(schema.habit).values({ title: "Find me" }).returning();
+    const [h] = await db
+      .insert(schema.habit)
+      .values({ title: "Find me" })
+      .returning();
 
     const rows = await habitById(db, h.id);
     expect(rows).toHaveLength(1);
@@ -129,8 +158,13 @@ describe("habitById", () => {
 describe("goalForHabitFull", () => {
   it("returns full goal record for a habit", async () => {
     const db = getDb();
-    const [h] = await db.insert(schema.habit).values({ title: "Goal" }).returning();
-    await db.insert(schema.goal).values({ habitId: h.id, regularity: "week", frequency: 5 });
+    const [h] = await db
+      .insert(schema.habit)
+      .values({ title: "Goal" })
+      .returning();
+    await db
+      .insert(schema.goal)
+      .values({ habitId: h.id, regularity: "week", frequency: 5 });
 
     const rows = await goalForHabitFull(db, h.id);
     expect(rows).toHaveLength(1);
@@ -144,7 +178,10 @@ describe("goalForHabitFull", () => {
 describe("checkInsForHabit", () => {
   it("returns check-ins ordered by timestamp descending", async () => {
     const db = getDb();
-    const [h] = await db.insert(schema.habit).values({ title: "CI" }).returning();
+    const [h] = await db
+      .insert(schema.habit)
+      .values({ title: "CI" })
+      .returning();
     const t1 = subDays(new Date(), 2);
     const t2 = new Date();
     await db.insert(schema.checkIn).values({ habitId: h.id, timestamp: t1 });
@@ -152,14 +189,19 @@ describe("checkInsForHabit", () => {
 
     const rows = await checkInsForHabit(db, h.id);
     expect(rows).toHaveLength(2);
-    expect(rows[0].timestamp.getTime()).toBeGreaterThan(rows[1].timestamp.getTime());
+    expect(rows[0].timestamp.getTime()).toBeGreaterThan(
+      rows[1].timestamp.getTime(),
+    );
   });
 });
 
 describe("calendarCheckIns", () => {
   it("returns check-ins joined with habit title", async () => {
     const db = getDb();
-    const [h] = await db.insert(schema.habit).values({ title: "Cal" }).returning();
+    const [h] = await db
+      .insert(schema.habit)
+      .values({ title: "Cal" })
+      .returning();
     await db.insert(schema.checkIn).values({ habitId: h.id });
 
     const rows = await calendarCheckIns(db);

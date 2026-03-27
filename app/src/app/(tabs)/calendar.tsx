@@ -1,11 +1,5 @@
 import { useState, useMemo } from "react";
-import {
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from "react-native";
+import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import {
   startOfMonth,
   endOfMonth,
@@ -25,7 +19,9 @@ import {
 const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
 export default function CalendarScreen() {
-  const [currentMonth, setCurrentMonth] = useState(() => startOfMonth(new Date()));
+  const [currentMonth, setCurrentMonth] = useState(() =>
+    startOfMonth(new Date()),
+  );
   const [selectedDay, setSelectedDay] = useState<Date | null>(null);
 
   const { allCheckIns, checkInsByDate } = useCalendarCheckIns();
@@ -88,10 +84,7 @@ export default function CalendarScreen() {
           return (
             <Pressable
               key={key}
-              style={[
-                styles.dayCell,
-                isSelected && styles.dayCellSelected,
-              ]}
+              style={[styles.dayCell, isSelected && styles.dayCellSelected]}
               onPress={() => setSelectedDay(day)}
             >
               <Text
