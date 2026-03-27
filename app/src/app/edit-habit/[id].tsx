@@ -71,10 +71,10 @@ export default function EditHabitScreen() {
   );
   const goalData = goals?.[0];
 
+  const goalId = goalData?.id ?? -1;
   const { data: scheduleData } = useLiveQuery(
-    goalData
-      ? db.select().from(schedule).where(eq(schedule.goalId, goalData.id))
-      : db.select().from(schedule).where(eq(schedule.goalId, -1)),
+    db.select().from(schedule).where(eq(schedule.goalId, goalId)),
+    [goalId],
   );
 
   const {
@@ -100,30 +100,30 @@ export default function EditHabitScreen() {
   const watchedRegularity = watch("regularity");
   const watchedGoalMode = watch("goalMode");
 
+  const schedulesReady = scheduleData !== undefined;
   useEffect(() => {
-    if (habitData) {
-      const hasSchedules = scheduleData && scheduleData.length > 0;
-      reset({
-        title: habitData.title,
-        description: habitData.description ?? "",
-        regularity: (goalData?.regularity as FormRegularity) ?? "none",
-        frequency: goalData ? String(goalData.frequency) : "1",
-        goalMode: hasSchedules ? "scheduled" : "frequency",
-        schedules: hasSchedules
-          ? scheduleData.map((s) => ({
-              hour: String(s.hour),
-              minute: String(s.minute).padStart(2, "0"),
-              ...(s.dayOfWeek != null
-                ? { dayOfWeek: String(s.dayOfWeek) }
-                : {}),
-              ...(s.dayOfMonth != null
-                ? { dayOfMonth: String(s.dayOfMonth) }
-                : {}),
-            }))
-          : [{ hour: "9", minute: "00" }],
-      });
-    }
-  }, [habitData, goalData, scheduleData, reset]);
+    if (!habitData || !schedulesReady) return;
+    const hasSchedules = scheduleData && scheduleData.length > 0;
+    reset({
+      title: habitData.title,
+      description: habitData.description ?? "",
+      regularity: (goalData?.regularity as FormRegularity) ?? "none",
+      frequency: goalData ? String(goalData.frequency) : "1",
+      goalMode: hasSchedules ? "scheduled" : "frequency",
+      schedules: hasSchedules
+        ? scheduleData.map((s) => ({
+            hour: String(s.hour),
+            minute: String(s.minute).padStart(2, "0"),
+            ...(s.dayOfWeek != null
+              ? { dayOfWeek: String(s.dayOfWeek) }
+              : {}),
+            ...(s.dayOfMonth != null
+              ? { dayOfMonth: String(s.dayOfMonth) }
+              : {}),
+          }))
+        : [{ hour: "9", minute: "00" }],
+    });
+  }, [habitData, goalData, schedulesReady, scheduleData, reset]);
 
   const onSubmit = async (data: FormData) => {
     let goalPayload;
