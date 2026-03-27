@@ -6,7 +6,7 @@ export default function RootLayout() {
   return (
     <DatabaseProvider>
       <Stack>
-        <Stack.Screen name="index" options={{ title: "Board" }} />
+        <Stack.Screen name="(tabs)" options={{ title: "Board" }} />
         <Stack.Screen name="admin" options={{ title: "Admin" }} />
         <Stack.Screen name="add-habit" options={{ title: "Add Habit" }} />
         <Stack.Screen name="habit/[id]" options={{ title: "Habit" }} />
