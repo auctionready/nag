@@ -437,7 +437,7 @@ export default function EditHabitScreen() {
                           }}
                           render={({ field: { onChange, onBlur, value } }) => (
                             <TextInput
-                              style={[styles.input, styles.timeInput]}
+                              style={[styles.input, { width: 60, textAlign: "center" }]}
                               onBlur={onBlur}
                               onChangeText={onChange}
                               value={value}
