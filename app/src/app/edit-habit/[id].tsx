@@ -256,7 +256,6 @@ export default function EditHabitScreen() {
 
         {watchedRegularity !== "none" && (
           <>
-            <Text style={styles.label}>Mode</Text>
             <Controller
               control={control}
               name="goalMode"
@@ -515,12 +514,11 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#fff",
     padding: 16,
+    gap: 12,
   },
   label: {
     fontSize: 14,
     fontWeight: "600",
-    marginTop: 16,
-    marginBottom: 4,
   },
   input: {
     borderWidth: 1,
@@ -554,6 +552,7 @@ const styles = StyleSheet.create({
   },
   goalSection: {
     marginTop: 8,
+    gap: 12,
   },
   segmentedRow: {
     flexDirection: "row",
