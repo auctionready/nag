@@ -61,7 +61,11 @@ const goalModeLabels: Record<GoalMode, string> = {
 
 const dayOfWeekLabels = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
-export function HabitForm({ initialValues, onSubmit, onDelete }: HabitFormProps) {
+export function HabitForm({
+  initialValues,
+  onSubmit,
+  onDelete,
+}: HabitFormProps) {
   const {
     control,
     handleSubmit,
@@ -121,11 +125,12 @@ export function HabitForm({ initialValues, onSubmit, onDelete }: HabitFormProps)
     onChange: (v: GoalMode) => void,
   ) => {
     if (newMode === "scheduled") {
-      const freq = Math.max(1, parseInt(getValues("frequency"), 10) || 1);
+      const freq = Math.max(1, Number(getValues("frequency")) || 1);
       const current = getValues("schedules");
       if (current.length !== freq) {
-        const entries: ScheduleEntry[] = Array.from({ length: freq }, (_, i) =>
-          current[i] ?? { hour: "9", minute: "00" },
+        const entries: ScheduleEntry[] = Array.from(
+          { length: freq },
+          (_, i) => current[i] ?? { hour: "9", minute: "00" },
         );
         setValue("schedules", entries);
       }
@@ -284,8 +289,7 @@ export function HabitForm({ initialValues, onSubmit, onDelete }: HabitFormProps)
                             if (watchedRegularity !== "week") return true;
                             const n = Number(v);
                             return (
-                              (Number.isInteger(n) && n >= 0 && n <= 6) ||
-                              "0-6"
+                              (Number.isInteger(n) && n >= 0 && n <= 6) || "0-6"
                             );
                           },
                         }}
@@ -293,7 +297,7 @@ export function HabitForm({ initialValues, onSubmit, onDelete }: HabitFormProps)
                           <View style={styles.dayOfWeekRow}>
                             {dayOfWeekLabels.map((label, dow) => (
                               <Pressable
-                                key={dow}
+                                key={label}
                                 style={[
                                   styles.dayButton,
                                   String(dow) === value &&
@@ -336,7 +340,10 @@ export function HabitForm({ initialValues, onSubmit, onDelete }: HabitFormProps)
                           }}
                           render={({ field: { onChange, onBlur, value } }) => (
                             <TextInput
-                              style={[styles.input, { width: 60, textAlign: "center" }]}
+                              style={[
+                                styles.input,
+                                { width: 60, textAlign: "center" },
+                              ]}
                               onBlur={onBlur}
                               onChangeText={onChange}
                               value={value}
@@ -367,7 +374,10 @@ export function HabitForm({ initialValues, onSubmit, onDelete }: HabitFormProps)
                             <TextInput
                               style={styles.timePillInput}
                               onBlur={() => {
-                                const n = Math.min(23, Math.max(0, parseInt(value, 10) || 0));
+                                const n = Math.min(
+                                  23,
+                                  Math.max(0, Number(value) || 0),
+                                );
                                 onChange(String(n));
                                 onBlur();
                               }}
@@ -399,7 +409,10 @@ export function HabitForm({ initialValues, onSubmit, onDelete }: HabitFormProps)
                             <TextInput
                               style={styles.timePillInput}
                               onBlur={() => {
-                                const n = Math.min(59, Math.max(0, parseInt(value, 10) || 0));
+                                const n = Math.min(
+                                  59,
+                                  Math.max(0, Number(value) || 0),
+                                );
                                 onChange(String(n).padStart(2, "0"));
                                 onBlur();
                               }}
