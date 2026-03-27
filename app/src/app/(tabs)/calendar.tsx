@@ -6,8 +6,6 @@ import {
   Text,
   View,
 } from "react-native";
-import { useLiveQuery } from "drizzle-orm/expo-sqlite";
-import { desc, eq } from "drizzle-orm";
 import {
   startOfMonth,
   endOfMonth,
@@ -19,8 +17,10 @@ import {
   subMonths,
   startOfDay,
 } from "date-fns";
-import { db } from "../../db";
-import { checkIn, habit } from "@nag/schema";
+import {
+  useCalendarCheckIns,
+  useSelectedDayCheckIns,
+} from "../../components/useCalendarCheckIns";
 
 const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
@@ -28,19 +28,8 @@ export default function CalendarScreen() {
   const [currentMonth, setCurrentMonth] = useState(() => startOfMonth(new Date()));
   const [selectedDay, setSelectedDay] = useState<Date | null>(null);
 
-  const { data: allCheckIns } = useLiveQuery(
-    db
-      .select({
-        id: checkIn.id,
-        timestamp: checkIn.timestamp,
-        skipped: checkIn.skipped,
-        habitId: checkIn.habitId,
-        habitTitle: habit.title,
-      })
-      .from(checkIn)
-      .innerJoin(habit, eq(checkIn.habitId, habit.id))
-      .orderBy(desc(checkIn.timestamp)),
-  );
+  const { allCheckIns, checkInsByDate } = useCalendarCheckIns();
+  const selectedDayCheckIns = useSelectedDayCheckIns(selectedDay, allCheckIns);
 
   const days = useMemo(() => {
     const monthStart = startOfMonth(currentMonth);
@@ -48,29 +37,8 @@ export default function CalendarScreen() {
     return eachDayOfInterval({ start: monthStart, end: monthEnd });
   }, [currentMonth]);
 
-  // Map date string -> checkins for that date
-  const checkInsByDate = useMemo(() => {
-    const map = new Map<string, typeof allCheckIns>();
-    if (!allCheckIns) return map;
-    for (const ci of allCheckIns) {
-      const key = startOfDay(ci.timestamp).toISOString();
-      const existing = map.get(key);
-      if (existing) {
-        existing.push(ci);
-      } else {
-        map.set(key, [ci]);
-      }
-    }
-    return map;
-  }, [allCheckIns]);
-
   // Monday = 0 offset. getDay returns 0 for Sunday, so shift.
   const firstDayOffset = (getDay(days[0]) + 6) % 7;
-
-  const selectedDayCheckIns = useMemo(() => {
-    if (!selectedDay || !allCheckIns) return [];
-    return allCheckIns.filter((ci) => isSameDay(ci.timestamp, selectedDay));
-  }, [selectedDay, allCheckIns]);
 
   const today = startOfDay(new Date());
 
