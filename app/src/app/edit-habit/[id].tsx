@@ -24,7 +24,7 @@ import { processCommand } from "@nag/core";
 type FormRegularity = Regularity | "none";
 const formRegularityValues: FormRegularity[] = ["none", ...regularityValues];
 const regularityLabels: Record<FormRegularity, string> = {
-  none: "None",
+  none: "Ad-hoc",
   day: "Daily",
   week: "Weekly",
   month: "Monthly",
@@ -188,7 +188,6 @@ export default function EditHabitScreen() {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.label}>Title</Text>
       <Controller
         control={control}
         name="title"
@@ -205,7 +204,6 @@ export default function EditHabitScreen() {
       />
       {errors.title && <Text style={styles.error}>{errors.title.message}</Text>}
 
-      <Text style={styles.label}>Description</Text>
       <Controller
         control={control}
         name="description"
@@ -228,7 +226,6 @@ export default function EditHabitScreen() {
       />
 
       <View style={styles.goalSection}>
-        <Text style={styles.label}>Regularity</Text>
         <Controller
           control={control}
           name="regularity"
@@ -289,9 +286,7 @@ export default function EditHabitScreen() {
             />
 
             {watchedGoalMode === "frequency" ? (
-              <>
-                <Text style={styles.label}>Frequency</Text>
-                <View style={styles.frequencyRow}>
+              <View style={styles.frequencyRow}>
                   <Controller
                     control={control}
                     name="frequency"
@@ -323,10 +318,6 @@ export default function EditHabitScreen() {
                     per {watchedRegularity}
                   </Text>
                 </View>
-                {errors.frequency && (
-                  <Text style={styles.error}>{errors.frequency.message}</Text>
-                )}
-              </>
             ) : (
               <>
                 <Text style={styles.label}>
