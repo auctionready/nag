@@ -4,8 +4,8 @@ import { useLiveQuery } from "drizzle-orm/expo-sqlite";
 import { useRouter } from "expo-router";
 import { formatDistanceToNow } from "date-fns";
 import { db } from "../db";
-import { checkIn, getTitle, type Regularity } from "@nag/schema";
-import { goalForHabit, checkInCount, recentCheckIns } from "@nag/core";
+import { getTitle, type Regularity } from "@nag/schema";
+import { goalForHabit, checkInCount, recentCheckIns, processCommand } from "@nag/core";
 import { periodStart, tileColor } from "./getComplianceColor";
 
 const periodLabels: Record<Regularity, string> = {
@@ -85,7 +85,7 @@ export function HabitTile({ id, title }: HabitTileProps) {
   const color = tileColor(goal, count);
 
   const handlePress = useCallback(async () => {
-    await db.insert(checkIn).values({ habitId: id });
+    await processCommand(db, { type: "CreateCheckIn", habitId: id });
 
     Animated.sequence([
       Animated.timing(scale, {

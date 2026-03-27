@@ -13,6 +13,7 @@ import { eq } from "drizzle-orm";
 import { useEffect } from "react";
 import { db } from "../../db";
 import { habit, goal, regularityValues, type Regularity } from "@nag/schema";
+import { processCommand } from "@nag/core";
 
 type FormRegularity = Regularity | "none";
 const formRegularityValues: FormRegularity[] = ["none", ...regularityValues];
@@ -73,23 +74,16 @@ export default function EditHabitScreen() {
   }, [habitData, goalData, reset]);
 
   const onSubmit = async (data: FormData) => {
-    await db
-      .update(habit)
-      .set({
-        title: data.title,
-        description: data.description || null,
-        updatedAt: new Date(),
-      })
-      .where(eq(habit.id, habitId));
-
-    await db.delete(goal).where(eq(goal.habitId, habitId));
-    if (data.regularity !== "none") {
-      await db.insert(goal).values({
-        habitId,
-        regularity: data.regularity,
-        frequency: Number(data.frequency),
-      });
-    }
+    await processCommand(db, {
+      type: "UpdateHabit",
+      habitId,
+      title: data.title,
+      description: data.description || null,
+      goal:
+        data.regularity !== "none"
+          ? { regularity: data.regularity, frequency: Number(data.frequency) }
+          : null,
+    });
 
     router.back();
   };
@@ -104,7 +98,7 @@ export default function EditHabitScreen() {
           text: "Delete",
           style: "destructive",
           onPress: async () => {
-            await db.delete(habit).where(eq(habit.id, habitId));
+            await processCommand(db, { type: "DeleteHabit", habitId });
             router.dismissAll();
           },
         },

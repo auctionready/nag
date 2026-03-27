@@ -12,6 +12,7 @@ import { desc, eq } from "drizzle-orm";
 import { format } from "date-fns";
 import { db } from "../../db";
 import { checkIn, habit, goal, getTitle } from "@nag/schema";
+import { processCommand } from "@nag/core";
 
 export default function HabitScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -43,7 +44,7 @@ export default function HabitScreen() {
         text: "Remove",
         style: "destructive",
         onPress: async () => {
-          await db.delete(checkIn).where(eq(checkIn.id, checkInId));
+          await processCommand(db, { type: "DeleteCheckIn", checkInId });
         },
       },
     ]);
@@ -92,7 +93,7 @@ export default function HabitScreen() {
         <Pressable
           style={styles.checkInButton}
           onPress={async () => {
-            await db.insert(checkIn).values({ habitId });
+            await processCommand(db, { type: "CreateCheckIn", habitId });
           }}
         >
           <Text style={styles.checkInButtonText}>Check-in</Text>

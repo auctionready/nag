@@ -1,9 +1,6 @@
 import { and, count, desc, eq, gte } from "drizzle-orm";
-import type { BaseSQLiteDatabase } from "drizzle-orm/sqlite-core";
 import { checkIn, goal } from "@nag/schema";
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type AnyDb = BaseSQLiteDatabase<any, any, any>;
+import type { AnyDb } from "./db";
 
 export function goalForHabit(db: AnyDb, habitId: number) {
   return db

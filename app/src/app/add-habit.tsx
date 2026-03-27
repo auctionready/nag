@@ -2,7 +2,8 @@ import { StyleSheet, Text, TextInput, View, Pressable } from "react-native";
 import { useForm, Controller } from "react-hook-form";
 import { useRouter } from "expo-router";
 import { db } from "../db";
-import { habit, goal, regularityValues, type Regularity } from "@nag/schema";
+import { regularityValues, type Regularity } from "@nag/schema";
+import { processCommand } from "@nag/core";
 
 type FormRegularity = Regularity | "none";
 const formRegularityValues: FormRegularity[] = ["none", ...regularityValues];
@@ -38,20 +39,15 @@ export default function AddHabitScreen() {
   const watchedRegularity = watch("regularity");
 
   const onSubmit = async (data: FormData) => {
-    const [inserted] = await db
-      .insert(habit)
-      .values({
-        title: data.title,
-        description: data.description || null,
-      })
-      .returning({ id: habit.id });
-    if (data.regularity !== "none") {
-      await db.insert(goal).values({
-        habitId: inserted.id,
-        regularity: data.regularity,
-        frequency: Number(data.frequency),
-      });
-    }
+    await processCommand(db, {
+      type: "CreateHabit",
+      title: data.title,
+      description: data.description || undefined,
+      goal:
+        data.regularity !== "none"
+          ? { regularity: data.regularity, frequency: Number(data.frequency) }
+          : undefined,
+    });
     router.back();
   };
 
