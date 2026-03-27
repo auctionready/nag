@@ -1,4 +1,5 @@
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
+import { ScrollView } from "react-native-gesture-handler";
 import { Link } from "expo-router";
 import { useLiveQuery } from "drizzle-orm/expo-sqlite";
 import { db } from "../../db";
