@@ -63,6 +63,103 @@ describe("CreateHabit", () => {
       processCommand(db, { type: "CreateHabit", title: "" }),
     ).rejects.toThrow();
   });
+
+  it("creates a habit with daily schedules", async () => {
+    const db = getDb();
+    const result = await processCommand(db, {
+      type: "CreateHabit",
+      title: "Meditate",
+      goal: {
+        regularity: "day",
+        schedules: [
+          { hour: 9, minute: 0 },
+          { hour: 14, minute: 30 },
+        ],
+      },
+    });
+
+    const habitId = (result as { habitId: number }).habitId;
+    const goals = await db
+      .select()
+      .from(schema.goal)
+      .where(eq(schema.goal.habitId, habitId));
+    expect(goals).toHaveLength(1);
+    expect(goals[0].frequency).toBe(2);
+
+    const schedules = await db
+      .select()
+      .from(schema.schedule)
+      .where(eq(schema.schedule.goalId, goals[0].id));
+    expect(schedules).toHaveLength(2);
+    expect(schedules[0].hour).toBe(9);
+    expect(schedules[0].minute).toBe(0);
+    expect(schedules[0].dayOfWeek).toBeNull();
+    expect(schedules[0].dayOfMonth).toBeNull();
+    expect(schedules[1].hour).toBe(14);
+    expect(schedules[1].minute).toBe(30);
+  });
+
+  it("creates a habit with weekly schedules", async () => {
+    const db = getDb();
+    const result = await processCommand(db, {
+      type: "CreateHabit",
+      title: "Exercise",
+      goal: {
+        regularity: "week",
+        schedules: [
+          { hour: 7, minute: 0, dayOfWeek: 1 },
+          { hour: 7, minute: 0, dayOfWeek: 3 },
+          { hour: 10, minute: 0, dayOfWeek: 5 },
+        ],
+      },
+    });
+
+    const habitId = (result as { habitId: number }).habitId;
+    const goals = await db
+      .select()
+      .from(schema.goal)
+      .where(eq(schema.goal.habitId, habitId));
+    expect(goals[0].frequency).toBe(3);
+
+    const schedules = await db
+      .select()
+      .from(schema.schedule)
+      .where(eq(schema.schedule.goalId, goals[0].id));
+    expect(schedules).toHaveLength(3);
+    expect(schedules[0].dayOfWeek).toBe(1);
+    expect(schedules[1].dayOfWeek).toBe(3);
+    expect(schedules[2].dayOfWeek).toBe(5);
+  });
+
+  it("creates a habit with monthly schedules", async () => {
+    const db = getDb();
+    const result = await processCommand(db, {
+      type: "CreateHabit",
+      title: "Review",
+      goal: {
+        regularity: "month",
+        schedules: [
+          { hour: 9, minute: 0, dayOfMonth: 1 },
+          { hour: 9, minute: 0, dayOfMonth: 15 },
+        ],
+      },
+    });
+
+    const habitId = (result as { habitId: number }).habitId;
+    const goals = await db
+      .select()
+      .from(schema.goal)
+      .where(eq(schema.goal.habitId, habitId));
+    expect(goals[0].frequency).toBe(2);
+
+    const schedules = await db
+      .select()
+      .from(schema.schedule)
+      .where(eq(schema.schedule.goalId, goals[0].id));
+    expect(schedules).toHaveLength(2);
+    expect(schedules[0].dayOfMonth).toBe(1);
+    expect(schedules[1].dayOfMonth).toBe(15);
+  });
 });
 
 describe("UpdateHabit", () => {
@@ -193,6 +290,101 @@ describe("UpdateHabit", () => {
     expect(goals).toHaveLength(1);
     expect(goals[0].frequency).toBe(2);
   });
+
+  it("replaces frequency goal with scheduled goal", async () => {
+    const db = getDb();
+    const { habitId } = (await processCommand(db, {
+      type: "CreateHabit",
+      title: "Test",
+      goal: { regularity: "day", frequency: 1 },
+    })) as { habitId: number };
+
+    await processCommand(db, {
+      type: "UpdateHabit",
+      habitId,
+      goal: {
+        regularity: "day",
+        schedules: [
+          { hour: 8, minute: 0 },
+          { hour: 20, minute: 0 },
+        ],
+      },
+    });
+
+    const goals = await db
+      .select()
+      .from(schema.goal)
+      .where(eq(schema.goal.habitId, habitId));
+    expect(goals).toHaveLength(1);
+    expect(goals[0].frequency).toBe(2);
+
+    const schedules = await db
+      .select()
+      .from(schema.schedule)
+      .where(eq(schema.schedule.goalId, goals[0].id));
+    expect(schedules).toHaveLength(2);
+  });
+
+  it("replaces scheduled goal with frequency goal", async () => {
+    const db = getDb();
+    const { habitId } = (await processCommand(db, {
+      type: "CreateHabit",
+      title: "Test",
+      goal: {
+        regularity: "day",
+        schedules: [
+          { hour: 8, minute: 0 },
+          { hour: 20, minute: 0 },
+        ],
+      },
+    })) as { habitId: number };
+
+    await processCommand(db, {
+      type: "UpdateHabit",
+      habitId,
+      goal: { regularity: "day", frequency: 3 },
+    });
+
+    const goals = await db
+      .select()
+      .from(schema.goal)
+      .where(eq(schema.goal.habitId, habitId));
+    expect(goals).toHaveLength(1);
+    expect(goals[0].frequency).toBe(3);
+
+    const allSchedules = await db.select().from(schema.schedule);
+    expect(allSchedules).toHaveLength(0);
+  });
+
+  it("deleting goal cascades to schedules", async () => {
+    const db = getDb();
+    const { habitId } = (await processCommand(db, {
+      type: "CreateHabit",
+      title: "Test",
+      goal: {
+        regularity: "week",
+        schedules: [
+          { hour: 9, minute: 0, dayOfWeek: 1 },
+          { hour: 9, minute: 0, dayOfWeek: 4 },
+        ],
+      },
+    })) as { habitId: number };
+
+    await processCommand(db, {
+      type: "UpdateHabit",
+      habitId,
+      goal: null,
+    });
+
+    const goals = await db
+      .select()
+      .from(schema.goal)
+      .where(eq(schema.goal.habitId, habitId));
+    expect(goals).toHaveLength(0);
+
+    const allSchedules = await db.select().from(schema.schedule);
+    expect(allSchedules).toHaveLength(0);
+  });
 });
 
 describe("DeleteHabit", () => {
@@ -225,6 +417,26 @@ describe("DeleteHabit", () => {
       .from(schema.checkIn)
       .where(eq(schema.checkIn.habitId, habitId));
     expect(checkIns).toHaveLength(0);
+  });
+
+  it("cascades to schedules when deleting habit", async () => {
+    const db = getDb();
+    const { habitId } = (await processCommand(db, {
+      type: "CreateHabit",
+      title: "Temp",
+      goal: {
+        regularity: "day",
+        schedules: [
+          { hour: 9, minute: 0 },
+          { hour: 18, minute: 30 },
+        ],
+      },
+    })) as { habitId: number };
+
+    await processCommand(db, { type: "DeleteHabit", habitId });
+
+    const allSchedules = await db.select().from(schema.schedule);
+    expect(allSchedules).toHaveLength(0);
   });
 });
 
@@ -398,6 +610,74 @@ describe("processCommand validation", () => {
 
     const logs = await db.select().from(schema.auditLog);
     expect(logs).toHaveLength(0);
+  });
+
+  it("rejects goal with neither frequency nor schedules", async () => {
+    const db = getDb();
+    await expect(
+      processCommand(db, {
+        type: "CreateHabit",
+        title: "X",
+        goal: { regularity: "day" },
+      }),
+    ).rejects.toThrow(ZodError);
+  });
+
+  it("rejects goal with both frequency and schedules", async () => {
+    const db = getDb();
+    await expect(
+      processCommand(db, {
+        type: "CreateHabit",
+        title: "X",
+        goal: {
+          regularity: "day",
+          frequency: 2,
+          schedules: [{ hour: 9, minute: 0 }],
+        },
+      }),
+    ).rejects.toThrow(ZodError);
+  });
+
+  it("rejects daily schedule with dayOfWeek", async () => {
+    const db = getDb();
+    await expect(
+      processCommand(db, {
+        type: "CreateHabit",
+        title: "X",
+        goal: {
+          regularity: "day",
+          schedules: [{ hour: 9, minute: 0, dayOfWeek: 1 }],
+        },
+      }),
+    ).rejects.toThrow(ZodError);
+  });
+
+  it("rejects weekly schedule without dayOfWeek", async () => {
+    const db = getDb();
+    await expect(
+      processCommand(db, {
+        type: "CreateHabit",
+        title: "X",
+        goal: {
+          regularity: "week",
+          schedules: [{ hour: 9, minute: 0 }],
+        },
+      }),
+    ).rejects.toThrow(ZodError);
+  });
+
+  it("rejects monthly schedule without dayOfMonth", async () => {
+    const db = getDb();
+    await expect(
+      processCommand(db, {
+        type: "CreateHabit",
+        title: "X",
+        goal: {
+          regularity: "month",
+          schedules: [{ hour: 9, minute: 0 }],
+        },
+      }),
+    ).rejects.toThrow(ZodError);
   });
 
   it("rejects zero frequency in goal", async () => {

@@ -1,5 +1,5 @@
 import { and, count, desc, eq, gte } from "drizzle-orm";
-import { checkIn, goal } from "@nag/schema";
+import { checkIn, goal, schedule } from "@nag/schema";
 import type { AnyDb } from "./db";
 
 export function goalForHabit(db: AnyDb, habitId: number) {
@@ -41,4 +41,17 @@ export function recentCheckIns(
     )
     .orderBy(desc(checkIn.timestamp))
     .limit(limit);
+}
+
+export function schedulesForGoal(db: AnyDb, goalId: number) {
+  return db
+    .select({
+      id: schedule.id,
+      hour: schedule.hour,
+      minute: schedule.minute,
+      dayOfWeek: schedule.dayOfWeek,
+      dayOfMonth: schedule.dayOfMonth,
+    })
+    .from(schedule)
+    .where(eq(schedule.goalId, goalId));
 }

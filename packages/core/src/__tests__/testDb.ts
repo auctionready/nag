@@ -31,6 +31,7 @@ export function setupTestDb(name: string): () => TestDb {
 
   beforeEach(async () => {
     await db.delete(schema.auditLog);
+    await db.delete(schema.schedule);
     await db.delete(schema.checkIn);
     await db.delete(schema.goal);
     await db.delete(schema.habit);

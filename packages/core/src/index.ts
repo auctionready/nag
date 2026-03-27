@@ -4,7 +4,12 @@ export {
   colorForRatio,
   tileColor,
 } from "./compliance";
-export { goalForHabit, checkInCount, recentCheckIns } from "./queries";
+export {
+  goalForHabit,
+  checkInCount,
+  recentCheckIns,
+  schedulesForGoal,
+} from "./queries";
 export { processCommand, type CommandResult } from "./commands/processor";
 export {
   Command,
