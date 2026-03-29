@@ -10,6 +10,7 @@
   "dependencies": {
     "@nag/core": "workspace:*",
     "@nag/schema": "workspace:*",
+    "@react-native-community/datetimepicker": "8.6.0",
     "@react-navigation/material-top-tabs": "^7.4.22",
     "date-fns": "^4.1.0",
     "drizzle-orm": "catalog:",

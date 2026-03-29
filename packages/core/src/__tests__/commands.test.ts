@@ -93,24 +93,21 @@ describe("CreateHabit", () => {
     expect(schedules).toHaveLength(2);
     expect(schedules[0].hour).toBe(9);
     expect(schedules[0].minute).toBe(0);
-    expect(schedules[0].dayOfWeek).toBeNull();
+    expect(schedules[0].days).toBeNull();
     expect(schedules[0].dayOfMonth).toBeNull();
     expect(schedules[1].hour).toBe(14);
     expect(schedules[1].minute).toBe(30);
   });
 
-  it("creates a habit with weekly schedules", async () => {
+  it("creates a habit with weekly schedules using days bitmask", async () => {
     const db = getDb();
+    // Mon(2) + Wed(8) + Fri(32) = 42
     const result = await processCommand(db, {
       type: "CreateHabit",
       title: "Exercise",
       goal: {
         regularity: "week",
-        schedules: [
-          { hour: 7, minute: 0, dayOfWeek: 1 },
-          { hour: 7, minute: 0, dayOfWeek: 3 },
-          { hour: 10, minute: 0, dayOfWeek: 5 },
-        ],
+        schedules: [{ hour: 7, minute: 0, days: 42 }],
       },
     });
 
@@ -125,10 +122,8 @@ describe("CreateHabit", () => {
       .select()
       .from(schema.schedule)
       .where(eq(schema.schedule.goalId, goals[0].id));
-    expect(schedules).toHaveLength(3);
-    expect(schedules[0].dayOfWeek).toBe(1);
-    expect(schedules[1].dayOfWeek).toBe(3);
-    expect(schedules[2].dayOfWeek).toBe(5);
+    expect(schedules).toHaveLength(1);
+    expect(schedules[0].days).toBe(42);
   });
 
   it("creates a habit with monthly schedules", async () => {
@@ -363,10 +358,8 @@ describe("UpdateHabit", () => {
       title: "Test",
       goal: {
         regularity: "week",
-        schedules: [
-          { hour: 9, minute: 0, dayOfWeek: 1 },
-          { hour: 9, minute: 0, dayOfWeek: 4 },
-        ],
+        // Mon(2) + Thu(16) = 18
+        schedules: [{ hour: 9, minute: 0, days: 18 }],
       },
     });
 
@@ -642,7 +635,7 @@ describe("processCommand validation", () => {
     ).rejects.toThrow(ZodError);
   });
 
-  it("rejects daily schedule with dayOfWeek", async () => {
+  it("rejects daily schedule with days", async () => {
     const db = getDb();
     await expect(
       processCommand(db, {
@@ -650,13 +643,13 @@ describe("processCommand validation", () => {
         title: "X",
         goal: {
           regularity: "day",
-          schedules: [{ hour: 9, minute: 0, dayOfWeek: 1 }],
+          schedules: [{ hour: 9, minute: 0, days: 2 }],
         },
       }),
     ).rejects.toThrow(ZodError);
   });
 
-  it("rejects weekly schedule without dayOfWeek", async () => {
+  it("rejects weekly schedule without days", async () => {
     const db = getDb();
     await expect(
       processCommand(db, {

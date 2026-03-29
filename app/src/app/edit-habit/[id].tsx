@@ -30,22 +30,22 @@ export default function EditHabitScreen() {
   const initialValues = useMemo<Partial<HabitFormData> | undefined>(() => {
     if (!habitData || !schedulesReady) return undefined;
     const hasSchedules = scheduleData && scheduleData.length > 0;
+
+    // If DB regularity is "week" and has schedules, show as "scheduled" in the form
+    const isScheduled = goalData?.regularity === "week" && hasSchedules;
+
     return {
       title: habitData.title,
       description: habitData.description ?? "",
-      regularity: goalData?.regularity ?? "none",
+      regularity: isScheduled ? "scheduled" : (goalData?.regularity ?? "none"),
       frequency: goalData ? String(goalData.frequency) : "1",
-      goalMode: hasSchedules ? "scheduled" : "frequency",
       schedules: hasSchedules
         ? scheduleData.map((s) => ({
             hour: String(s.hour),
             minute: String(s.minute).padStart(2, "0"),
-            ...(s.dayOfWeek != null ? { dayOfWeek: String(s.dayOfWeek) } : {}),
-            ...(s.dayOfMonth != null
-              ? { dayOfMonth: String(s.dayOfMonth) }
-              : {}),
+            ...(s.days != null ? { days: s.days } : {}),
           }))
-        : [{ hour: "9", minute: "00" }],
+        : [{ hour: "9", minute: "00", days: 0 }],
     };
   }, [habitData, goalData, schedulesReady, scheduleData]);
 

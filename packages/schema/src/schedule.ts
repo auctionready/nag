@@ -11,7 +11,7 @@ export const schedule = sqliteTable(
       .references(() => goal.id, { onDelete: "cascade" }),
     hour: integer("hour").notNull(),
     minute: integer("minute").notNull(),
-    dayOfWeek: integer("day_of_week"),
+    days: integer("days"),
     dayOfMonth: integer("day_of_month"),
     createdAt: isoTimestamp("created_at")
       .notNull()

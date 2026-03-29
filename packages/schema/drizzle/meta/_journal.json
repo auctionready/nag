@@ -43,6 +43,13 @@
       "when": 1774576792823,
       "tag": "0005_conscious_wonder_man",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1743235200000,
+      "tag": "0006_replace_day_of_week_with_days",
+      "breakpoints": true
     }
   ]
 }

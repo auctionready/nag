@@ -4,7 +4,7 @@ import { regularityValues } from "@nag/schema";
 const ScheduleEntry = z.object({
   hour: z.int().min(0).max(23),
   minute: z.int().min(0).max(59),
-  dayOfWeek: z.int().min(0).max(6).optional(),
+  days: z.int().min(1).max(127).optional(),
   dayOfMonth: z.int().min(1).max(31).optional(),
 });
 
@@ -30,11 +30,11 @@ const GoalPayload = z
     if (data.schedules) {
       for (const [i, entry] of data.schedules.entries()) {
         if (data.regularity === "day") {
-          if (entry.dayOfWeek !== undefined) {
+          if (entry.days !== undefined) {
             ctx.addIssue({
               code: z.ZodIssueCode.custom,
-              message: `schedules[${i}]: daily schedules must not have dayOfWeek`,
-              path: ["schedules", i, "dayOfWeek"],
+              message: `schedules[${i}]: daily schedules must not have days`,
+              path: ["schedules", i, "days"],
             });
           }
           if (entry.dayOfMonth !== undefined) {
@@ -46,11 +46,11 @@ const GoalPayload = z
           }
         }
         if (data.regularity === "week") {
-          if (entry.dayOfWeek === undefined) {
+          if (entry.days === undefined) {
             ctx.addIssue({
               code: z.ZodIssueCode.custom,
-              message: `schedules[${i}]: dayOfWeek is required for weekly schedules`,
-              path: ["schedules", i, "dayOfWeek"],
+              message: `schedules[${i}]: days is required for weekly schedules`,
+              path: ["schedules", i, "days"],
             });
           }
           if (entry.dayOfMonth !== undefined) {
@@ -69,11 +69,11 @@ const GoalPayload = z
               path: ["schedules", i, "dayOfMonth"],
             });
           }
-          if (entry.dayOfWeek !== undefined) {
+          if (entry.days !== undefined) {
             ctx.addIssue({
               code: z.ZodIssueCode.custom,
-              message: `schedules[${i}]: monthly schedules must not have dayOfWeek`,
-              path: ["schedules", i, "dayOfWeek"],
+              message: `schedules[${i}]: monthly schedules must not have days`,
+              path: ["schedules", i, "days"],
             });
           }
         }
