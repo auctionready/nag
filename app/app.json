@@ -14,9 +14,27 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.nag.app"
+      "bundleIdentifier": "com.auctionready.nag.app",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "platforms": ["ios"],
-    "plugins": ["@react-native-community/datetimepicker"]
+    "plugins": [
+      "@react-native-community/datetimepicker",
+      [
+        "expo-notifications",
+        {
+          "mode": "development"
+        }
+      ],
+      "expo-router"
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "bc1ee86a-bc83-4f06-aa4f-d4f757d18e55"
+      }
+    },
+    "owner": "nag-stable"
   }
 }
