@@ -47,7 +47,7 @@
     {
       "idx": 6,
       "version": "6",
-      "when": 1743235200000,
+      "when": 1774580000000,
       "tag": "0006_replace_day_of_week_with_days",
       "breakpoints": true
     }
