@@ -83,7 +83,7 @@ export function schedulesForGoal(db: AnyDb, goalId: number) {
       id: schedule.id,
       hour: schedule.hour,
       minute: schedule.minute,
-      dayOfWeek: schedule.dayOfWeek,
+      days: schedule.days,
       dayOfMonth: schedule.dayOfMonth,
     })
     .from(schedule)

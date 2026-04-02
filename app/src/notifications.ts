@@ -3,12 +3,14 @@ import * as Notifications from "expo-notifications";
 interface ScheduleEntry {
   hour: number;
   minute: number;
-  dayOfWeek?: number;
+  days?: number;
   dayOfMonth?: number;
 }
 
-function notificationId(habitId: number, index: number): string {
-  return `habit-${habitId}-${index}`;
+function notificationId(habitId: number, index: number, dow?: number): string {
+  return dow !== undefined
+    ? `habit-${habitId}-${index}-${dow}`
+    : `habit-${habitId}-${index}`;
 }
 
 async function requestPermissions(): Promise<boolean> {
@@ -40,42 +42,45 @@ export async function syncNotifications(
   const { SchedulableTriggerInputTypes } = Notifications;
 
   for (const [i, entry] of schedules.entries()) {
-    let trigger:
-      | Notifications.DailyTriggerInput
-      | Notifications.WeeklyTriggerInput
-      | Notifications.MonthlyTriggerInput;
-
     if (regularity === "day") {
-      trigger = {
-        type: SchedulableTriggerInputTypes.DAILY,
-        hour: entry.hour,
-        minute: entry.minute,
-      };
+      await Notifications.scheduleNotificationAsync({
+        identifier: notificationId(habitId, i),
+        content: { title, body: `Time for ${title}` },
+        trigger: {
+          type: SchedulableTriggerInputTypes.DAILY,
+          hour: entry.hour,
+          minute: entry.minute,
+        },
+      });
     } else if (regularity === "week") {
-      // expo-notifications weekday: 1=Sunday, 2=Monday, etc.
-      // our dayOfWeek: 0=Sunday, 1=Monday, etc.
-      trigger = {
-        type: SchedulableTriggerInputTypes.WEEKLY,
-        hour: entry.hour,
-        minute: entry.minute,
-        weekday: entry.dayOfWeek! + 1,
-      };
+      const days = entry.days ?? 0;
+      for (let dow = 0; dow < 7; dow++) {
+        if (days & (1 << dow)) {
+          await Notifications.scheduleNotificationAsync({
+            identifier: notificationId(habitId, i, dow),
+            content: { title, body: `Time for ${title}` },
+            trigger: {
+              type: SchedulableTriggerInputTypes.WEEKLY,
+              hour: entry.hour,
+              minute: entry.minute,
+              // expo-notifications weekday: 1=Sunday, 2=Monday, etc.
+              // our days bitmask: bit 0=Sunday, bit 1=Monday, etc.
+              weekday: dow + 1,
+            },
+          });
+        }
+      }
     } else {
-      trigger = {
-        type: SchedulableTriggerInputTypes.MONTHLY,
-        hour: entry.hour,
-        minute: entry.minute,
-        day: entry.dayOfMonth!,
-      };
+      await Notifications.scheduleNotificationAsync({
+        identifier: notificationId(habitId, i),
+        content: { title, body: `Time for ${title}` },
+        trigger: {
+          type: SchedulableTriggerInputTypes.MONTHLY,
+          hour: entry.hour,
+          minute: entry.minute,
+          day: entry.dayOfMonth!,
+        },
+      });
     }
-
-    await Notifications.scheduleNotificationAsync({
-      identifier: notificationId(habitId, i),
-      content: {
-        title,
-        body: `Time for ${title}`,
-      },
-      trigger,
-    });
   }
 }

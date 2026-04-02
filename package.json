@@ -4,6 +4,7 @@
   "type": "module",
   "scripts": {
     "clean": "tsc -b --clean",
+    "dev": "pnpm typecheck && pnpm lint",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "format": "prettier --write .",

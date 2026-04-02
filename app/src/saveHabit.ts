@@ -6,18 +6,13 @@ import { syncNotifications, cancelNotifications } from "./notifications";
 function buildGoalPayload(values: HabitFormData) {
   if (values.regularity === "none") return undefined;
 
-  if (values.goalMode === "scheduled") {
+  if (values.regularity === "scheduled") {
     return {
-      regularity: values.regularity,
+      regularity: "week" as const,
       schedules: values.schedules.map((s) => ({
         hour: Number(s.hour),
         minute: Number(s.minute),
-        ...(values.regularity === "week"
-          ? { dayOfWeek: Number(s.dayOfWeek) }
-          : {}),
-        ...(values.regularity === "month"
-          ? { dayOfMonth: Number(s.dayOfMonth) }
-          : {}),
+        days: s.days,
       })),
     };
   }
