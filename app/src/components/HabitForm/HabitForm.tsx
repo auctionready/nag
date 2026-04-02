@@ -1,6 +1,5 @@
 import {
   Alert,
-  Modal,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -9,80 +8,20 @@ import {
   View,
 } from "react-native";
 import { useForm, Controller, useFieldArray } from "react-hook-form";
-import { useCallback, useEffect, useMemo, useState } from "react";
-import DateTimePicker from "@react-native-community/datetimepicker";
-import type { Regularity } from "@nag/schema";
-
-type FormRegularity = Regularity | "none" | "scheduled";
-
-type ScheduleEntry = {
-  hour: string;
-  minute: string;
-  days?: number;
-};
-
-export type HabitFormData = {
-  title: string;
-  description: string;
-  regularity: FormRegularity;
-  frequency: string;
-  schedules: ScheduleEntry[];
-};
-
-export interface HabitFormProps {
-  initialValues?: Partial<HabitFormData>;
-  onSubmit: (data: HabitFormData) => Promise<void>;
-  onDelete?: () => void;
-}
-
-const defaultValues: HabitFormData = {
-  title: "",
-  description: "",
-  regularity: "none",
-  frequency: "1",
-  schedules: [{ hour: "9", minute: "00", days: 127 }],
-};
-
-const formRegularityValues: FormRegularity[] = [
-  "none",
-  "day",
-  "week",
-  "month",
-  "scheduled",
-];
-const regularityLabels: Record<FormRegularity, string> = {
-  none: "Ad-hoc",
-  day: "Daily",
-  week: "Weekly",
-  month: "Monthly",
-  scheduled: "Scheduled",
-};
-
-const dayLabels = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-
-function timeFromStrings(hour: string, minute: string): Date {
-  const d = new Date();
-  d.setHours(Number(hour) || 9, Number(minute) || 0, 0, 0);
-  return d;
-}
-
-function formatTime(hour: string, minute: string): string {
-  const h = Number(hour) || 9;
-  const m = String(Number(minute) || 0).padStart(2, "0");
-  const period = h >= 12 ? "PM" : "AM";
-  const h12 = h % 12 || 12;
-  return `${h12}:${m} ${period}`;
-}
-
-function formatDays(days: number): string {
-  if (days === 0) return "No days";
-  if (days === 127) return "Every day";
-  const selected: string[] = [];
-  for (let i = 0; i < 7; i++) {
-    if (days & (1 << i)) selected.push(dayLabels[i]);
-  }
-  return selected.join(", ");
-}
+import { useEffect, useState } from "react";
+import {
+  defaultValues,
+  formRegularityValues,
+  regularityLabels,
+  type FormRegularity,
+  type HabitFormData,
+  type HabitFormProps,
+} from "./shared";
+import { AllDays, NoDays } from "./days";
+import { ScheduleEntrySummary } from "./ScheduleEntrySummary";
+import { ScheduleEditorModal } from "./ScheduleEditorModal";
+import { ErrorText } from "./ErrorText";
+import { SaveButton } from "./SaveButton";
 
 export function HabitForm({
   initialValues,
@@ -106,7 +45,11 @@ export function HabitForm({
   });
   const watchedRegularity = watch("regularity");
   const [editingIndex, setEditingIndex] = useState(-1);
-  const [draft, setDraft] = useState<ScheduleEntry | null>(null);
+  const [draft, setDraft] = useState<{
+    hour: string;
+    minute: string;
+    days?: number;
+  } | null>(null);
 
   useEffect(() => {
     if (initialValues) {
@@ -129,10 +72,10 @@ export function HabitForm({
       setEditingIndex(-1);
       setDraft(null);
       if (newValue === "scheduled" && schedules.length === 0) {
-        setValue("schedules", [{ hour: "9", minute: "00", days: 127 }]);
+        setValue("schedules", [{ hour: "9", minute: "00", days: AllDays }]);
       }
       if (hadSchedules && newValue !== "scheduled") {
-        setValue("schedules", [{ hour: "9", minute: "00", days: 127 }]);
+        setValue("schedules", [{ hour: "9", minute: "00", days: AllDays }]);
       }
     };
 
@@ -157,7 +100,7 @@ export function HabitForm({
   };
 
   const commitDraft = () => {
-    if (!draft || !draft.days || draft.days === 0) return false;
+    if (!draft || !draft.days || draft.days === NoDays) return false;
     setValue(`schedules.${editingIndex}.hour`, draft.hour);
     setValue(`schedules.${editingIndex}.minute`, draft.minute);
     setValue(`schedules.${editingIndex}.days`, draft.days);
@@ -167,10 +110,9 @@ export function HabitForm({
   };
 
   const cancelDraft = () => {
-    // If this was a new entry with no days, remove it
     if (editingIndex >= 0) {
       const entry = getValues(`schedules.${editingIndex}`);
-      if (!entry.days || entry.days === 0) {
+      if (!entry.days || entry.days === NoDays) {
         remove(editingIndex);
       }
     }
@@ -183,8 +125,8 @@ export function HabitForm({
   };
 
   const addEntry = () => {
-    append({ hour: "9", minute: "00", days: 0 });
-    setDraft({ hour: "9", minute: "00", days: 0 });
+    append({ hour: "9", minute: "00", days: AllDays });
+    setDraft({ hour: "9", minute: "00", days: AllDays });
     setEditingIndex(fields.length);
   };
 
@@ -210,9 +152,7 @@ export function HabitForm({
             />
           )}
         />
-        {errors.title && (
-          <Text style={styles.error}>{errors.title.message}</Text>
-        )}
+        {errors.title && <ErrorText>{errors.title.message}</ErrorText>}
 
         <Controller
           control={control}
@@ -235,7 +175,7 @@ export function HabitForm({
           )}
         />
         {errors.description && (
-          <Text style={styles.error}>{errors.description.message}</Text>
+          <ErrorText>{errors.description.message}</ErrorText>
         )}
 
         <View style={styles.goalSection}>
@@ -323,9 +263,7 @@ export function HabitForm({
       </ScrollView>
 
       <View style={styles.bottomButtons}>
-        <Pressable style={styles.saveButton} onPress={handleSubmit(onSubmit)}>
-          <Text style={styles.saveButtonText}>Save</Text>
-        </Pressable>
+        <SaveButton onPress={handleSubmit(onSubmit)} />
 
         {onDelete && (
           <Pressable style={styles.deleteButton} onPress={onDelete}>
@@ -349,157 +287,6 @@ export function HabitForm({
         />
       )}
     </View>
-  );
-}
-
-function ScheduleEntrySummary({
-  index,
-  watch,
-  canRemove,
-  onEdit,
-  onRemove,
-}: {
-  index: number;
-  watch: any;
-  canRemove: boolean;
-  onEdit: () => void;
-  onRemove: () => void;
-}) {
-  const hour = watch(`schedules.${index}.hour`);
-  const minute = watch(`schedules.${index}.minute`);
-  const days = watch(`schedules.${index}.days`) ?? 0;
-
-  return (
-    <View style={styles.summaryRow}>
-      <Pressable style={styles.summaryContent} onPress={onEdit}>
-        <Text style={styles.summaryText}>
-          {formatDays(days)} · {formatTime(hour, minute)}
-        </Text>
-      </Pressable>
-      {canRemove && (
-        <Pressable style={styles.removeButton} onPress={onRemove}>
-          <Text style={styles.removeButtonText}>Remove</Text>
-        </Pressable>
-      )}
-    </View>
-  );
-}
-
-function ScheduleEditorModal({
-  draft,
-  onDraftChange,
-  onCommit,
-  onCancel,
-  canRemove,
-  onRemove,
-}: {
-  draft: ScheduleEntry;
-  onDraftChange: (d: ScheduleEntry) => void;
-  onCommit: () => boolean;
-  onCancel: () => void;
-  canRemove: boolean;
-  onRemove: () => void;
-}) {
-  const [validationError, setValidationError] = useState<string | null>(null);
-
-  const timeValue = useMemo(
-    () => timeFromStrings(draft.hour, draft.minute),
-    [draft.hour, draft.minute],
-  );
-
-  const onTimeChange = useCallback(
-    (_: any, date?: Date) => {
-      if (!date) return;
-      onDraftChange({
-        ...draft,
-        hour: String(date.getHours()),
-        minute: String(date.getMinutes()).padStart(2, "0"),
-      });
-    },
-    [draft, onDraftChange],
-  );
-
-  const toggleDay = useCallback(
-    (dow: number) => {
-      const bit = 1 << dow;
-      const newDays = (draft.days ?? 0) ^ bit;
-      onDraftChange({ ...draft, days: newDays });
-      setValidationError(null);
-    },
-    [draft, onDraftChange],
-  );
-
-  const handleDone = () => {
-    if (!draft.days || draft.days === 0) {
-      setValidationError("Select at least one day");
-      return;
-    }
-    onCommit();
-  };
-
-  return (
-    <Modal visible animationType="slide" transparent>
-      <View style={styles.modalOverlay}>
-        <View style={styles.modalContent}>
-          <Text style={styles.modalTitle}>Edit Schedule</Text>
-
-          <View style={styles.daysRow}>
-            {dayLabels.map((label, dow) => {
-              const bit = 1 << dow;
-              const checked = (draft.days ?? 0) & bit;
-              return (
-                <Pressable
-                  key={dow}
-                  style={[
-                    styles.dayTile,
-                    checked ? styles.dayTileActive : null,
-                  ]}
-                  onPress={() => toggleDay(dow)}
-                >
-                  <Text
-                    style={[
-                      styles.dayTileText,
-                      checked ? styles.dayTileTextActive : null,
-                    ]}
-                  >
-                    {label}
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </View>
-
-          {validationError && (
-            <Text style={styles.error}>{validationError}</Text>
-          )}
-
-          <DateTimePicker
-            value={timeValue}
-            mode="time"
-            display="spinner"
-            onChange={onTimeChange}
-            style={styles.timePicker}
-          />
-
-          <View style={styles.modalActions}>
-            <Pressable style={styles.doneButton} onPress={handleDone}>
-              <Text style={styles.doneButtonText}>Done</Text>
-            </Pressable>
-            <Pressable style={styles.cancelButton} onPress={onCancel}>
-              <Text style={styles.cancelButtonText}>Cancel</Text>
-            </Pressable>
-            {canRemove && (
-              <Pressable
-                style={[styles.removeButton, { marginLeft: "auto" }]}
-                onPress={onRemove}
-              >
-                <Text style={styles.removeButtonText}>Remove</Text>
-              </Pressable>
-            )}
-          </View>
-        </View>
-      </View>
-    </Modal>
   );
 }
 
@@ -540,11 +327,6 @@ const styles = StyleSheet.create({
   inputError: {
     borderColor: "#ff3b30",
   },
-  error: {
-    color: "#ff3b30",
-    fontSize: 12,
-    marginTop: 4,
-  },
   goalSection: {
     marginTop: 8,
     gap: 12,
@@ -580,17 +362,6 @@ const styles = StyleSheet.create({
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: "#ccc",
   },
-  saveButton: {
-    backgroundColor: "#007AFF",
-    padding: 16,
-    borderRadius: 8,
-    alignItems: "center",
-  },
-  saveButtonText: {
-    color: "#fff",
-    fontSize: 16,
-    fontWeight: "600",
-  },
   deleteButton: {
     padding: 16,
     borderRadius: 8,
@@ -601,74 +372,6 @@ const styles = StyleSheet.create({
   deleteButtonText: {
     color: "#ff3b30",
     fontSize: 16,
-    fontWeight: "600",
-  },
-  summaryRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    padding: 12,
-    borderWidth: 1,
-    borderColor: "#e0e0e0",
-    borderRadius: 8,
-  },
-  summaryContent: {
-    flex: 1,
-  },
-  summaryText: {
-    fontSize: 15,
-    color: "#333",
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.4)",
-    justifyContent: "flex-end",
-  },
-  modalContent: {
-    backgroundColor: "#fff",
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
-    padding: 20,
-    gap: 16,
-  },
-  modalTitle: {
-    fontSize: 17,
-    fontWeight: "600",
-    textAlign: "center",
-  },
-  modalActions: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-  },
-  timePicker: {
-    height: 150,
-  },
-  doneButton: {
-    backgroundColor: "#007AFF",
-    borderRadius: 8,
-    paddingVertical: 10,
-    paddingHorizontal: 24,
-  },
-  doneButtonText: {
-    color: "#fff",
-    fontSize: 16,
-    fontWeight: "600",
-  },
-  cancelButton: {
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-  },
-  cancelButtonText: {
-    color: "#666",
-    fontSize: 16,
-  },
-  removeButton: {
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-  },
-  removeButtonText: {
-    color: "#ff3b30",
-    fontSize: 14,
     fontWeight: "600",
   },
   addTimeButton: {
@@ -683,29 +386,5 @@ const styles = StyleSheet.create({
     color: "#007AFF",
     fontSize: 14,
     fontWeight: "600",
-  },
-  daysRow: {
-    flexDirection: "row",
-    gap: 4,
-  },
-  dayTile: {
-    flex: 1,
-    paddingVertical: 8,
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: "#ccc",
-    alignItems: "center",
-  },
-  dayTileActive: {
-    backgroundColor: "#007AFF",
-    borderColor: "#007AFF",
-  },
-  dayTileText: {
-    fontSize: 12,
-    fontWeight: "600",
-    color: "#333",
-  },
-  dayTileTextActive: {
-    color: "#fff",
   },
 });
