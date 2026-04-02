@@ -1,0 +1,12 @@
+appId: com.auctionready.nag.app
+---
+- launchApp
+- tapOn:
+    text: "Continue"
+    optional: true
+- assertVisible: "You have no habits set"
+- tapOn: "Create Habit"
+- tapOn: "e.g. Exercise"
+- inputText: "Morning Run"
+- tapOn: "Save"
+- assertVisible: "Morning Run"
