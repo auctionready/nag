@@ -17,7 +17,8 @@
       "bundleIdentifier": "com.auctionready.nag.app",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
-      }
+      },
+      "appleTeamId": "6Q5W7X56R9"
     },
     "platforms": ["ios"],
     "plugins": [
@@ -28,7 +29,8 @@
           "mode": "development"
         }
       ],
-      "expo-router"
+      "expo-router",
+      "expo-sqlite"
     ],
     "extra": {
       "eas": {
