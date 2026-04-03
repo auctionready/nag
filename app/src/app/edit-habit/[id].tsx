@@ -44,8 +44,9 @@ export default function EditHabitScreen() {
             hour: String(s.hour),
             minute: String(s.minute).padStart(2, "0"),
             ...(s.days != null ? { days: s.days } : {}),
+            reminder: s.reminder !== false,
           }))
-        : [{ hour: "9", minute: "00", days: 0 }],
+        : [{ hour: "9", minute: "00", days: 0, reminder: true }],
     };
   }, [habitData, goalData, schedulesReady, scheduleData]);
 

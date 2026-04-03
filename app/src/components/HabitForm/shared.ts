@@ -7,6 +7,7 @@ export type ScheduleEntry = {
   hour: string;
   minute: string;
   days?: number;
+  reminder?: boolean;
 };
 
 export type HabitFormData = {
@@ -28,7 +29,7 @@ export const defaultValues: HabitFormData = {
   description: "",
   regularity: "none",
   frequency: "1",
-  schedules: [{ hour: "9", minute: "00", days: AllDays }],
+  schedules: [{ hour: "9", minute: "00", days: AllDays, reminder: true }],
 };
 
 export const formRegularityValues: FormRegularity[] = [

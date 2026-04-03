@@ -85,6 +85,7 @@ export function schedulesForGoal(db: AnyDb, goalId: number) {
       minute: schedule.minute,
       days: schedule.days,
       dayOfMonth: schedule.dayOfMonth,
+      reminder: schedule.reminder,
     })
     .from(schedule)
     .where(eq(schedule.goalId, goalId));

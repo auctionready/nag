@@ -53,6 +53,7 @@ export async function handleUpdateHabit(
           minute: s.minute,
           days: s.days ?? null,
           dayOfMonth: s.dayOfMonth ?? null,
+          reminder: s.reminder ?? true,
         })),
       );
     }

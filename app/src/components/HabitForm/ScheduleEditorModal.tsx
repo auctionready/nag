@@ -1,4 +1,4 @@
-import { Modal, Pressable, StyleSheet, Text, View } from "react-native";
+import { Modal, Pressable, StyleSheet, Switch, Text, View } from "react-native";
 import DateTimePicker, {
   type DateTimePickerEvent,
 } from "@react-native-community/datetimepicker";
@@ -92,6 +92,14 @@ export function ScheduleEditorModal({
 
           {validationError && <ErrorText>{validationError}</ErrorText>}
 
+          <View style={styles.reminderRow}>
+            <Text style={styles.reminderLabel}>Reminder</Text>
+            <Switch
+              value={draft.reminder !== false}
+              onValueChange={(v) => onDraftChange({ ...draft, reminder: v })}
+            />
+          </View>
+
           <DateTimePicker
             value={timeValue}
             mode="time"
@@ -163,6 +171,15 @@ const styles = StyleSheet.create({
   cancelButtonText: {
     color: "#666",
     fontSize: 16,
+  },
+  reminderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  reminderLabel: {
+    fontSize: 15,
+    color: "#333",
   },
   daysRow: {
     flexDirection: "row",
