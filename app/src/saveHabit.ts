@@ -13,6 +13,7 @@ function buildGoalPayload(values: HabitFormData) {
         hour: Number(s.hour),
         minute: Number(s.minute),
         days: s.days,
+        reminder: s.reminder !== false,
       })),
     };
   }
@@ -33,12 +34,17 @@ export async function createHabit(values: HabitFormData) {
   });
 
   if (goal?.schedules) {
-    await syncNotifications(
-      habitId,
-      values.title,
-      goal.schedules,
-      goal.regularity,
+    const notificationSchedules = goal.schedules.filter(
+      (s) => s.reminder !== false,
     );
+    if (notificationSchedules.length > 0) {
+      await syncNotifications(
+        habitId,
+        values.title,
+        notificationSchedules,
+        goal.regularity,
+      );
+    }
   }
 
   return { habitId };
@@ -55,12 +61,19 @@ export async function updateHabit(habitId: number, values: HabitFormData) {
   });
 
   if (goal?.schedules) {
-    await syncNotifications(
-      habitId,
-      values.title,
-      goal.schedules,
-      goal.regularity,
+    const notificationSchedules = goal.schedules.filter(
+      (s) => s.reminder !== false,
     );
+    if (notificationSchedules.length > 0) {
+      await syncNotifications(
+        habitId,
+        values.title,
+        notificationSchedules,
+        goal.regularity,
+      );
+    } else {
+      await cancelNotifications(habitId);
+    }
   } else {
     await cancelNotifications(habitId);
   }

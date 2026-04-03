@@ -16,8 +16,9 @@ import {
   type FormRegularity,
   type HabitFormData,
   type HabitFormProps,
+  type ScheduleEntry,
 } from "./shared";
-import { AllDays, NoDays } from "./days";
+import { AllDays } from "./days";
 import { ScheduleEntrySummary } from "./ScheduleEntrySummary";
 import { ScheduleEditorModal } from "./ScheduleEditorModal";
 import { ErrorText } from "./ErrorText";
@@ -45,17 +46,13 @@ export function HabitForm({
   });
   const watchedRegularity = watch("regularity");
   const [editingIndex, setEditingIndex] = useState(-1);
-  const [draft, setDraft] = useState<{
-    hour: string;
-    minute: string;
-    days?: number;
-  } | null>(null);
+  const [isNewEntry, setIsNewEntry] = useState(false);
 
   useEffect(() => {
     if (initialValues) {
       reset({ ...defaultValues, ...initialValues });
+      setIsNewEntry(false);
       setEditingIndex(-1);
-      setDraft(null);
     }
   }, [initialValues, reset]);
 
@@ -69,8 +66,8 @@ export function HabitForm({
 
     const apply = () => {
       onChange(newValue);
+      setIsNewEntry(false);
       setEditingIndex(-1);
-      setDraft(null);
       if (newValue === "scheduled" && schedules.length === 0) {
         setValue("schedules", [{ hour: "9", minute: "00", days: AllDays }]);
       }
@@ -94,30 +91,25 @@ export function HabitForm({
   };
 
   const openEditor = (index: number) => {
-    const entry = getValues(`schedules.${index}`);
-    setDraft({ ...entry });
     setEditingIndex(index);
   };
 
-  const commitDraft = () => {
-    if (!draft || !draft.days || draft.days === NoDays) return false;
-    setValue(`schedules.${editingIndex}.hour`, draft.hour);
-    setValue(`schedules.${editingIndex}.minute`, draft.minute);
-    setValue(`schedules.${editingIndex}.days`, draft.days);
+  const commitDraft = (data: ScheduleEntry) => {
+    if (isNewEntry) {
+      append(data);
+    } else {
+      setValue(`schedules.${editingIndex}.hour`, data.hour);
+      setValue(`schedules.${editingIndex}.minute`, data.minute);
+      setValue(`schedules.${editingIndex}.days`, data.days);
+      setValue(`schedules.${editingIndex}.reminder`, data.reminder);
+    }
+    setIsNewEntry(false);
     setEditingIndex(-1);
-    setDraft(null);
-    return true;
   };
 
   const cancelDraft = () => {
-    if (editingIndex >= 0) {
-      const entry = getValues(`schedules.${editingIndex}`);
-      if (!entry.days || entry.days === NoDays) {
-        remove(editingIndex);
-      }
-    }
+    setIsNewEntry(false);
     setEditingIndex(-1);
-    setDraft(null);
   };
 
   const removeEntry = (index: number) => {
@@ -125,8 +117,7 @@ export function HabitForm({
   };
 
   const addEntry = () => {
-    append({ hour: "9", minute: "00", days: AllDays });
-    setDraft({ hour: "9", minute: "00", days: AllDays });
+    setIsNewEntry(true);
     setEditingIndex(fields.length);
   };
 
@@ -249,9 +240,7 @@ export function HabitForm({
                   key={field.id}
                   index={index}
                   watch={watch}
-                  canRemove={fields.length > 1}
                   onEdit={() => openEditor(index)}
-                  onRemove={() => removeEntry(index)}
                 />
               ))}
               <Pressable style={styles.addTimeButton} onPress={addEntry}>
@@ -272,17 +261,21 @@ export function HabitForm({
         )}
       </View>
 
-      {draft && (
+      {(editingIndex >= 0 || isNewEntry) && (
         <ScheduleEditorModal
-          draft={draft}
-          onDraftChange={setDraft}
+          initialValues={
+            isNewEntry
+              ? { hour: "9", minute: "00", days: AllDays, reminder: true }
+              : getValues(`schedules.${editingIndex}`)
+          }
+          isNew={isNewEntry}
           onCommit={commitDraft}
           onCancel={cancelDraft}
-          canRemove={fields.length > 1}
+          canRemove={!isNewEntry && fields.length > 1}
           onRemove={() => {
             removeEntry(editingIndex);
+            setIsNewEntry(false);
             setEditingIndex(-1);
-            setDraft(null);
           }}
         />
       )}

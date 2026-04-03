@@ -85,19 +85,7 @@ export function HabitTile({ id, title }: HabitTileProps) {
   const router = useRouter();
   const scale = useRef(new Animated.Value(1)).current;
 
-  const longPress = Gesture.LongPress()
-    .minDuration(500)
-    .onStart(() => router.push(`/habit/${id}`));
-
-  const goal = useHabitGoalSummary(id);
-  const { checkInCount: count, recentCheckIns: recent } = useHabitCompliance(
-    id,
-    goal,
-  );
-
-  const color = tileColor(goal, count);
-
-  const handlePress = useCallback(async () => {
+  const handleCheckIn = useCallback(async () => {
     await processCommand(db, { type: "CreateCheckIn", habitId: id });
 
     Animated.sequence([
@@ -114,9 +102,26 @@ export function HabitTile({ id, title }: HabitTileProps) {
     ]).start();
   }, [id, scale]);
 
+  const longPress = Gesture.LongPress()
+    .minDuration(500)
+    .onStart(() => {
+      void handleCheckIn();
+    });
+
+  const goal = useHabitGoalSummary(id);
+  const { checkInCount: count, recentCheckIns: recent } = useHabitCompliance(
+    id,
+    goal,
+  );
+
+  const color = tileColor(goal, count);
+
   return (
     <GestureDetector gesture={longPress}>
-      <Pressable onPress={handlePress} style={styles.wrapper}>
+      <Pressable
+        onPress={() => router.push(`/habit/${id}`)}
+        style={styles.wrapper}
+      >
         <Animated.View
           style={[
             styles.tile,

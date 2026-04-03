@@ -13,6 +13,7 @@ export const schedule = sqliteTable(
     minute: integer("minute").notNull(),
     days: integer("days"),
     dayOfMonth: integer("day_of_month"),
+    reminder: integer("reminder", { mode: "boolean" }).notNull().default(true),
     createdAt: isoTimestamp("created_at")
       .notNull()
       .$defaultFn(() => new Date()),

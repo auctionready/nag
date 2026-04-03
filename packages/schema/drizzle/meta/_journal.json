@@ -50,6 +50,13 @@
       "when": 1774580000000,
       "tag": "0006_replace_day_of_week_with_days",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "6",
+      "when": 1743724800000,
+      "tag": "0007_add_reminder_to_schedule",
+      "breakpoints": true
     }
   ]
 }

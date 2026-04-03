@@ -1,20 +1,15 @@
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import type { UseFormWatch } from "react-hook-form";
 import { formatDays, formatTime, type HabitFormData } from "./shared";
-import { RemoveButton } from "./RemoveButton";
 
 export function ScheduleEntrySummary({
   index,
   watch,
-  canRemove,
   onEdit,
-  onRemove,
 }: {
   index: number;
   watch: UseFormWatch<HabitFormData>;
-  canRemove: boolean;
   onEdit: () => void;
-  onRemove: () => void;
 }) {
   const hour = watch(`schedules.${index}.hour`);
   const minute = watch(`schedules.${index}.minute`);
@@ -27,7 +22,6 @@ export function ScheduleEntrySummary({
           {formatDays(days)} · {formatTime(hour, minute)}
         </Text>
       </Pressable>
-      {canRemove && <RemoveButton onPress={onRemove} />}
     </View>
   );
 }

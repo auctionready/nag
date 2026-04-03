@@ -6,6 +6,7 @@ const ScheduleEntry = z.object({
   minute: z.int().min(0).max(59),
   days: z.int().min(1).max(127).optional(),
   dayOfMonth: z.int().min(1).max(31).optional(),
+  reminder: z.boolean().optional(),
 });
 
 const GoalPayload = z
