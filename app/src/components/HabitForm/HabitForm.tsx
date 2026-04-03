@@ -45,15 +45,18 @@ export function HabitForm({
   });
   const watchedRegularity = watch("regularity");
   const [editingIndex, setEditingIndex] = useState(-1);
+  const [isNewEntry, setIsNewEntry] = useState(false);
   const [draft, setDraft] = useState<{
     hour: string;
     minute: string;
     days?: number;
+    reminder?: boolean;
   } | null>(null);
 
   useEffect(() => {
     if (initialValues) {
       reset({ ...defaultValues, ...initialValues });
+      setIsNewEntry(false);
       setEditingIndex(-1);
       setDraft(null);
     }
@@ -69,6 +72,7 @@ export function HabitForm({
 
     const apply = () => {
       onChange(newValue);
+      setIsNewEntry(false);
       setEditingIndex(-1);
       setDraft(null);
       if (newValue === "scheduled" && schedules.length === 0) {
@@ -101,21 +105,27 @@ export function HabitForm({
 
   const commitDraft = () => {
     if (!draft || !draft.days || draft.days === NoDays) return false;
-    setValue(`schedules.${editingIndex}.hour`, draft.hour);
-    setValue(`schedules.${editingIndex}.minute`, draft.minute);
-    setValue(`schedules.${editingIndex}.days`, draft.days);
+    if (isNewEntry) {
+      append({
+        hour: draft.hour,
+        minute: draft.minute,
+        days: draft.days,
+        reminder: draft.reminder,
+      });
+    } else {
+      setValue(`schedules.${editingIndex}.hour`, draft.hour);
+      setValue(`schedules.${editingIndex}.minute`, draft.minute);
+      setValue(`schedules.${editingIndex}.days`, draft.days);
+      setValue(`schedules.${editingIndex}.reminder`, draft.reminder);
+    }
+    setIsNewEntry(false);
     setEditingIndex(-1);
     setDraft(null);
     return true;
   };
 
   const cancelDraft = () => {
-    if (editingIndex >= 0) {
-      const entry = getValues(`schedules.${editingIndex}`);
-      if (!entry.days || entry.days === NoDays) {
-        remove(editingIndex);
-      }
-    }
+    setIsNewEntry(false);
     setEditingIndex(-1);
     setDraft(null);
   };
@@ -125,8 +135,8 @@ export function HabitForm({
   };
 
   const addEntry = () => {
-    append({ hour: "9", minute: "00", days: AllDays });
-    setDraft({ hour: "9", minute: "00", days: AllDays });
+    setIsNewEntry(true);
+    setDraft({ hour: "9", minute: "00", days: AllDays, reminder: true });
     setEditingIndex(fields.length);
   };
 
@@ -249,9 +259,7 @@ export function HabitForm({
                   key={field.id}
                   index={index}
                   watch={watch}
-                  canRemove={fields.length > 1}
                   onEdit={() => openEditor(index)}
-                  onRemove={() => removeEntry(index)}
                 />
               ))}
               <Pressable style={styles.addTimeButton} onPress={addEntry}>
@@ -278,9 +286,10 @@ export function HabitForm({
           onDraftChange={setDraft}
           onCommit={commitDraft}
           onCancel={cancelDraft}
-          canRemove={fields.length > 1}
+          canRemove={!isNewEntry && fields.length > 1}
           onRemove={() => {
             removeEntry(editingIndex);
+            setIsNewEntry(false);
             setEditingIndex(-1);
             setDraft(null);
           }}
