@@ -16,8 +16,9 @@ import {
   type FormRegularity,
   type HabitFormData,
   type HabitFormProps,
+  type ScheduleEntry,
 } from "./shared";
-import { AllDays, NoDays } from "./days";
+import { AllDays } from "./days";
 import { ScheduleEntrySummary } from "./ScheduleEntrySummary";
 import { ScheduleEditorModal } from "./ScheduleEditorModal";
 import { ErrorText } from "./ErrorText";
@@ -46,19 +47,12 @@ export function HabitForm({
   const watchedRegularity = watch("regularity");
   const [editingIndex, setEditingIndex] = useState(-1);
   const [isNewEntry, setIsNewEntry] = useState(false);
-  const [draft, setDraft] = useState<{
-    hour: string;
-    minute: string;
-    days?: number;
-    reminder?: boolean;
-  } | null>(null);
 
   useEffect(() => {
     if (initialValues) {
       reset({ ...defaultValues, ...initialValues });
       setIsNewEntry(false);
       setEditingIndex(-1);
-      setDraft(null);
     }
   }, [initialValues, reset]);
 
@@ -74,7 +68,6 @@ export function HabitForm({
       onChange(newValue);
       setIsNewEntry(false);
       setEditingIndex(-1);
-      setDraft(null);
       if (newValue === "scheduled" && schedules.length === 0) {
         setValue("schedules", [{ hour: "9", minute: "00", days: AllDays }]);
       }
@@ -98,36 +91,25 @@ export function HabitForm({
   };
 
   const openEditor = (index: number) => {
-    const entry = getValues(`schedules.${index}`);
-    setDraft({ ...entry });
     setEditingIndex(index);
   };
 
-  const commitDraft = () => {
-    if (!draft || !draft.days || draft.days === NoDays) return false;
+  const commitDraft = (data: ScheduleEntry) => {
     if (isNewEntry) {
-      append({
-        hour: draft.hour,
-        minute: draft.minute,
-        days: draft.days,
-        reminder: draft.reminder,
-      });
+      append(data);
     } else {
-      setValue(`schedules.${editingIndex}.hour`, draft.hour);
-      setValue(`schedules.${editingIndex}.minute`, draft.minute);
-      setValue(`schedules.${editingIndex}.days`, draft.days);
-      setValue(`schedules.${editingIndex}.reminder`, draft.reminder);
+      setValue(`schedules.${editingIndex}.hour`, data.hour);
+      setValue(`schedules.${editingIndex}.minute`, data.minute);
+      setValue(`schedules.${editingIndex}.days`, data.days);
+      setValue(`schedules.${editingIndex}.reminder`, data.reminder);
     }
     setIsNewEntry(false);
     setEditingIndex(-1);
-    setDraft(null);
-    return true;
   };
 
   const cancelDraft = () => {
     setIsNewEntry(false);
     setEditingIndex(-1);
-    setDraft(null);
   };
 
   const removeEntry = (index: number) => {
@@ -136,7 +118,6 @@ export function HabitForm({
 
   const addEntry = () => {
     setIsNewEntry(true);
-    setDraft({ hour: "9", minute: "00", days: AllDays, reminder: true });
     setEditingIndex(fields.length);
   };
 
@@ -280,10 +261,14 @@ export function HabitForm({
         )}
       </View>
 
-      {draft && (
+      {(editingIndex >= 0 || isNewEntry) && (
         <ScheduleEditorModal
-          draft={draft}
-          onDraftChange={setDraft}
+          initialValues={
+            isNewEntry
+              ? { hour: "9", minute: "00", days: AllDays, reminder: true }
+              : getValues(`schedules.${editingIndex}`)
+          }
+          isNew={isNewEntry}
           onCommit={commitDraft}
           onCancel={cancelDraft}
           canRemove={!isNewEntry && fields.length > 1}
@@ -291,7 +276,6 @@ export function HabitForm({
             removeEntry(editingIndex);
             setIsNewEntry(false);
             setEditingIndex(-1);
-            setDraft(null);
           }}
         />
       )}
