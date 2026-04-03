@@ -84,6 +84,7 @@ const useHabitCompliance = (habitId: number, goal: HabitGoalSummary | null) => {
 export function HabitTile({ id, title }: HabitTileProps) {
   const router = useRouter();
   const scale = useRef(new Animated.Value(1)).current;
+  const didLongPress = useRef(false);
 
   const handleCheckIn = useCallback(async () => {
     await processCommand(db, { type: "CreateCheckIn", habitId: id });
@@ -105,6 +106,7 @@ export function HabitTile({ id, title }: HabitTileProps) {
   const longPress = Gesture.LongPress()
     .minDuration(500)
     .onStart(() => {
+      didLongPress.current = true;
       void handleCheckIn();
     });
 
@@ -119,7 +121,13 @@ export function HabitTile({ id, title }: HabitTileProps) {
   return (
     <GestureDetector gesture={longPress}>
       <Pressable
-        onPress={() => router.push(`/habit/${id}`)}
+        onPress={() => {
+          if (didLongPress.current) {
+            didLongPress.current = false;
+            return;
+          }
+          router.push(`/habit/${id}`);
+        }}
         style={styles.wrapper}
       >
         <Animated.View
