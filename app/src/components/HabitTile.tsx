@@ -33,9 +33,8 @@ const smallNumbers = [
   "nine",
 ];
 
-function formatCount(n: number): string {
-  return n < smallNumbers.length ? smallNumbers[n] : String(n);
-}
+const formatCount = (n: number): string =>
+  n < smallNumbers.length ? smallNumbers[n] : String(n);
 
 interface HabitTileProps {
   id: number;
@@ -81,7 +80,7 @@ const useHabitCompliance = (habitId: number, goal: HabitGoalSummary | null) => {
   };
 };
 
-export function HabitTile({ id, title }: HabitTileProps) {
+export const HabitTile = ({ id, title }: HabitTileProps) => {
   const router = useRouter();
   const scale = useRef(new Animated.Value(1)).current;
   const didLongPress = useRef(false);
@@ -160,7 +159,7 @@ export function HabitTile({ id, title }: HabitTileProps) {
       </Pressable>
     </GestureDetector>
   );
-}
+};
 
 const styles = StyleSheet.create({
   wrapper: {

@@ -1,12 +1,16 @@
 import { Pressable, StyleSheet, Text } from "react-native";
 
-export function RemoveButton({ onPress }: { onPress: () => void }) {
+interface RemoveButtonProps {
+  onPress: () => void;
+}
+
+export const RemoveButton = ({ onPress }: RemoveButtonProps) => {
   return (
     <Pressable style={styles.button} onPress={onPress}>
       <Text style={styles.text}>Remove</Text>
     </Pressable>
   );
-}
+};
 
 const styles = StyleSheet.create({
   button: {

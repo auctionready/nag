@@ -4,7 +4,7 @@ import { useLiveQuery } from "drizzle-orm/expo-sqlite";
 import { db } from "../db";
 import { allHabits } from "@nag/core";
 
-export default function AdminScreen() {
+export const AdminScreen = () => {
   const { data: habits } = useLiveQuery(allHabits(db));
 
   return (
@@ -39,7 +39,7 @@ export default function AdminScreen() {
       </Link>
     </View>
   );
-}
+};
 
 const styles = StyleSheet.create({
   container: {

@@ -6,7 +6,7 @@ import { db } from "../../db";
 import { allHabits } from "@nag/core";
 import { HabitTile } from "../../components/HabitTile";
 
-export default function BoardScreen() {
+export const BoardScreen = () => {
   const { data: habits } = useLiveQuery(allHabits(db));
 
   if (!habits) {
@@ -42,7 +42,7 @@ export default function BoardScreen() {
       </View>
     </ScrollView>
   );
-}
+};
 
 const styles = StyleSheet.create({
   container: {

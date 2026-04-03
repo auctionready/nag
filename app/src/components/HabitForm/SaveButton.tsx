@@ -1,12 +1,16 @@
 import { Pressable, StyleSheet, Text } from "react-native";
 
-export function SaveButton({ onPress }: { onPress: () => void }) {
+interface SaveButtonProps {
+  onPress: () => void;
+}
+
+export const SaveButton = ({ onPress }: SaveButtonProps) => {
   return (
     <Pressable style={styles.button} onPress={onPress}>
       <Text style={styles.text}>Save</Text>
     </Pressable>
   );
-}
+};
 
 const styles = StyleSheet.create({
   button: {

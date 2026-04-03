@@ -2,21 +2,23 @@ import { Modal, StyleSheet, Text, View } from "react-native";
 import { type ScheduleEntry } from "./shared";
 import { ScheduleEntryForm } from "./ScheduleEntryForm";
 
-export function ScheduleEditorModal({
-  initialValues,
-  isNew,
-  onCommit,
-  onCancel,
-  canRemove,
-  onRemove,
-}: {
+interface ScheduleEditorModalProps {
   initialValues: ScheduleEntry;
   isNew: boolean;
   onCommit: (data: ScheduleEntry) => void;
   onCancel: () => void;
   canRemove: boolean;
   onRemove: () => void;
-}) {
+}
+
+export const ScheduleEditorModal = ({
+  initialValues,
+  isNew,
+  onCommit,
+  onCancel,
+  canRemove,
+  onRemove,
+}: ScheduleEditorModalProps) => {
   return (
     <Modal visible animationType="slide" transparent>
       <View style={styles.overlay}>
@@ -34,7 +36,7 @@ export function ScheduleEditorModal({
       </View>
     </Modal>
   );
-}
+};
 
 const styles = StyleSheet.create({
   overlay: {

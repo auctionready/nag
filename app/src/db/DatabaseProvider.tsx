@@ -4,7 +4,7 @@ import { useMigrations } from "drizzle-orm/expo-sqlite/migrator";
 import { db } from "./index";
 import migrations from "@nag/schema/migrations";
 
-export function DatabaseProvider({ children }: PropsWithChildren) {
+export const DatabaseProvider = ({ children }: PropsWithChildren) => {
   const { success, error } = useMigrations(db, migrations);
 
   if (error) {
@@ -24,4 +24,4 @@ export function DatabaseProvider({ children }: PropsWithChildren) {
   }
 
   return <>{children}</>;
-}
+};

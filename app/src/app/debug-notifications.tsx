@@ -4,15 +4,15 @@ import * as Notifications from "expo-notifications";
 
 type ScheduledNotification = Notifications.NotificationRequest;
 
-export default function DebugNotificationsScreen() {
+export const DebugNotificationsScreen = () => {
   const [notifications, setNotifications] = useState<ScheduledNotification[]>(
     [],
   );
 
-  async function load() {
+  const load = async () => {
     const all = await Notifications.getAllScheduledNotificationsAsync();
     setNotifications(all);
-  }
+  };
 
   useEffect(() => {
     load();
@@ -43,7 +43,7 @@ export default function DebugNotificationsScreen() {
       </Pressable>
     </View>
   );
-}
+};
 
 const styles = StyleSheet.create({
   container: {

@@ -1,8 +1,8 @@
 import { useRouter } from "expo-router";
 import { HabitForm, type HabitFormData } from "../components/HabitForm";
-import { createHabit } from "../saveHabit";
+import { createHabit } from "../operations";
 
-export default function AddHabitScreen() {
+export const AddHabitScreen = () => {
   const router = useRouter();
 
   const onSubmit = async (values: HabitFormData) => {
@@ -11,4 +11,4 @@ export default function AddHabitScreen() {
   };
 
   return <HabitForm onSubmit={onSubmit} />;
-}
+};

@@ -7,18 +7,21 @@ interface ScheduleEntry {
   dayOfMonth?: number;
 }
 
-function notificationId(habitId: number, index: number, dow?: number): string {
-  return dow !== undefined
+const notificationId = (
+  habitId: number,
+  index: number,
+  dow?: number,
+): string =>
+  dow !== undefined
     ? `habit-${habitId}-${index}-${dow}`
     : `habit-${habitId}-${index}`;
-}
 
-async function requestPermissions(): Promise<boolean> {
+const requestPermissions = async (): Promise<boolean> => {
   const { status } = await Notifications.requestPermissionsAsync();
   return status === "granted";
-}
+};
 
-export async function cancelNotifications(habitId: number): Promise<void> {
+export const cancelNotifications = async (habitId: number): Promise<void> => {
   const all = await Notifications.getAllScheduledNotificationsAsync();
   const prefix = `habit-${habitId}-`;
   await Promise.all(
@@ -26,14 +29,14 @@ export async function cancelNotifications(habitId: number): Promise<void> {
       .filter((n) => n.identifier.startsWith(prefix))
       .map((n) => Notifications.cancelScheduledNotificationAsync(n.identifier)),
   );
-}
+};
 
-export async function syncNotifications(
+export const syncNotifications = async (
   habitId: number,
   title: string,
   schedules: ScheduleEntry[],
   regularity: "day" | "week" | "month",
-): Promise<void> {
+): Promise<void> => {
   const granted = await requestPermissions();
   if (!granted) return;
 
@@ -83,4 +86,4 @@ export async function syncNotifications(
       });
     }
   }
-}
+};

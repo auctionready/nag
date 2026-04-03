@@ -20,7 +20,7 @@ import {
   periodStart,
 } from "@nag/core";
 
-export default function HabitScreen() {
+export const HabitScreen = () => {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const habitId = Number(id);
@@ -136,7 +136,7 @@ export default function HabitScreen() {
       </View>
     </View>
   );
-}
+};
 
 const styles = StyleSheet.create({
   container: {

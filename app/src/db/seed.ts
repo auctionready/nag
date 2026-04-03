@@ -72,14 +72,14 @@ const sampleData: SeedEntry[] = [
 
 // ── Functions ────────────────────────────────────────────────────────
 
-export async function clearAll() {
+export const clearAll = async () => {
   await db.delete(checkIn);
   await db.delete(goal);
   await db.delete(habit);
   await db.delete(auditLog);
-}
+};
 
-export async function seedSampleData() {
+export const seedSampleData = async () => {
   const now = new Date();
   const goalCreatedAt = subDays(now, 30);
 
@@ -105,4 +105,4 @@ export async function seedSampleData() {
       }
     }
   }
-}
+};

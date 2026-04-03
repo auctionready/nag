@@ -5,9 +5,9 @@ import { useMemo } from "react";
 import { db } from "../../db";
 import { habitById, goalForHabitFull, schedulesForGoal } from "@nag/core";
 import { HabitForm, type HabitFormData } from "../../components/HabitForm";
-import { updateHabit, deleteHabit } from "../../saveHabit";
+import { updateHabit, deleteHabit } from "../../operations";
 
-export default function EditHabitScreen() {
+export const EditHabitScreen = () => {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const habitId = Number(id);
@@ -88,7 +88,7 @@ export default function EditHabitScreen() {
       onDelete={onDelete}
     />
   );
-}
+};
 
 const styles = StyleSheet.create({
   container: {

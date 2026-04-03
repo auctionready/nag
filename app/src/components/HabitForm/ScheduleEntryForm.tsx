@@ -9,21 +9,23 @@ import { NoDays } from "./days";
 import { ErrorText } from "./ErrorText";
 import { RemoveButton } from "./RemoveButton";
 
-export function ScheduleEntryForm({
-  initialValues,
-  isNew,
-  onSubmit,
-  onCancel,
-  canRemove,
-  onRemove,
-}: {
+interface ScheduleEntryFormProps {
   initialValues: ScheduleEntry;
   isNew: boolean;
   onSubmit: (data: ScheduleEntry) => void;
   onCancel: () => void;
   canRemove: boolean;
   onRemove: () => void;
-}) {
+}
+
+export const ScheduleEntryForm = ({
+  initialValues,
+  isNew,
+  onSubmit,
+  onCancel,
+  canRemove,
+  onRemove,
+}: ScheduleEntryFormProps) => {
   const {
     control,
     handleSubmit,
@@ -136,7 +138,7 @@ export function ScheduleEntryForm({
       </View>
     </View>
   );
-}
+};
 
 const styles = StyleSheet.create({
   container: {
