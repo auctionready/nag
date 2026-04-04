@@ -29,48 +29,48 @@ describe("HabitDetail", () => {
   });
 
   describe("with no description, goal, or check-ins", () => {
-    let utils: ReturnType<typeof render>;
+    let view: ReturnType<typeof render>;
 
     beforeEach(() => {
-      utils = render(<HabitDetail {...baseProps} />);
+      view = render(<HabitDetail {...baseProps} />);
     });
 
     it("renders the title", () => {
-      expect(utils.getByText("Exercise")).toBeTruthy();
+      expect(view.getByText("Exercise")).toBeTruthy();
     });
 
     it("does not render description", () => {
-      expect(utils.queryByText("Daily workout")).toBeNull();
+      expect(view.queryByText("Daily workout")).toBeNull();
     });
 
     it("does not render goal text", () => {
-      expect(utils.queryByText(/Goal:/)).toBeNull();
+      expect(view.queryByText(/Goal:/)).toBeNull();
     });
 
     it("shows empty check-in state", () => {
-      expect(utils.getByText("No check-ins yet")).toBeTruthy();
+      expect(view.getByText("No check-ins yet")).toBeTruthy();
     });
 
     it("calls onCheckIn when Check-in is pressed", () => {
-      fireEvent.press(utils.getByText("Check-in"));
+      fireEvent.press(view.getByText("Check-in"));
       expect(baseProps.onCheckIn).toHaveBeenCalledTimes(1);
     });
 
     it("calls onEdit when Edit is pressed", () => {
-      fireEvent.press(utils.getByText("Edit"));
+      fireEvent.press(view.getByText("Edit"));
       expect(baseProps.onEdit).toHaveBeenCalledTimes(1);
     });
 
     it("hides Skip button", () => {
-      expect(utils.queryByText("Skip")).toBeNull();
+      expect(view.queryByText("Skip")).toBeNull();
     });
   });
 
   describe("with description and goal", () => {
-    let utils: ReturnType<typeof render>;
+    let view: ReturnType<typeof render>;
 
     beforeEach(() => {
-      utils = render(
+      view = render(
         <HabitDetail
           {...baseProps}
           description="Daily workout"
@@ -80,27 +80,27 @@ describe("HabitDetail", () => {
     });
 
     it("renders description", () => {
-      expect(utils.getByText("Daily workout")).toBeTruthy();
+      expect(view.getByText("Daily workout")).toBeTruthy();
     });
 
     it("renders goal text", () => {
-      expect(utils.getByText("Goal: 3x per week")).toBeTruthy();
+      expect(view.getByText("Goal: 3x per week")).toBeTruthy();
     });
   });
 
   describe("with showSkip enabled", () => {
-    let utils: ReturnType<typeof render>;
+    let view: ReturnType<typeof render>;
 
     beforeEach(() => {
-      utils = render(<HabitDetail {...baseProps} showSkip={true} />);
+      view = render(<HabitDetail {...baseProps} showSkip={true} />);
     });
 
     it("shows Skip button", () => {
-      expect(utils.getByText("Skip")).toBeTruthy();
+      expect(view.getByText("Skip")).toBeTruthy();
     });
 
     it("calls onSkip when pressed", () => {
-      fireEvent.press(utils.getByText("Skip"));
+      fireEvent.press(view.getByText("Skip"));
       expect(baseProps.onSkip).toHaveBeenCalledTimes(1);
     });
   });
@@ -110,20 +110,20 @@ describe("HabitDetail", () => {
       { id: 1, timestamp: new Date("2025-06-15T10:00:00"), skipped: null },
       { id: 2, timestamp: new Date("2025-06-16T10:00:00"), skipped: true },
     ];
-    let utils: ReturnType<typeof render>;
+    let view: ReturnType<typeof render>;
 
     beforeEach(() => {
       jest.spyOn(Alert, "alert");
-      utils = render(<HabitDetail {...baseProps} checkIns={checkIns} />);
+      view = render(<HabitDetail {...baseProps} checkIns={checkIns} />);
     });
 
     it("renders skipped label", () => {
-      expect(utils.getByText("(skipped)")).toBeTruthy();
+      expect(view.getByText("(skipped)")).toBeTruthy();
     });
 
     describe("when Remove is pressed", () => {
       beforeEach(() => {
-        fireEvent.press(utils.getAllByText("Remove")[0]);
+        fireEvent.press(view.getAllByText("Remove")[0]);
       });
 
       it("shows confirmation alert", () => {

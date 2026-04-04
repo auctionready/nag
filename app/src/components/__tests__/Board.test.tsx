@@ -9,25 +9,25 @@ const mockHabits = [
 describe("Board", () => {
   describe("when habits list is empty", () => {
     const onAddHabit = jest.fn();
-    let utils: ReturnType<typeof render>;
+    let view: ReturnType<typeof render>;
 
     beforeEach(() => {
       onAddHabit.mockClear();
-      utils = render(
+      view = render(
         <Board habits={[]} onAddHabit={onAddHabit} renderTile={() => null} />,
       );
     });
 
     it("renders empty state message", () => {
-      expect(utils.getByText("You have no habits set")).toBeTruthy();
+      expect(view.getByText("You have no habits set")).toBeTruthy();
     });
 
     it("renders Create Habit button", () => {
-      expect(utils.getByText("Create Habit")).toBeTruthy();
+      expect(view.getByText("Create Habit")).toBeTruthy();
     });
 
     it("calls onAddHabit when Create Habit is pressed", () => {
-      fireEvent.press(utils.getByText("Create Habit"));
+      fireEvent.press(view.getByText("Create Habit"));
       expect(onAddHabit).toHaveBeenCalledTimes(1);
     });
   });
@@ -35,12 +35,12 @@ describe("Board", () => {
   describe("when habits exist", () => {
     const onAddHabit = jest.fn();
     const mockRenderTile = jest.fn(() => null);
-    let utils: ReturnType<typeof render>;
+    let view: ReturnType<typeof render>;
 
     beforeEach(() => {
       onAddHabit.mockClear();
       mockRenderTile.mockClear();
-      utils = render(
+      view = render(
         <Board
           habits={mockHabits}
           onAddHabit={onAddHabit}
@@ -50,11 +50,11 @@ describe("Board", () => {
     });
 
     it("renders + Add Habit button", () => {
-      expect(utils.getByText("+ Add Habit")).toBeTruthy();
+      expect(view.getByText("+ Add Habit")).toBeTruthy();
     });
 
     it("calls onAddHabit when + Add Habit is pressed", () => {
-      fireEvent.press(utils.getByText("+ Add Habit"));
+      fireEvent.press(view.getByText("+ Add Habit"));
       expect(onAddHabit).toHaveBeenCalledTimes(1);
     });
 
