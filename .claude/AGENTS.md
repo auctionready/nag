@@ -4,8 +4,9 @@ Use 'bd' for task tracking.
 
 # Coding Style
 
-* Use named exports rather than default exports
-* Prefer const style rather than function unless awkward
+* Prefer named exports over than default exports
+* Prefer const style over function unless awkward
+* In tests prefer `describe` with `beforeEach` to set up scenarios and use one or more `it`s to assert.
 
 # Validation
 
