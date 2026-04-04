@@ -1,9 +1,10 @@
 import { useCallback, useRef } from "react";
-import { Animated, Pressable, StyleSheet, Text } from "react-native";
+import { Animated, Pressable, StyleSheet, Text, View } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import { formatDistanceToNow } from "date-fns";
 import type { HabitGoalSummary } from "./useHabitGoalSummary";
 import { periodLabels, formatCount } from "./format";
+import { ProgressRing } from "./ProgressRing";
 
 export interface HabitTileViewProps {
   id: number;
@@ -90,6 +91,11 @@ export const HabitTileView = ({
                 .join(" · ")}
             </Text>
           )}
+          {goal && count > 0 && count < goal.frequency && (
+            <View style={styles.progressRing}>
+              <ProgressRing progress={count / goal.frequency} />
+            </View>
+          )}
         </Animated.View>
       </Pressable>
     </GestureDetector>
@@ -129,5 +135,10 @@ const styles = StyleSheet.create({
     color: "rgba(255, 255, 255, 0.65)",
     marginTop: 3,
     textAlign: "center",
+  },
+  progressRing: {
+    position: "absolute",
+    bottom: 8,
+    right: 8,
   },
 });
