@@ -1,10 +1,23 @@
-import { render, fireEvent, waitFor } from "@testing-library/react-native";
+import { render, fireEvent, waitFor, act } from "@testing-library/react-native";
 import { Alert } from "react-native";
 import { HabitForm } from "../HabitForm";
 
-jest.mock("../ScheduleEditorModal", () => ({
-  ScheduleEditorModal: () => null,
-}));
+jest.mock("../ScheduleEditorModal", () => {
+  const { Pressable, View } = require("react-native");
+  return {
+    ScheduleEditorModal: ({ onCommit, onCancel }: any) => (
+      <View testID="schedule-editor-modal">
+        <Pressable
+          testID="modal-apply"
+          onPress={() =>
+            onCommit({ hour: "10", minute: "30", days: 127, reminder: false })
+          }
+        />
+        <Pressable testID="modal-cancel" onPress={onCancel} />
+      </View>
+    ),
+  };
+});
 
 const onSubmit = jest.fn().mockResolvedValue(undefined);
 
@@ -13,19 +26,19 @@ beforeEach(() => {
 });
 
 describe("rendering", () => {
-  it("renders title input with placeholder", () => {
-    const { getByPlaceholderText } = render(<HabitForm onSubmit={onSubmit} />);
-    expect(getByPlaceholderText("e.g. Exercise")).toBeTruthy();
+  let utils: ReturnType<typeof render>;
+
+  beforeEach(() => {
+    utils = render(<HabitForm onSubmit={onSubmit} />);
   });
 
-  it("renders Save button", () => {
-    const { getByText } = render(<HabitForm onSubmit={onSubmit} />);
-    expect(getByText("Save")).toBeTruthy();
+  it("renders title input and Save button", () => {
+    expect(utils.getByPlaceholderText("e.g. Exercise")).toBeTruthy();
+    expect(utils.getByText("Save")).toBeTruthy();
   });
 
-  it("does not render Delete button when onDelete is not provided", () => {
-    const { queryByText } = render(<HabitForm onSubmit={onSubmit} />);
-    expect(queryByText("Delete Habit")).toBeNull();
+  it("does not render Delete button without onDelete", () => {
+    expect(utils.queryByText("Delete Habit")).toBeNull();
   });
 
   it("renders Delete button when onDelete is provided", () => {
@@ -43,15 +56,6 @@ describe("rendering", () => {
   });
 });
 
-describe("validation", () => {
-  it("shows title error when saved with empty title", async () => {
-    const { getByText } = render(<HabitForm onSubmit={onSubmit} />);
-    fireEvent.press(getByText("Save"));
-    await waitFor(() => expect(getByText("Title is required")).toBeTruthy());
-    expect(onSubmit).not.toHaveBeenCalled();
-  });
-});
-
 describe("submission", () => {
   it("calls onSubmit with form data when title is provided", async () => {
     const { getByPlaceholderText, getByText } = render(
@@ -61,6 +65,43 @@ describe("submission", () => {
     fireEvent.press(getByText("Save"));
     await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1));
     expect(onSubmit.mock.calls[0][0]).toMatchObject({ title: "Meditation" });
+  });
+});
+
+describe("validation", () => {
+  it("shows title error and blocks submit when title is empty", async () => {
+    const { getByText } = render(<HabitForm onSubmit={onSubmit} />);
+    fireEvent.press(getByText("Save"));
+    await waitFor(() => expect(getByText("Title is required")).toBeTruthy());
+    expect(onSubmit).not.toHaveBeenCalled();
+  });
+
+  describe("frequency", () => {
+    let utils: ReturnType<typeof render>;
+
+    beforeEach(() => {
+      utils = render(<HabitForm onSubmit={onSubmit} />);
+      fireEvent.press(utils.getByText("Daily"));
+      fireEvent.changeText(
+        utils.getByPlaceholderText("e.g. Exercise"),
+        "Exercise",
+      );
+    });
+
+    it.each([["0"], ["abc"], ["1.5"]])(
+      "blocks submit for '%s'",
+      async (value) => {
+        fireEvent.changeText(utils.getByPlaceholderText("1"), value);
+        fireEvent.press(utils.getByText("Save"));
+        await waitFor(() => expect(onSubmit).not.toHaveBeenCalled());
+      },
+    );
+
+    it("submits when frequency is a valid integer", async () => {
+      fireEvent.changeText(utils.getByPlaceholderText("1"), "3");
+      fireEvent.press(utils.getByText("Save"));
+      await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1));
+    });
   });
 });
 
@@ -87,22 +128,77 @@ describe("regularity", () => {
     expect(getByText("+ Add Time")).toBeTruthy();
   });
 
-  it("prompts confirmation when switching away from Scheduled with entries", async () => {
+  it("does not prompt when switching to Scheduled", () => {
     jest.spyOn(Alert, "alert");
-    const { getByText } = render(
-      <HabitForm
-        onSubmit={onSubmit}
-        initialValues={{
-          regularity: "scheduled",
-          schedules: [{ hour: "9", minute: "00" }],
-        }}
-      />,
+    const { getByText } = render(<HabitForm onSubmit={onSubmit} />);
+    fireEvent.press(getByText("Scheduled"));
+    expect(Alert.alert).not.toHaveBeenCalled();
+  });
+
+  describe("switching away from Scheduled with entries", () => {
+    let utils: ReturnType<typeof render>;
+
+    beforeEach(() => {
+      jest.spyOn(Alert, "alert");
+      utils = render(
+        <HabitForm
+          onSubmit={onSubmit}
+          initialValues={{
+            regularity: "scheduled",
+            schedules: [{ hour: "9", minute: "00" }],
+          }}
+        />,
+      );
+      fireEvent.press(utils.getByText("Daily"));
+    });
+
+    it("prompts with a confirmation alert", () => {
+      expect(Alert.alert).toHaveBeenCalledWith(
+        "Clear Schedules",
+        expect.any(String),
+        expect.any(Array),
+      );
+    });
+
+    it("keeps Scheduled when cancel is chosen", () => {
+      // Cancel button has no onPress — state unchanged
+      expect(utils.getByText("+ Add Time")).toBeTruthy();
+    });
+
+    it("switches to Daily when continue is chosen", async () => {
+      const buttons = (Alert.alert as jest.Mock).mock.calls[0][2];
+      await act(async () => {
+        buttons.find((b: any) => b.text === "Continue").onPress();
+      });
+      expect(utils.getByText("per day")).toBeTruthy();
+    });
+  });
+});
+
+describe("schedule editor", () => {
+  let utils: ReturnType<typeof render>;
+
+  beforeEach(() => {
+    utils = render(<HabitForm onSubmit={onSubmit} />);
+    fireEvent.press(utils.getByText("Scheduled"));
+    fireEvent.press(utils.getByText("+ Add Time"));
+  });
+
+  it("opens the modal", () => {
+    expect(utils.getByTestId("schedule-editor-modal")).toBeTruthy();
+  });
+
+  it("closes when cancel is pressed", async () => {
+    fireEvent.press(utils.getByTestId("modal-cancel"));
+    await waitFor(() =>
+      expect(utils.queryByTestId("schedule-editor-modal")).toBeNull(),
     );
-    fireEvent.press(getByText("Daily"));
-    expect(Alert.alert).toHaveBeenCalledWith(
-      "Clear Schedules",
-      expect.any(String),
-      expect.any(Array),
+  });
+
+  it("closes when apply is pressed", async () => {
+    fireEvent.press(utils.getByTestId("modal-apply"));
+    await waitFor(() =>
+      expect(utils.queryByTestId("schedule-editor-modal")).toBeNull(),
     );
   });
 });
