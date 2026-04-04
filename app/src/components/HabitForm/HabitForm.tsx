@@ -251,7 +251,19 @@ export const HabitForm = ({
         <SaveButton onPress={handleSubmit(onSubmit)} />
 
         {onDelete && (
-          <Pressable style={styles.deleteButton} onPress={onDelete}>
+          <Pressable
+            style={styles.deleteButton}
+            onPress={() => {
+              Alert.alert(
+                "Delete Habit",
+                "Are you sure? This will also delete all check-ins and goals for this habit.",
+                [
+                  { text: "Cancel", style: "cancel" },
+                  { text: "Delete", style: "destructive", onPress: onDelete },
+                ],
+              );
+            }}
+          >
             <Text style={styles.deleteButtonText}>Delete Habit</Text>
           </Pressable>
         )}
