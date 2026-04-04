@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll } from "vitest";
+import { describe, it, expect, beforeAll, beforeEach, afterAll } from "vitest";
 import { execSync } from "node:child_process";
 import { drizzle } from "drizzle-orm/better-sqlite3";
 import { eq } from "drizzle-orm";
@@ -150,5 +150,129 @@ describe("schema", () => {
       .where(eq(schema.goal.habitId, habit.id));
 
     expect(remaining).toHaveLength(0);
+  });
+
+  describe("schedule table", () => {
+    let h: { id: number };
+    let g: { id: number };
+
+    beforeEach(async () => {
+      [h] = await db
+        .insert(schema.habit)
+        .values({ title: "Scheduled" })
+        .returning();
+      [g] = await db
+        .insert(schema.goal)
+        .values({ habitId: h.id, regularity: "week", frequency: 3 })
+        .returning();
+    });
+
+    describe("inserting a schedule", () => {
+      let s: typeof schema.schedule.$inferSelect;
+
+      beforeEach(async () => {
+        [s] = await db
+          .insert(schema.schedule)
+          .values({
+            goalId: g.id,
+            hour: 9,
+            minute: 30,
+            days: 42,
+            reminder: true,
+          })
+          .returning();
+      });
+
+      it("references the goal", () => {
+        expect(s.goalId).toBe(g.id);
+      });
+
+      it("stores hour and minute", () => {
+        expect(s.hour).toBe(9);
+        expect(s.minute).toBe(30);
+      });
+
+      it("stores days bitmask and reminder", () => {
+        expect(s.days).toBe(42);
+        expect(s.reminder).toBe(true);
+      });
+
+      it("auto-sets createdAt", () => {
+        expect(s.createdAt).toBeInstanceOf(Date);
+      });
+    });
+
+    describe("cascade delete", () => {
+      beforeEach(async () => {
+        await db
+          .insert(schema.schedule)
+          .values({ goalId: g.id, hour: 8, minute: 0 });
+      });
+
+      it("removes schedules when goal is deleted", async () => {
+        await db.delete(schema.goal).where(eq(schema.goal.id, g.id));
+        const remaining = await db
+          .select()
+          .from(schema.schedule)
+          .where(eq(schema.schedule.goalId, g.id));
+        expect(remaining).toHaveLength(0);
+      });
+
+      it("removes schedules when habit is deleted", async () => {
+        await db.delete(schema.habit).where(eq(schema.habit.id, h.id));
+        const remaining = await db
+          .select()
+          .from(schema.schedule)
+          .where(eq(schema.schedule.goalId, g.id));
+        expect(remaining).toHaveLength(0);
+      });
+    });
+  });
+
+  describe("audit log table", () => {
+    describe("with payload", () => {
+      let log: typeof schema.auditLog.$inferSelect;
+
+      beforeEach(async () => {
+        [log] = await db
+          .insert(schema.auditLog)
+          .values({
+            commandType: "CreateHabit",
+            payload: JSON.stringify({ title: "Test" }),
+          })
+          .returning();
+      });
+
+      it("stores command type", () => {
+        expect(log.commandType).toBe("CreateHabit");
+      });
+
+      it("stores serialized payload", () => {
+        expect(log.payload).toBe('{"title":"Test"}');
+      });
+
+      it("auto-sets timestamp", () => {
+        expect(log.timestamp).toBeInstanceOf(Date);
+      });
+    });
+
+    describe("without payload", () => {
+      let log: typeof schema.auditLog.$inferSelect;
+
+      beforeEach(async () => {
+        [log] = await db
+          .insert(schema.auditLog)
+          .values({ commandType: "DeleteHabit" })
+          .returning();
+      });
+
+      it("stores command type", () => {
+        expect(log.commandType).toBe("DeleteHabit");
+      });
+
+      it("defaults payload to null", () => {
+        expect(log.payload).toBeNull();
+      });
+    });
   });
 });

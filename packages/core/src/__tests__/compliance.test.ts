@@ -1,5 +1,4 @@
 import { describe, expect, it } from "vitest";
-import type { Regularity } from "@nag/schema";
 import {
   periodStart,
   colorForRatio,
@@ -66,41 +65,40 @@ describe("tileColor", () => {
     expect(tileColor(null, 5, colors)).toBe("default");
   });
 
-  it("returns default when goal was created in current period", () => {
-    const now = new Date();
-    const goal = {
-      frequency: 3,
-      regularity: "day" as Regularity,
-      createdAt: now,
-    };
-    expect(tileColor(goal, 0, colors)).toBe("default");
-  });
+  describe.each(["day", "week", "month"] as const)(
+    "%s regularity",
+    (regularity) => {
+      const oldGoal = (frequency: number) => ({
+        frequency,
+        regularity,
+        createdAt: new Date("2020-01-01T00:00:00.000Z"),
+      });
 
-  it("returns compliant when check-ins meet frequency", () => {
-    const goal = {
-      frequency: 3,
-      regularity: "day" as Regularity,
-      createdAt: new Date("2020-01-01T00:00:00.000Z"),
-    };
-    expect(tileColor(goal, 3, colors)).toBe("compliant");
-    expect(tileColor(goal, 5, colors)).toBe("compliant");
-  });
+      describe("when goal was created in current period", () => {
+        it("returns default", () => {
+          const goal = { frequency: 3, regularity, createdAt: new Date() };
+          expect(tileColor(goal, 0, colors)).toBe("default");
+        });
+      });
 
-  it("returns partial when check-ins are half of frequency", () => {
-    const goal = {
-      frequency: 4,
-      regularity: "day" as Regularity,
-      createdAt: new Date("2020-01-01T00:00:00.000Z"),
-    };
-    expect(tileColor(goal, 2, colors)).toBe("partial");
-  });
+      describe("when check-ins meet frequency", () => {
+        it("returns compliant", () => {
+          expect(tileColor(oldGoal(3), 3, colors)).toBe("compliant");
+          expect(tileColor(oldGoal(3), 5, colors)).toBe("compliant");
+        });
+      });
 
-  it("returns failing when check-ins are below half", () => {
-    const goal = {
-      frequency: 10,
-      regularity: "day" as Regularity,
-      createdAt: new Date("2020-01-01T00:00:00.000Z"),
-    };
-    expect(tileColor(goal, 1, colors)).toBe("failing");
-  });
+      describe("when check-ins are half of frequency", () => {
+        it("returns partial", () => {
+          expect(tileColor(oldGoal(4), 2, colors)).toBe("partial");
+        });
+      });
+
+      describe("when check-ins are below half", () => {
+        it("returns failing", () => {
+          expect(tileColor(oldGoal(10), 1, colors)).toBe("failing");
+        });
+      });
+    },
+  );
 });
