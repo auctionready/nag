@@ -6,12 +6,12 @@ import type {
 
 const notificationId = (
   habitId: number,
-  index: number,
+  scheduleId: number,
   dow?: number,
 ): string =>
   dow !== undefined
-    ? `habit-${habitId}-${index}-${dow}`
-    : `habit-${habitId}-${index}`;
+    ? `habit-${habitId}-${scheduleId}-${dow}`
+    : `habit-${habitId}-${scheduleId}`;
 
 const requestPermissions = async (): Promise<boolean> => {
   const { status } = await Notifications.requestPermissionsAsync();
@@ -44,10 +44,10 @@ export const expoNotificationScheduler: NotificationScheduler = {
 
     const { SchedulableTriggerInputTypes } = Notifications;
 
-    for (const [i, entry] of schedules.entries()) {
+    for (const entry of schedules) {
       if (regularity === "day") {
         await Notifications.scheduleNotificationAsync({
-          identifier: notificationId(habitId, i),
+          identifier: notificationId(habitId, entry.id),
           content: { title, body: `Time for ${title}` },
           trigger: {
             type: SchedulableTriggerInputTypes.DAILY,
@@ -60,7 +60,7 @@ export const expoNotificationScheduler: NotificationScheduler = {
         for (let dow = 0; dow < 7; dow++) {
           if (days & (1 << dow)) {
             await Notifications.scheduleNotificationAsync({
-              identifier: notificationId(habitId, i, dow),
+              identifier: notificationId(habitId, entry.id, dow),
               content: { title, body: `Time for ${title}` },
               trigger: {
                 type: SchedulableTriggerInputTypes.WEEKLY,
@@ -73,7 +73,7 @@ export const expoNotificationScheduler: NotificationScheduler = {
         }
       } else {
         await Notifications.scheduleNotificationAsync({
-          identifier: notificationId(habitId, i),
+          identifier: notificationId(habitId, entry.id),
           content: { title, body: `Time for ${title}` },
           trigger: {
             type: SchedulableTriggerInputTypes.MONTHLY,

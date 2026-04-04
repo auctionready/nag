@@ -10,7 +10,7 @@ interface CreateHabitInput {
 }
 
 export const createHabit = async (db: AnyDb, input: CreateHabitInput) => {
-  const { habitId } = await processCommand(db, {
+  const { habitId, scheduleIds } = await processCommand(db, {
     type: "CreateHabit",
     title: input.title,
     description: input.description,
@@ -18,9 +18,9 @@ export const createHabit = async (db: AnyDb, input: CreateHabitInput) => {
   });
 
   if (input.goal?.schedules) {
-    const notificationSchedules = input.goal.schedules.filter(
-      (s) => s.reminder !== false,
-    );
+    const notificationSchedules = input.goal.schedules
+      .map((s, i) => ({ ...s, id: scheduleIds[i] }))
+      .filter((s) => s.reminder !== false);
     if (notificationSchedules.length > 0) {
       await getNotificationScheduler().syncNotifications(
         habitId,

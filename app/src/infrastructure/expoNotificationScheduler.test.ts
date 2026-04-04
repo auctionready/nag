@@ -71,33 +71,33 @@ describe("syncNotifications", () => {
   });
 
   it("cancels existing notifications before scheduling new ones", async () => {
-    mockGetAll.mockResolvedValue([makeNotification("habit-1-0")]);
+    mockGetAll.mockResolvedValue([makeNotification("habit-1-10")]);
 
     await expoNotificationScheduler.syncNotifications(
       1,
       "Exercise",
-      [{ hour: 8, minute: 0 }],
+      [{ id: 10, hour: 8, minute: 0 }],
       "day",
     );
 
-    expect(mockCancel).toHaveBeenCalledWith("habit-1-0");
+    expect(mockCancel).toHaveBeenCalledWith("habit-1-10");
   });
 
   describe("daily", () => {
-    it("schedules one notification per entry", async () => {
+    it("schedules one notification per entry using schedule id", async () => {
       await expoNotificationScheduler.syncNotifications(
         1,
         "Exercise",
         [
-          { hour: 8, minute: 0 },
-          { hour: 18, minute: 30 },
+          { id: 10, hour: 8, minute: 0 },
+          { id: 11, hour: 18, minute: 30 },
         ],
         "day",
       );
 
       expect(mockSchedule).toHaveBeenCalledTimes(2);
       expect(mockSchedule).toHaveBeenCalledWith({
-        identifier: "habit-1-0",
+        identifier: "habit-1-10",
         content: { title: "Exercise", body: "Time for Exercise" },
         trigger: {
           type: SchedulableTriggerInputTypes.DAILY,
@@ -106,7 +106,7 @@ describe("syncNotifications", () => {
         },
       });
       expect(mockSchedule).toHaveBeenCalledWith({
-        identifier: "habit-1-1",
+        identifier: "habit-1-11",
         content: { title: "Exercise", body: "Time for Exercise" },
         trigger: {
           type: SchedulableTriggerInputTypes.DAILY,
@@ -118,18 +118,17 @@ describe("syncNotifications", () => {
   });
 
   describe("weekly", () => {
-    it("schedules one notification per active day-of-week", async () => {
-      // days bitmask: bit 0 = Sunday, bit 1 = Monday, bit 3 = Wednesday → 0b1011 = 11
+    it("schedules one notification per active day-of-week using schedule id", async () => {
       await expoNotificationScheduler.syncNotifications(
         2,
         "Run",
-        [{ hour: 7, minute: 0, days: 0b1010 }], // Mon (bit 1) + Wed (bit 3)
+        [{ id: 20, hour: 7, minute: 0, days: 0b1010 }], // Mon (bit 1) + Wed (bit 3)
         "week",
       );
 
       expect(mockSchedule).toHaveBeenCalledTimes(2);
       expect(mockSchedule).toHaveBeenCalledWith({
-        identifier: "habit-2-0-1",
+        identifier: "habit-2-20-1",
         content: { title: "Run", body: "Time for Run" },
         trigger: {
           type: SchedulableTriggerInputTypes.WEEKLY,
@@ -139,7 +138,7 @@ describe("syncNotifications", () => {
         },
       });
       expect(mockSchedule).toHaveBeenCalledWith({
-        identifier: "habit-2-0-3",
+        identifier: "habit-2-20-3",
         content: { title: "Run", body: "Time for Run" },
         trigger: {
           type: SchedulableTriggerInputTypes.WEEKLY,
@@ -154,7 +153,7 @@ describe("syncNotifications", () => {
       await expoNotificationScheduler.syncNotifications(
         1,
         "Run",
-        [{ hour: 7, minute: 0, days: 0 }],
+        [{ id: 30, hour: 7, minute: 0, days: 0 }],
         "week",
       );
 
@@ -163,17 +162,17 @@ describe("syncNotifications", () => {
   });
 
   describe("monthly", () => {
-    it("schedules one notification per entry with dayOfMonth", async () => {
+    it("schedules one notification per entry using schedule id", async () => {
       await expoNotificationScheduler.syncNotifications(
         3,
         "Review",
-        [{ hour: 9, minute: 0, dayOfMonth: 15 }],
+        [{ id: 40, hour: 9, minute: 0, dayOfMonth: 15 }],
         "month",
       );
 
       expect(mockSchedule).toHaveBeenCalledTimes(1);
       expect(mockSchedule).toHaveBeenCalledWith({
-        identifier: "habit-3-0",
+        identifier: "habit-3-40",
         content: { title: "Review", body: "Time for Review" },
         trigger: {
           type: SchedulableTriggerInputTypes.MONTHLY,

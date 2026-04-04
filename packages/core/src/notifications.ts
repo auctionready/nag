@@ -1,4 +1,5 @@
 export interface ScheduleEntry {
+  id: number;
   hour: number;
   minute: number;
   days?: number;

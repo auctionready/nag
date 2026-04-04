@@ -14,7 +14,7 @@ function popcount(n: number): number {
 export async function handleCreateHabit(
   db: AnyDb,
   command: CreateHabit,
-): Promise<{ habitId: number }> {
+): Promise<{ habitId: number; scheduleIds: number[] }> {
   const [inserted] = await db
     .insert(habit)
     .values({
@@ -43,18 +43,25 @@ export async function handleCreateHabit(
       .returning({ id: goal.id });
 
     if (command.goal.schedules) {
-      await db.insert(schedule).values(
-        command.goal.schedules.map((s) => ({
-          goalId: insertedGoal.id,
-          hour: s.hour,
-          minute: s.minute,
-          days: s.days ?? null,
-          dayOfMonth: s.dayOfMonth ?? null,
-          reminder: s.reminder ?? true,
-        })),
-      );
+      const insertedSchedules = await db
+        .insert(schedule)
+        .values(
+          command.goal.schedules.map((s) => ({
+            goalId: insertedGoal.id,
+            hour: s.hour,
+            minute: s.minute,
+            days: s.days ?? null,
+            dayOfMonth: s.dayOfMonth ?? null,
+            reminder: s.reminder ?? true,
+          })),
+        )
+        .returning({ id: schedule.id });
+      return {
+        habitId: inserted.id,
+        scheduleIds: insertedSchedules.map((s) => s.id),
+      };
     }
   }
 
-  return { habitId: inserted.id };
+  return { habitId: inserted.id, scheduleIds: [] };
 }
