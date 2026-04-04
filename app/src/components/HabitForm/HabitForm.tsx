@@ -18,7 +18,7 @@ import {
   type HabitFormProps,
   type ScheduleEntry,
 } from "./shared";
-import { AllDays } from "./days";
+import { AllDays } from "@nag/core";
 import { ScheduleEntrySummary } from "./ScheduleEntrySummary";
 import { ScheduleEditorModal } from "./ScheduleEditorModal";
 import { ErrorText } from "./ErrorText";

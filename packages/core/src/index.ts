@@ -26,6 +26,7 @@ export {
   type GoalPayload,
 } from "./commands/schemas";
 export type { AnyDb } from "./db";
+export { Day, NoDays, AllDays, WeekdayNames, weekDayEntries } from "./days";
 export { createHabit, updateHabit, deleteHabit } from "./operations";
 export {
   setNotificationScheduler,

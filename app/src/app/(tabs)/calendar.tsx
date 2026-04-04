@@ -17,8 +17,7 @@ import {
   useCalendarCheckIns,
   useSelectedDayCheckIns,
 } from "../../components/useCalendarCheckIns";
-
-const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+import { WeekdayNames } from "@nag/core";
 
 const CalendarScreen = () => {
   const today = startOfDay(new Date());
@@ -38,8 +37,8 @@ const CalendarScreen = () => {
     return eachDayOfInterval({ start: monthStart, end: monthEnd });
   }, [currentMonth]);
 
-  // Monday = 0 offset. getDay returns 0 for Sunday, so shift.
-  const firstDayOffset = (getDay(days[0]) + 6) % 7;
+  // Sunday = 0 offset, matching WeekdayNames (Sun-first).
+  const firstDayOffset = getDay(days[0]);
 
   const changeMonth = useCallback(
     (dir: 1 | -1) => {
@@ -82,7 +81,7 @@ const CalendarScreen = () => {
 
       {/* Weekday headers */}
       <View style={styles.weekdayRow}>
-        {WEEKDAYS.map((d) => (
+        {WeekdayNames.map((d) => (
           <View key={d} style={styles.weekdayCell}>
             <Text style={styles.weekdayText}>{d}</Text>
           </View>

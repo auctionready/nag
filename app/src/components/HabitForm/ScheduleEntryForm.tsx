@@ -4,8 +4,8 @@ import DateTimePicker, {
 } from "@react-native-community/datetimepicker";
 import { useEffect, useMemo } from "react";
 import { useForm, Controller } from "react-hook-form";
-import { dayEntries, timeFromStrings, type ScheduleEntry } from "./shared";
-import { NoDays } from "./days";
+import { timeFromStrings, type ScheduleEntry } from "./shared";
+import { NoDays, weekDayEntries } from "@nag/core";
 import { ErrorText } from "./ErrorText";
 import { RemoveButton } from "./RemoveButton";
 
@@ -74,7 +74,7 @@ export const ScheduleEntryForm = ({
   return (
     <View style={styles.container}>
       <View style={styles.daysRow}>
-        {dayEntries.map(({ day, label }) => {
+        {weekDayEntries.map(({ day, label }) => {
           const checked = (days ?? NoDays) & day;
           return (
             <Pressable
