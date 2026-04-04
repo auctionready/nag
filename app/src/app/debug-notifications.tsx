@@ -4,7 +4,7 @@ import * as Notifications from "expo-notifications";
 
 type ScheduledNotification = Notifications.NotificationRequest;
 
-export const DebugNotificationsScreen = () => {
+const DebugNotificationsScreen = () => {
   const [notifications, setNotifications] = useState<ScheduledNotification[]>(
     [],
   );

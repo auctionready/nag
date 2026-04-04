@@ -5,7 +5,7 @@ const { Navigator } = createMaterialTopTabNavigator();
 
 const TopTabs = withLayoutContext(Navigator);
 
-export const TabsLayout = () => {
+const TabsLayout = () => {
   return (
     <TopTabs
       screenOptions={{

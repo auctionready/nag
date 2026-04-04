@@ -18,7 +18,7 @@ import {
   type HabitFormProps,
   type ScheduleEntry,
 } from "./shared";
-import { AllDays } from "./days";
+import { AllDays } from "@nag/core";
 import { ScheduleEntrySummary } from "./ScheduleEntrySummary";
 import { ScheduleEditorModal } from "./ScheduleEditorModal";
 import { ErrorText } from "./ErrorText";
@@ -90,9 +90,7 @@ export const HabitForm = ({
     }
   };
 
-  const openEditor = (index: number) => {
-    setEditingIndex(index);
-  };
+  const openEditor = (index: number) => setEditingIndex(index);
 
   const commitDraft = (data: ScheduleEntry) => {
     if (isNewEntry) {
@@ -112,9 +110,7 @@ export const HabitForm = ({
     setEditingIndex(-1);
   };
 
-  const removeEntry = (index: number) => {
-    remove(index);
-  };
+  const removeEntry = (index: number) => remove(index);
 
   const addEntry = () => {
     setIsNewEntry(true);

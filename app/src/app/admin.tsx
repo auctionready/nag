@@ -4,7 +4,7 @@ import { useLiveQuery } from "drizzle-orm/expo-sqlite";
 import { db } from "../db";
 import { allHabits } from "@nag/core";
 
-export const AdminScreen = () => {
+const AdminScreen = () => {
   const { data: habits } = useLiveQuery(allHabits(db));
 
   return (

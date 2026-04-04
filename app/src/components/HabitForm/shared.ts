@@ -1,5 +1,5 @@
 import type { Regularity } from "@nag/schema";
-import { AllDays, NoDays, Day } from "./days";
+import { AllDays, NoDays, weekDayEntries } from "@nag/core";
 
 export type FormRegularity = Regularity | "none" | "scheduled";
 
@@ -48,16 +48,6 @@ export const regularityLabels: Record<FormRegularity, string> = {
   scheduled: "Scheduled",
 };
 
-export const dayEntries: { day: Day; label: string }[] = [
-  { day: Day.Sun, label: "Sun" },
-  { day: Day.Mon, label: "Mon" },
-  { day: Day.Tue, label: "Tue" },
-  { day: Day.Wed, label: "Wed" },
-  { day: Day.Thu, label: "Thu" },
-  { day: Day.Fri, label: "Fri" },
-  { day: Day.Sat, label: "Sat" },
-];
-
 export const timeFromStrings = (hour: string, minute: string): Date => {
   const d = new Date();
   d.setHours(Number(hour) || 9, Number(minute) || 0, 0, 0);
@@ -75,7 +65,7 @@ export const formatTime = (hour: string, minute: string): string => {
 export const formatDays = (days: number): string => {
   if (days === NoDays) return "No days";
   if (days === AllDays) return "Every day";
-  return dayEntries
+  return weekDayEntries
     .filter(({ day }) => days & day)
     .map(({ label }) => label)
     .join(", ");

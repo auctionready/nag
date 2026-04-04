@@ -7,7 +7,7 @@ import { DatabaseProvider } from "../db/DatabaseProvider";
 
 init();
 
-export const RootLayout = () => {
+const RootLayout = () => {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <DatabaseProvider>
