@@ -176,70 +176,74 @@ describe("regularity", () => {
 });
 
 describe("description", () => {
-  it("renders description input", () => {
-    const { getByPlaceholderText } = render(<HabitForm onSubmit={onSubmit} />);
-    expect(getByPlaceholderText("Describe the habit")).toBeTruthy();
+  describe("without initial values", () => {
+    let utils: ReturnType<typeof render>;
+
+    beforeEach(() => {
+      utils = render(<HabitForm onSubmit={onSubmit} />);
+    });
+
+    it("renders description input", () => {
+      expect(utils.getByPlaceholderText("Describe the habit")).toBeTruthy();
+    });
+
+    it("includes description in submitted data", async () => {
+      fireEvent.changeText(utils.getByPlaceholderText("e.g. Exercise"), "Run");
+      fireEvent.changeText(
+        utils.getByPlaceholderText("Describe the habit"),
+        "Go for a run",
+      );
+      fireEvent.press(utils.getByText("Save"));
+      await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1));
+      expect(onSubmit.mock.calls[0][0]).toMatchObject({
+        title: "Run",
+        description: "Go for a run",
+      });
+    });
   });
 
-  it("pre-fills description from initialValues", () => {
-    const { getByDisplayValue } = render(
-      <HabitForm
-        onSubmit={onSubmit}
-        initialValues={{ title: "Test", description: "My description" }}
-      />,
-    );
-    expect(getByDisplayValue("My description")).toBeTruthy();
-  });
-
-  it("includes description in submitted data", async () => {
-    const { getByPlaceholderText, getByText } = render(
-      <HabitForm onSubmit={onSubmit} />,
-    );
-    fireEvent.changeText(getByPlaceholderText("e.g. Exercise"), "Run");
-    fireEvent.changeText(
-      getByPlaceholderText("Describe the habit"),
-      "Go for a run",
-    );
-    fireEvent.press(getByText("Save"));
-    await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1));
-    expect(onSubmit.mock.calls[0][0]).toMatchObject({
-      title: "Run",
-      description: "Go for a run",
+  describe("with initial description", () => {
+    it("pre-fills from initialValues", () => {
+      const { getByDisplayValue } = render(
+        <HabitForm
+          onSubmit={onSubmit}
+          initialValues={{ title: "Test", description: "My description" }}
+        />,
+      );
+      expect(getByDisplayValue("My description")).toBeTruthy();
     });
   });
 });
 
 describe("delete", () => {
-  it("calls onDelete when delete is confirmed", async () => {
-    const onDelete = jest.fn();
-    jest.spyOn(Alert, "alert");
-    const { getByText } = render(
-      <HabitForm onSubmit={onSubmit} onDelete={onDelete} />,
-    );
-    fireEvent.press(getByText("Delete Habit"));
+  const onDelete = jest.fn();
+  let utils: ReturnType<typeof render>;
 
+  beforeEach(() => {
+    onDelete.mockClear();
+    jest.spyOn(Alert, "alert");
+    utils = render(<HabitForm onSubmit={onSubmit} onDelete={onDelete} />);
+    fireEvent.press(utils.getByText("Delete Habit"));
+  });
+
+  it("shows confirmation alert", () => {
     expect(Alert.alert).toHaveBeenCalledWith(
       "Delete Habit",
       expect.any(String),
       expect.any(Array),
     );
+  });
 
+  it("does not call onDelete before confirmation", () => {
+    expect(onDelete).not.toHaveBeenCalled();
+  });
+
+  it("calls onDelete when confirmed", async () => {
     const buttons = (Alert.alert as jest.Mock).mock.calls[0][2];
     await act(async () => {
       buttons.find((b: any) => b.text === "Delete").onPress();
     });
     expect(onDelete).toHaveBeenCalledTimes(1);
-  });
-
-  it("does not call onDelete when cancel is chosen", () => {
-    const onDelete = jest.fn();
-    jest.spyOn(Alert, "alert");
-    const { getByText } = render(
-      <HabitForm onSubmit={onSubmit} onDelete={onDelete} />,
-    );
-    fireEvent.press(getByText("Delete Habit"));
-    // Cancel button has no onPress, so onDelete should not be called
-    expect(onDelete).not.toHaveBeenCalled();
   });
 });
 

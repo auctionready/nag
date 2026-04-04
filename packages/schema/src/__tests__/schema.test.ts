@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll } from "vitest";
+import { describe, it, expect, beforeAll, beforeEach, afterAll } from "vitest";
 import { execSync } from "node:child_process";
 import { drizzle } from "drizzle-orm/better-sqlite3";
 import { eq } from "drizzle-orm";
@@ -152,102 +152,127 @@ describe("schema", () => {
     expect(remaining).toHaveLength(0);
   });
 
-  it("should insert a schedule referencing a goal", async () => {
-    const [h] = await db
-      .insert(schema.habit)
-      .values({ title: "Scheduled" })
-      .returning();
+  describe("schedule table", () => {
+    let h: { id: number };
+    let g: { id: number };
 
-    const [g] = await db
-      .insert(schema.goal)
-      .values({ habitId: h.id, regularity: "week", frequency: 3 })
-      .returning();
+    beforeEach(async () => {
+      [h] = await db
+        .insert(schema.habit)
+        .values({ title: "Scheduled" })
+        .returning();
+      [g] = await db
+        .insert(schema.goal)
+        .values({ habitId: h.id, regularity: "week", frequency: 3 })
+        .returning();
+    });
 
-    const [s] = await db
-      .insert(schema.schedule)
-      .values({ goalId: g.id, hour: 9, minute: 30, days: 42, reminder: true })
-      .returning();
+    describe("inserting a schedule", () => {
+      let s: typeof schema.schedule.$inferSelect;
 
-    expect(s.goalId).toBe(g.id);
-    expect(s.hour).toBe(9);
-    expect(s.minute).toBe(30);
-    expect(s.days).toBe(42);
-    expect(s.reminder).toBe(true);
-    expect(s.createdAt).toBeInstanceOf(Date);
+      beforeEach(async () => {
+        [s] = await db
+          .insert(schema.schedule)
+          .values({
+            goalId: g.id,
+            hour: 9,
+            minute: 30,
+            days: 42,
+            reminder: true,
+          })
+          .returning();
+      });
+
+      it("references the goal", () => {
+        expect(s.goalId).toBe(g.id);
+      });
+
+      it("stores hour and minute", () => {
+        expect(s.hour).toBe(9);
+        expect(s.minute).toBe(30);
+      });
+
+      it("stores days bitmask and reminder", () => {
+        expect(s.days).toBe(42);
+        expect(s.reminder).toBe(true);
+      });
+
+      it("auto-sets createdAt", () => {
+        expect(s.createdAt).toBeInstanceOf(Date);
+      });
+    });
+
+    describe("cascade delete", () => {
+      beforeEach(async () => {
+        await db
+          .insert(schema.schedule)
+          .values({ goalId: g.id, hour: 8, minute: 0 });
+      });
+
+      it("removes schedules when goal is deleted", async () => {
+        await db.delete(schema.goal).where(eq(schema.goal.id, g.id));
+        const remaining = await db
+          .select()
+          .from(schema.schedule)
+          .where(eq(schema.schedule.goalId, g.id));
+        expect(remaining).toHaveLength(0);
+      });
+
+      it("removes schedules when habit is deleted", async () => {
+        await db.delete(schema.habit).where(eq(schema.habit.id, h.id));
+        const remaining = await db
+          .select()
+          .from(schema.schedule)
+          .where(eq(schema.schedule.goalId, g.id));
+        expect(remaining).toHaveLength(0);
+      });
+    });
   });
 
-  it("should cascade delete schedules when goal is deleted", async () => {
-    const [h] = await db
-      .insert(schema.habit)
-      .values({ title: "CascadeSchedule" })
-      .returning();
+  describe("audit log table", () => {
+    describe("with payload", () => {
+      let log: typeof schema.auditLog.$inferSelect;
 
-    const [g] = await db
-      .insert(schema.goal)
-      .values({ habitId: h.id, regularity: "day", frequency: 2 })
-      .returning();
+      beforeEach(async () => {
+        [log] = await db
+          .insert(schema.auditLog)
+          .values({
+            commandType: "CreateHabit",
+            payload: JSON.stringify({ title: "Test" }),
+          })
+          .returning();
+      });
 
-    await db
-      .insert(schema.schedule)
-      .values({ goalId: g.id, hour: 8, minute: 0 });
+      it("stores command type", () => {
+        expect(log.commandType).toBe("CreateHabit");
+      });
 
-    await db.delete(schema.goal).where(eq(schema.goal.id, g.id));
+      it("stores serialized payload", () => {
+        expect(log.payload).toBe('{"title":"Test"}');
+      });
 
-    const remaining = await db
-      .select()
-      .from(schema.schedule)
-      .where(eq(schema.schedule.goalId, g.id));
+      it("auto-sets timestamp", () => {
+        expect(log.timestamp).toBeInstanceOf(Date);
+      });
+    });
 
-    expect(remaining).toHaveLength(0);
-  });
+    describe("without payload", () => {
+      let log: typeof schema.auditLog.$inferSelect;
 
-  it("should cascade delete schedules when habit is deleted", async () => {
-    const [h] = await db
-      .insert(schema.habit)
-      .values({ title: "CascadeViaHabit" })
-      .returning();
+      beforeEach(async () => {
+        [log] = await db
+          .insert(schema.auditLog)
+          .values({ commandType: "DeleteHabit" })
+          .returning();
+      });
 
-    const [g] = await db
-      .insert(schema.goal)
-      .values({ habitId: h.id, regularity: "month", frequency: 1 })
-      .returning();
+      it("stores command type", () => {
+        expect(log.commandType).toBe("DeleteHabit");
+      });
 
-    await db
-      .insert(schema.schedule)
-      .values({ goalId: g.id, hour: 10, minute: 0, dayOfMonth: 15 });
-
-    await db.delete(schema.habit).where(eq(schema.habit.id, h.id));
-
-    const remaining = await db
-      .select()
-      .from(schema.schedule)
-      .where(eq(schema.schedule.goalId, g.id));
-
-    expect(remaining).toHaveLength(0);
-  });
-
-  it("should insert an audit log entry", async () => {
-    const [log] = await db
-      .insert(schema.auditLog)
-      .values({
-        commandType: "CreateHabit",
-        payload: JSON.stringify({ title: "Test" }),
-      })
-      .returning();
-
-    expect(log.id).toBeDefined();
-    expect(log.commandType).toBe("CreateHabit");
-    expect(log.payload).toBe('{"title":"Test"}');
-    expect(log.timestamp).toBeInstanceOf(Date);
-  });
-
-  it("should allow audit log without payload", async () => {
-    const [log] = await db
-      .insert(schema.auditLog)
-      .values({ commandType: "DeleteHabit" })
-      .returning();
-
-    expect(log.commandType).toBe("DeleteHabit");
-    expect(log.payload).toBeNull();
+      it("defaults payload to null", () => {
+        expect(log.payload).toBeNull();
+      });
+    });
   });
 });

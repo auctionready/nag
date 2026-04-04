@@ -6,72 +6,59 @@ const mockHabits = [
   { id: 2, title: "Read" },
 ];
 
-const renderTile = (habit: { id: number; title: string }) => null;
-
 describe("Board", () => {
   describe("when habits list is empty", () => {
-    it("renders empty state message", () => {
-      const onAddHabit = jest.fn();
-      const { getByText } = render(
-        <Board habits={[]} onAddHabit={onAddHabit} renderTile={renderTile} />,
+    const onAddHabit = jest.fn();
+    let utils: ReturnType<typeof render>;
+
+    beforeEach(() => {
+      onAddHabit.mockClear();
+      utils = render(
+        <Board habits={[]} onAddHabit={onAddHabit} renderTile={() => null} />,
       );
-      expect(getByText("You have no habits set")).toBeTruthy();
+    });
+
+    it("renders empty state message", () => {
+      expect(utils.getByText("You have no habits set")).toBeTruthy();
     });
 
     it("renders Create Habit button", () => {
-      const onAddHabit = jest.fn();
-      const { getByText } = render(
-        <Board habits={[]} onAddHabit={onAddHabit} renderTile={renderTile} />,
-      );
-      expect(getByText("Create Habit")).toBeTruthy();
+      expect(utils.getByText("Create Habit")).toBeTruthy();
     });
 
     it("calls onAddHabit when Create Habit is pressed", () => {
-      const onAddHabit = jest.fn();
-      const { getByText } = render(
-        <Board habits={[]} onAddHabit={onAddHabit} renderTile={renderTile} />,
-      );
-      fireEvent.press(getByText("Create Habit"));
+      fireEvent.press(utils.getByText("Create Habit"));
       expect(onAddHabit).toHaveBeenCalledTimes(1);
     });
   });
 
   describe("when habits exist", () => {
-    it("renders + Add Habit button", () => {
-      const onAddHabit = jest.fn();
-      const { getByText } = render(
-        <Board
-          habits={mockHabits}
-          onAddHabit={onAddHabit}
-          renderTile={renderTile}
-        />,
-      );
-      expect(getByText("+ Add Habit")).toBeTruthy();
-    });
+    const onAddHabit = jest.fn();
+    const mockRenderTile = jest.fn(() => null);
+    let utils: ReturnType<typeof render>;
 
-    it("calls onAddHabit when + Add Habit is pressed", () => {
-      const onAddHabit = jest.fn();
-      const { getByText } = render(
-        <Board
-          habits={mockHabits}
-          onAddHabit={onAddHabit}
-          renderTile={renderTile}
-        />,
-      );
-      fireEvent.press(getByText("+ Add Habit"));
-      expect(onAddHabit).toHaveBeenCalledTimes(1);
-    });
-
-    it("calls renderTile for each habit", () => {
-      const onAddHabit = jest.fn();
-      const mockRenderTile = jest.fn(() => null);
-      render(
+    beforeEach(() => {
+      onAddHabit.mockClear();
+      mockRenderTile.mockClear();
+      utils = render(
         <Board
           habits={mockHabits}
           onAddHabit={onAddHabit}
           renderTile={mockRenderTile}
         />,
       );
+    });
+
+    it("renders + Add Habit button", () => {
+      expect(utils.getByText("+ Add Habit")).toBeTruthy();
+    });
+
+    it("calls onAddHabit when + Add Habit is pressed", () => {
+      fireEvent.press(utils.getByText("+ Add Habit"));
+      expect(onAddHabit).toHaveBeenCalledTimes(1);
+    });
+
+    it("calls renderTile for each habit", () => {
       expect(mockRenderTile).toHaveBeenCalledTimes(2);
       expect(mockRenderTile).toHaveBeenCalledWith({ id: 1, title: "Exercise" });
       expect(mockRenderTile).toHaveBeenCalledWith({ id: 2, title: "Read" });

@@ -19,7 +19,7 @@ beforeEach(() => {
 });
 
 describe("HabitDetail", () => {
-  describe("loading state", () => {
+  describe("when loading", () => {
     it("renders loading text", () => {
       const { getByText } = render(
         <HabitDetail {...baseProps} loading={true} />,
@@ -28,123 +28,117 @@ describe("HabitDetail", () => {
     });
   });
 
-  describe("basic rendering", () => {
+  describe("with no description, goal, or check-ins", () => {
+    let utils: ReturnType<typeof render>;
+
+    beforeEach(() => {
+      utils = render(<HabitDetail {...baseProps} />);
+    });
+
     it("renders the title", () => {
-      const { getByText } = render(<HabitDetail {...baseProps} />);
-      expect(getByText("Exercise")).toBeTruthy();
+      expect(utils.getByText("Exercise")).toBeTruthy();
     });
 
-    it("renders description when provided", () => {
-      const { getByText } = render(
-        <HabitDetail {...baseProps} description="Daily workout" />,
-      );
-      expect(getByText("Daily workout")).toBeTruthy();
+    it("does not render description", () => {
+      expect(utils.queryByText("Daily workout")).toBeNull();
     });
 
-    it("does not render description when null", () => {
-      const { queryByText } = render(
-        <HabitDetail {...baseProps} description={null} />,
-      );
-      expect(queryByText("Daily workout")).toBeNull();
+    it("does not render goal text", () => {
+      expect(utils.queryByText(/Goal:/)).toBeNull();
     });
 
-    it("renders goal text when provided", () => {
-      const { getByText } = render(
-        <HabitDetail {...baseProps} goalText="3x per week" />,
-      );
-      expect(getByText("Goal: 3x per week")).toBeTruthy();
+    it("shows empty check-in state", () => {
+      expect(utils.getByText("No check-ins yet")).toBeTruthy();
     });
 
-    it("does not render goal text when null", () => {
-      const { queryByText } = render(
-        <HabitDetail {...baseProps} goalText={null} />,
-      );
-      expect(queryByText(/Goal:/)).toBeNull();
-    });
-
-    it("shows empty state when no check-ins", () => {
-      const { getByText } = render(<HabitDetail {...baseProps} />);
-      expect(getByText("No check-ins yet")).toBeTruthy();
-    });
-  });
-
-  describe("buttons", () => {
     it("calls onCheckIn when Check-in is pressed", () => {
-      const { getByText } = render(<HabitDetail {...baseProps} />);
-      fireEvent.press(getByText("Check-in"));
+      fireEvent.press(utils.getByText("Check-in"));
       expect(baseProps.onCheckIn).toHaveBeenCalledTimes(1);
     });
 
     it("calls onEdit when Edit is pressed", () => {
-      const { getByText } = render(<HabitDetail {...baseProps} />);
-      fireEvent.press(getByText("Edit"));
+      fireEvent.press(utils.getByText("Edit"));
       expect(baseProps.onEdit).toHaveBeenCalledTimes(1);
     });
 
-    it("shows Skip button when showSkip is true", () => {
-      const { getByText } = render(
-        <HabitDetail {...baseProps} showSkip={true} />,
+    it("hides Skip button", () => {
+      expect(utils.queryByText("Skip")).toBeNull();
+    });
+  });
+
+  describe("with description and goal", () => {
+    let utils: ReturnType<typeof render>;
+
+    beforeEach(() => {
+      utils = render(
+        <HabitDetail
+          {...baseProps}
+          description="Daily workout"
+          goalText="3x per week"
+        />,
       );
-      expect(getByText("Skip")).toBeTruthy();
     });
 
-    it("hides Skip button when showSkip is false", () => {
-      const { queryByText } = render(
-        <HabitDetail {...baseProps} showSkip={false} />,
-      );
-      expect(queryByText("Skip")).toBeNull();
+    it("renders description", () => {
+      expect(utils.getByText("Daily workout")).toBeTruthy();
     });
 
-    it("calls onSkip when Skip is pressed", () => {
-      const { getByText } = render(
-        <HabitDetail {...baseProps} showSkip={true} />,
-      );
-      fireEvent.press(getByText("Skip"));
+    it("renders goal text", () => {
+      expect(utils.getByText("Goal: 3x per week")).toBeTruthy();
+    });
+  });
+
+  describe("with showSkip enabled", () => {
+    let utils: ReturnType<typeof render>;
+
+    beforeEach(() => {
+      utils = render(<HabitDetail {...baseProps} showSkip={true} />);
+    });
+
+    it("shows Skip button", () => {
+      expect(utils.getByText("Skip")).toBeTruthy();
+    });
+
+    it("calls onSkip when pressed", () => {
+      fireEvent.press(utils.getByText("Skip"));
       expect(baseProps.onSkip).toHaveBeenCalledTimes(1);
     });
   });
 
-  describe("check-in removal", () => {
+  describe("with check-ins including a skipped one", () => {
     const checkIns = [
       { id: 1, timestamp: new Date("2025-06-15T10:00:00"), skipped: null },
       { id: 2, timestamp: new Date("2025-06-16T10:00:00"), skipped: true },
     ];
+    let utils: ReturnType<typeof render>;
 
-    it("shows confirmation alert when Remove is pressed", () => {
+    beforeEach(() => {
       jest.spyOn(Alert, "alert");
-      const { getAllByText } = render(
-        <HabitDetail {...baseProps} checkIns={checkIns} />,
-      );
-      const removeButtons = getAllByText("Remove");
-      fireEvent.press(removeButtons[0]);
-      expect(Alert.alert).toHaveBeenCalledWith(
-        "Remove Check-in",
-        "Are you sure?",
-        expect.any(Array),
-      );
+      utils = render(<HabitDetail {...baseProps} checkIns={checkIns} />);
     });
 
-    it("calls onRemoveCheckIn when confirmed", () => {
-      jest.spyOn(Alert, "alert");
-      const onRemoveCheckIn = jest.fn();
-      const { getAllByText } = render(
-        <HabitDetail
-          {...baseProps}
-          checkIns={checkIns}
-          onRemoveCheckIn={onRemoveCheckIn}
-        />,
-      );
-      fireEvent.press(getAllByText("Remove")[0]);
-      const buttons = (Alert.alert as jest.Mock).mock.calls[0][2];
-      buttons.find((b: any) => b.text === "Remove").onPress();
-      expect(onRemoveCheckIn).toHaveBeenCalledWith(1);
+    it("renders skipped label", () => {
+      expect(utils.getByText("(skipped)")).toBeTruthy();
     });
 
-    it("renders skipped label for skipped check-ins", () => {
-      const { getByText } = render(
-        <HabitDetail {...baseProps} checkIns={checkIns} />,
-      );
-      expect(getByText("(skipped)")).toBeTruthy();
+    describe("when Remove is pressed", () => {
+      beforeEach(() => {
+        fireEvent.press(utils.getAllByText("Remove")[0]);
+      });
+
+      it("shows confirmation alert", () => {
+        expect(Alert.alert).toHaveBeenCalledWith(
+          "Remove Check-in",
+          "Are you sure?",
+          expect.any(Array),
+        );
+      });
+
+      it("calls onRemoveCheckIn when confirmed", () => {
+        const buttons = (Alert.alert as jest.Mock).mock.calls[0][2];
+        buttons.find((b: any) => b.text === "Remove").onPress();
+        expect(baseProps.onRemoveCheckIn).toHaveBeenCalledWith(1);
+      });
     });
   });
 });

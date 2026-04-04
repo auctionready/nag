@@ -14,7 +14,6 @@ describe("formatTime", () => {
   });
 
   it("treats hour 0 as default (9 AM) due to falsy coercion", () => {
-    // Number("0") || 9 evaluates to 9 since 0 is falsy
     expect(formatTime("0", "0")).toBe("9:00 AM");
   });
 
@@ -36,31 +35,62 @@ describe("formatDays", () => {
     expect(formatDays(127)).toBe("Every day");
   });
 
-  it("returns individual day names for partial bitmask", () => {
-    // Mon(2) + Wed(8) = 10
-    const result = formatDays(10);
-    expect(result).toContain("Mon");
-    expect(result).toContain("Wed");
-    expect(result).not.toContain("Tue");
+  describe("with partial bitmask (Mon + Wed)", () => {
+    let result: string;
+
+    beforeEach(() => {
+      result = formatDays(10); // Mon(2) + Wed(8) = 10
+    });
+
+    it("includes selected days", () => {
+      expect(result).toContain("Mon");
+      expect(result).toContain("Wed");
+    });
+
+    it("excludes unselected days", () => {
+      expect(result).not.toContain("Tue");
+    });
   });
 
   it("returns single day for single bit", () => {
-    // Mon = 2
     expect(formatDays(2)).toBe("Mon");
   });
 });
 
 describe("timeFromStrings", () => {
-  it("creates a Date with the given hour and minute", () => {
-    const d = timeFromStrings("14", "30");
-    expect(d.getHours()).toBe(14);
-    expect(d.getMinutes()).toBe(30);
-    expect(d.getSeconds()).toBe(0);
+  describe("with valid hour and minute", () => {
+    let result: Date;
+
+    beforeEach(() => {
+      result = timeFromStrings("14", "30");
+    });
+
+    it("sets the correct hour", () => {
+      expect(result.getHours()).toBe(14);
+    });
+
+    it("sets the correct minute", () => {
+      expect(result.getMinutes()).toBe(30);
+    });
+
+    it("zeroes out seconds", () => {
+      expect(result.getSeconds()).toBe(0);
+    });
   });
 
-  it("defaults to 9:00 for invalid strings", () => {
-    const d = timeFromStrings("", "");
-    expect(d.getHours()).toBe(9);
-    expect(d.getMinutes()).toBe(0);
+  describe("with invalid strings", () => {
+    let result: Date;
+
+    beforeEach(() => {
+      result = timeFromStrings("", "");
+    });
+
+    it("defaults hour to 9", () => {
+      expect(result.getHours()).toBe(9);
+    });
+
+    it("defaults minute to 0", () => {
+      expect(result.getMinutes()).toBe(0);
+    });
   });
 });

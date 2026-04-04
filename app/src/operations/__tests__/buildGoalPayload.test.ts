@@ -31,78 +31,116 @@ describe("buildGoalPayload", () => {
       },
     );
 
-    it("coerces string frequency to number", () => {
-      const result = buildGoalPayload({
-        ...baseData,
-        regularity: "day",
-        frequency: "7",
+    describe("with a string frequency", () => {
+      let result: ReturnType<typeof buildGoalPayload>;
+
+      beforeEach(() => {
+        result = buildGoalPayload({
+          ...baseData,
+          regularity: "day",
+          frequency: "7",
+        });
       });
-      expect(result).toEqual({ regularity: "day", frequency: 7 });
+
+      it("coerces to a number", () => {
+        expect(result).toEqual({ regularity: "day", frequency: 7 });
+      });
     });
   });
 
   describe("when regularity is scheduled", () => {
-    it("returns week regularity with mapped schedules", () => {
-      const result = buildGoalPayload({
-        ...baseData,
-        regularity: "scheduled",
-        schedules: [{ hour: "9", minute: "30", days: 42, reminder: true }],
+    describe("with a single schedule entry", () => {
+      let result: ReturnType<typeof buildGoalPayload>;
+
+      beforeEach(() => {
+        result = buildGoalPayload({
+          ...baseData,
+          regularity: "scheduled",
+          schedules: [{ hour: "9", minute: "30", days: 42, reminder: true }],
+        });
       });
-      expect(result).toEqual({
-        regularity: "week",
-        schedules: [{ hour: 9, minute: 30, days: 42, reminder: true }],
+
+      it("returns week regularity", () => {
+        expect(result!.regularity).toBe("week");
+      });
+
+      it("coerces hour and minute strings to numbers", () => {
+        expect(result!.schedules![0].hour).toBe(9);
+        expect(result!.schedules![0].minute).toBe(30);
+      });
+
+      it("preserves days and reminder", () => {
+        expect(result!.schedules![0].days).toBe(42);
+        expect(result!.schedules![0].reminder).toBe(true);
       });
     });
 
-    it("coerces hour and minute strings to numbers", () => {
-      const result = buildGoalPayload({
-        ...baseData,
-        regularity: "scheduled",
-        schedules: [{ hour: "14", minute: "05", days: 127 }],
+    describe("when reminder is undefined", () => {
+      let result: ReturnType<typeof buildGoalPayload>;
+
+      beforeEach(() => {
+        result = buildGoalPayload({
+          ...baseData,
+          regularity: "scheduled",
+          schedules: [{ hour: "9", minute: "00", days: 127 }],
+        });
       });
-      expect(result!.schedules![0].hour).toBe(14);
-      expect(result!.schedules![0].minute).toBe(5);
+
+      it("defaults reminder to true", () => {
+        expect(result!.schedules![0].reminder).toBe(true);
+      });
     });
 
-    it("defaults reminder to true when undefined", () => {
-      const result = buildGoalPayload({
-        ...baseData,
-        regularity: "scheduled",
-        schedules: [{ hour: "9", minute: "00", days: 127 }],
+    describe("when reminder is explicitly false", () => {
+      let result: ReturnType<typeof buildGoalPayload>;
+
+      beforeEach(() => {
+        result = buildGoalPayload({
+          ...baseData,
+          regularity: "scheduled",
+          schedules: [{ hour: "9", minute: "00", days: 127, reminder: false }],
+        });
       });
-      expect(result!.schedules![0].reminder).toBe(true);
+
+      it("preserves reminder: false", () => {
+        expect(result!.schedules![0].reminder).toBe(false);
+      });
     });
 
-    it("preserves reminder: false", () => {
-      const result = buildGoalPayload({
-        ...baseData,
-        regularity: "scheduled",
-        schedules: [{ hour: "9", minute: "00", days: 127, reminder: false }],
-      });
-      expect(result!.schedules![0].reminder).toBe(false);
-    });
+    describe("with multiple schedule entries", () => {
+      let result: ReturnType<typeof buildGoalPayload>;
 
-    it("maps multiple schedule entries", () => {
-      const result = buildGoalPayload({
-        ...baseData,
-        regularity: "scheduled",
-        schedules: [
-          { hour: "8", minute: "00", days: 2, reminder: true },
-          { hour: "18", minute: "30", days: 32, reminder: false },
-        ],
+      beforeEach(() => {
+        result = buildGoalPayload({
+          ...baseData,
+          regularity: "scheduled",
+          schedules: [
+            { hour: "8", minute: "00", days: 2, reminder: true },
+            { hour: "18", minute: "30", days: 32, reminder: false },
+          ],
+        });
       });
-      expect(result!.schedules).toHaveLength(2);
-      expect(result!.schedules![0]).toEqual({
-        hour: 8,
-        minute: 0,
-        days: 2,
-        reminder: true,
+
+      it("maps all entries", () => {
+        expect(result!.schedules).toHaveLength(2);
       });
-      expect(result!.schedules![1]).toEqual({
-        hour: 18,
-        minute: 30,
-        days: 32,
-        reminder: false,
+
+      it("converts first entry correctly", () => {
+        expect(result!.schedules![0]).toEqual({
+          hour: 8,
+          minute: 0,
+          days: 2,
+          reminder: true,
+        });
+      });
+
+      it("converts second entry correctly", () => {
+        expect(result!.schedules![1]).toEqual({
+          hour: 18,
+          minute: 30,
+          days: 32,
+          reminder: false,
+        });
       });
     });
   });
