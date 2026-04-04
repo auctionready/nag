@@ -7,6 +7,7 @@ Use 'bd' for task tracking.
 * Prefer named exports over than default exports
 * Prefer const style over function unless awkward
 * In tests prefer `describe` with `beforeEach` to set up scenarios and use one or more `it`s to assert.
+* Test files for specific files should go in `__tests__` folders next to the files they test.
 
 # Validation
 
