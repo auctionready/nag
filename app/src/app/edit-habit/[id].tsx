@@ -1,4 +1,3 @@
-import { Alert, StyleSheet, Text, View } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useLiveQuery } from "drizzle-orm/expo-sqlite";
 import { useMemo } from "react";
@@ -66,30 +65,13 @@ const EditHabitScreen = () => {
     router.back();
   };
 
-  const onDelete = () => {
-    Alert.alert(
-      "Delete Habit",
-      "Are you sure? This will also delete all check-ins and goals for this habit.",
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Delete",
-          style: "destructive",
-          onPress: async () => {
-            await deleteHabit(db, habitId);
-            router.dismissAll();
-          },
-        },
-      ],
-    );
+  const onDelete = async () => {
+    await deleteHabit(db, habitId);
+    router.dismissAll();
   };
 
   if (!habitData) {
-    return (
-      <View style={styles.container}>
-        <Text>Loading...</Text>
-      </View>
-    );
+    return null;
   }
 
   return (
@@ -102,12 +84,3 @@ const EditHabitScreen = () => {
 };
 
 export default EditHabitScreen;
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#fff",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-});

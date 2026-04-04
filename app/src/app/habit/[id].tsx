@@ -1,14 +1,5 @@
-import {
-  Alert,
-  FlatList,
-  Pressable,
-  StyleSheet,
-  Text,
-  View,
-} from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useLiveQuery } from "drizzle-orm/expo-sqlite";
-import { format } from "date-fns";
 import { db } from "../../db";
 import { getTitle } from "@nag/schema";
 import {
@@ -19,6 +10,7 @@ import {
   processCommand,
   periodStart,
 } from "@nag/core";
+import { HabitDetail } from "../../components/HabitDetail";
 
 const HabitScreen = () => {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -47,197 +39,32 @@ const HabitScreen = () => {
   const currentCount = countRows?.[0]?.value ?? 0;
   const showSkip = goalData != null && currentCount < goalData.frequency;
 
-  const handleRemove = (checkInId: number) => {
-    Alert.alert("Remove Check-in", "Are you sure?", [
-      { text: "Cancel", style: "cancel" },
-      {
-        text: "Remove",
-        style: "destructive",
-        onPress: async () => {
-          await processCommand(db, { type: "DeleteCheckIn", checkInId });
-        },
-      },
-    ]);
-  };
-
-  if (!habitData) {
-    return (
-      <View style={styles.container}>
-        <Text>Loading...</Text>
-      </View>
-    );
-  }
-
   const goalText = goalData ? getTitle(goalData) : null;
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>{habitData.title}</Text>
-      {habitData.description && (
-        <Text style={styles.description}>{habitData.description}</Text>
-      )}
-      {goalText && <Text style={styles.goal}>Goal: {goalText}</Text>}
-
-      <FlatList
-        data={checkIns}
-        keyExtractor={(item) => String(item.id)}
-        ListEmptyComponent={
-          <Text style={styles.emptyText}>No check-ins yet</Text>
-        }
-        renderItem={({ item }) => (
-          <View style={styles.row}>
-            <View>
-              <Text style={styles.timestamp}>
-                {format(item.timestamp, "EEE, MMM d, yyyy h:mm a")}
-              </Text>
-              {item.skipped && (
-                <Text style={styles.skippedLabel}>(skipped)</Text>
-              )}
-            </View>
-            <Pressable
-              onPress={() => handleRemove(item.id)}
-              style={styles.removeButton}
-            >
-              <Text style={styles.removeButtonText}>Remove</Text>
-            </Pressable>
-          </View>
-        )}
-      />
-
-      <View style={styles.footer}>
-        <Pressable
-          style={styles.checkInButton}
-          onPress={async () => {
-            await processCommand(db, { type: "CreateCheckIn", habitId });
-          }}
-        >
-          <Text style={styles.checkInButtonText}>Check-in</Text>
-        </Pressable>
-        {showSkip && (
-          <Pressable
-            style={styles.skipButton}
-            onPress={async () => {
-              await processCommand(db, {
-                type: "CreateCheckIn",
-                habitId,
-                skipped: true,
-              });
-            }}
-          >
-            <Text style={styles.skipButtonText}>Skip</Text>
-          </Pressable>
-        )}
-        <Pressable
-          style={styles.editButton}
-          onPress={() => router.push(`/edit-habit/${habitId}`)}
-        >
-          <Text style={styles.editButtonText}>Edit</Text>
-        </Pressable>
-      </View>
-    </View>
+    <HabitDetail
+      loading={!habitData}
+      title={habitData?.title ?? ""}
+      description={habitData?.description ?? null}
+      goalText={goalText}
+      checkIns={checkIns ?? []}
+      showSkip={showSkip}
+      onCheckIn={async () => {
+        await processCommand(db, { type: "CreateCheckIn", habitId });
+      }}
+      onSkip={async () => {
+        await processCommand(db, {
+          type: "CreateCheckIn",
+          habitId,
+          skipped: true,
+        });
+      }}
+      onEdit={() => router.push(`/edit-habit/${habitId}`)}
+      onRemoveCheckIn={async (checkInId) => {
+        await processCommand(db, { type: "DeleteCheckIn", checkInId });
+      }}
+    />
   );
 };
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#fff",
-    padding: 16,
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: "700",
-    marginBottom: 4,
-  },
-  description: {
-    fontSize: 15,
-    color: "#666",
-    marginBottom: 4,
-  },
-  goal: {
-    fontSize: 15,
-    color: "#007AFF",
-    fontWeight: "600",
-    marginBottom: 16,
-  },
-  emptyText: {
-    fontSize: 14,
-    color: "#999",
-    textAlign: "center",
-    marginTop: 24,
-  },
-  row: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingVertical: 12,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: "#e0e0e0",
-  },
-  timestamp: {
-    fontSize: 15,
-    color: "#333",
-  },
-  removeButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: "#ff3b30",
-  },
-  removeButtonText: {
-    color: "#ff3b30",
-    fontSize: 13,
-    fontWeight: "600",
-  },
-  footer: {
-    flexDirection: "row",
-    gap: 12,
-    paddingTop: 16,
-  },
-  checkInButton: {
-    flex: 1,
-    backgroundColor: "#007AFF",
-    padding: 16,
-    borderRadius: 8,
-    alignItems: "center",
-  },
-  checkInButtonText: {
-    color: "#fff",
-    fontSize: 16,
-    fontWeight: "600",
-  },
-  skipButton: {
-    flex: 1,
-    padding: 16,
-    borderRadius: 8,
-    alignItems: "center",
-    backgroundColor: "#FF9500",
-  },
-  skipButtonText: {
-    color: "#fff",
-    fontSize: 16,
-    fontWeight: "600",
-  },
-  skippedLabel: {
-    fontSize: 12,
-    color: "#FF9500",
-    fontWeight: "600",
-    marginTop: 2,
-  },
-  editButton: {
-    flex: 1,
-    padding: 16,
-    borderRadius: 8,
-    alignItems: "center",
-    borderWidth: 1,
-    borderColor: "#007AFF",
-  },
-  editButtonText: {
-    color: "#007AFF",
-    fontSize: 16,
-    fontWeight: "600",
-  },
-});
 
 export default HabitScreen;

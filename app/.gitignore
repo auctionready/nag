@@ -35,6 +35,9 @@ yarn-error.*
 
 # typescript
 *.tsbuildinfo
+# tsc composite build outputs (emitted alongside source files)
+src/**/*.js
+src/**/*.d.ts
 
 # generated native folders
 /ios
