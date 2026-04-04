@@ -24,11 +24,11 @@ import { ScheduleEditorModal } from "./ScheduleEditorModal";
 import { ErrorText } from "./ErrorText";
 import { SaveButton } from "./SaveButton";
 
-export function HabitForm({
+export const HabitForm = ({
   initialValues,
   onSubmit,
   onDelete,
-}: HabitFormProps) {
+}: HabitFormProps) => {
   const {
     control,
     handleSubmit,
@@ -281,7 +281,7 @@ export function HabitForm({
       )}
     </View>
   );
-}
+};
 
 const styles = StyleSheet.create({
   outer: {

@@ -1,8 +1,12 @@
 import { StyleSheet, Text } from "react-native";
 
-export function ErrorText({ children }: { children: React.ReactNode }) {
-  return <Text style={styles.error}>{children}</Text>;
+interface ErrorTextProps {
+  children: React.ReactNode;
 }
+
+export const ErrorText = ({ children }: ErrorTextProps) => {
+  return <Text style={styles.error}>{children}</Text>;
+};
 
 const styles = StyleSheet.create({
   error: {

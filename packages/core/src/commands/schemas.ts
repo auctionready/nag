@@ -121,6 +121,7 @@ export const Command = z.discriminatedUnion("type", [
   DeleteCheckIn,
 ]);
 
+export type GoalPayload = z.infer<typeof GoalPayload>;
 export type Command = z.infer<typeof Command>;
 export type CreateHabit = z.infer<typeof CreateHabit>;
 export type UpdateHabit = z.infer<typeof UpdateHabit>;

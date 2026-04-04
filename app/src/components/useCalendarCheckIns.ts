@@ -12,7 +12,7 @@ export type CalendarCheckIn = {
   habitTitle: string;
 };
 
-export function useCalendarCheckIns() {
+export const useCalendarCheckIns = () => {
   const { data: allCheckIns } = useLiveQuery(calendarCheckIns(db));
 
   const checkInsByDate = useMemo(() => {
@@ -31,14 +31,13 @@ export function useCalendarCheckIns() {
   }, [allCheckIns]);
 
   return { allCheckIns, checkInsByDate };
-}
+};
 
-export function useSelectedDayCheckIns(
+export const useSelectedDayCheckIns = (
   selectedDay: Date | null,
   allCheckIns: CalendarCheckIn[] | undefined,
-) {
-  return useMemo(() => {
+) =>
+  useMemo(() => {
     if (!selectedDay || !allCheckIns) return [];
     return allCheckIns.filter((ci) => isSameDay(ci.timestamp, selectedDay));
   }, [selectedDay, allCheckIns]);
-}

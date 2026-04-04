@@ -2,15 +2,17 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 import type { UseFormWatch } from "react-hook-form";
 import { formatDays, formatTime, type HabitFormData } from "./shared";
 
-export function ScheduleEntrySummary({
-  index,
-  watch,
-  onEdit,
-}: {
+interface ScheduleEntrySummaryProps {
   index: number;
   watch: UseFormWatch<HabitFormData>;
   onEdit: () => void;
-}) {
+}
+
+export const ScheduleEntrySummary = ({
+  index,
+  watch,
+  onEdit,
+}: ScheduleEntrySummaryProps) => {
   const hour = watch(`schedules.${index}.hour`);
   const minute = watch(`schedules.${index}.minute`);
   const days = watch(`schedules.${index}.days`) ?? 0;
@@ -24,7 +26,7 @@ export function ScheduleEntrySummary({
       </Pressable>
     </View>
   );
-}
+};
 
 const styles = StyleSheet.create({
   row: {

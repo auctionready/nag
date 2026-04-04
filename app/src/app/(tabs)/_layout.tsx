@@ -5,7 +5,7 @@ const { Navigator } = createMaterialTopTabNavigator();
 
 const TopTabs = withLayoutContext(Navigator);
 
-export default function TabsLayout() {
+export const TabsLayout = () => {
   return (
     <TopTabs
       screenOptions={{
@@ -17,4 +17,5 @@ export default function TabsLayout() {
       <TopTabs.Screen name="calendar" />
     </TopTabs>
   );
-}
+};
+export default TabsLayout;

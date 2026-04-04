@@ -14,9 +14,7 @@ const colors: ComplianceColors = {
 
 export { periodStart };
 
-export function tileColor(
+export const tileColor = (
   goal: { frequency: number; regularity: Regularity; createdAt: Date } | null,
   checkInCount: number,
-): string {
-  return coreTileColor(goal, checkInCount, colors);
-}
+): string => coreTileColor(goal, checkInCount, colors);

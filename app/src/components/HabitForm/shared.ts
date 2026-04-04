@@ -58,25 +58,25 @@ export const dayEntries: { day: Day; label: string }[] = [
   { day: Day.Sat, label: "Sat" },
 ];
 
-export function timeFromStrings(hour: string, minute: string): Date {
+export const timeFromStrings = (hour: string, minute: string): Date => {
   const d = new Date();
   d.setHours(Number(hour) || 9, Number(minute) || 0, 0, 0);
   return d;
-}
+};
 
-export function formatTime(hour: string, minute: string): string {
+export const formatTime = (hour: string, minute: string): string => {
   const h = Number(hour) || 9;
   const m = String(Number(minute) || 0).padStart(2, "0");
   const period = h >= 12 ? "PM" : "AM";
   const h12 = h % 12 || 12;
   return `${h12}:${m} ${period}`;
-}
+};
 
-export function formatDays(days: number): string {
+export const formatDays = (days: number): string => {
   if (days === NoDays) return "No days";
   if (days === AllDays) return "Every day";
   return dayEntries
     .filter(({ day }) => days & day)
     .map(({ label }) => label)
     .join(", ");
-}
+};

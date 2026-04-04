@@ -20,7 +20,7 @@ import {
 
 const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
-export default function CalendarScreen() {
+export const CalendarScreen = () => {
   const today = startOfDay(new Date());
   const currentMonthStart = startOfMonth(today);
 
@@ -160,7 +160,7 @@ export default function CalendarScreen() {
       )}
     </View>
   );
-}
+};
 
 const styles = StyleSheet.create({
   container: {
@@ -293,3 +293,4 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
 });
+export default CalendarScreen;
