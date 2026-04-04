@@ -90,9 +90,7 @@ export const HabitForm = ({
     }
   };
 
-  const openEditor = (index: number) => {
-    setEditingIndex(index);
-  };
+  const openEditor = (index: number) => setEditingIndex(index);
 
   const commitDraft = (data: ScheduleEntry) => {
     if (isNewEntry) {
@@ -112,9 +110,7 @@ export const HabitForm = ({
     setEditingIndex(-1);
   };
 
-  const removeEntry = (index: number) => {
-    remove(index);
-  };
+  const removeEntry = (index: number) => remove(index);
 
   const addEntry = () => {
     setIsNewEntry(true);

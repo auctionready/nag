@@ -13,7 +13,7 @@ import {
 import { HabitForm, type HabitFormData } from "../../components/HabitForm";
 import { buildGoalPayload } from "../../operations";
 
-export const EditHabitScreen = () => {
+const EditHabitScreen = () => {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const habitId = Number(id);

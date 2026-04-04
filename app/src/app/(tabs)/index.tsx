@@ -6,7 +6,7 @@ import { db } from "../../db";
 import { allHabits } from "@nag/core";
 import { HabitTile } from "../../components/HabitTile";
 
-export const BoardScreen = () => {
+const BoardScreen = () => {
   const { data: habits } = useLiveQuery(allHabits(db));
 
   if (!habits) {

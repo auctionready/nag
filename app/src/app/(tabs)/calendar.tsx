@@ -20,7 +20,7 @@ import {
 
 const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
-export const CalendarScreen = () => {
+const CalendarScreen = () => {
   const today = startOfDay(new Date());
   const currentMonthStart = startOfMonth(today);
 

@@ -4,7 +4,7 @@ import { db } from "../db";
 import { HabitForm, type HabitFormData } from "../components/HabitForm";
 import { buildGoalPayload } from "../operations";
 
-export const AddHabitScreen = () => {
+const AddHabitScreen = () => {
   const router = useRouter();
 
   const onSubmit = async (values: HabitFormData) => {
