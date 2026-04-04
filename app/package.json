@@ -41,7 +41,7 @@
     "babel-plugin-inline-import": "^3.0.0",
     "jest": "~29.7.0",
     "jest-expo": "~55.0.13",
-    "jest-github-actions-reporter": "^1.0.3",
+    "jest-junit": "^16.0.0",
     "typescript": "catalog:"
   },
   "private": true

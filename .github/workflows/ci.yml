@@ -59,6 +59,16 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
-      - run: pnpm --filter='!@nag/app' run test
+      - run: pnpm --filter='./packages/**' run test
 
-      - run: pnpm --filter=@nag/app exec jest --passWithNoTests --reporters=default --reporters=jest-github-actions-reporter
+      - run: pnpm --filter=@nag/app exec jest --passWithNoTests --reporters=default --reporters=jest-junit
+        env:
+          JEST_JUNIT_OUTPUT_DIR: ./junit
+          JEST_JUNIT_OUTPUT_NAME: results.xml
+
+      - uses: dorny/test-reporter@v2
+        if: always()
+        with:
+          name: Jest Test Report
+          path: app/junit/results.xml
+          reporter: jest-junit
