@@ -23,5 +23,13 @@ export {
   DeleteHabit,
   CreateCheckIn,
   DeleteCheckIn,
+  type GoalPayload,
 } from "./commands/schemas";
 export type { AnyDb } from "./db";
+export { createHabit, updateHabit, deleteHabit } from "./operations";
+export {
+  setNotificationScheduler,
+  getNotificationScheduler,
+  type NotificationScheduler,
+  type ScheduleEntry as NotificationScheduleEntry,
+} from "./notifications";

@@ -1,7 +1,11 @@
 import "../db/devMenu";
+import { init } from "../init";
 import { Stack } from "expo-router";
+
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { DatabaseProvider } from "../db/DatabaseProvider";
+
+init();
 
 export const RootLayout = () => {
   return (
@@ -25,3 +29,4 @@ export const RootLayout = () => {
     </GestureHandlerRootView>
   );
 };
+export default RootLayout;

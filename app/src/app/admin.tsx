@@ -97,3 +97,4 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
 });
+export default AdminScreen;

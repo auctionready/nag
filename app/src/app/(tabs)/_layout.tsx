@@ -18,3 +18,4 @@ export const TabsLayout = () => {
     </TopTabs>
   );
 };
+export default TabsLayout;

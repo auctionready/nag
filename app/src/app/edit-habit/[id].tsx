@@ -3,9 +3,15 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { useLiveQuery } from "drizzle-orm/expo-sqlite";
 import { useMemo } from "react";
 import { db } from "../../db";
-import { habitById, goalForHabitFull, schedulesForGoal } from "@nag/core";
+import {
+  habitById,
+  goalForHabitFull,
+  schedulesForGoal,
+  updateHabit,
+  deleteHabit,
+} from "@nag/core";
 import { HabitForm, type HabitFormData } from "../../components/HabitForm";
-import { updateHabit, deleteHabit } from "../../operations";
+import { buildGoalPayload } from "../../operations";
 
 export const EditHabitScreen = () => {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -51,7 +57,12 @@ export const EditHabitScreen = () => {
   }, [habitData, goalData, schedulesReady, scheduleData]);
 
   const onSubmit = async (values: HabitFormData) => {
-    await updateHabit(habitId, values);
+    const goal = buildGoalPayload(values);
+    await updateHabit(db, habitId, {
+      title: values.title,
+      description: values.description || null,
+      goal: goal ?? null,
+    });
     router.back();
   };
 
@@ -65,7 +76,7 @@ export const EditHabitScreen = () => {
           text: "Delete",
           style: "destructive",
           onPress: async () => {
-            await deleteHabit(habitId);
+            await deleteHabit(db, habitId);
             router.dismissAll();
           },
         },
@@ -89,6 +100,8 @@ export const EditHabitScreen = () => {
     />
   );
 };
+
+export default EditHabitScreen;
 
 const styles = StyleSheet.create({
   container: {
