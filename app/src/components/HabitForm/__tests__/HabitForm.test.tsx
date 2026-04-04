@@ -175,6 +175,74 @@ describe("regularity", () => {
   });
 });
 
+describe("description", () => {
+  it("renders description input", () => {
+    const { getByPlaceholderText } = render(<HabitForm onSubmit={onSubmit} />);
+    expect(getByPlaceholderText("Describe the habit")).toBeTruthy();
+  });
+
+  it("pre-fills description from initialValues", () => {
+    const { getByDisplayValue } = render(
+      <HabitForm
+        onSubmit={onSubmit}
+        initialValues={{ title: "Test", description: "My description" }}
+      />,
+    );
+    expect(getByDisplayValue("My description")).toBeTruthy();
+  });
+
+  it("includes description in submitted data", async () => {
+    const { getByPlaceholderText, getByText } = render(
+      <HabitForm onSubmit={onSubmit} />,
+    );
+    fireEvent.changeText(getByPlaceholderText("e.g. Exercise"), "Run");
+    fireEvent.changeText(
+      getByPlaceholderText("Describe the habit"),
+      "Go for a run",
+    );
+    fireEvent.press(getByText("Save"));
+    await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1));
+    expect(onSubmit.mock.calls[0][0]).toMatchObject({
+      title: "Run",
+      description: "Go for a run",
+    });
+  });
+});
+
+describe("delete", () => {
+  it("calls onDelete when delete is confirmed", async () => {
+    const onDelete = jest.fn();
+    jest.spyOn(Alert, "alert");
+    const { getByText } = render(
+      <HabitForm onSubmit={onSubmit} onDelete={onDelete} />,
+    );
+    fireEvent.press(getByText("Delete Habit"));
+
+    expect(Alert.alert).toHaveBeenCalledWith(
+      "Delete Habit",
+      expect.any(String),
+      expect.any(Array),
+    );
+
+    const buttons = (Alert.alert as jest.Mock).mock.calls[0][2];
+    await act(async () => {
+      buttons.find((b: any) => b.text === "Delete").onPress();
+    });
+    expect(onDelete).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not call onDelete when cancel is chosen", () => {
+    const onDelete = jest.fn();
+    jest.spyOn(Alert, "alert");
+    const { getByText } = render(
+      <HabitForm onSubmit={onSubmit} onDelete={onDelete} />,
+    );
+    fireEvent.press(getByText("Delete Habit"));
+    // Cancel button has no onPress, so onDelete should not be called
+    expect(onDelete).not.toHaveBeenCalled();
+  });
+});
+
 describe("schedule editor", () => {
   let utils: ReturnType<typeof render>;
 

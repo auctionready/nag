@@ -103,4 +103,78 @@ describe("tileColor", () => {
     };
     expect(tileColor(goal, 1, colors)).toBe("failing");
   });
+
+  it("returns compliant for weekly goal meeting frequency", () => {
+    const goal = {
+      frequency: 3,
+      regularity: "week" as Regularity,
+      createdAt: new Date("2020-01-01T00:00:00.000Z"),
+    };
+    expect(tileColor(goal, 3, colors)).toBe("compliant");
+  });
+
+  it("returns partial for weekly goal at half frequency", () => {
+    const goal = {
+      frequency: 4,
+      regularity: "week" as Regularity,
+      createdAt: new Date("2020-01-01T00:00:00.000Z"),
+    };
+    expect(tileColor(goal, 2, colors)).toBe("partial");
+  });
+
+  it("returns failing for weekly goal below half", () => {
+    const goal = {
+      frequency: 6,
+      regularity: "week" as Regularity,
+      createdAt: new Date("2020-01-01T00:00:00.000Z"),
+    };
+    expect(tileColor(goal, 1, colors)).toBe("failing");
+  });
+
+  it("returns default for weekly goal created in current week", () => {
+    const now = new Date();
+    const goal = {
+      frequency: 5,
+      regularity: "week" as Regularity,
+      createdAt: now,
+    };
+    expect(tileColor(goal, 0, colors)).toBe("default");
+  });
+
+  it("returns compliant for monthly goal meeting frequency", () => {
+    const goal = {
+      frequency: 2,
+      regularity: "month" as Regularity,
+      createdAt: new Date("2020-01-01T00:00:00.000Z"),
+    };
+    expect(tileColor(goal, 4, colors)).toBe("compliant");
+  });
+
+  it("returns partial for monthly goal at half frequency", () => {
+    const goal = {
+      frequency: 10,
+      regularity: "month" as Regularity,
+      createdAt: new Date("2020-01-01T00:00:00.000Z"),
+    };
+    expect(tileColor(goal, 5, colors)).toBe("partial");
+  });
+
+  it("returns failing for monthly goal below half", () => {
+    const goal = {
+      frequency: 20,
+      regularity: "month" as Regularity,
+      createdAt: new Date("2020-01-01T00:00:00.000Z"),
+    };
+    expect(tileColor(goal, 3, colors)).toBe("failing");
+  });
+
+  it("returns default for monthly goal created in current month", () => {
+    const now = new Date();
+    const goal = {
+      frequency: 5,
+      regularity: "month" as Regularity,
+      createdAt: now,
+    };
+    expect(tileColor(goal, 0, colors)).toBe("default");
+  });
 });

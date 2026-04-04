@@ -759,3 +759,114 @@ describe("processCommand handler errors", () => {
     expect(habits).toHaveLength(1);
   });
 });
+
+describe("schedule boundary values", () => {
+  it("accepts schedule at midnight (hour 0, minute 0)", async () => {
+    const db = getDb();
+    const result = await processCommand(db, {
+      type: "CreateHabit",
+      title: "Midnight",
+      goal: {
+        regularity: "day",
+        schedules: [{ hour: 0, minute: 0 }],
+      },
+    });
+
+    const goals = await db
+      .select()
+      .from(schema.goal)
+      .where(eq(schema.goal.habitId, result.habitId));
+    const schedules = await db
+      .select()
+      .from(schema.schedule)
+      .where(eq(schema.schedule.goalId, goals[0].id));
+    expect(schedules[0].hour).toBe(0);
+    expect(schedules[0].minute).toBe(0);
+  });
+
+  it("accepts schedule at end of day (hour 23, minute 59)", async () => {
+    const db = getDb();
+    const result = await processCommand(db, {
+      type: "CreateHabit",
+      title: "Late night",
+      goal: {
+        regularity: "day",
+        schedules: [{ hour: 23, minute: 59 }],
+      },
+    });
+
+    const goals = await db
+      .select()
+      .from(schema.goal)
+      .where(eq(schema.goal.habitId, result.habitId));
+    const schedules = await db
+      .select()
+      .from(schema.schedule)
+      .where(eq(schema.schedule.goalId, goals[0].id));
+    expect(schedules[0].hour).toBe(23);
+    expect(schedules[0].minute).toBe(59);
+  });
+});
+
+describe("UpdateHabit edge cases", () => {
+  it("updates description from null to a value", async () => {
+    const db = getDb();
+    const { habitId } = await processCommand(db, {
+      type: "CreateHabit",
+      title: "No desc",
+    });
+
+    await processCommand(db, {
+      type: "UpdateHabit",
+      habitId,
+      description: "Now it has one",
+    });
+
+    const [h] = await db
+      .select()
+      .from(schema.habit)
+      .where(eq(schema.habit.id, habitId));
+    expect(h.description).toBe("Now it has one");
+  });
+
+  it("can update only description without changing title", async () => {
+    const db = getDb();
+    const { habitId } = await processCommand(db, {
+      type: "CreateHabit",
+      title: "Keep me",
+    });
+
+    await processCommand(db, {
+      type: "UpdateHabit",
+      habitId,
+      description: "Added desc",
+    });
+
+    const [h] = await db
+      .select()
+      .from(schema.habit)
+      .where(eq(schema.habit.id, habitId));
+    expect(h.title).toBe("Keep me");
+    expect(h.description).toBe("Added desc");
+  });
+});
+
+describe("multiple check-ins", () => {
+  it("accumulates check-ins for the same habit", async () => {
+    const db = getDb();
+    const { habitId } = await processCommand(db, {
+      type: "CreateHabit",
+      title: "Multi",
+    });
+
+    await processCommand(db, { type: "CreateCheckIn", habitId });
+    await processCommand(db, { type: "CreateCheckIn", habitId });
+    await processCommand(db, { type: "CreateCheckIn", habitId });
+
+    const checkIns = await db
+      .select()
+      .from(schema.checkIn)
+      .where(eq(schema.checkIn.habitId, habitId));
+    expect(checkIns).toHaveLength(3);
+  });
+});

@@ -172,3 +172,88 @@ describe("deleteHabit", () => {
     });
   });
 });
+
+describe("error paths", () => {
+  describe("when syncNotifications throws during createHabit", () => {
+    beforeEach(() => {
+      mockScheduler.syncNotifications.mockRejectedValueOnce(
+        new Error("Permission denied"),
+      );
+    });
+    it("propagates the error", async () => {
+      await expect(
+        createHabit(getDb(), {
+          title: "Exercise",
+          goal: {
+            regularity: "day",
+            schedules: [{ hour: 9, minute: 0, reminder: true }],
+          },
+        }),
+      ).rejects.toThrow("Permission denied");
+    });
+
+    it("still creates the habit in the database", async () => {
+      const { allHabits } = await import("../queries");
+      const before = await allHabits(getDb());
+      try {
+        await createHabit(getDb(), {
+          title: "Exercise",
+          goal: {
+            regularity: "day",
+            schedules: [{ hour: 9, minute: 0, reminder: true }],
+          },
+        });
+      } catch {
+        // expected
+      }
+      const after = await allHabits(getDb());
+      expect(after.length).toBe(before.length + 1);
+      expect(after[after.length - 1].title).toBe("Exercise");
+    });
+  });
+
+  describe("when syncNotifications throws during updateHabit", () => {
+    it("propagates the error", async () => {
+      const { habitId } = await createHabit(getDb(), { title: "Exercise" });
+      mockScheduler.syncNotifications.mockRejectedValueOnce(
+        new Error("Sync failed"),
+      );
+      await expect(
+        updateHabit(getDb(), habitId, {
+          title: "Exercise",
+          goal: {
+            regularity: "day",
+            schedules: [{ hour: 8, minute: 0, reminder: true }],
+          },
+        }),
+      ).rejects.toThrow("Sync failed");
+    });
+  });
+
+  describe("when cancelNotifications throws during deleteHabit", () => {
+    it("propagates the error and does not delete the habit", async () => {
+      const { habitId } = await createHabit(getDb(), { title: "Exercise" });
+      vi.clearAllMocks();
+      mockScheduler.cancelNotifications.mockRejectedValueOnce(
+        new Error("Cancel failed"),
+      );
+      await expect(deleteHabit(getDb(), habitId)).rejects.toThrow(
+        "Cancel failed",
+      );
+      // Habit should still exist since cancel threw before processCommand
+      const rows = await habitById(getDb(), habitId);
+      expect(rows).toHaveLength(1);
+    });
+  });
+
+  describe("createHabit with description", () => {
+    it("persists description to the database", async () => {
+      const { habitId } = await createHabit(getDb(), {
+        title: "Read",
+        description: "Read for 30 minutes",
+      });
+      const rows = await habitById(getDb(), habitId);
+      expect(rows[0].description).toBe("Read for 30 minutes");
+    });
+  });
+});
