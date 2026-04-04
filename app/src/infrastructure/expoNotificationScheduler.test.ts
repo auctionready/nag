@@ -1,31 +1,32 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
 import type { NotificationRequest } from "expo-notifications";
 import { SchedulableTriggerInputTypes } from "expo-notifications";
 import * as Notifications from "expo-notifications";
 import { expoNotificationScheduler } from "./expoNotificationScheduler";
 
-vi.mock("expo-notifications", () => ({
+jest.mock("expo-notifications", () => ({
   SchedulableTriggerInputTypes: {
     DAILY: "daily",
     WEEKLY: "weekly",
     MONTHLY: "monthly",
   },
-  requestPermissionsAsync: vi.fn(),
-  getAllScheduledNotificationsAsync: vi.fn(),
-  cancelScheduledNotificationAsync: vi.fn(),
-  scheduleNotificationAsync: vi.fn(),
+  requestPermissionsAsync: jest.fn(),
+  getAllScheduledNotificationsAsync: jest.fn(),
+  cancelScheduledNotificationAsync: jest.fn(),
+  scheduleNotificationAsync: jest.fn(),
 }));
 
-const mockRequestPermissions = vi.mocked(Notifications.requestPermissionsAsync);
-const mockGetAll = vi.mocked(Notifications.getAllScheduledNotificationsAsync);
-const mockCancel = vi.mocked(Notifications.cancelScheduledNotificationAsync);
-const mockSchedule = vi.mocked(Notifications.scheduleNotificationAsync);
+const mockRequestPermissions = jest.mocked(
+  Notifications.requestPermissionsAsync,
+);
+const mockGetAll = jest.mocked(Notifications.getAllScheduledNotificationsAsync);
+const mockCancel = jest.mocked(Notifications.cancelScheduledNotificationAsync);
+const mockSchedule = jest.mocked(Notifications.scheduleNotificationAsync);
 
 const makeNotification = (identifier: string): NotificationRequest =>
   ({ identifier }) as unknown as NotificationRequest;
 
 beforeEach(() => {
-  vi.clearAllMocks();
+  jest.clearAllMocks();
   mockRequestPermissions.mockResolvedValue({ status: "granted" } as Awaited<
     ReturnType<typeof Notifications.requestPermissionsAsync>
   >);
