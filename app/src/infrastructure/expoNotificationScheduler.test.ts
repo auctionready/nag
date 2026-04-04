@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import type { Notification } from "expo-notifications";
+import type { NotificationRequest } from "expo-notifications";
 import { SchedulableTriggerInputTypes } from "expo-notifications";
 import * as Notifications from "expo-notifications";
 import { expoNotificationScheduler } from "./expoNotificationScheduler";
@@ -21,8 +21,8 @@ const mockGetAll = vi.mocked(Notifications.getAllScheduledNotificationsAsync);
 const mockCancel = vi.mocked(Notifications.cancelScheduledNotificationAsync);
 const mockSchedule = vi.mocked(Notifications.scheduleNotificationAsync);
 
-const makeNotification = (identifier: string): Notification =>
-  ({ identifier }) as unknown as Notification;
+const makeNotification = (identifier: string): NotificationRequest =>
+  ({ identifier }) as unknown as NotificationRequest;
 
 beforeEach(() => {
   vi.clearAllMocks();

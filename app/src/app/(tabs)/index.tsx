@@ -4,7 +4,7 @@ import { Link } from "expo-router";
 import { useLiveQuery } from "drizzle-orm/expo-sqlite";
 import { db } from "../../db";
 import { allHabits } from "@nag/core";
-import { HabitTile } from "../../components/HabitTile";
+import { HabitTile } from "../../components/tile";
 
 const BoardScreen = () => {
   const { data: habits } = useLiveQuery(allHabits(db));

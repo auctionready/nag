@@ -1,2 +1,4 @@
 pnpm-lock.yaml
 packages/schema/drizzle/
+.beads/
+.claude/
