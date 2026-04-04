@@ -1,6 +1,8 @@
 Use drizzle-kit for database management. https://orm.drizzle.team/docs/kit-overview
 
-Use 'bd' for task tracking.
+* Use 'bd' for task tracking.
+* Use pnpm for package management. https://pnpm.io/
+* Use pnpm to run expo e.g. `pnpm expo start`
 
 # Coding Style
 
