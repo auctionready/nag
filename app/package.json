@@ -6,8 +6,11 @@
     "start": "expo start",
     "android": "expo run:android",
     "ios": "expo run:ios",
-    "test": "vitest run",
+    "test": "jest --passWithNoTests",
     "test:ui": "maestro test .maestro/"
+  },
+  "jest": {
+    "preset": "jest-expo"
   },
   "dependencies": {
     "@nag/core": "workspace:*",
@@ -32,10 +35,13 @@
     "react-native-tab-view": "^4.3.0"
   },
   "devDependencies": {
+    "@testing-library/react-native": "^13.3.3",
+    "@types/jest": "29.5.14",
     "@types/react": "~19.2.2",
     "babel-plugin-inline-import": "^3.0.0",
-    "typescript": "catalog:",
-    "vitest": "catalog:"
+    "jest": "~29.7.0",
+    "jest-expo": "~55.0.13",
+    "typescript": "catalog:"
   },
   "private": true
 }
