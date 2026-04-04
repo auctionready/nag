@@ -14,7 +14,7 @@ export const updateHabit = async (
   habitId: number,
   input: UpdateHabitInput,
 ) => {
-  await processCommand(db, {
+  const { scheduleIds } = await processCommand(db, {
     type: "UpdateHabit",
     habitId,
     title: input.title,
@@ -23,9 +23,9 @@ export const updateHabit = async (
   });
 
   if (input.goal?.schedules) {
-    const notificationSchedules = input.goal.schedules.filter(
-      (s) => s.reminder !== false,
-    );
+    const notificationSchedules = input.goal.schedules
+      .map((s, i) => ({ ...s, id: scheduleIds[i] }))
+      .filter((s) => s.reminder !== false);
     if (notificationSchedules.length > 0) {
       await getNotificationScheduler().syncNotifications(
         habitId,

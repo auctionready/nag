@@ -54,12 +54,19 @@ describe("createHabit", () => {
         },
       }));
     });
-    it("calls syncNotifications with the correct args", () => {
+    it("calls syncNotifications with the correct args including schedule id", () => {
       expect(mockScheduler.syncNotifications).toHaveBeenCalledOnce();
       expect(mockScheduler.syncNotifications).toHaveBeenCalledWith(
         habitId,
         "Exercise",
-        [{ hour: 9, minute: 0, reminder: true }],
+        [
+          expect.objectContaining({
+            id: expect.any(Number),
+            hour: 9,
+            minute: 0,
+            reminder: true,
+          }),
+        ],
         "day",
       );
     });
@@ -122,12 +129,19 @@ describe("updateHabit", () => {
         },
       });
     });
-    it("calls syncNotifications with the correct args", () => {
+    it("calls syncNotifications with the correct args including schedule id", () => {
       expect(mockScheduler.syncNotifications).toHaveBeenCalledOnce();
       expect(mockScheduler.syncNotifications).toHaveBeenCalledWith(
         habitId,
         "Exercise",
-        [{ hour: 8, minute: 30, reminder: true }],
+        [
+          expect.objectContaining({
+            id: expect.any(Number),
+            hour: 8,
+            minute: 30,
+            reminder: true,
+          }),
+        ],
         "day",
       );
     });
