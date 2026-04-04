@@ -1,84 +1,19 @@
 import { useCallback, useRef } from "react";
 import { Animated, Pressable, StyleSheet, Text } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
-import { useLiveQuery } from "drizzle-orm/expo-sqlite";
 import { useRouter } from "expo-router";
 import { formatDistanceToNow } from "date-fns";
-import { db } from "../db";
-import { getTitle, type Regularity } from "@nag/schema";
-import {
-  goalForHabit,
-  checkInCount,
-  recentCheckIns,
-  processCommand,
-} from "@nag/core";
-import { periodStart, tileColor } from "./getComplianceColor";
-
-const periodLabels: Record<Regularity, string> = {
-  day: "today",
-  week: "this week",
-  month: "this month",
-};
-
-const smallNumbers = [
-  "zero",
-  "one",
-  "two",
-  "three",
-  "four",
-  "five",
-  "six",
-  "seven",
-  "eight",
-  "nine",
-];
-
-const formatCount = (n: number): string =>
-  n < smallNumbers.length ? smallNumbers[n] : String(n);
+import { db } from "../../db";
+import { processCommand } from "@nag/core";
+import { tileColor } from "../getComplianceColor";
+import { useHabitGoalSummary } from "./useHabitGoalSummary";
+import { useHabitCompliance } from "./useHabitCompliance";
+import { periodLabels, formatCount } from "./format";
 
 interface HabitTileProps {
   id: number;
   title: string;
 }
-
-const useHabitGoalSummary = (habitId: number) => {
-  const { data: goals } = useLiveQuery(goalForHabit(db, habitId), [habitId]);
-
-  const goalData = goals?.[0];
-  if (!goalData) return null;
-
-  return {
-    regularity: goalData.regularity,
-    frequency: goalData.frequency,
-    title: getTitle(goalData),
-    createdAt: goalData.createdAt,
-  };
-};
-
-export type HabitGoalSummary = NonNullable<
-  ReturnType<typeof useHabitGoalSummary>
->;
-
-const useHabitCompliance = (habitId: number, goal: HabitGoalSummary | null) => {
-  const periodStartDate = goal ? periodStart(goal.regularity) : undefined;
-
-  const { data: countRows } = useLiveQuery(
-    checkInCount(db, habitId, periodStartDate),
-    [habitId, periodStartDate],
-  );
-
-  const count = countRows?.[0]?.value ?? 0;
-
-  const { data: recent } = useLiveQuery(
-    recentCheckIns(db, habitId, periodStartDate),
-    [habitId, periodStartDate],
-  );
-
-  return {
-    checkInCount: count,
-    recentCheckIns: recent ?? [],
-  };
-};
 
 export const HabitTile = ({ id, title }: HabitTileProps) => {
   const router = useRouter();
