@@ -14,6 +14,7 @@ export {
   checkInsForHabit,
   calendarCheckIns,
   schedulesForGoal,
+  allActiveSchedules,
 } from "./queries";
 export { processCommand, type CommandResult } from "./commands/processor";
 export {
@@ -34,3 +35,11 @@ export {
   type NotificationScheduler,
   type ScheduleEntry as NotificationScheduleEntry,
 } from "./notifications";
+export {
+  setConsolidatedScheduler,
+  getConsolidatedScheduler,
+  syncAllNotifications,
+  consolidateSchedules,
+  type ConsolidatedNotificationScheduler,
+  type ConsolidatedSlot,
+} from "./notificationConsolidator";

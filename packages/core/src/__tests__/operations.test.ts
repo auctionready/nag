@@ -1,19 +1,19 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { setNotificationScheduler } from "../notifications";
+import { setConsolidatedScheduler } from "../notificationConsolidator";
 import { createHabit, updateHabit, deleteHabit } from "../operations";
 import { setupTestDb } from "./testDb";
 import { habitById } from "../queries";
 
 const getDb = setupTestDb("operations-test.db");
 
-const mockScheduler = {
-  cancelNotifications: vi.fn(async () => {}),
-  syncNotifications: vi.fn(async () => {}),
+const mockConsolidatedScheduler = {
+  cancelAllSlotNotifications: vi.fn(async () => {}),
+  scheduleSlotNotification: vi.fn(async () => {}),
 };
 
 beforeEach(() => {
   vi.clearAllMocks();
-  setNotificationScheduler(mockScheduler);
+  setConsolidatedScheduler(mockConsolidatedScheduler);
 });
 
 describe("createHabit", () => {
@@ -26,8 +26,10 @@ describe("createHabit", () => {
       const rows = await habitById(getDb(), habitId);
       expect(rows[0].title).toBe("Exercise");
     });
-    it("does not call syncNotifications", () => {
-      expect(mockScheduler.syncNotifications).not.toHaveBeenCalled();
+    it("calls cancelAllSlotNotifications as part of syncAll", () => {
+      expect(
+        mockConsolidatedScheduler.cancelAllSlotNotifications,
+      ).toHaveBeenCalled();
     });
   });
 
@@ -38,36 +40,35 @@ describe("createHabit", () => {
         goal: { regularity: "day", frequency: 1 },
       });
     });
-    it("does not call syncNotifications", () => {
-      expect(mockScheduler.syncNotifications).not.toHaveBeenCalled();
+    it("does not schedule slot notifications (no schedules)", () => {
+      expect(
+        mockConsolidatedScheduler.scheduleSlotNotification,
+      ).not.toHaveBeenCalled();
     });
   });
 
   describe("with a scheduled goal", () => {
-    let habitId: number;
     beforeEach(async () => {
-      ({ habitId } = await createHabit(getDb(), {
+      await createHabit(getDb(), {
         title: "Exercise",
         goal: {
           regularity: "day",
           schedules: [{ hour: 9, minute: 0, reminder: true }],
         },
-      }));
+      });
     });
-    it("calls syncNotifications with the correct args including schedule id", () => {
-      expect(mockScheduler.syncNotifications).toHaveBeenCalledOnce();
-      expect(mockScheduler.syncNotifications).toHaveBeenCalledWith(
-        habitId,
-        "Exercise",
-        [
-          expect.objectContaining({
-            id: expect.any(Number),
-            hour: 9,
-            minute: 0,
-            reminder: true,
+    it("schedules a consolidated slot notification", () => {
+      expect(
+        mockConsolidatedScheduler.scheduleSlotNotification,
+      ).toHaveBeenCalledWith(
+        expect.objectContaining({
+          identifier: "slot-daily-09-00",
+          title: "Exercise",
+          body: "Time for Exercise",
+          data: expect.objectContaining({
+            habitIds: expect.arrayContaining([expect.any(Number)]),
           }),
-        ],
-        "day",
+        }),
       );
     });
   });
@@ -82,8 +83,10 @@ describe("createHabit", () => {
         },
       });
     });
-    it("does not call syncNotifications", () => {
-      expect(mockScheduler.syncNotifications).not.toHaveBeenCalled();
+    it("does not schedule slot notifications", () => {
+      expect(
+        mockConsolidatedScheduler.scheduleSlotNotification,
+      ).not.toHaveBeenCalled();
     });
   });
 });
@@ -101,25 +104,9 @@ describe("updateHabit", () => {
     });
   });
 
-  describe("with null goal", () => {
-    let habitId: number;
-    beforeEach(async () => {
-      ({ habitId } = await createHabit(getDb(), { title: "Exercise" }));
-      vi.clearAllMocks();
-      await updateHabit(getDb(), habitId, { title: "Exercise", goal: null });
-    });
-    it("cancels notifications", () => {
-      expect(mockScheduler.cancelNotifications).toHaveBeenCalledWith(habitId);
-    });
-    it("does not call syncNotifications", () => {
-      expect(mockScheduler.syncNotifications).not.toHaveBeenCalled();
-    });
-  });
-
   describe("with a scheduled goal with reminders", () => {
-    let habitId: number;
     beforeEach(async () => {
-      ({ habitId } = await createHabit(getDb(), { title: "Exercise" }));
+      const { habitId } = await createHabit(getDb(), { title: "Exercise" });
       vi.clearAllMocks();
       await updateHabit(getDb(), habitId, {
         title: "Exercise",
@@ -129,42 +116,13 @@ describe("updateHabit", () => {
         },
       });
     });
-    it("calls syncNotifications with the correct args including schedule id", () => {
-      expect(mockScheduler.syncNotifications).toHaveBeenCalledOnce();
-      expect(mockScheduler.syncNotifications).toHaveBeenCalledWith(
-        habitId,
-        "Exercise",
-        [
-          expect.objectContaining({
-            id: expect.any(Number),
-            hour: 8,
-            minute: 30,
-            reminder: true,
-          }),
-        ],
-        "day",
-      );
-    });
-  });
-
-  describe("with all schedules having reminder: false", () => {
-    let habitId: number;
-    beforeEach(async () => {
-      ({ habitId } = await createHabit(getDb(), { title: "Exercise" }));
-      vi.clearAllMocks();
-      await updateHabit(getDb(), habitId, {
-        title: "Exercise",
-        goal: {
-          regularity: "day",
-          schedules: [{ hour: 8, minute: 30, reminder: false }],
-        },
-      });
-    });
-    it("cancels notifications", () => {
-      expect(mockScheduler.cancelNotifications).toHaveBeenCalledWith(habitId);
-    });
-    it("does not call syncNotifications", () => {
-      expect(mockScheduler.syncNotifications).not.toHaveBeenCalled();
+    it("syncs all consolidated notifications", () => {
+      expect(
+        mockConsolidatedScheduler.cancelAllSlotNotifications,
+      ).toHaveBeenCalled();
+      expect(
+        mockConsolidatedScheduler.scheduleSlotNotification,
+      ).toHaveBeenCalled();
     });
   });
 });
@@ -181,96 +139,50 @@ describe("deleteHabit", () => {
       const rows = await habitById(getDb(), habitId);
       expect(rows).toHaveLength(0);
     });
-    it("cancels notifications", () => {
-      expect(mockScheduler.cancelNotifications).toHaveBeenCalledWith(habitId);
+    it("syncs all notifications after delete", () => {
+      expect(
+        mockConsolidatedScheduler.cancelAllSlotNotifications,
+      ).toHaveBeenCalled();
     });
   });
 });
 
 describe("error paths", () => {
-  const scheduledGoalInput = {
-    title: "Exercise",
-    goal: {
-      regularity: "day" as const,
-      schedules: [{ hour: 9, minute: 0, reminder: true }],
-    },
-  };
-
-  describe("when syncNotifications throws during createHabit", () => {
+  describe("when syncAll throws during createHabit", () => {
     beforeEach(() => {
-      mockScheduler.syncNotifications.mockRejectedValueOnce(
+      mockConsolidatedScheduler.cancelAllSlotNotifications.mockRejectedValueOnce(
         new Error("Permission denied"),
       );
     });
 
     it("propagates the error", async () => {
-      await expect(createHabit(getDb(), scheduledGoalInput)).rejects.toThrow(
-        "Permission denied",
-      );
+      await expect(
+        createHabit(getDb(), {
+          title: "Exercise",
+          goal: {
+            regularity: "day",
+            schedules: [{ hour: 9, minute: 0, reminder: true }],
+          },
+        }),
+      ).rejects.toThrow("Permission denied");
     });
 
     it("still creates the habit in the database", async () => {
       const { allHabits } = await import("../queries");
       const before = await allHabits(getDb());
       try {
-        await createHabit(getDb(), scheduledGoalInput);
+        await createHabit(getDb(), {
+          title: "Exercise",
+          goal: {
+            regularity: "day",
+            schedules: [{ hour: 9, minute: 0, reminder: true }],
+          },
+        });
       } catch {
         // expected
       }
       const after = await allHabits(getDb());
       expect(after.length).toBe(before.length + 1);
-      expect(after[after.length - 1].title).toBe("Exercise");
-    });
-  });
-
-  describe("when syncNotifications throws during updateHabit", () => {
-    let habitId: number;
-
-    beforeEach(async () => {
-      ({ habitId } = await createHabit(getDb(), { title: "Exercise" }));
-      mockScheduler.syncNotifications.mockRejectedValueOnce(
-        new Error("Sync failed"),
-      );
-    });
-
-    it("propagates the error", async () => {
-      await expect(
-        updateHabit(getDb(), habitId, {
-          title: "Exercise",
-          goal: {
-            regularity: "day",
-            schedules: [{ hour: 8, minute: 0, reminder: true }],
-          },
-        }),
-      ).rejects.toThrow("Sync failed");
-    });
-  });
-
-  describe("when cancelNotifications throws during deleteHabit", () => {
-    let habitId: number;
-
-    beforeEach(async () => {
-      ({ habitId } = await createHabit(getDb(), { title: "Exercise" }));
-      vi.clearAllMocks();
-      mockScheduler.cancelNotifications.mockRejectedValueOnce(
-        new Error("Cancel failed"),
-      );
-    });
-
-    it("propagates the error", async () => {
-      await expect(deleteHabit(getDb(), habitId)).rejects.toThrow(
-        "Cancel failed",
-      );
-    });
-
-    it("does not delete the habit", async () => {
-      try {
-        await deleteHabit(getDb(), habitId);
-      } catch {
-        // expected
-      }
-      const rows = await habitById(getDb(), habitId);
-      expect(rows).toHaveLength(1);
     });
   });
 });

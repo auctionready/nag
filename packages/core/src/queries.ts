@@ -77,6 +77,24 @@ export function recentCheckIns(
     .limit(limit);
 }
 
+export function allActiveSchedules(db: AnyDb) {
+  return db
+    .select({
+      habitId: habit.id,
+      habitTitle: habit.title,
+      regularity: goal.regularity,
+      scheduleId: schedule.id,
+      hour: schedule.hour,
+      minute: schedule.minute,
+      days: schedule.days,
+      dayOfMonth: schedule.dayOfMonth,
+    })
+    .from(schedule)
+    .innerJoin(goal, eq(schedule.goalId, goal.id))
+    .innerJoin(habit, eq(goal.habitId, habit.id))
+    .where(eq(schedule.reminder, true));
+}
+
 export function schedulesForGoal(db: AnyDb, goalId: number) {
   return db
     .select({

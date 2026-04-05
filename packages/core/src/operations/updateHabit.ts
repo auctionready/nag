@@ -1,7 +1,7 @@
 import { processCommand } from "../commands/processor";
 import type { AnyDb } from "../db";
 import type { GoalPayload } from "../commands/schemas";
-import { getNotificationScheduler } from "../notifications";
+import { syncAllNotifications } from "../notificationConsolidator";
 
 interface UpdateHabitInput {
   title?: string;
@@ -14,7 +14,7 @@ export const updateHabit = async (
   habitId: number,
   input: UpdateHabitInput,
 ) => {
-  const { scheduleIds } = await processCommand(db, {
+  await processCommand(db, {
     type: "UpdateHabit",
     habitId,
     title: input.title,
@@ -22,21 +22,5 @@ export const updateHabit = async (
     goal: input.goal,
   });
 
-  if (input.goal?.schedules) {
-    const notificationSchedules = input.goal.schedules
-      .map((s, i) => ({ ...s, id: scheduleIds[i] }))
-      .filter((s) => s.reminder !== false);
-    if (notificationSchedules.length > 0) {
-      await getNotificationScheduler().syncNotifications(
-        habitId,
-        input.title!,
-        notificationSchedules,
-        input.goal.regularity,
-      );
-    } else {
-      await getNotificationScheduler().cancelNotifications(habitId);
-    }
-  } else {
-    await getNotificationScheduler().cancelNotifications(habitId);
-  }
+  await syncAllNotifications(db);
 };
