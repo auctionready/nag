@@ -1,10 +1,8 @@
 import { useCallback, useState } from "react";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useLiveQuery } from "drizzle-orm/expo-sqlite";
-import { inArray } from "drizzle-orm";
 import { db } from "../db";
-import { habit } from "@nag/schema";
-import { processCommand } from "@nag/core";
+import { habitsByIds, processCommand } from "@nag/core";
 import { SlotCheckIn, type SlotCheckInItem } from "../components/SlotCheckIn";
 
 const CheckInSlotScreen = () => {
@@ -15,13 +13,7 @@ const CheckInSlotScreen = () => {
     .map(Number)
     .filter((n) => !isNaN(n) && n > 0);
 
-  const { data: habits } = useLiveQuery(
-    db
-      .select({ id: habit.id, title: habit.title })
-      .from(habit)
-      .where(inArray(habit.id, habitIds.length > 0 ? habitIds : [-1])),
-    [rawIds],
-  );
+  const { data: habits } = useLiveQuery(habitsByIds(db, habitIds), [rawIds]);
 
   const [actioned, setActioned] = useState<
     Record<number, "checkedIn" | "skipped">

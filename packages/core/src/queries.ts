@@ -1,4 +1,4 @@
-import { and, count, desc, eq, gte } from "drizzle-orm";
+import { and, count, desc, eq, gte, inArray } from "drizzle-orm";
 import { checkIn, goal, habit, schedule } from "@nag/schema";
 import type { AnyDb } from "./db";
 
@@ -93,6 +93,13 @@ export function allActiveSchedules(db: AnyDb) {
     .innerJoin(goal, eq(schedule.goalId, goal.id))
     .innerJoin(habit, eq(goal.habitId, habit.id))
     .where(eq(schedule.reminder, true));
+}
+
+export function habitsByIds(db: AnyDb, habitIds: number[]) {
+  return db
+    .select({ id: habit.id, title: habit.title })
+    .from(habit)
+    .where(inArray(habit.id, habitIds.length > 0 ? habitIds : [-1]));
 }
 
 export function schedulesForGoal(db: AnyDb, goalId: number) {

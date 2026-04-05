@@ -10,6 +10,7 @@ import {
   checkInCount,
   recentCheckIns,
   schedulesForGoal,
+  habitsByIds,
 } from "../queries";
 import { subDays } from "date-fns";
 import { setupTestDb } from "./testDb";
@@ -284,6 +285,39 @@ describe("schedulesForGoal", () => {
   it("returns empty for non-existent goal id", async () => {
     const db = getDb();
     const rows = await schedulesForGoal(db, 9999);
+    expect(rows).toHaveLength(0);
+  });
+});
+
+describe("habitsByIds", () => {
+  it("returns habits matching the given ids", async () => {
+    const db = getDb();
+    const [h1] = await db
+      .insert(schema.habit)
+      .values({ title: "Alpha" })
+      .returning();
+    const [h2] = await db
+      .insert(schema.habit)
+      .values({ title: "Beta" })
+      .returning();
+    await db.insert(schema.habit).values({ title: "Gamma" });
+
+    const rows = await habitsByIds(db, [h1.id, h2.id]);
+    expect(rows).toHaveLength(2);
+    expect(rows.map((r) => r.title).sort()).toEqual(["Alpha", "Beta"]);
+  });
+
+  it("returns empty for an empty id list", async () => {
+    const db = getDb();
+    await db.insert(schema.habit).values({ title: "Lonely" });
+
+    const rows = await habitsByIds(db, []);
+    expect(rows).toHaveLength(0);
+  });
+
+  it("returns empty for non-existent ids", async () => {
+    const db = getDb();
+    const rows = await habitsByIds(db, [9999]);
     expect(rows).toHaveLength(0);
   });
 });

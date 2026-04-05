@@ -7,6 +7,7 @@ export {
 export {
   allHabits,
   habitById,
+  habitsByIds,
   goalForHabit,
   goalForHabitFull,
   checkInCount,
