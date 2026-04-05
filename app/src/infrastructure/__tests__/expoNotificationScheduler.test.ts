@@ -1,7 +1,7 @@
 import type { NotificationRequest } from "expo-notifications";
 import { SchedulableTriggerInputTypes } from "expo-notifications";
 import * as Notifications from "expo-notifications";
-import { expoNotificationScheduler } from "./expoNotificationScheduler";
+import { expoNotificationScheduler } from "../expoNotificationScheduler";
 import { Day } from "@nag/core";
 
 jest.mock("expo-notifications", () => ({
