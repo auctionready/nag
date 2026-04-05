@@ -1,4 +1,4 @@
-import { Svg, Circle, G } from "react-native-svg";
+import { Svg, Circle } from "react-native-svg";
 
 interface ProgressRingProps {
   /** Value between 0 and 1 (exclusive on both ends) */
@@ -16,29 +16,33 @@ export const ProgressRing = ({
   const circumference = 2 * Math.PI * radius;
   const offset = circumference * (1 - progress);
 
+  const cx = size / 2;
+  const cy = size / 2;
+  const transform = `rotate(-90, ${cx}, ${cy})`;
+
   return (
     <Svg width={size} height={size}>
-      <G rotation={-90} origin={`${size / 2}, ${size / 2}`}>
-        <Circle
-          cx={size / 2}
-          cy={size / 2}
-          r={radius}
-          stroke="rgba(255, 255, 255, 0.25)"
-          strokeWidth={strokeWidth}
-          fill="none"
-        />
-        <Circle
-          cx={size / 2}
-          cy={size / 2}
-          r={radius}
-          stroke="rgba(255, 255, 255, 0.85)"
-          strokeWidth={strokeWidth}
-          strokeDasharray={circumference}
-          strokeDashoffset={offset}
-          strokeLinecap="round"
-          fill="none"
-        />
-      </G>
+      <Circle
+        cx={cx}
+        cy={cy}
+        r={radius}
+        stroke="rgba(255, 255, 255, 0.25)"
+        strokeWidth={strokeWidth}
+        fill="none"
+        transform={transform}
+      />
+      <Circle
+        cx={cx}
+        cy={cy}
+        r={radius}
+        stroke="rgba(255, 255, 255, 0.85)"
+        strokeWidth={strokeWidth}
+        strokeDasharray={circumference}
+        strokeDashoffset={offset}
+        strokeLinecap="round"
+        fill="none"
+        transform={transform}
+      />
     </Svg>
   );
 };
