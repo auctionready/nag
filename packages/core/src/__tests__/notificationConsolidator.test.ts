@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { consolidateSchedules } from "../notificationConsolidator";
+import { Day } from "../days";
 
 const row = (
   overrides: Partial<{
@@ -66,9 +67,9 @@ describe("consolidateSchedules", () => {
       row({
         habitId: 2,
         regularity: "week",
-        days: 0b0000010,
+        days: Day.Mon,
         scheduleId: 20,
-      }), // Monday at 08:00
+      }),
     ]);
     expect(slots).toHaveLength(2);
   });
@@ -77,7 +78,7 @@ describe("consolidateSchedules", () => {
     const slots = consolidateSchedules([
       row({
         regularity: "week",
-        days: 0b1010, // Mon (bit 1) + Wed (bit 3)
+        days: Day.Mon | Day.Wed,
       }),
     ]);
     expect(slots).toHaveLength(2);
@@ -93,13 +94,13 @@ describe("consolidateSchedules", () => {
         habitId: 1,
         habitTitle: "Run",
         regularity: "week",
-        days: 0b0000010, // Mon
+        days: Day.Mon,
       }),
       row({
         habitId: 2,
         habitTitle: "Stretch",
         regularity: "week",
-        days: 0b0000010, // Mon
+        days: Day.Mon,
         scheduleId: 20,
       }),
     ]);

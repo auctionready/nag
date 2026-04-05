@@ -1,4 +1,5 @@
 import { formatTime, formatDays, timeFromStrings } from "../shared";
+import { Day, AllDays, NoDays } from "@nag/core";
 
 describe("formatTime", () => {
   it("formats morning time with AM", () => {
@@ -28,18 +29,18 @@ describe("formatTime", () => {
 
 describe("formatDays", () => {
   it("returns 'No days' for 0", () => {
-    expect(formatDays(0)).toBe("No days");
+    expect(formatDays(NoDays)).toBe("No days");
   });
 
   it("returns 'Every day' for AllDays (127)", () => {
-    expect(formatDays(127)).toBe("Every day");
+    expect(formatDays(AllDays)).toBe("Every day");
   });
 
   describe("with partial bitmask (Mon + Wed)", () => {
     let result: string;
 
     beforeEach(() => {
-      result = formatDays(10); // Mon(2) + Wed(8) = 10
+      result = formatDays(Day.Mon | Day.Wed);
     });
 
     it("includes selected days", () => {
@@ -53,7 +54,7 @@ describe("formatDays", () => {
   });
 
   it("returns single day for single bit", () => {
-    expect(formatDays(2)).toBe("Mon");
+    expect(formatDays(Day.Mon)).toBe("Mon");
   });
 });
 
