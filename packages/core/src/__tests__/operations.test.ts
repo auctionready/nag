@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { createHabit, updateHabit, deleteHabit } from "../operations";
 import { setupTestDb } from "./testDb";
 import { habitById } from "../queries";
+import { syncAllNotifications } from "../notificationConsolidator";
 
 vi.mock("../notificationConsolidator", async (importOriginal) => {
   const actual =
@@ -11,8 +12,6 @@ vi.mock("../notificationConsolidator", async (importOriginal) => {
     syncAllNotifications: vi.fn(async () => {}),
   };
 });
-
-import { syncAllNotifications } from "../notificationConsolidator";
 
 const mockSyncAll = vi.mocked(syncAllNotifications);
 
