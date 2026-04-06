@@ -2,11 +2,16 @@ import { Pressable, StyleSheet, Text } from "react-native";
 
 interface SaveButtonProps {
   onPress: () => void;
+  disabled?: boolean;
 }
 
-export const SaveButton = ({ onPress }: SaveButtonProps) => {
+export const SaveButton = ({ onPress, disabled }: SaveButtonProps) => {
   return (
-    <Pressable style={styles.button} onPress={onPress}>
+    <Pressable
+      style={[styles.button, disabled && styles.buttonDisabled]}
+      onPress={onPress}
+      disabled={disabled}
+    >
       <Text style={styles.text}>Save</Text>
     </Pressable>
   );
@@ -18,6 +23,9 @@ const styles = StyleSheet.create({
     padding: 16,
     borderRadius: 8,
     alignItems: "center",
+  },
+  buttonDisabled: {
+    opacity: 0.5,
   },
   text: {
     color: "#fff",
