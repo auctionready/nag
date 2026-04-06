@@ -34,3 +34,16 @@ export const weekDayEntries: readonly {
     Object.freeze({ day: Number(day) as Day, label }),
   ),
 );
+
+export const mondayFirstDayLetters: readonly {
+  readonly day: Day;
+  readonly letter: string;
+}[] = Object.freeze([
+  Object.freeze({ day: Day.Mon, letter: "M" }),
+  Object.freeze({ day: Day.Tue, letter: "T" }),
+  Object.freeze({ day: Day.Wed, letter: "W" }),
+  Object.freeze({ day: Day.Thu, letter: "T" }),
+  Object.freeze({ day: Day.Fri, letter: "F" }),
+  Object.freeze({ day: Day.Sat, letter: "S" }),
+  Object.freeze({ day: Day.Sun, letter: "S" }),
+]);

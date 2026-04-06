@@ -22,6 +22,15 @@ export { dailyCalculator } from "./dailyCalculator";
 export { weeklyCalculator } from "./weeklyCalculator";
 export { monthlyCalculator } from "./monthlyCalculator";
 
+export const isScheduledToday = (
+  schedules: ScheduleInfo[],
+  now = new Date(),
+): boolean => {
+  const combinedDays = schedules.reduce((mask, s) => mask | (s.days ?? 0), 0);
+  if (combinedDays === 0) return true;
+  return (combinedDays & (1 << now.getDay())) !== 0;
+};
+
 const calculators: Record<Regularity, TrafficLightCalculator> = {
   day: dailyCalculator,
   week: weeklyCalculator,

@@ -1,7 +1,7 @@
 import { useCallback } from "react";
 import { useRouter } from "expo-router";
 import { db } from "../../db";
-import { processCommand } from "@nag/core";
+import { processCommand, isScheduledToday } from "@nag/core";
 import { tileStatus } from "../getComplianceColor";
 import { useHabitGoalSummary } from "./useHabitGoalSummary";
 import { useHabitCompliance } from "./useHabitCompliance";
@@ -19,7 +19,13 @@ export const HabitTile = ({ id, title }: HabitTileProps) => {
     id,
     goal,
   );
-  const { color, periodProgress } = tileStatus(goal, checkInCount, schedules);
+  const { color: trafficColor, periodProgress } = tileStatus(
+    goal,
+    checkInCount,
+    schedules,
+  );
+  const isOffDay = goal?.regularity === "week" && !isScheduledToday(schedules);
+  const combinedDays = schedules.reduce((mask, s) => mask | (s.days ?? 0), 0);
 
   const handlePress = useCallback(() => {
     router.push(`/habit/${id}`);
@@ -36,8 +42,11 @@ export const HabitTile = ({ id, title }: HabitTileProps) => {
       goal={goal}
       checkInCount={checkInCount}
       recentCheckIns={recentCheckIns}
-      color={color}
-      periodProgress={periodProgress}
+      color={isOffDay ? "#8E8E93" : trafficColor}
+      periodProgress={isOffDay ? 0 : periodProgress}
+      isOffDay={isOffDay}
+      scheduledDayColor={trafficColor}
+      scheduledDaysMask={combinedDays}
       onPress={handlePress}
       onCheckIn={handleCheckIn}
     />
