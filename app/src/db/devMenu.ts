@@ -26,5 +26,5 @@ if (__DEV__) {
         router.navigate("/debug-notifications");
       },
     },
-  ]);
+  ]).catch(() => {}); // no-op in Expo Go (native module unavailable)
 }
