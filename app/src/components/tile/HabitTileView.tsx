@@ -13,6 +13,8 @@ export interface HabitTileViewProps {
   checkInCount: number;
   recentCheckIns: { timestamp: Date }[];
   color: string;
+  /** Check-ins vs full period frequency (0–1), for the donut ring */
+  periodProgress: number;
   onPress: () => void;
   onCheckIn: () => Promise<void>;
 }
@@ -23,6 +25,7 @@ export const HabitTileView = ({
   checkInCount: count,
   recentCheckIns: recent,
   color,
+  periodProgress,
   onPress,
   onCheckIn,
 }: HabitTileViewProps) => {
@@ -91,9 +94,9 @@ export const HabitTileView = ({
                 .join(" · ")}
             </Text>
           )}
-          {goal && count > 0 && count < goal.frequency && (
+          {periodProgress > 0 && periodProgress < 1 && (
             <View style={styles.progressRing}>
-              <ProgressRing progress={count / goal.frequency} />
+              <ProgressRing progress={periodProgress} />
             </View>
           )}
         </Animated.View>

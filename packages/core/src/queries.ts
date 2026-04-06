@@ -102,6 +102,17 @@ export function habitsByIds(db: AnyDb, habitIds: number[]) {
     .where(inArray(habit.id, habitIds.length > 0 ? habitIds : [-1]));
 }
 
+export function schedulesForHabit(db: AnyDb, habitId: number) {
+  return db
+    .select({
+      days: schedule.days,
+      dayOfMonth: schedule.dayOfMonth,
+    })
+    .from(schedule)
+    .innerJoin(goal, eq(schedule.goalId, goal.id))
+    .where(eq(goal.habitId, habitId));
+}
+
 export function schedulesForGoal(db: AnyDb, goalId: number) {
   return db
     .select({
