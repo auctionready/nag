@@ -2,6 +2,7 @@ import { StyleSheet, Text, View } from "react-native";
 import { mondayFirstDayLetters } from "@nag/core";
 
 const CHECKED_IN_COLOR = "#34C759";
+const CIRCLE_SIZE = 24;
 
 interface DayIndicatorsProps {
   scheduledDaysMask: number;
@@ -17,36 +18,39 @@ export const DayIndicators = ({
       const scheduled = (scheduledDaysMask & day) !== 0;
       const checkedIn = scheduled && (checkedInDaysMask & day) !== 0;
       return (
-        <View
-          key={i}
-          style={[styles.indicator, checkedIn && styles.checkedInIndicator]}
-        >
-          <Text style={[styles.letter, !scheduled && styles.unscheduledLetter]}>
-            {letter}
-          </Text>
+        <View key={i} style={styles.cell}>
+          <View style={[styles.circle, checkedIn && styles.checkedIn]}>
+            <Text
+              style={[styles.letter, !scheduled && styles.unscheduledLetter]}
+            >
+              {letter}
+            </Text>
+          </View>
         </View>
       );
     })}
   </View>
 );
 
-const INDICATOR_SIZE = 24;
-
 const styles = StyleSheet.create({
   row: {
     flexDirection: "row",
-    justifyContent: "space-evenly",
     alignSelf: "stretch",
     marginTop: 10,
+    marginHorizontal: -8,
   },
-  indicator: {
-    width: INDICATOR_SIZE,
-    height: INDICATOR_SIZE,
-    borderRadius: INDICATOR_SIZE / 2,
+  cell: {
+    flex: 1,
+    alignItems: "center",
+  },
+  circle: {
+    width: CIRCLE_SIZE,
+    height: CIRCLE_SIZE,
+    borderRadius: CIRCLE_SIZE / 2,
     justifyContent: "center",
     alignItems: "center",
   },
-  checkedInIndicator: {
+  checkedIn: {
     backgroundColor: CHECKED_IN_COLOR,
   },
   letter: {
