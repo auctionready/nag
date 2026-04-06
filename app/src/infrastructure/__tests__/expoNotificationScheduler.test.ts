@@ -1,7 +1,8 @@
 import type { NotificationRequest } from "expo-notifications";
 import { SchedulableTriggerInputTypes } from "expo-notifications";
 import * as Notifications from "expo-notifications";
-import { expoNotificationScheduler } from "./expoNotificationScheduler";
+import { expoNotificationScheduler } from "../expoNotificationScheduler";
+import { Day } from "@nag/core";
 
 jest.mock("expo-notifications", () => ({
   SchedulableTriggerInputTypes: {
@@ -122,7 +123,7 @@ describe("syncNotifications", () => {
       await expoNotificationScheduler.syncNotifications(
         2,
         "Run",
-        [{ id: 20, hour: 7, minute: 0, days: 0b1010 }], // Mon (bit 1) + Wed (bit 3)
+        [{ id: 20, hour: 7, minute: 0, days: Day.Mon | Day.Wed }],
         "week",
       );
 

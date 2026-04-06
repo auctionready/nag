@@ -1,5 +1,7 @@
+import { useEffect } from "react";
 import "../db/devMenu";
 import { init } from "../infrastructure/init";
+import { setupNotificationResponseHandler } from "../infrastructure/notificationResponseHandler";
 import { Stack } from "expo-router";
 
 import { GestureHandlerRootView } from "react-native-gesture-handler";
@@ -8,6 +10,10 @@ import { DatabaseProvider } from "../db/DatabaseProvider";
 init();
 
 const RootLayout = () => {
+  useEffect(() => {
+    return setupNotificationResponseHandler();
+  }, []);
+
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <DatabaseProvider>
@@ -24,6 +30,7 @@ const RootLayout = () => {
             name="debug-notifications"
             options={{ title: "Scheduled Notifications" }}
           />
+          <Stack.Screen name="check-in-slot" options={{ title: "Check In" }} />
         </Stack>
       </DatabaseProvider>
     </GestureHandlerRootView>

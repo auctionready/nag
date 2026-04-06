@@ -4,6 +4,7 @@ import * as schema from "@nag/schema";
 import { ZodError } from "zod";
 import { processCommand } from "../commands/processor";
 import { setupTestDb } from "./testDb";
+import { Day } from "../days";
 
 const getDb = setupTestDb("commands-test.db");
 
@@ -101,13 +102,12 @@ describe("CreateHabit", () => {
 
   it("creates a habit with weekly schedules using days bitmask", async () => {
     const db = getDb();
-    // Mon(2) + Wed(8) + Fri(32) = 42
     const result = await processCommand(db, {
       type: "CreateHabit",
       title: "Exercise",
       goal: {
         regularity: "week",
-        schedules: [{ hour: 7, minute: 0, days: 42 }],
+        schedules: [{ hour: 7, minute: 0, days: Day.Mon | Day.Wed | Day.Fri }],
       },
     });
 
@@ -123,7 +123,7 @@ describe("CreateHabit", () => {
       .from(schema.schedule)
       .where(eq(schema.schedule.goalId, goals[0].id));
     expect(schedules).toHaveLength(1);
-    expect(schedules[0].days).toBe(42);
+    expect(schedules[0].days).toBe(Day.Mon | Day.Wed | Day.Fri);
   });
 
   it("creates a habit with monthly schedules", async () => {
@@ -358,8 +358,7 @@ describe("UpdateHabit", () => {
       title: "Test",
       goal: {
         regularity: "week",
-        // Mon(2) + Thu(16) = 18
-        schedules: [{ hour: 9, minute: 0, days: 18 }],
+        schedules: [{ hour: 9, minute: 0, days: Day.Mon | Day.Thu }],
       },
     });
 
