@@ -12,6 +12,12 @@
   "jest": {
     "preset": "jest-expo"
   },
+  "expo": {
+    "autolinking": {
+      "searchPaths": ["../node_modules"],
+      "nativeModulesDir": "../node_modules"
+    }
+  },
   "dependencies": {
     "@nag/core": "workspace:*",
     "@nag/schema": "workspace:*",
