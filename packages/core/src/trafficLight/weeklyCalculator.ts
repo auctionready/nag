@@ -1,6 +1,6 @@
 import { startOfWeek, differenceInCalendarDays } from "date-fns";
 import type { TrafficLightCalculator } from "./types";
-import { colorForRatio } from "./colorForRatio";
+import { resultForRatio, defaultResult } from "./colorForRatio";
 
 /** Week order starting Monday, using Date.getDay() values */
 const weekOrder = [1, 2, 3, 4, 5, 6, 0]; // Mon=1 .. Sun=0
@@ -36,7 +36,7 @@ export const weeklyCalculator: TrafficLightCalculator = (input, colors) => {
   const { frequency, createdAt, schedules, checkInCount, now } = input;
   const weekStart = startOfWeek(now, { weekStartsOn: 1 });
 
-  if (createdAt >= weekStart) return colors.default;
+  if (createdAt >= weekStart) return defaultResult(colors);
 
   // Combine all schedule day bitmasks
   const combinedDays = schedules.reduce((mask, s) => mask | (s.days ?? 0), 0);
@@ -46,7 +46,7 @@ export const weeklyCalculator: TrafficLightCalculator = (input, colors) => {
       ? expectedFromSchedule(combinedDays, now)
       : expectedFromWindow(frequency, now);
 
-  if (expected === 0) return colors.default;
+  if (expected === 0) return defaultResult(colors);
 
-  return colorForRatio(checkInCount / expected, colors);
+  return resultForRatio(checkInCount / expected, colors);
 };

@@ -2,7 +2,7 @@ import { useCallback } from "react";
 import { useRouter } from "expo-router";
 import { db } from "../../db";
 import { processCommand } from "@nag/core";
-import { tileColor } from "../getComplianceColor";
+import { tileStatus } from "../getComplianceColor";
 import { useHabitGoalSummary } from "./useHabitGoalSummary";
 import { useHabitCompliance } from "./useHabitCompliance";
 import { HabitTileView } from "./HabitTileView";
@@ -19,7 +19,7 @@ export const HabitTile = ({ id, title }: HabitTileProps) => {
     id,
     goal,
   );
-  const color = tileColor(goal, checkInCount, schedules);
+  const { color, progress } = tileStatus(goal, checkInCount, schedules);
 
   const handlePress = useCallback(() => {
     router.push(`/habit/${id}`);
@@ -37,6 +37,7 @@ export const HabitTile = ({ id, title }: HabitTileProps) => {
       checkInCount={checkInCount}
       recentCheckIns={recentCheckIns}
       color={color}
+      progress={progress}
       onPress={handlePress}
       onCheckIn={handleCheckIn}
     />

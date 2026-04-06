@@ -3,6 +3,7 @@ import {
   tileColor as coreTileColor,
   type ComplianceColors,
   type ScheduleInfo,
+  type TrafficLightResult,
 } from "@nag/core";
 import type { Regularity } from "@nag/schema";
 
@@ -15,8 +16,8 @@ const colors: ComplianceColors = {
 
 export { periodStart };
 
-export const tileColor = (
+export const tileStatus = (
   goal: { frequency: number; regularity: Regularity; createdAt: Date } | null,
   checkInCount: number,
   schedules: ScheduleInfo[],
-): string => coreTileColor(goal, checkInCount, schedules, colors);
+): TrafficLightResult => coreTileColor(goal, checkInCount, schedules, colors);

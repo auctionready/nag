@@ -4,6 +4,7 @@ import type {
   ScheduleInfo,
   TrafficLightCalculator,
   TrafficLightInput,
+  TrafficLightResult,
 } from "./types";
 import { dailyCalculator } from "./dailyCalculator";
 import { weeklyCalculator } from "./weeklyCalculator";
@@ -14,6 +15,7 @@ export type {
   ScheduleInfo,
   TrafficLightCalculator,
   TrafficLightInput,
+  TrafficLightResult,
 };
 export { colorForRatio } from "./colorForRatio";
 export { dailyCalculator } from "./dailyCalculator";
@@ -32,8 +34,8 @@ export const tileColor = (
   schedules: ScheduleInfo[],
   colors: ComplianceColors,
   now = new Date(),
-): string => {
-  if (!goal) return colors.default;
+): TrafficLightResult => {
+  if (!goal) return { color: colors.default, progress: 0 };
 
   const calculator = calculators[goal.regularity];
   return calculator(

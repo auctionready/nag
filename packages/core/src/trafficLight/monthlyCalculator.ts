@@ -1,6 +1,6 @@
 import { startOfMonth, getDaysInMonth } from "date-fns";
 import type { TrafficLightCalculator } from "./types";
-import { colorForRatio } from "./colorForRatio";
+import { resultForRatio, defaultResult } from "./colorForRatio";
 
 /**
  * Count how many scheduled days-of-month have elapsed (1 through today inclusive).
@@ -27,7 +27,7 @@ export const monthlyCalculator: TrafficLightCalculator = (input, colors) => {
   const { frequency, createdAt, schedules, checkInCount, now } = input;
   const monthStart = startOfMonth(now);
 
-  if (createdAt >= monthStart) return colors.default;
+  if (createdAt >= monthStart) return defaultResult(colors);
 
   const dayOfMonthValues = schedules
     .map((s) => s.dayOfMonth)
@@ -38,7 +38,7 @@ export const monthlyCalculator: TrafficLightCalculator = (input, colors) => {
       ? expectedFromSchedule(dayOfMonthValues, now)
       : expectedFromWindow(frequency, now);
 
-  if (expected === 0) return colors.default;
+  if (expected === 0) return defaultResult(colors);
 
-  return colorForRatio(checkInCount / expected, colors);
+  return resultForRatio(checkInCount / expected, colors);
 };

@@ -21,7 +21,13 @@ export interface ComplianceColors {
   failing: string;
 }
 
+export interface TrafficLightResult {
+  color: string;
+  /** Proportion of check-ins to expected, clamped to 0–1 */
+  progress: number;
+}
+
 export type TrafficLightCalculator = (
   input: TrafficLightInput,
   colors: ComplianceColors,
-) => string;
+) => TrafficLightResult;

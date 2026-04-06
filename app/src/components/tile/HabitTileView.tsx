@@ -13,6 +13,8 @@ export interface HabitTileViewProps {
   checkInCount: number;
   recentCheckIns: { timestamp: Date }[];
   color: string;
+  /** Schedule-aware progress proportion (0–1) */
+  progress: number;
   onPress: () => void;
   onCheckIn: () => Promise<void>;
 }
@@ -23,6 +25,7 @@ export const HabitTileView = ({
   checkInCount: count,
   recentCheckIns: recent,
   color,
+  progress,
   onPress,
   onCheckIn,
 }: HabitTileViewProps) => {
@@ -91,9 +94,9 @@ export const HabitTileView = ({
                 .join(" · ")}
             </Text>
           )}
-          {goal && count > 0 && count < goal.frequency && (
+          {progress > 0 && progress < 1 && (
             <View style={styles.progressRing}>
-              <ProgressRing progress={count / goal.frequency} />
+              <ProgressRing progress={progress} />
             </View>
           )}
         </Animated.View>

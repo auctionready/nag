@@ -4,6 +4,7 @@ export {
   type ScheduleInfo,
   type TrafficLightCalculator,
   type TrafficLightInput,
+  type TrafficLightResult,
   colorForRatio,
   tileColor,
   dailyCalculator,
