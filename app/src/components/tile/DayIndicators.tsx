@@ -34,10 +34,11 @@ export const DayIndicators = ({
 
 const styles = StyleSheet.create({
   row: {
+    position: "absolute",
+    bottom: 10,
+    left: 8,
+    right: 8,
     flexDirection: "row",
-    alignSelf: "stretch",
-    marginTop: 10,
-    marginHorizontal: -8,
   },
   cell: {
     flex: 1,
