@@ -18,9 +18,11 @@ export const useHabitCompliance = (
 
   const count = countRows?.[0]?.value ?? 0;
 
+  const recentLimit = goal?.regularity === "week" ? 7 : 3;
+
   const { data: recent } = useLiveQuery(
-    recentCheckIns(db, habitId, periodStartDate),
-    [habitId, periodStartDate],
+    recentCheckIns(db, habitId, periodStartDate, recentLimit),
+    [habitId, periodStartDate, recentLimit],
   );
 
   const { data: scheduleRows } = useLiveQuery(schedulesForHabit(db, habitId), [

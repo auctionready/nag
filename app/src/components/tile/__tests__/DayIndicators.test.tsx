@@ -3,57 +3,31 @@ import { Day } from "@nag/core";
 import { DayIndicators } from "../DayIndicators";
 
 describe("DayIndicators", () => {
-  const scheduledColor = "#34C759";
-
-  it("renders 7 day letters", () => {
+  it("renders 7 day letters in Monday-first order", () => {
     const { getAllByText } = render(
       <DayIndicators
         scheduledDaysMask={Day.Mon | Day.Wed | Day.Fri}
-        scheduledDayColor={scheduledColor}
+        checkedInDaysMask={0}
       />,
     );
-    // M T W T F S S = 7 letters (some share same letter)
-    const letters = ["M", "T", "W", "F", "S"];
-    for (const letter of letters) {
-      expect(getAllByText(letter).length).toBeGreaterThanOrEqual(1);
-    }
+    // M appears once, T appears twice, W once, F once, S appears twice
+    expect(getAllByText("M")).toHaveLength(1);
+    expect(getAllByText("T")).toHaveLength(2);
+    expect(getAllByText("W")).toHaveLength(1);
+    expect(getAllByText("F")).toHaveLength(1);
+    expect(getAllByText("S")).toHaveLength(2);
   });
 
-  it("applies scheduled color to scheduled days", () => {
-    const { UNSAFE_root } = render(
-      <DayIndicators
-        scheduledDaysMask={Day.Mon}
-        scheduledDayColor={scheduledColor}
-      />,
-    );
-    const indicators = UNSAFE_root.findAll(
-      (node: {
-        type: string;
-        props: { style?: { backgroundColor?: string }[] };
-      }) =>
-        node.type === "View" &&
-        node.props.style?.some?.((s) => s.backgroundColor === scheduledColor),
-    );
-    expect(indicators.length).toBe(1);
+  it("renders without crashing with all days scheduled and checked in", () => {
+    render(<DayIndicators scheduledDaysMask={127} checkedInDaysMask={127} />);
   });
 
-  it("applies muted color to unscheduled days", () => {
-    const { UNSAFE_root } = render(
+  it("renders without crashing with no check-ins", () => {
+    render(
       <DayIndicators
-        scheduledDaysMask={Day.Mon}
-        scheduledDayColor={scheduledColor}
+        scheduledDaysMask={Day.Mon | Day.Wed}
+        checkedInDaysMask={0}
       />,
     );
-    const indicators = UNSAFE_root.findAll(
-      (node: {
-        type: string;
-        props: { style?: { backgroundColor?: string }[] };
-      }) =>
-        node.type === "View" &&
-        node.props.style?.some?.(
-          (s) => s.backgroundColor === "rgba(255, 255, 255, 0.2)",
-        ),
-    );
-    expect(indicators.length).toBe(6);
   });
 });

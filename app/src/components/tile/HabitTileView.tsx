@@ -18,8 +18,8 @@ export interface HabitTileViewProps {
   periodProgress: number;
   isOffDay?: boolean;
   hasSchedule?: boolean;
-  scheduledDayColor?: string;
   scheduledDaysMask?: number;
+  checkedInDaysMask?: number;
   onPress: () => void;
   onCheckIn: () => Promise<void>;
 }
@@ -33,8 +33,8 @@ export const HabitTileView = ({
   periodProgress,
   isOffDay,
   hasSchedule,
-  scheduledDayColor,
   scheduledDaysMask,
+  checkedInDaysMask,
   onPress,
   onCheckIn,
 }: HabitTileViewProps) => {
@@ -103,10 +103,10 @@ export const HabitTileView = ({
                 .join(" · ")}
             </Text>
           )}
-          {hasSchedule && scheduledDayColor && scheduledDaysMask ? (
+          {hasSchedule && scheduledDaysMask ? (
             <DayIndicators
               scheduledDaysMask={scheduledDaysMask}
-              scheduledDayColor={scheduledDayColor}
+              checkedInDaysMask={checkedInDaysMask ?? 0}
             />
           ) : (
             periodProgress > 0 &&
