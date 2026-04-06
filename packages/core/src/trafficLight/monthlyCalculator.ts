@@ -27,7 +27,12 @@ export const monthlyCalculator: TrafficLightCalculator = (input, colors) => {
   const { frequency, createdAt, schedules, checkInCount, now } = input;
   const monthStart = startOfMonth(now);
 
-  if (createdAt >= monthStart) return defaultResult(colors);
+  if (createdAt >= monthStart) {
+    return {
+      ...defaultResult(colors),
+      periodProgress: Math.min(checkInCount / frequency, 1),
+    };
+  }
 
   const dayOfMonthValues = schedules
     .map((s) => s.dayOfMonth)

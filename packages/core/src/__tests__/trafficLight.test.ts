@@ -57,11 +57,15 @@ describe("dailyCalculator", () => {
     ...overrides,
   });
 
-  it("returns default when goal created today", () => {
+  it("returns default color but still tracks periodProgress when goal created today", () => {
     const now = new Date(2025, 5, 15, 14, 0);
-    expect(dailyCalculator(input({ createdAt: now }), colors)).toEqual(
-      defaultResult,
+    const result = dailyCalculator(
+      input({ createdAt: now, frequency: 3, checkInCount: 2 }),
+      colors,
     );
+    expect(result.color).toBe("default");
+    expect(result.progress).toBe(0);
+    expect(result.periodProgress).toBeCloseTo(2 / 3);
   });
 
   it("returns compliant when check-ins meet frequency", () => {
@@ -107,11 +111,15 @@ describe("weeklyCalculator", () => {
     ...overrides,
   });
 
-  it("returns default when goal created this week", () => {
+  it("returns default color but still tracks periodProgress when goal created this week", () => {
     const monday = new Date(2025, 5, 9, 10, 0);
-    expect(weeklyCalculator(input({ createdAt: monday }), colors)).toEqual(
-      defaultResult,
+    const result = weeklyCalculator(
+      input({ createdAt: monday, checkInCount: 1 }),
+      colors,
     );
+    expect(result.color).toBe("default");
+    expect(result.progress).toBe(0);
+    expect(result.periodProgress).toBeCloseTo(1 / 3);
   });
 
   describe("with specific schedule (Mon/Wed/Fri)", () => {
@@ -246,11 +254,15 @@ describe("monthlyCalculator", () => {
     ...overrides,
   });
 
-  it("returns default when goal created this month", () => {
+  it("returns default color but still tracks periodProgress when goal created this month", () => {
     const june5 = new Date(2025, 5, 5, 10, 0);
-    expect(monthlyCalculator(input({ createdAt: june5 }), colors)).toEqual(
-      defaultResult,
+    const result = monthlyCalculator(
+      input({ createdAt: june5, checkInCount: 1 }),
+      colors,
     );
+    expect(result.color).toBe("default");
+    expect(result.progress).toBe(0);
+    expect(result.periodProgress).toBe(0.5);
   });
 
   describe("with specific schedule (1st and 15th)", () => {

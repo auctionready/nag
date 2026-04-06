@@ -36,7 +36,12 @@ export const weeklyCalculator: TrafficLightCalculator = (input, colors) => {
   const { frequency, createdAt, schedules, checkInCount, now } = input;
   const weekStart = startOfWeek(now, { weekStartsOn: 1 });
 
-  if (createdAt >= weekStart) return defaultResult(colors);
+  if (createdAt >= weekStart) {
+    return {
+      ...defaultResult(colors),
+      periodProgress: Math.min(checkInCount / frequency, 1),
+    };
+  }
 
   // Combine all schedule day bitmasks
   const combinedDays = schedules.reduce((mask, s) => mask | (s.days ?? 0), 0);
