@@ -1,5 +1,6 @@
 import { useLiveQuery } from "drizzle-orm/expo-sqlite";
-import { checkInCount, recentCheckIns } from "@nag/core";
+import { checkInCount, recentCheckIns, schedulesForHabit } from "@nag/core";
+import type { ScheduleInfo } from "@nag/core";
 import { db } from "../../db";
 import { periodStart } from "../getComplianceColor";
 import type { HabitGoalSummary } from "./useHabitGoalSummary";
@@ -22,8 +23,15 @@ export const useHabitCompliance = (
     [habitId, periodStartDate],
   );
 
+  const { data: scheduleRows } = useLiveQuery(schedulesForHabit(db, habitId), [
+    habitId,
+  ]);
+
+  const schedules: ScheduleInfo[] = scheduleRows ?? [];
+
   return {
     checkInCount: count,
     recentCheckIns: recent ?? [],
+    schedules,
   };
 };

@@ -1,9 +1,15 @@
+export { periodStart } from "./compliance";
 export {
   type ComplianceColors,
-  periodStart,
+  type ScheduleInfo,
+  type TrafficLightCalculator,
+  type TrafficLightInput,
   colorForRatio,
   tileColor,
-} from "./compliance";
+  dailyCalculator,
+  weeklyCalculator,
+  monthlyCalculator,
+} from "./trafficLight";
 export {
   allHabits,
   habitById,
@@ -14,6 +20,7 @@ export {
   recentCheckIns,
   checkInsForHabit,
   calendarCheckIns,
+  schedulesForHabit,
   schedulesForGoal,
   allActiveSchedules,
 } from "./queries";

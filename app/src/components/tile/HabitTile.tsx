@@ -15,8 +15,11 @@ interface HabitTileProps {
 export const HabitTile = ({ id, title }: HabitTileProps) => {
   const router = useRouter();
   const goal = useHabitGoalSummary(id);
-  const { checkInCount, recentCheckIns } = useHabitCompliance(id, goal);
-  const color = tileColor(goal, checkInCount);
+  const { checkInCount, recentCheckIns, schedules } = useHabitCompliance(
+    id,
+    goal,
+  );
+  const color = tileColor(goal, checkInCount, schedules);
 
   const handlePress = useCallback(() => {
     router.push(`/habit/${id}`);
