@@ -17,6 +17,7 @@ export interface HabitTileViewProps {
   /** Check-ins vs full period frequency (0–1), for the donut ring */
   periodProgress: number;
   isOffDay?: boolean;
+  hasSchedule?: boolean;
   scheduledDayColor?: string;
   scheduledDaysMask?: number;
   onPress: () => void;
@@ -31,6 +32,7 @@ export const HabitTileView = ({
   color,
   periodProgress,
   isOffDay,
+  hasSchedule,
   scheduledDayColor,
   scheduledDaysMask,
   onPress,
@@ -101,7 +103,7 @@ export const HabitTileView = ({
                 .join(" · ")}
             </Text>
           )}
-          {isOffDay && scheduledDayColor && scheduledDaysMask ? (
+          {hasSchedule && scheduledDayColor && scheduledDaysMask ? (
             <DayIndicators
               scheduledDaysMask={scheduledDaysMask}
               scheduledDayColor={scheduledDayColor}

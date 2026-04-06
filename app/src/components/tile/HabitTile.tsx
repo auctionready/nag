@@ -24,8 +24,9 @@ export const HabitTile = ({ id, title }: HabitTileProps) => {
     checkInCount,
     schedules,
   );
-  const isOffDay = goal?.regularity === "week" && !isScheduledToday(schedules);
   const combinedDays = schedules.reduce((mask, s) => mask | (s.days ?? 0), 0);
+  const hasSchedule = goal?.regularity === "week" && combinedDays !== 0;
+  const isOffDay = hasSchedule && !isScheduledToday(schedules);
 
   const handlePress = useCallback(() => {
     router.push(`/habit/${id}`);
@@ -45,6 +46,7 @@ export const HabitTile = ({ id, title }: HabitTileProps) => {
       color={isOffDay ? "#8E8E93" : trafficColor}
       periodProgress={isOffDay ? 0 : periodProgress}
       isOffDay={isOffDay}
+      hasSchedule={hasSchedule}
       scheduledDayColor={trafficColor}
       scheduledDaysMask={combinedDays}
       onPress={handlePress}
