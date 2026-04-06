@@ -40,12 +40,8 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: "row",
     justifyContent: "space-around",
-    width: "100%",
-    position: "absolute",
-    bottom: 8,
-    left: 0,
-    right: 0,
-    paddingHorizontal: 8,
+    alignSelf: "stretch",
+    marginTop: 10,
   },
   indicator: {
     width: INDICATOR_SIZE,
