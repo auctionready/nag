@@ -36,9 +36,10 @@ export const HabitForm = ({
     watch,
     setValue,
     getValues,
-    formState: { errors },
+    formState: { errors, isValid },
   } = useForm<HabitFormData>({
     defaultValues: { ...defaultValues, ...initialValues },
+    mode: "onChange",
   });
   const { fields, append, remove } = useFieldArray({
     control,
@@ -248,7 +249,7 @@ export const HabitForm = ({
       </ScrollView>
 
       <View style={styles.bottomButtons}>
-        <SaveButton onPress={handleSubmit(onSubmit)} />
+        <SaveButton onPress={handleSubmit(onSubmit)} disabled={!isValid} />
 
         {onDelete && (
           <Pressable
