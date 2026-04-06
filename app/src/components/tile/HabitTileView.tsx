@@ -5,6 +5,7 @@ import { formatDistanceToNow } from "date-fns";
 import type { HabitGoalSummary } from "./useHabitGoalSummary";
 import { periodLabels, formatCount } from "./format";
 import { ProgressRing } from "./ProgressRing";
+import { DayIndicators } from "./DayIndicators";
 
 export interface HabitTileViewProps {
   id: number;
@@ -15,6 +16,10 @@ export interface HabitTileViewProps {
   color: string;
   /** Check-ins vs full period frequency (0–1), for the donut ring */
   periodProgress: number;
+  isOffDay?: boolean;
+  hasSchedule?: boolean;
+  scheduledDaysMask?: number;
+  checkedInDaysMask?: number;
   onPress: () => void;
   onCheckIn: () => Promise<void>;
 }
@@ -26,6 +31,10 @@ export const HabitTileView = ({
   recentCheckIns: recent,
   color,
   periodProgress,
+  isOffDay,
+  hasSchedule,
+  scheduledDaysMask,
+  checkedInDaysMask,
   onPress,
   onCheckIn,
 }: HabitTileViewProps) => {
@@ -94,10 +103,18 @@ export const HabitTileView = ({
                 .join(" · ")}
             </Text>
           )}
-          {periodProgress > 0 && periodProgress < 1 && (
-            <View style={styles.progressRing}>
-              <ProgressRing progress={periodProgress} />
-            </View>
+          {hasSchedule && scheduledDaysMask ? (
+            <DayIndicators
+              scheduledDaysMask={scheduledDaysMask}
+              checkedInDaysMask={checkedInDaysMask ?? 0}
+            />
+          ) : (
+            periodProgress > 0 &&
+            periodProgress < 1 && (
+              <View style={styles.progressRing}>
+                <ProgressRing progress={periodProgress} />
+              </View>
+            )
           )}
         </Animated.View>
       </Pressable>
