@@ -23,8 +23,10 @@ export interface ComplianceColors {
 
 export interface TrafficLightResult {
   color: string;
-  /** Proportion of check-ins to expected, clamped to 0–1 */
+  /** Proportion of check-ins to expected-so-far (schedule-aware), clamped to 0–1 */
   progress: number;
+  /** Proportion of check-ins to full period frequency, clamped to 0–1 */
+  periodProgress: number;
 }
 
 export type TrafficLightCalculator = (

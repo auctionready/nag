@@ -35,7 +35,7 @@ export const tileColor = (
   colors: ComplianceColors,
   now = new Date(),
 ): TrafficLightResult => {
-  if (!goal) return { color: colors.default, progress: 0 };
+  if (!goal) return { color: colors.default, progress: 0, periodProgress: 0 };
 
   const calculator = calculators[goal.regularity];
   return calculator(

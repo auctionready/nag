@@ -11,10 +11,12 @@ export const colorForRatio = (
 
 export const resultForRatio = (
   ratio: number,
+  periodRatio: number,
   colors: ComplianceColors,
 ): TrafficLightResult => ({
   color: colorForRatio(ratio, colors),
   progress: Math.min(ratio, 1),
+  periodProgress: Math.min(periodRatio, 1),
 });
 
 export const defaultResult = (
@@ -22,4 +24,5 @@ export const defaultResult = (
 ): TrafficLightResult => ({
   color: colors.default,
   progress: 0,
+  periodProgress: 0,
 });

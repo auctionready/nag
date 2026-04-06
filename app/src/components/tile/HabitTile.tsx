@@ -19,7 +19,7 @@ export const HabitTile = ({ id, title }: HabitTileProps) => {
     id,
     goal,
   );
-  const { color, progress } = tileStatus(goal, checkInCount, schedules);
+  const { color, periodProgress } = tileStatus(goal, checkInCount, schedules);
 
   const handlePress = useCallback(() => {
     router.push(`/habit/${id}`);
@@ -37,7 +37,7 @@ export const HabitTile = ({ id, title }: HabitTileProps) => {
       checkInCount={checkInCount}
       recentCheckIns={recentCheckIns}
       color={color}
-      progress={progress}
+      periodProgress={periodProgress}
       onPress={handlePress}
       onCheckIn={handleCheckIn}
     />

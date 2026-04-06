@@ -48,5 +48,9 @@ export const weeklyCalculator: TrafficLightCalculator = (input, colors) => {
 
   if (expected === 0) return defaultResult(colors);
 
-  return resultForRatio(checkInCount / expected, colors);
+  return resultForRatio(
+    checkInCount / expected,
+    checkInCount / frequency,
+    colors,
+  );
 };

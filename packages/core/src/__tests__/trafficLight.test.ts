@@ -20,6 +20,8 @@ const oldDate = new Date("2020-01-01T00:00:00.000Z");
 
 const noSchedules: ScheduleInfo[] = [];
 
+const defaultResult = { color: "default", progress: 0, periodProgress: 0 };
+
 describe("colorForRatio", () => {
   it("returns compliant when ratio >= 1", () => {
     expect(colorForRatio(1, colors)).toBe("compliant");
@@ -39,14 +41,8 @@ describe("colorForRatio", () => {
 
 describe("tileColor", () => {
   it("returns default with zero progress when goal is null", () => {
-    expect(tileColor(null, 0, noSchedules, colors)).toEqual({
-      color: "default",
-      progress: 0,
-    });
-    expect(tileColor(null, 5, noSchedules, colors)).toEqual({
-      color: "default",
-      progress: 0,
-    });
+    expect(tileColor(null, 0, noSchedules, colors)).toEqual(defaultResult);
+    expect(tileColor(null, 5, noSchedules, colors)).toEqual(defaultResult);
   });
 });
 
@@ -57,22 +53,22 @@ describe("dailyCalculator", () => {
     createdAt: oldDate,
     schedules: noSchedules,
     checkInCount: 0,
-    now: new Date(2025, 5, 15, 14, 0), // June 15 2pm
+    now: new Date(2025, 5, 15, 14, 0),
     ...overrides,
   });
 
-  it("returns default with zero progress when goal created today", () => {
+  it("returns default when goal created today", () => {
     const now = new Date(2025, 5, 15, 14, 0);
-    expect(dailyCalculator(input({ createdAt: now }), colors)).toEqual({
-      color: "default",
-      progress: 0,
-    });
+    expect(dailyCalculator(input({ createdAt: now }), colors)).toEqual(
+      defaultResult,
+    );
   });
 
-  it("returns compliant with progress 1 when check-ins meet frequency", () => {
+  it("returns compliant when check-ins meet frequency", () => {
     const result = dailyCalculator(input({ checkInCount: 1 }), colors);
     expect(result.color).toBe("compliant");
     expect(result.progress).toBe(1);
+    expect(result.periodProgress).toBe(1);
   });
 
   it("clamps progress to 1 when check-ins exceed frequency", () => {
@@ -80,26 +76,18 @@ describe("dailyCalculator", () => {
       input({ frequency: 2, checkInCount: 3 }),
       colors,
     );
-    expect(result.color).toBe("compliant");
     expect(result.progress).toBe(1);
+    expect(result.periodProgress).toBe(1);
   });
 
-  it("returns partial with proportional progress", () => {
+  it("progress and periodProgress are the same for daily", () => {
     const result = dailyCalculator(
       input({ frequency: 4, checkInCount: 2 }),
       colors,
     );
     expect(result.color).toBe("partial");
     expect(result.progress).toBe(0.5);
-  });
-
-  it("returns failing with proportional progress", () => {
-    const result = dailyCalculator(
-      input({ frequency: 4, checkInCount: 1 }),
-      colors,
-    );
-    expect(result.color).toBe("failing");
-    expect(result.progress).toBe(0.25);
+    expect(result.periodProgress).toBe(0.5);
   });
 });
 
@@ -121,41 +109,43 @@ describe("weeklyCalculator", () => {
 
   it("returns default when goal created this week", () => {
     const monday = new Date(2025, 5, 9, 10, 0);
-    expect(weeklyCalculator(input({ createdAt: monday }), colors)).toEqual({
-      color: "default",
-      progress: 0,
-    });
+    expect(weeklyCalculator(input({ createdAt: monday }), colors)).toEqual(
+      defaultResult,
+    );
   });
 
   describe("with specific schedule (Mon/Wed/Fri)", () => {
-    it("on Wednesday, expects 2 check-ins (Mon + Wed elapsed)", () => {
+    it("on Wednesday, 2/2 expected = compliant, periodProgress 2/3", () => {
       const result = weeklyCalculator(
         input({ schedules: monWedFri, checkInCount: 2 }),
         colors,
       );
       expect(result.color).toBe("compliant");
       expect(result.progress).toBe(1);
+      expect(result.periodProgress).toBeCloseTo(2 / 3);
     });
 
-    it("on Wednesday, 1/2 expected = partial with progress 0.5", () => {
+    it("on Wednesday, 1/2 expected = partial, periodProgress 1/3", () => {
       const result = weeklyCalculator(
         input({ schedules: monWedFri, checkInCount: 1 }),
         colors,
       );
       expect(result.color).toBe("partial");
       expect(result.progress).toBe(0.5);
+      expect(result.periodProgress).toBeCloseTo(1 / 3);
     });
 
-    it("on Wednesday, 0/2 expected = failing with progress 0", () => {
+    it("on Wednesday, 0/2 expected = failing, periodProgress 0", () => {
       const result = weeklyCalculator(
         input({ schedules: monWedFri, checkInCount: 0 }),
         colors,
       );
       expect(result.color).toBe("failing");
       expect(result.progress).toBe(0);
+      expect(result.periodProgress).toBe(0);
     });
 
-    it("on Monday, expects 1 check-in (only Mon elapsed)", () => {
+    it("on Monday, 1/1 expected = compliant, periodProgress 1/3", () => {
       const monday = new Date(2025, 5, 9, 14, 0);
       const result = weeklyCalculator(
         input({ schedules: monWedFri, checkInCount: 1, now: monday }),
@@ -163,36 +153,32 @@ describe("weeklyCalculator", () => {
       );
       expect(result.color).toBe("compliant");
       expect(result.progress).toBe(1);
+      expect(result.periodProgress).toBeCloseTo(1 / 3);
     });
 
-    it("on Monday, 0/1 expected = failing", () => {
-      const monday = new Date(2025, 5, 9, 14, 0);
-      const result = weeklyCalculator(
-        input({ schedules: monWedFri, checkInCount: 0, now: monday }),
-        colors,
-      );
-      expect(result.color).toBe("failing");
-      expect(result.progress).toBe(0);
-    });
-
-    it("on Friday, expects 3 check-ins (Mon + Wed + Fri)", () => {
+    it("on Friday, 3/3 expected = compliant, periodProgress 1", () => {
       const friday = new Date(2025, 5, 13, 14, 0);
-      const full = weeklyCalculator(
+      const result = weeklyCalculator(
         input({ schedules: monWedFri, checkInCount: 3, now: friday }),
         colors,
       );
-      expect(full.color).toBe("compliant");
-      expect(full.progress).toBe(1);
+      expect(result.color).toBe("compliant");
+      expect(result.progress).toBe(1);
+      expect(result.periodProgress).toBe(1);
+    });
 
-      const partial = weeklyCalculator(
+    it("on Friday, 2/3 expected = partial, periodProgress 2/3", () => {
+      const friday = new Date(2025, 5, 13, 14, 0);
+      const result = weeklyCalculator(
         input({ schedules: monWedFri, checkInCount: 2, now: friday }),
         colors,
       );
-      expect(partial.color).toBe("partial");
-      expect(partial.progress).toBeCloseTo(2 / 3);
+      expect(result.color).toBe("partial");
+      expect(result.progress).toBeCloseTo(2 / 3);
+      expect(result.periodProgress).toBeCloseTo(2 / 3);
     });
 
-    it("on Tuesday (no scheduled day), still expects 1 (Mon elapsed)", () => {
+    it("on Tuesday (no scheduled day), 1 expected, periodProgress 1/3", () => {
       const tuesday = new Date(2025, 5, 10, 14, 0);
       const result = weeklyCalculator(
         input({ schedules: monWedFri, checkInCount: 1, now: tuesday }),
@@ -200,18 +186,12 @@ describe("weeklyCalculator", () => {
       );
       expect(result.color).toBe("compliant");
       expect(result.progress).toBe(1);
-
-      const zero = weeklyCalculator(
-        input({ schedules: monWedFri, checkInCount: 0, now: tuesday }),
-        colors,
-      );
-      expect(zero.color).toBe("failing");
-      expect(zero.progress).toBe(0);
+      expect(result.periodProgress).toBeCloseTo(1 / 3);
     });
   });
 
   describe("without schedule (sliding window)", () => {
-    it("on Monday (day 1/7) with frequency 7, expects ceil(7*1/7)=1", () => {
+    it("on Monday (day 1/7) with frequency 7, expects 1", () => {
       const monday = new Date(2025, 5, 9, 14, 0);
       const result = weeklyCalculator(
         input({ frequency: 7, checkInCount: 1, now: monday }),
@@ -219,15 +199,17 @@ describe("weeklyCalculator", () => {
       );
       expect(result.color).toBe("compliant");
       expect(result.progress).toBe(1);
+      expect(result.periodProgress).toBeCloseTo(1 / 7);
     });
 
-    it("on Wednesday (day 3/7) with frequency 3, expects ceil(3*3/7)=2", () => {
+    it("on Wednesday (day 3/7) with frequency 3, expects 2", () => {
       const compliant = weeklyCalculator(
         input({ frequency: 3, checkInCount: 2 }),
         colors,
       );
       expect(compliant.color).toBe("compliant");
       expect(compliant.progress).toBe(1);
+      expect(compliant.periodProgress).toBeCloseTo(2 / 3);
 
       const partial = weeklyCalculator(
         input({ frequency: 3, checkInCount: 1 }),
@@ -235,9 +217,10 @@ describe("weeklyCalculator", () => {
       );
       expect(partial.color).toBe("partial");
       expect(partial.progress).toBe(0.5);
+      expect(partial.periodProgress).toBeCloseTo(1 / 3);
     });
 
-    it("on Sunday (day 7/7) with frequency 3, expects ceil(3*7/7)=3", () => {
+    it("on Sunday (day 7/7) with frequency 3, expects 3", () => {
       const sunday = new Date(2025, 5, 15, 14, 0);
       const result = weeklyCalculator(
         input({ frequency: 3, checkInCount: 3, now: sunday }),
@@ -245,12 +228,12 @@ describe("weeklyCalculator", () => {
       );
       expect(result.color).toBe("compliant");
       expect(result.progress).toBe(1);
+      expect(result.periodProgress).toBe(1);
     });
   });
 });
 
 describe("monthlyCalculator", () => {
-  // June 15 2025
   const june15 = new Date(2025, 5, 15, 14, 0);
 
   const input = (overrides: Record<string, unknown>) => ({
@@ -265,10 +248,9 @@ describe("monthlyCalculator", () => {
 
   it("returns default when goal created this month", () => {
     const june5 = new Date(2025, 5, 5, 10, 0);
-    expect(monthlyCalculator(input({ createdAt: june5 }), colors)).toEqual({
-      color: "default",
-      progress: 0,
-    });
+    expect(monthlyCalculator(input({ createdAt: june5 }), colors)).toEqual(
+      defaultResult,
+    );
   });
 
   describe("with specific schedule (1st and 15th)", () => {
@@ -277,25 +259,27 @@ describe("monthlyCalculator", () => {
       { days: null, dayOfMonth: 15 },
     ];
 
-    it("on June 15, expects 2 (both 1st and 15th elapsed)", () => {
+    it("on June 15, 2/2 expected = compliant, periodProgress 1", () => {
       const result = monthlyCalculator(
         input({ schedules: firstAndFifteenth, checkInCount: 2 }),
         colors,
       );
       expect(result.color).toBe("compliant");
       expect(result.progress).toBe(1);
+      expect(result.periodProgress).toBe(1);
     });
 
-    it("on June 15, 1/2 expected = partial with progress 0.5", () => {
+    it("on June 15, 1/2 expected = partial, periodProgress 0.5", () => {
       const result = monthlyCalculator(
         input({ schedules: firstAndFifteenth, checkInCount: 1 }),
         colors,
       );
       expect(result.color).toBe("partial");
       expect(result.progress).toBe(0.5);
+      expect(result.periodProgress).toBe(0.5);
     });
 
-    it("on June 10, expects 1 (only 1st elapsed)", () => {
+    it("on June 10, 1/1 expected = compliant, periodProgress 0.5", () => {
       const june10 = new Date(2025, 5, 10, 14, 0);
       const result = monthlyCalculator(
         input({
@@ -307,9 +291,10 @@ describe("monthlyCalculator", () => {
       );
       expect(result.color).toBe("compliant");
       expect(result.progress).toBe(1);
+      expect(result.periodProgress).toBe(0.5);
     });
 
-    it("on June 10, 0/1 expected = failing with progress 0", () => {
+    it("on June 10, 0/1 expected = failing, periodProgress 0", () => {
       const june10 = new Date(2025, 5, 10, 14, 0);
       const result = monthlyCalculator(
         input({
@@ -321,17 +306,19 @@ describe("monthlyCalculator", () => {
       );
       expect(result.color).toBe("failing");
       expect(result.progress).toBe(0);
+      expect(result.periodProgress).toBe(0);
     });
   });
 
   describe("without schedule (sliding window)", () => {
-    it("on June 15 with frequency 4, expects ceil(4*15/30)=2", () => {
+    it("on June 15 with frequency 4, expects 2", () => {
       const compliant = monthlyCalculator(
         input({ frequency: 4, checkInCount: 2 }),
         colors,
       );
       expect(compliant.color).toBe("compliant");
       expect(compliant.progress).toBe(1);
+      expect(compliant.periodProgress).toBe(0.5);
 
       const partial = monthlyCalculator(
         input({ frequency: 4, checkInCount: 1 }),
@@ -339,9 +326,10 @@ describe("monthlyCalculator", () => {
       );
       expect(partial.color).toBe("partial");
       expect(partial.progress).toBe(0.5);
+      expect(partial.periodProgress).toBe(0.25);
     });
 
-    it("on June 1 with frequency 4, expects max(1, ceil(4*1/30))=1", () => {
+    it("on June 1 with frequency 4, expects 1", () => {
       const june1 = new Date(2025, 5, 1, 14, 0);
       const result = monthlyCalculator(
         input({ frequency: 4, checkInCount: 1, now: june1 }),
@@ -349,6 +337,7 @@ describe("monthlyCalculator", () => {
       );
       expect(result.color).toBe("compliant");
       expect(result.progress).toBe(1);
+      expect(result.periodProgress).toBe(0.25);
     });
   });
 });

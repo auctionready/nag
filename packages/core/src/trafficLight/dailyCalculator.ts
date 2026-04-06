@@ -8,5 +8,6 @@ export const dailyCalculator: TrafficLightCalculator = (input, colors) => {
 
   if (createdAt >= dayStart) return defaultResult(colors);
 
-  return resultForRatio(checkInCount / frequency, colors);
+  const ratio = checkInCount / frequency;
+  return resultForRatio(ratio, ratio, colors);
 };
