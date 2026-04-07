@@ -14,6 +14,8 @@ const colors: ComplianceColors = {
   failing: "#FF3B30",
 };
 
+export const complianceColors = colors;
+
 export { periodStart };
 
 export const tileStatus = (

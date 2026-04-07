@@ -7,30 +7,42 @@ const CIRCLE_SIZE = 24;
 interface DayIndicatorsProps {
   scheduledDaysMask: number;
   checkedInDaysMask: number;
+  todayColor?: string;
 }
 
 export const DayIndicators = ({
   scheduledDaysMask,
   checkedInDaysMask,
-}: DayIndicatorsProps) => (
-  <View style={styles.row}>
-    {mondayFirstDayLetters.map(({ day, letter }, i) => {
-      const scheduled = (scheduledDaysMask & day) !== 0;
-      const checkedIn = scheduled && (checkedInDaysMask & day) !== 0;
-      return (
-        <View key={i} style={styles.cell}>
-          <View style={[styles.circle, checkedIn && styles.checkedIn]}>
-            <Text
-              style={[styles.letter, !scheduled && styles.unscheduledLetter]}
-            >
-              {letter}
-            </Text>
+  todayColor,
+}: DayIndicatorsProps) => {
+  const todayJsDay = new Date().getDay();
+  return (
+    <View style={styles.row}>
+      {mondayFirstDayLetters.map(({ day, letter }, i) => {
+        const scheduled = (scheduledDaysMask & day) !== 0;
+        const checkedIn = scheduled && (checkedInDaysMask & day) !== 0;
+        const isToday = day === 1 << todayJsDay;
+        const overrideColor = isToday && scheduled ? todayColor : undefined;
+        const circleStyle = [
+          styles.circle,
+          checkedIn && !overrideColor && styles.checkedIn,
+          overrideColor ? { backgroundColor: overrideColor } : null,
+        ];
+        return (
+          <View key={i} style={styles.cell}>
+            <View style={circleStyle}>
+              <Text
+                style={[styles.letter, !scheduled && styles.unscheduledLetter]}
+              >
+                {letter}
+              </Text>
+            </View>
           </View>
-        </View>
-      );
-    })}
-  </View>
-);
+        );
+      })}
+    </View>
+  );
+};
 
 const styles = StyleSheet.create({
   row: {
