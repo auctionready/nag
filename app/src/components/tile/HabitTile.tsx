@@ -1,7 +1,7 @@
 import { useCallback } from "react";
 import { useRouter } from "expo-router";
 import { db } from "../../db";
-import { processCommand, isScheduledToday, colorForRatio } from "@nag/core";
+import { processCommand, isScheduledToday, withinDayColor } from "@nag/core";
 import { tileStatus, complianceColors } from "../getComplianceColor";
 import { useHabitGoalSummary } from "./useHabitGoalSummary";
 import { useHabitCompliance } from "./useHabitCompliance";
@@ -32,32 +32,17 @@ export const HabitTile = ({ id, title }: HabitTileProps) => {
     0,
   );
 
-  const todayColor = (() => {
-    if (!hasSchedule || isOffDay) return undefined;
-    const now = new Date();
-    const todayBit = 1 << now.getDay();
-    const todaySchedules = schedules.filter(
-      (s) => ((s.days ?? 0) & todayBit) !== 0,
-    );
-    const timed = todaySchedules.filter(
-      (s) => s.hour !== null && s.hour !== undefined,
-    );
-    if (timed.length === 0) return undefined;
-    const nowMinutes = now.getHours() * 60 + now.getMinutes();
-    const elapsed = timed.filter(
-      (s) => (s.hour ?? 0) * 60 + (s.minute ?? 0) <= nowMinutes,
-    ).length;
-    if (elapsed === 0) return undefined;
-    const checkInsToday = recentCheckIns.filter((c) => {
-      const t = c.timestamp;
-      return (
-        t.getFullYear() === now.getFullYear() &&
-        t.getMonth() === now.getMonth() &&
-        t.getDate() === now.getDate()
-      );
-    }).length;
-    return colorForRatio(checkInsToday / elapsed, complianceColors);
-  })();
+  const todayColor =
+    hasSchedule && !isOffDay
+      ? withinDayColor(
+          {
+            schedules,
+            checkInTimestamps: recentCheckIns.map((c) => c.timestamp),
+            now: new Date(),
+          },
+          complianceColors,
+        )
+      : undefined;
 
   const handlePress = useCallback(() => {
     router.push(`/habit/${id}`);

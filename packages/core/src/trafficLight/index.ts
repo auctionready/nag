@@ -18,6 +18,11 @@ export type {
   TrafficLightResult,
 };
 export { colorForRatio } from "./colorForRatio";
+export { withinDayCompliance, withinDayColor } from "./withinDayCompliance";
+export type {
+  WithinDayCompliance,
+  WithinDayComplianceInput,
+} from "./withinDayCompliance";
 export { dailyCalculator } from "./dailyCalculator";
 export { weeklyCalculator } from "./weeklyCalculator";
 export { monthlyCalculator } from "./monthlyCalculator";
