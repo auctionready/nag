@@ -40,6 +40,66 @@ describe("dailyCalculator", () => {
     expect(result.periodProgress).toBe(1);
   });
 
+  describe("with timed schedules", () => {
+    const timedSchedules = [
+      { days: null, dayOfMonth: null, hour: 8, minute: 0 },
+      { days: null, dayOfMonth: null, hour: 12, minute: 0 },
+      { days: null, dayOfMonth: null, hour: 18, minute: 0 },
+    ];
+
+    it("is compliant when 1 of 3 done before second schedule time", () => {
+      const result = dailyCalculator(
+        input({
+          frequency: 3,
+          schedules: timedSchedules,
+          checkInCount: 1,
+          now: new Date(2025, 5, 15, 10, 0),
+        }),
+        colors,
+      );
+      expect(result.color).toBe("compliant");
+    });
+
+    it("is partial when 1 of 3 done after second schedule time has passed", () => {
+      const result = dailyCalculator(
+        input({
+          frequency: 3,
+          schedules: timedSchedules,
+          checkInCount: 1,
+          now: new Date(2025, 5, 15, 13, 0),
+        }),
+        colors,
+      );
+      expect(result.color).toBe("partial");
+    });
+
+    it("is failing when 1 of 3 done after third schedule time has passed", () => {
+      const result = dailyCalculator(
+        input({
+          frequency: 3,
+          schedules: timedSchedules,
+          checkInCount: 1,
+          now: new Date(2025, 5, 15, 19, 0),
+        }),
+        colors,
+      );
+      expect(result.color).toBe("failing");
+    });
+
+    it("returns default color before first scheduled time", () => {
+      const result = dailyCalculator(
+        input({
+          frequency: 3,
+          schedules: timedSchedules,
+          checkInCount: 0,
+          now: new Date(2025, 5, 15, 7, 0),
+        }),
+        colors,
+      );
+      expect(result.color).toBe("default");
+    });
+  });
+
   it("progress and periodProgress are the same for daily", () => {
     const result = dailyCalculator(
       input({ frequency: 4, checkInCount: 2 }),

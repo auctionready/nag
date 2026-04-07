@@ -3,6 +3,8 @@ import type { Regularity } from "@nag/schema";
 export interface ScheduleInfo {
   days: number | null;
   dayOfMonth: number | null;
+  hour?: number | null;
+  minute?: number | null;
 }
 
 export interface TrafficLightInput {
