@@ -1,5 +1,5 @@
 import { StyleSheet, Text, View } from "react-native";
-import { mondayFirstDayLetters } from "@nag/core";
+import { buildDayCells } from "@nag/core";
 
 const CHECKED_IN_COLOR = "#34C759";
 const CIRCLE_SIZE = 24;
@@ -15,31 +15,30 @@ export const DayIndicators = ({
   checkedInDaysMask,
   todayColor,
 }: DayIndicatorsProps) => {
-  const todayJsDay = new Date().getDay();
+  const cells = buildDayCells({
+    scheduledDaysMask,
+    checkedInDaysMask,
+    checkedInColor: CHECKED_IN_COLOR,
+    todayColor,
+  });
   return (
     <View style={styles.row}>
-      {mondayFirstDayLetters.map(({ day, letter }, i) => {
-        const scheduled = (scheduledDaysMask & day) !== 0;
-        const checkedIn = scheduled && (checkedInDaysMask & day) !== 0;
-        const isToday = day === 1 << todayJsDay;
-        const overrideColor = isToday && scheduled ? todayColor : undefined;
-        const circleStyle = [
-          styles.circle,
-          checkedIn && !overrideColor && styles.checkedIn,
-          overrideColor ? { backgroundColor: overrideColor } : null,
-        ];
-        return (
-          <View key={i} style={styles.cell}>
-            <View style={circleStyle}>
-              <Text
-                style={[styles.letter, !scheduled && styles.unscheduledLetter]}
-              >
-                {letter}
-              </Text>
-            </View>
+      {cells.map(({ letter, scheduled, backgroundColor }, i) => (
+        <View key={i} style={styles.cell}>
+          <View
+            style={[
+              styles.circle,
+              backgroundColor ? { backgroundColor } : null,
+            ]}
+          >
+            <Text
+              style={[styles.letter, !scheduled && styles.unscheduledLetter]}
+            >
+              {letter}
+            </Text>
           </View>
-        );
-      })}
+        </View>
+      ))}
     </View>
   );
 };
@@ -62,9 +61,6 @@ const styles = StyleSheet.create({
     borderRadius: CIRCLE_SIZE / 2,
     justifyContent: "center",
     alignItems: "center",
-  },
-  checkedIn: {
-    backgroundColor: CHECKED_IN_COLOR,
   },
   letter: {
     fontSize: 11,

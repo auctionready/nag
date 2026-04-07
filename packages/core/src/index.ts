@@ -1,5 +1,10 @@
 export { periodStart } from "./compliance";
 export {
+  buildDayCells,
+  type DayCell,
+  type BuildDayCellsInput,
+} from "./dayCells";
+export {
   type ComplianceColors,
   type ScheduleInfo,
   type TrafficLightCalculator,
