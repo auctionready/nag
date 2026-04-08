@@ -62,18 +62,31 @@ describe("submission", () => {
     const { getByPlaceholderText, getByText } = render(
       <HabitForm onSubmit={onSubmit} />,
     );
-    fireEvent.changeText(getByPlaceholderText("e.g. Exercise"), "Meditation");
-    fireEvent.press(getByText("Save"));
-    await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1));
+    await act(async () => {
+      fireEvent.changeText(getByPlaceholderText("e.g. Exercise"), "Meditation");
+    });
+    await act(async () => {
+      fireEvent.press(getByText("Save"));
+    });
+    expect(onSubmit).toHaveBeenCalledTimes(1);
     expect(onSubmit.mock.calls[0][0]).toMatchObject({ title: "Meditation" });
   });
 });
 
 describe("validation", () => {
-  it("shows title error and blocks submit when title is empty", async () => {
-    const { getByText } = render(<HabitForm onSubmit={onSubmit} />);
-    fireEvent.press(getByText("Save"));
+  it("shows title error and blocks submit when title is cleared", async () => {
+    const { getByPlaceholderText, getByText } = render(
+      <HabitForm onSubmit={onSubmit} />,
+    );
+    // Trigger onChange validation by typing then clearing
+    await act(async () => {
+      fireEvent.changeText(getByPlaceholderText("e.g. Exercise"), "x");
+    });
+    await act(async () => {
+      fireEvent.changeText(getByPlaceholderText("e.g. Exercise"), "");
+    });
     await waitFor(() => expect(getByText("Title is required")).toBeTruthy());
+    fireEvent.press(getByText("Save"));
     expect(onSubmit).not.toHaveBeenCalled();
   });
 
@@ -189,13 +202,19 @@ describe("description", () => {
     });
 
     it("includes description in submitted data", async () => {
-      fireEvent.changeText(view.getByPlaceholderText("e.g. Exercise"), "Run");
-      fireEvent.changeText(
-        view.getByPlaceholderText("Describe the habit"),
-        "Go for a run",
-      );
-      fireEvent.press(view.getByText("Save"));
-      await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1));
+      await act(async () => {
+        fireEvent.changeText(view.getByPlaceholderText("e.g. Exercise"), "Run");
+      });
+      await act(async () => {
+        fireEvent.changeText(
+          view.getByPlaceholderText("Describe the habit"),
+          "Go for a run",
+        );
+      });
+      await act(async () => {
+        fireEvent.press(view.getByText("Save"));
+      });
+      expect(onSubmit).toHaveBeenCalledTimes(1);
       expect(onSubmit.mock.calls[0][0]).toMatchObject({
         title: "Run",
         description: "Go for a run",
