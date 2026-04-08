@@ -29,11 +29,15 @@ export const WeekdayNames: readonly string[] = Object.freeze(
 export const weekDayEntries: readonly {
   readonly day: Day;
   readonly label: string;
-}[] = Object.freeze(
-  Object.entries(dayNames).map(([day, label]) =>
-    Object.freeze({ day: Number(day) as Day, label }),
-  ),
-);
+}[] = Object.freeze([
+  Object.freeze({ day: Day.Mon, label: dayNames[Day.Mon] }),
+  Object.freeze({ day: Day.Tue, label: dayNames[Day.Tue] }),
+  Object.freeze({ day: Day.Wed, label: dayNames[Day.Wed] }),
+  Object.freeze({ day: Day.Thu, label: dayNames[Day.Thu] }),
+  Object.freeze({ day: Day.Fri, label: dayNames[Day.Fri] }),
+  Object.freeze({ day: Day.Sat, label: dayNames[Day.Sat] }),
+  Object.freeze({ day: Day.Sun, label: dayNames[Day.Sun] }),
+]);
 
 export const mondayFirstDayLetters: readonly {
   readonly day: Day;
