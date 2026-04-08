@@ -46,6 +46,7 @@ export const HabitForm = ({
     name: "schedules",
   });
   const watchedRegularity = watch("regularity");
+  const watchedSchedules = watch("schedules");
   const [editingIndex, setEditingIndex] = useState(-1);
   const [isNewEntry, setIsNewEntry] = useState(false);
 
@@ -232,14 +233,25 @@ export const HabitForm = ({
 
           {watchedRegularity === "scheduled" && (
             <>
-              {fields.map((field, index) => (
-                <ScheduleEntrySummary
-                  key={field.id}
-                  index={index}
-                  watch={watch}
-                  onEdit={() => openEditor(index)}
-                />
-              ))}
+              {fields
+                .map((field, index) => ({ field, index }))
+                .sort((a, b) => {
+                  const as = watchedSchedules?.[a.index];
+                  const bs = watchedSchedules?.[b.index];
+                  const aMins =
+                    (Number(as?.hour) || 0) * 60 + (Number(as?.minute) || 0);
+                  const bMins =
+                    (Number(bs?.hour) || 0) * 60 + (Number(bs?.minute) || 0);
+                  return aMins - bMins;
+                })
+                .map(({ field, index }) => (
+                  <ScheduleEntrySummary
+                    key={field.id}
+                    index={index}
+                    watch={watch}
+                    onEdit={() => openEditor(index)}
+                  />
+                ))}
               <Pressable style={styles.addTimeButton} onPress={addEntry}>
                 <Text style={styles.addTimeButtonText}>+ Add Time</Text>
               </Pressable>
