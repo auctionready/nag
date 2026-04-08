@@ -26,24 +26,28 @@ export const WeekdayNames: readonly string[] = Object.freeze(
   Object.values(dayNames),
 );
 
+const mondayFirstDays: readonly Day[] = Object.freeze([
+  Day.Mon,
+  Day.Tue,
+  Day.Wed,
+  Day.Thu,
+  Day.Fri,
+  Day.Sat,
+  Day.Sun,
+]);
+
 export const weekDayEntries: readonly {
   readonly day: Day;
   readonly label: string;
 }[] = Object.freeze(
-  [Day.Mon, Day.Tue, Day.Wed, Day.Thu, Day.Fri, Day.Sat, Day.Sun].map((day) =>
-    Object.freeze({ day, label: dayNames[day] }),
-  ),
+  mondayFirstDays.map((day) => Object.freeze({ day, label: dayNames[day] })),
 );
 
 export const mondayFirstDayLetters: readonly {
   readonly day: Day;
   readonly letter: string;
-}[] = Object.freeze([
-  Object.freeze({ day: Day.Mon, letter: "M" }),
-  Object.freeze({ day: Day.Tue, letter: "T" }),
-  Object.freeze({ day: Day.Wed, letter: "W" }),
-  Object.freeze({ day: Day.Thu, letter: "T" }),
-  Object.freeze({ day: Day.Fri, letter: "F" }),
-  Object.freeze({ day: Day.Sat, letter: "S" }),
-  Object.freeze({ day: Day.Sun, letter: "S" }),
-]);
+}[] = Object.freeze(
+  mondayFirstDays.map((day) =>
+    Object.freeze({ day, letter: dayNames[day][0] }),
+  ),
+);
