@@ -53,12 +53,14 @@ bd close <id>         # Complete work
 
 ## Build & Test
 
-_Add your build and test commands here_
+- Use [pnpm](https://pnpm.io/) for package management.
+- Use pnpm to run Expo, e.g. `pnpm expo start`.
+
+Validation (run from the repo root):
 
 ```bash
-# Example:
-# npm install
-# npm test
+pnpm typecheck
+pnpm test
 ```
 
 ## Architecture Overview
@@ -76,4 +78,17 @@ should get their own page under `docs/` and be linked from
 
 ## Conventions & Patterns
 
-_Add your project-specific conventions here_
+- Use [drizzle-kit](https://orm.drizzle.team/docs/kit-overview) for database
+  management.
+
+### Coding Style
+
+- Prefer named exports over default exports.
+- Prefer `const` style over `function` unless awkward.
+- Test files for a given source file go in a `__tests__` folder next to the
+  file they test.
+
+### Tests
+
+- Prefer `describe` with `beforeEach` to set up scenarios, then one or more
+  `it`s to assert.
