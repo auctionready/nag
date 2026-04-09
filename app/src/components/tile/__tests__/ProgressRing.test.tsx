@@ -12,7 +12,9 @@ describe("ProgressRing", () => {
   });
 
   it("sets correct strokeDashoffset for 50% progress", () => {
-    const { root } = render(<ProgressRing progress={0.5} />);
+    const { root } = render(
+      <ProgressRing progress={0.5} size={size} strokeWidth={strokeWidth} />,
+    );
     const circles = root.findAll(
       (node: { type: string }) => node.type === "RNSVGCircle",
     );
@@ -21,7 +23,9 @@ describe("ProgressRing", () => {
   });
 
   it("sets correct strokeDashoffset for 25% progress", () => {
-    const { root } = render(<ProgressRing progress={0.25} />);
+    const { root } = render(
+      <ProgressRing progress={0.25} size={size} strokeWidth={strokeWidth} />,
+    );
     const circles = root.findAll(
       (node: { type: string }) => node.type === "RNSVGCircle",
     );
