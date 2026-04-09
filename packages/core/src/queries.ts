@@ -107,6 +107,8 @@ export function schedulesForHabit(db: AnyDb, habitId: number) {
     .select({
       days: schedule.days,
       dayOfMonth: schedule.dayOfMonth,
+      hour: schedule.hour,
+      minute: schedule.minute,
     })
     .from(schedule)
     .innerJoin(goal, eq(schedule.goalId, goal.id))

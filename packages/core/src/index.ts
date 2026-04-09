@@ -1,11 +1,20 @@
 export { periodStart } from "./compliance";
 export {
+  buildDayCells,
+  type DayCell,
+  type BuildDayCellsInput,
+} from "./dayCells";
+export {
   type ComplianceColors,
   type ScheduleInfo,
   type TrafficLightCalculator,
   type TrafficLightInput,
   type TrafficLightResult,
   colorForRatio,
+  withinDayCompliance,
+  withinDayColor,
+  type WithinDayCompliance,
+  type WithinDayComplianceInput,
   isScheduledToday,
   tileColor,
   dailyCalculator,
