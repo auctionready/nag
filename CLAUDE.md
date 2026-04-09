@@ -51,6 +51,23 @@ bd close <id>         # Complete work
 - If push fails, resolve and retry until it succeeds
 <!-- END BEADS INTEGRATION -->
 
+## Issue Tracking: bd vs GitHub Issues
+
+The rules above about using `bd` apply **only to work you are actively
+doing** — the in-flight task you've claimed, its sub-tasks, and anything
+you need to track within the current session.
+
+**Backlog items go in GitHub Issues, not `bd`.** If you uncover follow-up
+work, tech debt, or a proposal that isn't part of the current task, file
+it as a GitHub issue in `christensena/nag` instead of a `bd` issue. `bd`
+is for the work you're holding in your hands right now; GitHub Issues is
+for the queue of things somebody might pick up later.
+
+Rule of thumb:
+
+- **Actively working on it (or will be, in this session)** → `bd`.
+- **"We should do this some day"** → GitHub Issues.
+
 ## Build & Test
 
 - Use [pnpm](https://pnpm.io/) for package management.
