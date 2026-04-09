@@ -1,7 +1,8 @@
 import * as Notifications from "expo-notifications";
-import { router } from "expo-router";
+import { router, useRootNavigationState } from "expo-router";
+import { useEffect, useRef } from "react";
 
-const handleResponse = (response: Notifications.NotificationResponse): void => {
+const navigateFor = (response: Notifications.NotificationResponse): void => {
   const data = response.notification.request.content.data;
   if (data?.habitIds && Array.isArray(data.habitIds)) {
     const ids = (data.habitIds as number[]).join(",");
@@ -9,16 +10,27 @@ const handleResponse = (response: Notifications.NotificationResponse): void => {
   }
 };
 
-export const setupNotificationResponseHandler = (): (() => void) => {
-  const subscription =
-    Notifications.addNotificationResponseReceivedListener(handleResponse);
+export const useNotificationResponseHandler = (): void => {
+  const navState = useRootNavigationState();
+  const navReady = !!navState?.key;
+  const lastResponse = Notifications.useLastNotificationResponse();
+  const handledRef = useRef<string | null>(null);
 
-  // Handle cold-start: check if app was opened from a notification
-  Notifications.getLastNotificationResponseAsync().then((response) => {
-    if (response) {
-      handleResponse(response);
-    }
-  });
+  useEffect(() => {
+    if (!navReady || !lastResponse) return;
+    const id = lastResponse.notification.request.identifier;
+    if (handledRef.current === id) return;
+    handledRef.current = id;
+    navigateFor(lastResponse);
+  }, [navReady, lastResponse]);
 
-  return () => subscription.remove();
+  useEffect(() => {
+    const subscription = Notifications.addNotificationResponseReceivedListener(
+      (response) => {
+        handledRef.current = response.notification.request.identifier;
+        navigateFor(response);
+      },
+    );
+    return () => subscription.remove();
+  }, []);
 };
