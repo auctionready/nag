@@ -95,7 +95,11 @@ Source: [`checkIn.ts`](../packages/schema/src/checkIn.ts)
 
 A record that a habit was performed (or explicitly skipped) at a given
 `timestamp`. `skipped = true` marks it as a deliberate skip rather than a
-completion.
+completion — a skip row is treated by the compliance calculators the same
+way as a real check-in, so explicit skips do not count against the
+traffic-light indicator the way silent misses do. See
+[`Intro.md` § Check-ins and skips](./Intro.md#check-ins-and-skips) for the
+user-facing behaviour.
 
 Constraints:
 
@@ -106,14 +110,22 @@ Constraints:
 
 Source: [`schedule.ts`](../packages/schema/src/schedule.ts)
 
-When to remind the user about a goal.
+When to remind the user about a goal. nag is not a calendar app, so
+schedules are weekday-based: pick a time and a set of days of the week.
 
 - `hour` / `minute` — time of day.
 - `days` — bitmask of weekdays (nullable). Bits are defined in
   [`packages/core/src/days.ts`](../packages/core/src/days.ts):
   `Sun = 1, Mon = 2, Tue = 4, Wed = 8, Thu = 16, Fri = 32, Sat = 64`.
-- `day_of_month` — specific day (1-31) for monthly schedules, nullable.
-- `reminder` — whether a notification fires (defaults to true).
+- `day_of_month` — specific day (1-31), nullable. Present in the schema and
+  consumed by the monthly traffic-light calculator and notification
+  scheduler, but **not currently exposed in the user-facing schedule
+  editor** — user-defined schedules are weekday-only.
+- `reminder` — whether a notification fires for this schedule (defaults to
+  true). When several schedules share the same time slot with reminders
+  enabled, the notifications are grouped into a single consolidated slot
+  notification — see
+  [`notificationConsolidator.ts`](../packages/core/src/notificationConsolidator.ts).
 
 Constraints:
 
