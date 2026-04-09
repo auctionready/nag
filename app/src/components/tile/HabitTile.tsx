@@ -60,6 +60,7 @@ export const HabitTile = ({ id, title }: HabitTileProps) => {
       checkInCount={checkInCount}
       recentCheckIns={recentCheckIns}
       color={isOffDay ? "#8E8E93" : trafficColor}
+      complianceColor={trafficColor}
       periodProgress={isOffDay ? 0 : periodProgress}
       isOffDay={isOffDay}
       hasSchedule={hasSchedule}

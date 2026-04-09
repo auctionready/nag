@@ -14,6 +14,8 @@ export interface HabitTileViewProps {
   checkInCount: number;
   recentCheckIns: { timestamp: Date }[];
   color: string;
+  /** Compliance color used to tint the progress ring (independent of off-day override) */
+  complianceColor: string;
   /** Check-ins vs full period frequency (0–1), for the donut ring */
   periodProgress: number;
   isOffDay?: boolean;
@@ -32,6 +34,7 @@ export const HabitTileView = ({
   checkInCount: count,
   recentCheckIns: recent,
   color,
+  complianceColor,
   periodProgress,
   isOffDay,
   hasSchedule,
@@ -87,6 +90,14 @@ export const HabitTileView = ({
             { backgroundColor: color, transform: [{ scale }] },
           ]}
         >
+          <View style={styles.progressRing}>
+            <ProgressRing
+              progress={periodProgress}
+              color={complianceColor}
+              trackColor="rgba(255, 255, 255, 0.35)"
+              backgroundColor="rgba(255, 255, 255, 0.95)"
+            />
+          </View>
           <Text style={styles.title}>{title}</Text>
           {goal && <Text style={styles.subtitle}>{goal.title}</Text>}
           {goal ? (
@@ -114,14 +125,7 @@ export const HabitTileView = ({
               todayColor={todayColor}
               missedColor={missedColor}
             />
-          ) : (
-            periodProgress > 0 &&
-            periodProgress < 1 && (
-              <View style={styles.progressRing}>
-                <ProgressRing progress={periodProgress} />
-              </View>
-            )
-          )}
+          ) : null}
         </Animated.View>
       </Pressable>
     </GestureDetector>
@@ -164,7 +168,7 @@ const styles = StyleSheet.create({
   },
   progressRing: {
     position: "absolute",
-    bottom: 8,
+    top: 8,
     right: 8,
   },
 });
