@@ -16,8 +16,11 @@ export interface HabitTileViewProps {
   color: string;
   /** Compliance color used to tint the progress ring (independent of off-day override) */
   complianceColor: string;
-  /** Check-ins vs full period frequency (0–1), for the donut ring */
-  periodProgress: number;
+  /**
+   * Value shown by the corner donut ring (0–1). For non-scheduled habits
+   * this is the period progress; for scheduled ones it is today's progress.
+   */
+  ringProgress: number;
   isOffDay?: boolean;
   hasSchedule?: boolean;
   scheduledDaysMask?: number;
@@ -35,7 +38,7 @@ export const HabitTileView = ({
   recentCheckIns: recent,
   color,
   complianceColor,
-  periodProgress,
+  ringProgress,
   isOffDay,
   hasSchedule,
   scheduledDaysMask,
@@ -92,10 +95,9 @@ export const HabitTileView = ({
         >
           <View style={styles.progressRing}>
             <ProgressRing
-              progress={periodProgress}
+              progress={ringProgress}
               color={complianceColor}
               trackColor="rgba(255, 255, 255, 0.35)"
-              backgroundColor="rgba(255, 255, 255, 0.95)"
             />
           </View>
           <Text style={styles.title}>{title}</Text>

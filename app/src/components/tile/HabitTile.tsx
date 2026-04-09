@@ -6,6 +6,7 @@ import { tileStatus, complianceColors } from "../getComplianceColor";
 import { useHabitGoalSummary } from "./useHabitGoalSummary";
 import { useHabitCompliance } from "./useHabitCompliance";
 import { HabitTileView } from "./HabitTileView";
+import { computeRingProgress } from "./computeRingProgress";
 
 interface HabitTileProps {
   id: number;
@@ -32,17 +33,29 @@ export const HabitTile = ({ id, title }: HabitTileProps) => {
     0,
   );
 
+  const now = new Date();
+
   const todayColor =
     hasSchedule && !isOffDay
       ? withinDayColor(
           {
             schedules,
             checkInTimestamps: recentCheckIns.map((c) => c.timestamp),
-            now: new Date(),
+            now,
           },
           complianceColors,
         )
       : undefined;
+
+  const ringProgress = computeRingProgress({
+    hasSchedule,
+    scheduledDaysMask: combinedDays,
+    schedules,
+    recentCheckIns,
+    frequency: goal?.frequency ?? 0,
+    periodProgress,
+    now,
+  });
 
   const handlePress = useCallback(() => {
     router.push(`/habit/${id}`);
@@ -61,7 +74,7 @@ export const HabitTile = ({ id, title }: HabitTileProps) => {
       recentCheckIns={recentCheckIns}
       color={isOffDay ? "#8E8E93" : trafficColor}
       complianceColor={trafficColor}
-      periodProgress={isOffDay ? 0 : periodProgress}
+      ringProgress={isOffDay ? 0 : ringProgress}
       isOffDay={isOffDay}
       hasSchedule={hasSchedule}
       scheduledDaysMask={combinedDays}
