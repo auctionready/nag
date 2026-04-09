@@ -5,6 +5,26 @@ wanted to do. You define habits, set goals for how often you want to perform
 them, schedule reminders, and check in when you've done them. The app uses a
 traffic-light system to show how well you're keeping up with each habit.
 
+## Purpose
+
+The point of nag is to help you **bed in habits**. Concretely, it aims to:
+
+1. **Help you remember them** — keep the habits you care about visible so
+   they don't quietly fall off the radar.
+2. **Help you plan when you want to do them** — via goals (how often) and
+   schedules (at what time, on which days of the week).
+3. **Help by reminding you** — push notifications at the times you chose,
+   grouped sensibly when several habits land in the same slot.
+4. **Help you build a consistent cadence** — the app is oriented around
+   repetition over time so that habits actually _form_ rather than being
+   one-off to-dos.
+5. **Help you see how you're doing at a glance** — a per-habit traffic-light
+   indicator summarises compliance against the goal you set yourself.
+6. **Reward the "clean screen" instinct** — for people who like tidy,
+   ticked-off lists, the UI turns doing your habits into the obvious way to
+   make the screen look clean, borrowing the satisfaction of a completed
+   checklist to motivate the underlying behaviour.
+
 ## High-level Architecture
 
 The repo is a pnpm workspace with three packages:
