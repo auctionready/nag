@@ -14,6 +14,8 @@ export interface HabitTileViewProps {
   checkInCount: number;
   recentCheckIns: { timestamp: Date }[];
   color: string;
+  /** Compliance-coded stroke color for the corner progress ring. */
+  ringColor: string;
   /**
    * Value shown by the corner donut ring (0–1). For non-scheduled habits
    * this is the period progress; for scheduled ones it is today's progress.
@@ -35,6 +37,7 @@ export const HabitTileView = ({
   checkInCount: count,
   recentCheckIns: recent,
   color,
+  ringColor,
   ringProgress,
   isOffDay,
   hasSchedule,
@@ -93,7 +96,7 @@ export const HabitTileView = ({
           <View style={styles.progressRing}>
             <ProgressRing
               progress={ringProgress}
-              color="#fff"
+              color={ringColor}
               trackColor="rgba(255, 255, 255, 0.4)"
             />
           </View>
