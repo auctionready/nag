@@ -73,7 +73,6 @@ export const HabitTile = ({ id, title }: HabitTileProps) => {
       checkInCount={checkInCount}
       recentCheckIns={recentCheckIns}
       color={isOffDay ? "#8E8E93" : trafficColor}
-      complianceColor={trafficColor}
       ringProgress={isOffDay ? 0 : ringProgress}
       isOffDay={isOffDay}
       hasSchedule={hasSchedule}
