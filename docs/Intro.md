@@ -37,5 +37,5 @@ entities relate.
 ## Further Reading
 
 - [Model](./Model.md) — schema and entity relationships.
-- [`CLAUDE.md`](../CLAUDE.md) — project conventions and AI-agent workflow.
-- [`.claude/CLAUDE.md`](../.claude/CLAUDE.md) — coding style and tooling.
+- [`CLAUDE.md`](../CLAUDE.md) — project conventions, coding style, tooling,
+  and AI-agent workflow.
