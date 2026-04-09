@@ -3,6 +3,7 @@
 This file provides instructions and context for AI coding agents working on this project.
 
 <!-- BEGIN BEADS INTEGRATION v:1 profile:minimal hash:ca08a54f -->
+
 ## Beads Issue Tracker
 
 This project uses **bd (beads)** for issue tracking. Run `bd prime` to see full workflow context and commands.
@@ -43,12 +44,12 @@ bd close <id>         # Complete work
 7. **Hand off** - Provide context for next session
 
 **CRITICAL RULES:**
+
 - Work is NOT complete until `git push` succeeds
 - NEVER stop before pushing - that leaves work stranded locally
 - NEVER say "ready to push when you are" - YOU must push
 - If push fails, resolve and retry until it succeeds
 <!-- END BEADS INTEGRATION -->
-
 
 ## Build & Test
 
@@ -63,6 +64,15 @@ _Add your build and test commands here_
 ## Architecture Overview
 
 _Add a brief overview of your project architecture_
+
+## Documentation
+
+Project documentation lives in the [`docs/`](./docs) folder, linked from the
+root [`README.md`](./README.md). Keep it up to date: when you change the
+schema, domain model, architecture, or any behaviour described in `docs/`,
+update the relevant doc in the same change. New significant subsystems
+should get their own page under `docs/` and be linked from
+[`docs/Intro.md`](./docs/Intro.md).
 
 ## Conventions & Patterns
 
