@@ -15,10 +15,10 @@ interface ProgressRingProps {
 
 export const ProgressRing = ({
   progress,
-  size = 28,
-  strokeWidth = 4,
+  size = 32,
+  strokeWidth = 5,
   color = "#fff",
-  trackColor = "rgba(255, 255, 255, 0.35)",
+  trackColor = "rgba(255, 255, 255, 0.55)",
   backgroundColor,
 }: ProgressRingProps) => {
   const radius = (size - strokeWidth) / 2;
