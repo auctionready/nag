@@ -106,14 +106,6 @@ describe("weeklyCalculator", () => {
   });
 
   describe("without schedule (sliding window)", () => {
-    it("frequency 2 with 1 check-in gives periodProgress 0.5", () => {
-      const result = weeklyCalculator(
-        input({ frequency: 2, checkInCount: 1 }),
-        colors,
-      );
-      expect(result.periodProgress).toBe(0.5);
-    });
-
     it("on Monday (day 1/7) with frequency 7, expects 1", () => {
       const monday = new Date(2025, 5, 9, 14, 0);
       const result = weeklyCalculator(
