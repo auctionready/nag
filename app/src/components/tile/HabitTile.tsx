@@ -2,11 +2,7 @@ import { useCallback } from "react";
 import { useRouter } from "expo-router";
 import { db } from "../../db";
 import { processCommand, isScheduledToday, withinDayColor } from "@nag/core";
-import {
-  tileStatus,
-  complianceColors,
-  ringColorForTileColor,
-} from "../getComplianceColor";
+import { tileStatus, complianceColors } from "../getComplianceColor";
 import { useHabitGoalSummary } from "./useHabitGoalSummary";
 import { useHabitCompliance } from "./useHabitCompliance";
 import { HabitTileView } from "./HabitTileView";
@@ -77,7 +73,6 @@ export const HabitTile = ({ id, title }: HabitTileProps) => {
       checkInCount={checkInCount}
       recentCheckIns={recentCheckIns}
       color={isOffDay ? "#8E8E93" : trafficColor}
-      ringColor={ringColorForTileColor(trafficColor)}
       ringProgress={isOffDay ? 0 : ringProgress}
       isOffDay={isOffDay}
       hasSchedule={hasSchedule}
