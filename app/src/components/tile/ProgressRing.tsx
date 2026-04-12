@@ -23,7 +23,12 @@ export const ProgressRing = ({
 }: ProgressRingProps) => {
   const radius = (size - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
-  const offset = circumference * (1 - progress);
+
+  // Round linecaps extend the visible arc by strokeWidth/2 at each end.
+  // Compensate so the filled fraction matches `progress` visually.
+  const rawOffset = circumference * (1 - progress);
+  const offset =
+    progress <= 0 || progress >= 1 ? rawOffset : rawOffset + strokeWidth;
 
   const cx = size / 2;
   const cy = size / 2;
