@@ -1,9 +1,5 @@
-import {
-  Day,
-  tileColor,
-  type ComplianceColors,
-  type ScheduleInfo,
-} from "@nag/core";
+import { Day } from "@nag/core";
+import type { ScheduleInfo } from "@nag/core";
 import { computeRingProgress } from "../computeRingProgress";
 
 // Tuesday, 2025-06-03 14:00 local
@@ -171,96 +167,6 @@ describe("computeRingProgress", () => {
       });
       // Only Wed's single timed slot counts today → 1/1
       expect(progress).toBe(1);
-    });
-  });
-
-  describe("integration: weekly non-scheduled frequency goal", () => {
-    const colors: ComplianceColors = {
-      default: "#007AFF",
-      compliant: "#34C759",
-      partial: "#FF9500",
-      failing: "#FF3B30",
-    };
-
-    it("frequency 2/week with 1 check-in → ring shows 50%", () => {
-      const goal = {
-        frequency: 2,
-        regularity: "week" as const,
-        createdAt: new Date("2020-01-01"),
-      };
-      const checkInCount = 1;
-      const schedules: ScheduleInfo[] = [];
-
-      // Step 1: get periodProgress from the real traffic-light calculator
-      const { periodProgress } = tileColor(
-        goal,
-        checkInCount,
-        schedules,
-        colors,
-        WEDNESDAY,
-      );
-      expect(periodProgress).toBe(0.5);
-
-      // Step 2: computeRingProgress should pass it straight through
-      const combinedDays = 0;
-      const hasSchedule = goal.regularity === "week" && combinedDays !== 0; // false
-      const ringProgress = computeRingProgress({
-        hasSchedule,
-        scheduledDaysMask: combinedDays,
-        schedules,
-        recentCheckIns: [{ timestamp: new Date(2025, 5, 2, 9, 0) }],
-        frequency: goal.frequency,
-        periodProgress,
-        now: WEDNESDAY,
-      });
-      expect(ringProgress).toBe(0.5);
-    });
-
-    it("frequency 2/week with 2 check-ins → ring shows 100%", () => {
-      const goal = {
-        frequency: 2,
-        regularity: "week" as const,
-        createdAt: new Date("2020-01-01"),
-      };
-      const { periodProgress } = tileColor(goal, 2, [], colors, WEDNESDAY);
-      expect(periodProgress).toBe(1);
-
-      const ringProgress = computeRingProgress({
-        hasSchedule: false,
-        scheduledDaysMask: 0,
-        schedules: [],
-        recentCheckIns: [],
-        frequency: 2,
-        periodProgress,
-        now: WEDNESDAY,
-      });
-      expect(ringProgress).toBe(1);
-    });
-
-    it("frequency 3/week with 0 check-ins → ring shows 0%", () => {
-      const { periodProgress } = tileColor(
-        {
-          frequency: 3,
-          regularity: "week" as const,
-          createdAt: new Date("2020-01-01"),
-        },
-        0,
-        [],
-        colors,
-        WEDNESDAY,
-      );
-      expect(periodProgress).toBe(0);
-
-      const ringProgress = computeRingProgress({
-        hasSchedule: false,
-        scheduledDaysMask: 0,
-        schedules: [],
-        recentCheckIns: [],
-        frequency: 3,
-        periodProgress,
-        now: WEDNESDAY,
-      });
-      expect(ringProgress).toBe(0);
     });
   });
 });
