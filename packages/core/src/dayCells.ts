@@ -14,6 +14,8 @@ export interface BuildDayCellsInput {
   checkedInColor: string;
   /** Optional override color for today's circle (e.g. partial/failing). */
   todayColor?: string;
+  /** Color for past scheduled days with no check-in (e.g. red). */
+  missedColor?: string;
   now?: Date;
 }
 
@@ -27,16 +29,23 @@ export const buildDayCells = ({
   checkedInDaysMask,
   checkedInColor,
   todayColor,
+  missedColor,
   now = new Date(),
 }: BuildDayCellsInput): DayCell[] => {
   const todayBit = 1 << now.getDay();
-  return mondayFirstDayLetters.map(({ day, letter }) => {
+  const todayIndex = mondayFirstDayLetters.findIndex(
+    ({ day }) => day === todayBit,
+  );
+  return mondayFirstDayLetters.map(({ day, letter }, index) => {
     const scheduled = (scheduledDaysMask & day) !== 0;
     const checkedIn = scheduled && (checkedInDaysMask & day) !== 0;
     const isToday = day === todayBit;
+    const isPast = index < todayIndex;
     const todayOverride = isToday && scheduled ? todayColor : undefined;
+    const missed = scheduled && isPast && !checkedIn;
     const backgroundColor =
-      todayOverride ?? (checkedIn ? checkedInColor : undefined);
+      todayOverride ??
+      (checkedIn ? checkedInColor : missed ? missedColor : undefined);
     return { letter, scheduled, backgroundColor };
   });
 };

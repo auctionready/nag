@@ -66,6 +66,7 @@ export const HabitTile = ({ id, title }: HabitTileProps) => {
       scheduledDaysMask={combinedDays}
       checkedInDaysMask={checkedInDaysMask}
       todayColor={todayColor}
+      missedColor={complianceColors.failing}
       onPress={handlePress}
       onCheckIn={handleCheckIn}
     />

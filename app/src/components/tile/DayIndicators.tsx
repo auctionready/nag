@@ -8,18 +8,21 @@ interface DayIndicatorsProps {
   scheduledDaysMask: number;
   checkedInDaysMask: number;
   todayColor?: string;
+  missedColor?: string;
 }
 
 export const DayIndicators = ({
   scheduledDaysMask,
   checkedInDaysMask,
   todayColor,
+  missedColor,
 }: DayIndicatorsProps) => {
   const cells = buildDayCells({
     scheduledDaysMask,
     checkedInDaysMask,
     checkedInColor: CHECKED_IN_COLOR,
     todayColor,
+    missedColor,
   });
   return (
     <View style={styles.row}>
