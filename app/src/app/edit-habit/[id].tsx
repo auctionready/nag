@@ -67,7 +67,7 @@ const EditHabitScreen = () => {
 
   const onDelete = async () => {
     await deleteHabit(db, habitId);
-    router.dismissAll();
+    router.replace("/(tabs)");
   };
 
   if (!habitData) {
