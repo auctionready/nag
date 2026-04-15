@@ -1,6 +1,6 @@
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useLiveQuery } from "drizzle-orm/expo-sqlite";
-import { parse, format } from "date-fns";
+import { parse, format, startOfToday } from "date-fns";
 import { db } from "../../db";
 import { getTitle } from "@nag/schema";
 import {
@@ -23,10 +23,6 @@ const HabitScreen = () => {
   const router = useRouter();
   const habitId = Number(id);
 
-  // `day` query param (YYYY-MM-DD) is a routing construct, not component
-  // state — it survives navigation and is bookmarkable.
-  const selectedDay = day ? parse(day, DAY_PARAM_FORMAT, new Date()) : null;
-
   const { data: habits } = useLiveQuery(habitById(db, habitId), [habitId]);
   const habitData = habits?.[0];
 
@@ -43,6 +39,21 @@ const HabitScreen = () => {
     habitId,
   ]);
   const schedules = scheduleRows ?? [];
+
+  // `day` query param (YYYY-MM-DD) is a routing construct, not component
+  // state — it survives navigation and is bookmarkable. For weekly habits
+  // with a `days` mask we default to "today is selected" (highlight today
+  // in the week strip, scope the list to today's check-ins) — without that
+  // default, the week strip would show no selection and the long-press
+  // affordances on slot chips would feel disconnected from the strip above.
+  const hasWeeklyDaysSchedule =
+    goalData?.regularity === "week" &&
+    schedules.some((s) => (s.days ?? 0) !== 0);
+  const selectedDay = day
+    ? parse(day, DAY_PARAM_FORMAT, new Date())
+    : hasWeeklyDaysSchedule
+      ? startOfToday()
+      : null;
 
   const periodStartDate = goalData
     ? periodStart(goalData.regularity)

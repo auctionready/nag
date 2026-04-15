@@ -192,7 +192,12 @@ describe("HabitDetail", () => {
       expect((called as Date).getDate()).toBe(15);
     });
 
-    it("long-pressing a `done` chip does not trigger onCheckInAt", () => {
+    it("does not expose `done` chips as interactive (no long-press affordance)", () => {
+      // Direct DOM inspection: a `done` chip should not advertise the
+      // back-fill role/label that `missed`/`upcoming` chips do. (We can't
+      // reliably assert that a disabled gesture-handler gesture *doesn't
+      // fire* under jest-expo's mock, so we check the accessibility surface
+      // — what the user actually sees.)
       const view = render(
         <HabitDetail
           {...baseProps}
@@ -203,8 +208,14 @@ describe("HabitDetail", () => {
           now={sundayAt(10)}
         />,
       );
-      fireEvent(view.getByText("8:00 AM"), "longPress");
-      expect(baseProps.onCheckInAt).not.toHaveBeenCalled();
+      // Missed 12 PM chip is interactive…
+      expect(
+        view.queryByLabelText("Long-press to add check-in for 12:00 PM"),
+      ).not.toBeNull();
+      // …but the done 8 AM chip is not.
+      expect(
+        view.queryByLabelText("Long-press to add check-in for 8:00 AM"),
+      ).toBeNull();
     });
   });
 
@@ -347,6 +358,29 @@ describe("HabitDetail", () => {
         />,
       );
       expect(view.getByText("Wednesday")).toBeTruthy();
+    });
+
+    it("long-presses a missed slot on a past selected day", () => {
+      // Repro for "long-press on a past day schedule item does nothing":
+      // weekly habit with Wed schedule, today is Sun, user picks past Wed.
+      const view = render(
+        <HabitDetail
+          {...baseProps}
+          regularity="week"
+          frequency={1}
+          schedules={[{ days: Day.Wed, dayOfMonth: null, hour: 9, minute: 0 }]}
+          selectedDay={new Date(2025, 5, 11)}
+        />,
+      );
+      // The card should render a 9:00 AM chip (missed, since Wed is past).
+      const chipLabel = view.getByText("9:00 AM");
+      fireEvent(chipLabel, "longPress");
+      expect(baseProps.onCheckInAt).toHaveBeenCalledTimes(1);
+      const [called] = baseProps.onCheckInAt.mock.calls[0];
+      expect(called).toBeInstanceOf(Date);
+      expect((called as Date).getDate()).toBe(11); // Wed Jun 11
+      expect((called as Date).getHours()).toBe(9);
+      expect((called as Date).getMinutes()).toBe(0);
     });
   });
 
