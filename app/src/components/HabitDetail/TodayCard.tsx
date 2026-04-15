@@ -1,0 +1,129 @@
+import { StyleSheet, Text, View } from "react-native";
+import { format } from "date-fns";
+import type { MatchCheckInsToSlotsResult } from "@nag/core";
+import { ProgressRing } from "../tile/ProgressRing";
+import { complianceColors } from "../getComplianceColor";
+import { SlotChip } from "./SlotChip";
+import { FrequencyDots } from "./FrequencyDots";
+
+interface TodayCardProps {
+  now: Date;
+  /** Null if this habit has no timed slots — we fall back to FrequencyDots. */
+  match: MatchCheckInsToSlotsResult | null;
+  /** Used when `match` is null — how many check-ins this period vs. target. */
+  fallback?: {
+    completed: number;
+    frequency: number;
+  };
+  ringColor: string;
+}
+
+export const TodayCard = ({
+  now,
+  match,
+  fallback,
+  ringColor,
+}: TodayCardProps) => {
+  const hasSlots = match !== null && match.total > 0;
+  const progress = hasSlots
+    ? (match.done + match.extras) / Math.max(1, match.total)
+    : fallback
+      ? fallback.completed / Math.max(1, fallback.frequency)
+      : 0;
+  const clampedProgress = Math.min(1, progress);
+  const headline = hasSlots
+    ? `${match.done} of ${match.total} done today`
+    : fallback
+      ? `${fallback.completed} of ${fallback.frequency} this period`
+      : "Nothing scheduled today";
+
+  return (
+    <View style={styles.card}>
+      <View style={styles.headerRow}>
+        <ProgressRing
+          progress={clampedProgress}
+          size={64}
+          strokeWidth={6}
+          color={ringColor}
+          trackColor="#e8e8e8"
+        />
+        <View style={styles.headerText}>
+          <Text style={styles.day}>{format(now, "EEEE")}</Text>
+          <Text style={styles.headline}>{headline}</Text>
+        </View>
+      </View>
+
+      {hasSlots ? (
+        <View style={styles.slotRow}>
+          {match.slots.map((slot, i) => (
+            <SlotChip
+              key={`${slot.hour}:${slot.minute}:${i}`}
+              hour={slot.hour}
+              minute={slot.minute}
+              status={slot.status}
+            />
+          ))}
+          {match.extras > 0 && (
+            <View style={styles.extraPill}>
+              <Text style={styles.extraText}>+{match.extras} extra</Text>
+            </View>
+          )}
+        </View>
+      ) : fallback ? (
+        <FrequencyDots
+          frequency={fallback.frequency}
+          completed={fallback.completed}
+        />
+      ) : null}
+    </View>
+  );
+};
+
+const styles = StyleSheet.create({
+  card: {
+    backgroundColor: "#f7f7f9",
+    borderRadius: 12,
+    padding: 16,
+    gap: 16,
+  },
+  headerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 16,
+  },
+  headerText: {
+    flex: 1,
+  },
+  day: {
+    fontSize: 13,
+    color: "#666",
+    fontWeight: "600",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
+  headline: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: "#222",
+    marginTop: 2,
+  },
+  slotRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  extraPill: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 16,
+    backgroundColor: "#fff",
+    borderWidth: 1,
+    borderColor: complianceColors.default,
+    justifyContent: "center",
+  },
+  extraText: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: complianceColors.default,
+  },
+});
