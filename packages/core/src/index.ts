@@ -59,6 +59,7 @@ export {
   NoDays,
   AllDays,
   WeekdayNames,
+  dayTitles,
   weekDayEntries,
   mondayFirstDayLetters,
 } from "./days";

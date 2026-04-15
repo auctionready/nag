@@ -22,6 +22,17 @@ const dayNames: Readonly<Record<Day, string>> = Object.freeze({
   [Day.Sat]: "Sat",
 });
 
+/** Full weekday titles keyed by the `Day` enum bit. */
+export const dayTitles: Readonly<Record<Day, string>> = Object.freeze({
+  [Day.Sun]: "Sunday",
+  [Day.Mon]: "Monday",
+  [Day.Tue]: "Tuesday",
+  [Day.Wed]: "Wednesday",
+  [Day.Thu]: "Thursday",
+  [Day.Fri]: "Friday",
+  [Day.Sat]: "Saturday",
+});
+
 export const WeekdayNames: readonly string[] = Object.freeze(
   Object.values(dayNames),
 );
