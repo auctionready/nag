@@ -1,4 +1,5 @@
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { StyleSheet, Text, View } from "react-native";
+import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import type { SlotStatus } from "@nag/core";
 import { complianceColors } from "../getComplianceColor";
 import { formatSlotTime } from "./formatSlotTime";
@@ -31,23 +32,34 @@ export const SlotChip = ({
   const timeLabel = formatSlotTime(hour, minute);
   const styleForStatus = statusStyles[status];
   const canBackfill = status === "missed" || status === "upcoming";
-  const handleLongPress = canBackfill ? onLongPress : undefined;
+
+  // Use `react-native-gesture-handler`'s LongPress (same pattern as
+  // `tile/HabitTileView`). RN's built-in `Pressable.onLongPress` is
+  // unreliable when nested inside a ScrollView and competing with sibling
+  // Pressables — the gesture-handler version routes through the native
+  // gesture system and fires reliably.
+  const longPress = Gesture.LongPress()
+    .minDuration(500)
+    .enabled(canBackfill && onLongPress != null)
+    .onStart(() => {
+      onLongPress?.();
+    });
+
   return (
-    <Pressable
-      onLongPress={handleLongPress}
-      disabled={!handleLongPress}
-      accessibilityRole={handleLongPress ? "button" : undefined}
-      accessibilityLabel={
-        handleLongPress
-          ? `Long-press to add check-in for ${timeLabel}`
-          : undefined
-      }
-    >
-      <View style={[styles.chip, styleForStatus.container]}>
+    <GestureDetector gesture={longPress}>
+      <View
+        style={[styles.chip, styleForStatus.container]}
+        accessibilityRole={canBackfill && onLongPress ? "button" : undefined}
+        accessibilityLabel={
+          canBackfill && onLongPress
+            ? `Long-press to add check-in for ${timeLabel}`
+            : undefined
+        }
+      >
         <Text style={[styles.glyph, styleForStatus.text]}>{glyph[status]}</Text>
         <Text style={[styles.label, styleForStatus.text]}>{timeLabel}</Text>
       </View>
-    </Pressable>
+    </GestureDetector>
   );
 };
 
