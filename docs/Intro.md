@@ -103,6 +103,66 @@ An explicit skip is stored and processed by the system like a check-in — it
 satisfies the period from the calculator's point of view, so deliberate
 skips won't drag your indicator down the way silent misses do.
 
+### Back-filling missed slots
+
+The habit detail screen shows each scheduled slot for the day as a chip
+(green = done, orange = skipped, red ✕ = missed, white ○ = upcoming).
+**Long-press** a back-fillable chip and a "Back-fill check-in?" prompt
+opens with three options:
+
+- **Check In** — record the slot as done.
+- **As Skip** — record the slot as deliberately skipped.
+- **Cancel** — do nothing.
+
+Back-fill is enabled for past unfilled slots (red ✕) and for today's
+**nearest upcoming** slot, so you can record "I'm doing it now" a few
+minutes ahead. Later upcoming slots and every slot on a future-day view
+intentionally have no back-fill affordance — you can't retroactively check
+in on the future.
+
+### Deemed time vs. recording time
+
+Every `check_in` row carries two timestamps so back-fills are credited to
+the right slot:
+
+- **`timestamp`** is the **deemed slot time** — the slot the check-in
+  counts towards. Normal "do it now" check-ins set this to the current
+  moment; back-fills set it to the slot's hour/minute on the chosen day.
+- **`created_at`** is the wall-clock time the row was inserted by the
+  system, never overridable by the caller.
+
+This means compliance counters and the per-day check-in lists key off
+`timestamp` — so a back-filled 8 a.m. Monday check-in counts as 8 a.m.
+Monday, not as the time you actually tapped the chip. See
+[`Model.md` § check_in](./Model.md#check_in) for the schema details.
+
+## Habit detail: day selection and period-scoped lists
+
+The habit detail screen anchors its day-summary card and check-in list to
+a **selected day**, modelled as a `?day=YYYY-MM-DD` route param so the
+choice survives navigation and is bookmarkable. Tapping a day in the
+weekly strip selects it; re-tapping clears the selection. For weekly
+habits with day-of-week schedules the screen defaults to "today selected"
+on first open so the strip and the slot chips line up visually.
+
+The check-in list below the strip is **period-scoped and expanded by
+default**. Its title adapts to context: `Today's Check-ins` / `This Week's
+Check-ins` / `This Month's Check-ins` when no day is selected, or
+`{Weekday}'s Check-ins` when one is. Days that have schedules but none
+matching the selected day-of-week show a `Not scheduled` headline rather
+than fall through to the period progress fallback (which would
+misleadingly read "0 of N this period" on a day the habit isn't supposed
+to fire).
+
+Per-day cells in both the home-board tile (`DayIndicators`) and the habit
+detail's week strip use a tri-state classifier
+([`classifyScheduledDays`](../packages/core/src/dayCells.ts)):
+
+- **Complete** (green) — every scheduled slot for that day-of-week has a
+  check-in.
+- **Partial** (orange) — some, but not all, of the day's slots are done.
+- **Missed** (red) — past, scheduled, none done.
+
 ## Further Reading
 
 - [Model](./Model.md) — schema and entity relationships.

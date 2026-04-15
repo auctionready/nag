@@ -37,9 +37,9 @@ erDiagram
     CHECK_IN {
         integer id PK
         integer habit_id  FK "cascade delete"
-        iso     timestamp
-        boolean skipped   "default false"
-        iso     created_at
+        iso     timestamp  "deemed slot time"
+        boolean skipped    "default false"
+        iso     created_at "wall-clock insert time"
         iso     updated_at
     }
 
@@ -93,13 +93,25 @@ Constraints:
 
 Source: [`checkIn.ts`](../packages/schema/src/checkIn.ts)
 
-A record that a habit was performed (or explicitly skipped) at a given
-`timestamp`. `skipped = true` marks it as a deliberate skip rather than a
-completion — a skip row is treated by the compliance calculators the same
-way as a real check-in, so explicit skips do not count against the
+A record that a habit was performed (or explicitly skipped). Two timestamps
+on each row, with deliberately distinct meanings:
+
+- **`timestamp`** — the **deemed slot time**: which scheduled slot the
+  check-in is credited to. For a normal "do it now" check-in this is the
+  current moment. For a back-filled check-in (e.g. long-pressing a missed
+  8 a.m. slot at 10 a.m.) this is the slot's time, not the moment of
+  recording. The compliance counters, the slot-matching algorithm, and the
+  per-day check-in lists all key off `timestamp`.
+- **`created_at`** — the wall-clock time the row was inserted by the
+  system. Always set automatically; callers can't override it. Compare
+  against `timestamp` to tell whether a check-in was back-filled.
+
+`skipped = true` marks the row as a deliberate skip rather than a
+completion — a skip is treated by the compliance calculators the same way
+as a real check-in, so explicit skips do not count against the
 traffic-light indicator the way silent misses do. See
 [`Intro.md` § Check-ins and skips](./Intro.md#check-ins-and-skips) for the
-user-facing behaviour.
+user-facing behaviour, including back-fill semantics.
 
 Constraints:
 
