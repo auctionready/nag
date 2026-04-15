@@ -9,10 +9,11 @@ interface SlotChipProps {
   minute: number;
   status: SlotStatus;
   /**
-   * Long-press handler to back-fill a check-in for this slot. Wired only
-   * for `missed` chips — past, unfilled slots. `done`/`skipped` already
-   * have a check-in; `upcoming` hasn't happened yet (you can't back-fill
-   * the future).
+   * Long-press handler to back-fill a check-in for this slot. The parent
+   * decides which slots to wire — typically `missed` (past, unfilled),
+   * plus the *next-up* `upcoming` slot today (so the user can record
+   * "I'm doing it now" a few minutes early). The chip ignores this prop
+   * for `done`/`skipped` chips even if passed.
    */
   onLongPress?: () => void;
 }
@@ -32,10 +33,11 @@ export const SlotChip = ({
 }: SlotChipProps) => {
   const timeLabel = formatSlotTime(hour, minute);
   const styleForStatus = statusStyles[status];
-  // Only past, unfilled slots are back-fillable. `upcoming` (today's
-  // future-time slots, and every slot on a future-day view) is excluded
-  // — you can't retroactively record something that hasn't happened.
-  const canBackfill = status === "missed";
+  // `done`/`skipped` already have a check-in — never long-pressable. For
+  // `missed`/`upcoming` the policy lives in the parent (TodayCard); we
+  // just honour whether `onLongPress` was wired.
+  const canBackfill =
+    onLongPress != null && status !== "done" && status !== "skipped";
 
   // Use `react-native-gesture-handler`'s LongPress (same pattern as
   // `tile/HabitTileView`). RN's built-in `Pressable.onLongPress` is
@@ -44,7 +46,7 @@ export const SlotChip = ({
   // gesture system and fires reliably.
   const longPress = Gesture.LongPress()
     .minDuration(500)
-    .enabled(canBackfill && onLongPress != null)
+    .enabled(canBackfill)
     .onStart(() => {
       onLongPress?.();
     });
@@ -53,9 +55,9 @@ export const SlotChip = ({
     <GestureDetector gesture={longPress}>
       <View
         style={[styles.chip, styleForStatus.container]}
-        accessibilityRole={canBackfill && onLongPress ? "button" : undefined}
+        accessibilityRole={canBackfill ? "button" : undefined}
         accessibilityLabel={
-          canBackfill && onLongPress
+          canBackfill
             ? `Long-press to add check-in for ${timeLabel}`
             : undefined
         }
