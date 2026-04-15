@@ -5,7 +5,10 @@ import { complianceColors } from "../getComplianceColor";
 
 interface WeekStripProps {
   scheduledDaysMask: number;
+  /** Days where every scheduled slot has a check-in (full completion). */
   checkedInDaysMask: number;
+  /** Days where some — but not all — scheduled slots have a check-in. */
+  partialDaysMask?: number;
   /** Override for today's circle (partial/failing/compliant). */
   todayColor?: string;
   /** Anchor day for the week (today by default). */
@@ -37,6 +40,7 @@ const isSameCalendarDay = (a: Date, b: Date) =>
 export const WeekStrip = ({
   scheduledDaysMask,
   checkedInDaysMask,
+  partialDaysMask,
   todayColor,
   now = new Date(),
   selectedDay,
@@ -45,7 +49,9 @@ export const WeekStrip = ({
   const cells = buildDayCells({
     scheduledDaysMask,
     checkedInDaysMask,
+    partialDaysMask,
     checkedInColor: complianceColors.compliant,
+    partialColor: complianceColors.partial,
     todayColor,
     missedColor: complianceColors.failing,
     now,

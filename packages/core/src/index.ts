@@ -1,8 +1,10 @@
 export { periodStart } from "./compliance";
 export {
   buildDayCells,
+  classifyScheduledDays,
   type DayCell,
   type BuildDayCellsInput,
+  type SlotCompletion,
 } from "./dayCells";
 export {
   type ComplianceColors,

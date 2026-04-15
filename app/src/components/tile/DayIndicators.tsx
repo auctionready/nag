@@ -7,20 +7,26 @@ const CIRCLE_SIZE = 24;
 interface DayIndicatorsProps {
   scheduledDaysMask: number;
   checkedInDaysMask: number;
+  partialDaysMask?: number;
   todayColor?: string;
+  partialColor?: string;
   missedColor?: string;
 }
 
 export const DayIndicators = ({
   scheduledDaysMask,
   checkedInDaysMask,
+  partialDaysMask,
   todayColor,
+  partialColor,
   missedColor,
 }: DayIndicatorsProps) => {
   const cells = buildDayCells({
     scheduledDaysMask,
     checkedInDaysMask,
+    partialDaysMask,
     checkedInColor: CHECKED_IN_COLOR,
+    partialColor,
     todayColor,
     missedColor,
   });
