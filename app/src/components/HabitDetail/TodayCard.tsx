@@ -7,7 +7,16 @@ import { SlotChip } from "./SlotChip";
 import { FrequencyDots } from "./FrequencyDots";
 
 interface TodayCardProps {
-  now: Date;
+  /**
+   * The selected day. Used for the weekday label, and (in the parent) as the
+   * anchor for `matchCheckInsToSlots`.
+   */
+  selectedDay: Date;
+  /**
+   * True when `selectedDay` is the current wall-clock day; controls whether
+   * the headline says "done today" (vs. just "done" for retrospective views).
+   */
+  isToday: boolean;
   /** Null if this habit has no timed slots — we fall back to FrequencyDots. */
   match: MatchCheckInsToSlotsResult | null;
   /** Used when `match` is null — how many check-ins this period vs. target. */
@@ -16,13 +25,21 @@ interface TodayCardProps {
     frequency: number;
   };
   ringColor: string;
+  /**
+   * Long-press handler for a slot chip: supply the slot's hour/minute so the
+   * screen can build a Date on the selected day. Only `missed`/`upcoming`
+   * chips trigger this.
+   */
+  onAddCheckInForSlot?: (hour: number, minute: number) => void;
 }
 
 export const TodayCard = ({
-  now,
+  selectedDay,
+  isToday,
   match,
   fallback,
   ringColor,
+  onAddCheckInForSlot,
 }: TodayCardProps) => {
   const hasSlots = match !== null && match.total > 0;
   const progress = hasSlots
@@ -32,10 +49,10 @@ export const TodayCard = ({
       : 0;
   const clampedProgress = Math.min(1, progress);
   const headline = hasSlots
-    ? `${match.done} of ${match.total} done today`
+    ? `${match.done} of ${match.total} done${isToday ? " today" : ""}`
     : fallback
       ? `${fallback.completed} of ${fallback.frequency} this period`
-      : "Nothing scheduled today";
+      : `Nothing scheduled${isToday ? " today" : ""}`;
 
   return (
     <View style={styles.card}>
@@ -48,7 +65,7 @@ export const TodayCard = ({
           trackColor="#e8e8e8"
         />
         <View style={styles.headerText}>
-          <Text style={styles.day}>{format(now, "EEEE")}</Text>
+          <Text style={styles.day}>{format(selectedDay, "EEEE")}</Text>
           <Text style={styles.headline}>{headline}</Text>
         </View>
       </View>
@@ -61,6 +78,11 @@ export const TodayCard = ({
               hour={slot.hour}
               minute={slot.minute}
               status={slot.status}
+              onLongPress={
+                onAddCheckInForSlot
+                  ? () => onAddCheckInForSlot(slot.hour, slot.minute)
+                  : undefined
+              }
             />
           ))}
           {match.extras > 0 && (

@@ -9,10 +9,22 @@ export const checkIn = sqliteTable(
     habitId: integer("habit_id", { mode: "number" })
       .notNull()
       .references(() => habit.id, { onDelete: "cascade" }),
+    /**
+     * The **deemed** slot time for this check-in — i.e. which scheduled slot
+     * it's credited to. Caller-supplied via the `CreateCheckIn` command. When
+     * the user back-fills a missed 8 a.m. slot at 10 a.m., `timestamp` is
+     * 8 a.m. (the slot); `createdAt` is 10 a.m. (the wall-clock recording
+     * time). The default only fires if no value is given.
+     */
     timestamp: isoTimestamp("timestamp")
       .notNull()
       .$defaultFn(() => new Date()),
     skipped: integer("skipped", { mode: "boolean" }).notNull().default(false),
+    /**
+     * Wall-clock time the row was inserted. Always set by the system, never
+     * overridable by callers. Compare against `timestamp` to see whether a
+     * check-in was back-filled.
+     */
     createdAt: isoTimestamp("created_at")
       .notNull()
       .$defaultFn(() => new Date()),

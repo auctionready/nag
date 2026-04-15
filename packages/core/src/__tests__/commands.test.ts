@@ -388,7 +388,11 @@ describe("DeleteHabit", () => {
       goal: { regularity: "day", frequency: 1 },
     });
 
-    await processCommand(db, { type: "CreateCheckIn", habitId });
+    await processCommand(db, {
+      type: "CreateCheckIn",
+      habitId,
+      timestamp: new Date(),
+    });
 
     await processCommand(db, { type: "DeleteHabit", habitId });
 
@@ -440,9 +444,11 @@ describe("CreateCheckIn", () => {
       title: "Test",
     });
 
+    const now = new Date();
     const result = await processCommand(db, {
       type: "CreateCheckIn",
       habitId,
+      timestamp: now,
     });
 
     expect(result).toHaveProperty("checkInId");
@@ -451,6 +457,37 @@ describe("CreateCheckIn", () => {
       .from(schema.checkIn)
       .where(eq(schema.checkIn.habitId, habitId));
     expect(checkIns).toHaveLength(1);
+    // `timestamp` is the deemed slot (from the payload); `createdAt` is the
+    // wall-clock insert time. For a same-moment check-in they're both ≈ `now`.
+    expect(checkIns[0].timestamp.getTime()).toBe(now.getTime());
+    expect(checkIns[0].createdAt).toBeInstanceOf(Date);
+  });
+
+  it("stores payload timestamp separately from createdAt for back-filled slots", async () => {
+    const db = getDb();
+    const { habitId } = await processCommand(db, {
+      type: "CreateHabit",
+      title: "Back-fill test",
+    });
+
+    const eightAmYesterday = new Date();
+    eightAmYesterday.setDate(eightAmYesterday.getDate() - 1);
+    eightAmYesterday.setHours(8, 0, 0, 0);
+    const beforeInsert = Date.now();
+
+    await processCommand(db, {
+      type: "CreateCheckIn",
+      habitId,
+      timestamp: eightAmYesterday,
+    });
+
+    const [row] = await db
+      .select()
+      .from(schema.checkIn)
+      .where(eq(schema.checkIn.habitId, habitId));
+    expect(row.timestamp.getTime()).toBe(eightAmYesterday.getTime());
+    expect(row.createdAt.getTime()).toBeGreaterThanOrEqual(beforeInsert);
+    expect(row.createdAt.getTime()).toBeGreaterThan(row.timestamp.getTime());
   });
 });
 
@@ -465,9 +502,14 @@ describe("DeleteCheckIn", () => {
     const { checkInId } = await processCommand(db, {
       type: "CreateCheckIn",
       habitId,
+      timestamp: new Date(),
     });
 
-    await processCommand(db, { type: "CreateCheckIn", habitId });
+    await processCommand(db, {
+      type: "CreateCheckIn",
+      habitId,
+      timestamp: new Date(),
+    });
 
     await processCommand(db, { type: "DeleteCheckIn", checkInId });
 
@@ -532,7 +574,11 @@ describe("audit logging", () => {
       title: "Multi",
     });
 
-    await processCommand(db, { type: "CreateCheckIn", habitId });
+    await processCommand(db, {
+      type: "CreateCheckIn",
+      habitId,
+      timestamp: new Date(),
+    });
     await processCommand(db, {
       type: "UpdateHabit",
       habitId,
@@ -586,7 +632,11 @@ describe("processCommand validation", () => {
   it("rejects negative id", async () => {
     const db = getDb();
     await expect(
-      processCommand(db, { type: "CreateCheckIn", habitId: -1 }),
+      processCommand(db, {
+        type: "CreateCheckIn",
+        habitId: -1,
+        timestamp: new Date(),
+      }),
     ).rejects.toThrow(ZodError);
 
     const logs = await db.select().from(schema.auditLog);
@@ -713,7 +763,11 @@ describe("processCommand handler errors", () => {
   it("throws on FK violation (check-in for non-existent habit)", async () => {
     const db = getDb();
     await expect(
-      processCommand(db, { type: "CreateCheckIn", habitId: 99999 }),
+      processCommand(db, {
+        type: "CreateCheckIn",
+        habitId: 99999,
+        timestamp: new Date(),
+      }),
     ).rejects.toThrow();
 
     const logs = await db.select().from(schema.auditLog);
@@ -726,7 +780,11 @@ describe("processCommand handler errors", () => {
     const checkInsBefore = await db.select().from(schema.checkIn);
 
     await expect(
-      processCommand(db, { type: "CreateCheckIn", habitId: 99999 }),
+      processCommand(db, {
+        type: "CreateCheckIn",
+        habitId: 99999,
+        timestamp: new Date(),
+      }),
     ).rejects.toThrow();
 
     const habitsAfter = await db.select().from(schema.habit);
@@ -745,7 +803,11 @@ describe("processCommand handler errors", () => {
     await db.delete(schema.auditLog);
 
     await expect(
-      processCommand(db, { type: "CreateCheckIn", habitId: 99999 }),
+      processCommand(db, {
+        type: "CreateCheckIn",
+        habitId: 99999,
+        timestamp: new Date(),
+      }),
     ).rejects.toThrow();
 
     const logs = await db.select().from(schema.auditLog);
@@ -890,9 +952,21 @@ describe("multiple check-ins", () => {
       type: "CreateHabit",
       title: "Multi",
     });
-    await processCommand(db, { type: "CreateCheckIn", habitId });
-    await processCommand(db, { type: "CreateCheckIn", habitId });
-    await processCommand(db, { type: "CreateCheckIn", habitId });
+    await processCommand(db, {
+      type: "CreateCheckIn",
+      habitId,
+      timestamp: new Date(),
+    });
+    await processCommand(db, {
+      type: "CreateCheckIn",
+      habitId,
+      timestamp: new Date(),
+    });
+    await processCommand(db, {
+      type: "CreateCheckIn",
+      habitId,
+      timestamp: new Date(),
+    });
     checkIns = await db
       .select()
       .from(schema.checkIn)

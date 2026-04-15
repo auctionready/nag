@@ -62,7 +62,11 @@ export const HabitTile = ({ id, title }: HabitTileProps) => {
   }, [router, id]);
 
   const handleCheckIn = useCallback(async () => {
-    await processCommand(db, { type: "CreateCheckIn", habitId: id });
+    await processCommand(db, {
+      type: "CreateCheckIn",
+      habitId: id,
+      timestamp: new Date(),
+    });
   }, [id]);
 
   return (

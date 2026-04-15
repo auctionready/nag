@@ -5,22 +5,31 @@ import { complianceColors } from "../getComplianceColor";
 
 export interface RecentCheckInItem {
   id: number;
+  /** Deemed slot time — what the check-in is credited to. */
   timestamp: Date;
   skipped: boolean | null;
 }
 
 interface RecentCheckInsProps {
+  /** Pre-filtered to the window the title describes. */
   checkIns: RecentCheckInItem[];
+  /** e.g. "This Week's Check-ins", "Wednesday's Check-ins". */
+  title: string;
   onRemove: (id: number) => void;
 }
 
 /**
- * Collapsible history section: shows a count when collapsed, the full
- * list (with remove) when expanded. Collapsed by default so the slot
- * UI above remains the primary focus.
+ * Period-scoped check-in list: the screen decides the window and title
+ * (e.g. "This Week's Check-ins" / "Wednesday's Check-ins"); this component
+ * just renders the list with a collapsible header. Expanded by default so
+ * the user sees the history without an extra tap.
  */
-export const RecentCheckIns = ({ checkIns, onRemove }: RecentCheckInsProps) => {
-  const [expanded, setExpanded] = useState(false);
+export const RecentCheckIns = ({
+  checkIns,
+  title,
+  onRemove,
+}: RecentCheckInsProps) => {
+  const [expanded, setExpanded] = useState(true);
 
   const handleRemove = (id: number) => {
     Alert.alert("Remove Check-in", "Are you sure?", [
@@ -41,7 +50,7 @@ export const RecentCheckIns = ({ checkIns, onRemove }: RecentCheckInsProps) => {
         accessibilityRole="button"
       >
         <Text style={styles.headerLabel}>
-          Recent check-ins ({checkIns.length})
+          {title} ({checkIns.length})
         </Text>
         <Text style={styles.chevron}>{expanded ? "\u2212" : "+"}</Text>
       </Pressable>
