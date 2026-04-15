@@ -414,8 +414,9 @@ describe("HabitDetail", () => {
       ).toBeNull();
     });
 
-    it("does not let the user back-fill today's upcoming slots", () => {
-      // now = Sun 10:00; the 12:00 PM and 6:00 PM slots are upcoming.
+    it("allows back-fill on the nearest upcoming slot today, not the rest", () => {
+      // now = Sun 10:00; 8 AM is missed, 12 PM is the nearest upcoming,
+      // 6 PM is also upcoming but further out.
       const view = render(
         <HabitDetail
           {...baseProps}
@@ -426,21 +427,42 @@ describe("HabitDetail", () => {
             { days: null, dayOfMonth: null, hour: 12, minute: 0 },
             { days: null, dayOfMonth: null, hour: 18, minute: 0 },
           ]}
-          // 8:00 AM is missed (no check-in, slot time has passed).
-          // 12:00 PM and 6:00 PM are upcoming.
         />,
       );
-      // Past missed slot: long-press affordance present.
+      // Past missed → long-pressable.
       expect(
         view.queryByLabelText("Long-press to add check-in for 8:00 AM"),
       ).not.toBeNull();
-      // Today's upcoming slots: no long-press affordance.
+      // Nearest upcoming → long-pressable ("I'm doing it now" affordance).
       expect(
         view.queryByLabelText("Long-press to add check-in for 12:00 PM"),
-      ).toBeNull();
+      ).not.toBeNull();
+      // Later upcoming → NOT long-pressable (can't pre-record the future).
       expect(
         view.queryByLabelText("Long-press to add check-in for 6:00 PM"),
       ).toBeNull();
+    });
+
+    it("triggering long-press on the nearest upcoming slot opens the prompt", () => {
+      jest.spyOn(Alert, "alert");
+      const view = render(
+        <HabitDetail
+          {...baseProps}
+          regularity="day"
+          frequency={3}
+          schedules={[
+            { days: null, dayOfMonth: null, hour: 8, minute: 0 },
+            { days: null, dayOfMonth: null, hour: 12, minute: 0 },
+            { days: null, dayOfMonth: null, hour: 18, minute: 0 },
+          ]}
+        />,
+      );
+      fireEvent(view.getByText("12:00 PM"), "longPress");
+      expect(Alert.alert).toHaveBeenCalledWith(
+        "Back-fill check-in?",
+        "For 12:00 PM",
+        expect.any(Array),
+      );
     });
   });
 

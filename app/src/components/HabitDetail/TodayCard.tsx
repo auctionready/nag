@@ -81,19 +81,32 @@ export const TodayCard = ({
 
       {hasSlots ? (
         <View style={styles.slotRow}>
-          {match.slots.map((slot, i) => (
-            <SlotChip
-              key={`${slot.hour}:${slot.minute}:${i}`}
-              hour={slot.hour}
-              minute={slot.minute}
-              status={slot.status}
-              onLongPress={
-                onAddCheckInForSlot
-                  ? () => onAddCheckInForSlot(slot.hour, slot.minute)
-                  : undefined
-              }
-            />
-          ))}
+          {/* Back-fill policy: any past `missed` slot, plus the *next-up*
+              upcoming slot today (so the user can record "I'm doing it
+              now" a few minutes before the slot). On past/future days
+              there is no nearest-upcoming concept. */}
+          {(() => {
+            const firstUpcomingIdx = isToday
+              ? match.slots.findIndex((s) => s.status === "upcoming")
+              : -1;
+            return match.slots.map((slot, i) => {
+              const backfillable =
+                slot.status === "missed" || i === firstUpcomingIdx;
+              return (
+                <SlotChip
+                  key={`${slot.hour}:${slot.minute}:${i}`}
+                  hour={slot.hour}
+                  minute={slot.minute}
+                  status={slot.status}
+                  onLongPress={
+                    backfillable && onAddCheckInForSlot
+                      ? () => onAddCheckInForSlot(slot.hour, slot.minute)
+                      : undefined
+                  }
+                />
+              );
+            });
+          })()}
           {match.extras > 0 && (
             <View style={styles.extraPill}>
               <Text style={styles.extraText}>+{match.extras} extra</Text>
