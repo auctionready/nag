@@ -1,5 +1,12 @@
 import { useMemo } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import {
+  Alert,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 import {
   format,
   startOfDay,
@@ -191,7 +198,14 @@ export const HabitDetail = ({
       0,
       0,
     );
-    onCheckInAt(ts);
+    // Long-press is overloaded: the user might want to record the slot as
+    // done, OR record it as skipped (e.g. "I missed my 8 a.m. run, but I
+    // intentionally skipped it"). Prompt to disambiguate before writing.
+    Alert.alert("Back-fill check-in?", `For ${format(ts, "h:mm a")}`, [
+      { text: "Cancel", style: "cancel" },
+      { text: "As Skip", onPress: () => onSkipAt(ts) },
+      { text: "Check In", onPress: () => onCheckInAt(ts) },
+    ]);
   };
 
   if (loading) {

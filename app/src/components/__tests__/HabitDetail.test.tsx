@@ -169,27 +169,77 @@ describe("HabitDetail", () => {
       expect(view.getByText("+1 extra")).toBeTruthy();
     });
 
-    it("long-pressing a missed slot calls onCheckInAt at that slot's time", () => {
-      const view = render(
-        <HabitDetail
-          {...baseProps}
-          regularity="day"
-          frequency={3}
-          schedules={schedules}
-          // No check-ins + now=14:00 → 8AM & 12PM chips are `missed`
-          now={sundayAt(14)}
-        />,
-      );
-      fireEvent(view.getByText("8:00 AM"), "longPress");
-      expect(baseProps.onCheckInAt).toHaveBeenCalledTimes(1);
-      const [called] = baseProps.onCheckInAt.mock.calls[0];
-      expect(called).toBeInstanceOf(Date);
-      expect((called as Date).getHours()).toBe(8);
-      expect((called as Date).getMinutes()).toBe(0);
-      // Selected day defaults to `now` (Sun 2025-06-15) when no `selectedDay`.
-      expect((called as Date).getFullYear()).toBe(2025);
-      expect((called as Date).getMonth()).toBe(5);
-      expect((called as Date).getDate()).toBe(15);
+    describe("long-pressing a missed slot", () => {
+      const renderWithMissedSlots = () =>
+        render(
+          <HabitDetail
+            {...baseProps}
+            regularity="day"
+            frequency={3}
+            schedules={schedules}
+            // No check-ins + now=14:00 → 8AM & 12PM chips are `missed`
+            now={sundayAt(14)}
+          />,
+        );
+
+      const triggerLongPressOnEightAm = () => {
+        const view = renderWithMissedSlots();
+        fireEvent(view.getByText("8:00 AM"), "longPress");
+        return view;
+      };
+
+      const pressAlertButton = (label: string) => {
+        const buttons = (Alert.alert as jest.Mock).mock.calls[0][2];
+        const btn = buttons.find((b: { text: string }) => b.text === label);
+        btn.onPress?.();
+      };
+
+      beforeEach(() => {
+        jest.spyOn(Alert, "alert");
+      });
+
+      it("opens a Back-fill prompt with Cancel/As Skip/Check In", () => {
+        triggerLongPressOnEightAm();
+        expect(Alert.alert).toHaveBeenCalledWith(
+          "Back-fill check-in?",
+          "For 8:00 AM",
+          expect.arrayContaining([
+            expect.objectContaining({ text: "Cancel" }),
+            expect.objectContaining({ text: "As Skip" }),
+            expect.objectContaining({ text: "Check In" }),
+          ]),
+        );
+      });
+
+      it("calls onCheckInAt at the slot's time when 'Check In' is pressed", () => {
+        triggerLongPressOnEightAm();
+        pressAlertButton("Check In");
+        expect(baseProps.onCheckInAt).toHaveBeenCalledTimes(1);
+        const [called] = baseProps.onCheckInAt.mock.calls[0];
+        expect(called).toBeInstanceOf(Date);
+        expect((called as Date).getHours()).toBe(8);
+        expect((called as Date).getMinutes()).toBe(0);
+        // Selected day defaults to `now` (Sun 2025-06-15) when no `selectedDay`.
+        expect((called as Date).getFullYear()).toBe(2025);
+        expect((called as Date).getMonth()).toBe(5);
+        expect((called as Date).getDate()).toBe(15);
+      });
+
+      it("calls onSkipAt at the slot's time when 'As Skip' is pressed", () => {
+        triggerLongPressOnEightAm();
+        pressAlertButton("As Skip");
+        expect(baseProps.onSkipAt).toHaveBeenCalledTimes(1);
+        expect(baseProps.onCheckInAt).not.toHaveBeenCalled();
+        const [called] = baseProps.onSkipAt.mock.calls[0];
+        expect((called as Date).getHours()).toBe(8);
+      });
+
+      it("calls neither when 'Cancel' is pressed", () => {
+        triggerLongPressOnEightAm();
+        pressAlertButton("Cancel");
+        expect(baseProps.onCheckInAt).not.toHaveBeenCalled();
+        expect(baseProps.onSkipAt).not.toHaveBeenCalled();
+      });
     });
 
     it("does not expose `done` chips as interactive (no long-press affordance)", () => {
@@ -360,9 +410,10 @@ describe("HabitDetail", () => {
       expect(view.getByText("Wednesday")).toBeTruthy();
     });
 
-    it("long-presses a missed slot on a past selected day", () => {
+    it("long-presses a missed slot on a past selected day → Check In", () => {
       // Repro for "long-press on a past day schedule item does nothing":
       // weekly habit with Wed schedule, today is Sun, user picks past Wed.
+      jest.spyOn(Alert, "alert");
       const view = render(
         <HabitDetail
           {...baseProps}
@@ -375,6 +426,9 @@ describe("HabitDetail", () => {
       // The card should render a 9:00 AM chip (missed, since Wed is past).
       const chipLabel = view.getByText("9:00 AM");
       fireEvent(chipLabel, "longPress");
+      // Confirm via the prompt's "Check In" button.
+      const buttons = (Alert.alert as jest.Mock).mock.calls[0][2];
+      buttons.find((b: { text: string }) => b.text === "Check In").onPress();
       expect(baseProps.onCheckInAt).toHaveBeenCalledTimes(1);
       const [called] = baseProps.onCheckInAt.mock.calls[0];
       expect(called).toBeInstanceOf(Date);
