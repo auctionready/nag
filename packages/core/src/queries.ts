@@ -77,6 +77,23 @@ export function recentCheckIns(
     .limit(limit);
 }
 
+/**
+ * All check-ins for a habit since a given date — no limit. Use this
+ * (rather than `recentCheckIns`) when callers need every check-in in
+ * the period: day-of-week mask, within-day color, ring progress, etc.
+ * `recentCheckIns`'s LIMIT silently drops back-filled check-ins whose
+ * `timestamp` (the deemed slot time) is earlier than N newer entries
+ * in the same period — making the home-board tile's day cells
+ * disagree with the habit-detail screen.
+ */
+export function checkInsInPeriod(db: AnyDb, habitId: number, since: Date) {
+  return db
+    .select({ timestamp: checkIn.timestamp })
+    .from(checkIn)
+    .where(and(eq(checkIn.habitId, habitId), gte(checkIn.timestamp, since)))
+    .orderBy(desc(checkIn.timestamp));
+}
+
 export function allActiveSchedules(db: AnyDb) {
   return db
     .select({

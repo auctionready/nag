@@ -9,6 +9,7 @@ import {
   goalForHabit,
   checkInCount,
   recentCheckIns,
+  checkInsInPeriod,
   schedulesForGoal,
   habitsByIds,
 } from "../queries";
@@ -115,6 +116,70 @@ describe("recentCheckIns", () => {
 
     const rows = await recentCheckIns(db, h.id, undefined, 2);
     expect(rows).toHaveLength(2);
+  });
+});
+
+describe("checkInsInPeriod", () => {
+  it("returns every check-in since `since` with no limit", async () => {
+    const db = getDb();
+    const [h] = await db
+      .insert(schema.habit)
+      .values({ title: "Period" })
+      .returning();
+    // Insert 10 check-ins this period — more than `recentCheckIns`'s
+    // historical default limits (3/7) — to confirm there's no truncation.
+    const since = subDays(new Date(), 7);
+    for (let i = 0; i < 10; i++) {
+      await db.insert(schema.checkIn).values({
+        habitId: h.id,
+        timestamp: subDays(new Date(), i % 7),
+      });
+    }
+    const rows = await checkInsInPeriod(db, h.id, since);
+    expect(rows).toHaveLength(10);
+  });
+
+  it("filters out check-ins before `since`", async () => {
+    const db = getDb();
+    const [h] = await db
+      .insert(schema.habit)
+      .values({ title: "Bounded" })
+      .returning();
+    await db.insert(schema.checkIn).values({
+      habitId: h.id,
+      timestamp: subDays(new Date(), 30),
+    });
+    await db.insert(schema.checkIn).values({
+      habitId: h.id,
+      timestamp: subDays(new Date(), 1),
+    });
+    const rows = await checkInsInPeriod(db, h.id, subDays(new Date(), 7));
+    expect(rows).toHaveLength(1);
+  });
+
+  it("includes back-filled check-ins regardless of insert order", async () => {
+    // Repro for the home-board / habit-detail discrepancy: after a
+    // back-fill, the deemed `timestamp` is in the past but `created_at`
+    // is now. The query must order by `timestamp` (not creation order)
+    // and must not silently drop back-fills.
+    const db = getDb();
+    const [h] = await db
+      .insert(schema.habit)
+      .values({ title: "Back-fill" })
+      .returning();
+    // Today's "real" check-in first.
+    await db.insert(schema.checkIn).values({ habitId: h.id });
+    // Then a back-fill for 3 days ago (deemed time = past).
+    await db.insert(schema.checkIn).values({
+      habitId: h.id,
+      timestamp: subDays(new Date(), 3),
+    });
+    const rows = await checkInsInPeriod(db, h.id, subDays(new Date(), 7));
+    expect(rows).toHaveLength(2);
+    // Newest deemed-time first (back-fill comes after today's check-in).
+    expect(rows[0].timestamp.getTime()).toBeGreaterThan(
+      rows[1].timestamp.getTime(),
+    );
   });
 });
 
