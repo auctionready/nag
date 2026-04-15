@@ -1,7 +1,12 @@
 import { useCallback } from "react";
 import { useRouter } from "expo-router";
 import { db } from "../../db";
-import { processCommand, isScheduledToday, withinDayColor } from "@nag/core";
+import {
+  processCommand,
+  isScheduledToday,
+  withinDayColor,
+  classifyScheduledDays,
+} from "@nag/core";
 import { tileStatus, complianceColors } from "../getComplianceColor";
 import { useHabitGoalSummary } from "./useHabitGoalSummary";
 import { useHabitCompliance } from "./useHabitCompliance";
@@ -28,12 +33,10 @@ export const HabitTile = ({ id, title }: HabitTileProps) => {
   const isOffDay = hasSchedule && !isScheduledToday(schedules);
   // Use the unbounded period query so back-filled check-ins (whose deemed
   // `timestamp` may sort earlier than newer entries) still light up their
-  // day. Without this, the home-board's day cells disagree with the
-  // habit-detail screen for back-filled days.
-  const checkedInDaysMask = periodCheckIns.reduce(
-    (mask, c) => mask | (1 << c.timestamp.getDay()),
-    0,
-  );
+  // day. Partial completion (e.g. 2 of 3 slots) is reported separately so
+  // the day cell paints orange instead of green.
+  const { completedDaysMask: checkedInDaysMask, partialDaysMask } =
+    classifyScheduledDays({ schedules, checkIns: periodCheckIns });
 
   const now = new Date();
 
@@ -84,7 +87,9 @@ export const HabitTile = ({ id, title }: HabitTileProps) => {
       hasSchedule={hasSchedule}
       scheduledDaysMask={combinedDays}
       checkedInDaysMask={checkedInDaysMask}
+      partialDaysMask={partialDaysMask}
       todayColor={todayColor}
+      partialColor={complianceColors.partial}
       missedColor={complianceColors.failing}
       onPress={handlePress}
       onCheckIn={handleCheckIn}

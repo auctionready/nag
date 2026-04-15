@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildDayCells } from "../dayCells";
+import { buildDayCells, classifyScheduledDays } from "../dayCells";
 import { Day } from "../days";
 
 const GREEN = "#34C759";
@@ -178,5 +178,156 @@ describe("buildDayCells", () => {
       expect(cells[0].backgroundColor).toBe(RED); // Mon – past
       expect(cells[4].backgroundColor).toBe(RED); // Fri – past
     });
+  });
+
+  describe("partialColor for partially-completed scheduled days", () => {
+    it("paints past partial days orange", () => {
+      // Mon scheduled with 3 slots, only 1 done → partial.
+      const cells = buildDayCells({
+        scheduledDaysMask: Day.Mon | Day.Wed,
+        checkedInDaysMask: 0,
+        partialDaysMask: Day.Mon,
+        checkedInColor: GREEN,
+        partialColor: ORANGE,
+        missedColor: RED,
+        now: thursday(),
+      });
+      expect(cells[0].backgroundColor).toBe(ORANGE); // Mon — partial
+      expect(cells[2].backgroundColor).toBe(RED); // Wed — past, missed
+    });
+
+    it("prefers checkedInColor when a day is fully complete", () => {
+      const cells = buildDayCells({
+        scheduledDaysMask: Day.Mon,
+        checkedInDaysMask: Day.Mon,
+        partialDaysMask: Day.Mon, // overlap shouldn't happen, but guard
+        checkedInColor: GREEN,
+        partialColor: ORANGE,
+        now: thursday(),
+      });
+      expect(cells[0].backgroundColor).toBe(GREEN);
+    });
+
+    it("does not paint partial today (todayColor wins)", () => {
+      const cells = buildDayCells({
+        scheduledDaysMask: Day.Wed,
+        checkedInDaysMask: 0,
+        partialDaysMask: Day.Wed,
+        checkedInColor: GREEN,
+        partialColor: ORANGE,
+        todayColor: ORANGE, // would be passed by `withinDayColor` anyway
+        now: wednesday(),
+      });
+      // todayColor takes precedence (== ORANGE here, but the path is the
+      // todayOverride branch — assert by passing a different todayColor).
+      const cellsWithGreenToday = buildDayCells({
+        scheduledDaysMask: Day.Wed,
+        checkedInDaysMask: 0,
+        partialDaysMask: Day.Wed,
+        checkedInColor: GREEN,
+        partialColor: ORANGE,
+        todayColor: GREEN,
+        now: wednesday(),
+      });
+      expect(cells[2].backgroundColor).toBe(ORANGE);
+      expect(cellsWithGreenToday[2].backgroundColor).toBe(GREEN);
+    });
+
+    it("falls back to checkedInColor when partialColor isn't provided", () => {
+      // Partial means *some* check-ins exist — never paint missed (red).
+      // Callers that haven't opted into partial-aware UI get legacy
+      // "any check-in = green" behaviour.
+      const cells = buildDayCells({
+        scheduledDaysMask: Day.Mon,
+        checkedInDaysMask: 0,
+        partialDaysMask: Day.Mon,
+        checkedInColor: GREEN,
+        missedColor: RED,
+        now: thursday(),
+      });
+      expect(cells[0].backgroundColor).toBe(GREEN);
+    });
+  });
+});
+
+describe("classifyScheduledDays", () => {
+  // 2025-06-13 is a real Friday; using calendar dates ensures getDay()
+  // produces the expected day-of-week index.
+
+  it("marks a day complete when all its scheduled slots have a check-in", () => {
+    const result = classifyScheduledDays({
+      schedules: [
+        { hour: 8, minute: 0, days: Day.Mon, dayOfMonth: null },
+        { hour: 12, minute: 0, days: Day.Mon, dayOfMonth: null },
+      ],
+      checkIns: [
+        // Mon Jun 16 = day 16, two check-ins → fully complete.
+        { timestamp: new Date(2025, 5, 16, 8, 0) },
+        { timestamp: new Date(2025, 5, 16, 12, 0) },
+      ],
+    });
+    expect(result.completedDaysMask & Day.Mon).toBeTruthy();
+    expect(result.partialDaysMask & Day.Mon).toBeFalsy();
+  });
+
+  it("marks a day partial when some but not all slots have check-ins", () => {
+    const result = classifyScheduledDays({
+      schedules: [
+        { hour: 8, minute: 0, days: Day.Mon, dayOfMonth: null },
+        { hour: 12, minute: 0, days: Day.Mon, dayOfMonth: null },
+        { hour: 18, minute: 0, days: Day.Mon, dayOfMonth: null },
+      ],
+      checkIns: [
+        // 1 of 3 → partial.
+        { timestamp: new Date(2025, 5, 16, 8, 0) },
+      ],
+    });
+    expect(result.partialDaysMask & Day.Mon).toBeTruthy();
+    expect(result.completedDaysMask & Day.Mon).toBeFalsy();
+  });
+
+  it("treats schedules with `days = 0` as applying every day", () => {
+    const result = classifyScheduledDays({
+      schedules: [
+        { hour: 8, minute: 0, days: null, dayOfMonth: null },
+        { hour: 12, minute: 0, days: null, dayOfMonth: null },
+        { hour: 18, minute: 0, days: null, dayOfMonth: null },
+      ],
+      checkIns: [
+        // Friday: 2 of 3 done → partial.
+        { timestamp: new Date(2025, 5, 13, 8, 0) },
+        { timestamp: new Date(2025, 5, 13, 12, 0) },
+        // Saturday: 3 of 3 done → complete.
+        { timestamp: new Date(2025, 5, 14, 8, 0) },
+        { timestamp: new Date(2025, 5, 14, 12, 0) },
+        { timestamp: new Date(2025, 5, 14, 18, 0) },
+      ],
+    });
+    expect(result.partialDaysMask & Day.Fri).toBeTruthy();
+    expect(result.completedDaysMask & Day.Sat).toBeTruthy();
+    expect(result.completedDaysMask & Day.Fri).toBeFalsy();
+  });
+
+  it("ignores days with no scheduled slots", () => {
+    const result = classifyScheduledDays({
+      schedules: [{ hour: 8, minute: 0, days: Day.Mon, dayOfMonth: null }],
+      checkIns: [
+        // Tuesday check-in but Tuesday isn't scheduled.
+        { timestamp: new Date(2025, 5, 17, 8, 0) },
+      ],
+    });
+    expect(result.partialDaysMask & Day.Tue).toBeFalsy();
+    expect(result.completedDaysMask & Day.Tue).toBeFalsy();
+  });
+
+  it("counts extras as complete (>= slots)", () => {
+    const result = classifyScheduledDays({
+      schedules: [{ hour: 8, minute: 0, days: Day.Mon, dayOfMonth: null }],
+      checkIns: [
+        { timestamp: new Date(2025, 5, 16, 8, 0) },
+        { timestamp: new Date(2025, 5, 16, 9, 0) }, // extra
+      ],
+    });
+    expect(result.completedDaysMask & Day.Mon).toBeTruthy();
   });
 });

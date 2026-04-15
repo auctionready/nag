@@ -16,6 +16,7 @@ import {
 } from "date-fns";
 import type { Regularity } from "@nag/schema";
 import {
+  classifyScheduledDays,
   matchCheckInsToSlots,
   periodStart,
   type ScheduleInfo,
@@ -149,18 +150,22 @@ export const HabitDetail = ({
     [schedules],
   );
 
-  const checkedInDaysMask = useMemo(() => {
-    const start = new Date(now);
-    start.setHours(0, 0, 0, 0);
-    start.setDate(start.getDate() - start.getDay()); // back to Sunday
-    let mask = 0;
-    for (const c of checkIns) {
-      if (c.timestamp >= start && c.timestamp <= now) {
-        mask |= 1 << c.timestamp.getDay();
-      }
-    }
-    return mask;
-  }, [checkIns, now]);
+  // Per-day completion classification for the week strip:
+  //   - completed → green (all of that day's slots have a check-in)
+  //   - partial   → orange (some but not all)
+  //   - missed    → red (past, none)
+  // Filters check-ins to this calendar week so prior-week back-fills
+  // don't leak into this week's strip colouring.
+  const { completedDaysMask: checkedInDaysMask, partialDaysMask } =
+    useMemo(() => {
+      const start = new Date(now);
+      start.setHours(0, 0, 0, 0);
+      start.setDate(start.getDate() - start.getDay()); // back to Sunday
+      const inWeek = checkIns.filter(
+        (c) => c.timestamp >= start && c.timestamp <= now,
+      );
+      return classifyScheduledDays({ schedules, checkIns: inWeek });
+    }, [checkIns, schedules, now]);
 
   const { windowStart, windowEnd, listTitle } = useMemo(() => {
     if (selectedDay) {
@@ -267,6 +272,7 @@ export const HabitDetail = ({
           <WeekStrip
             scheduledDaysMask={scheduledDaysMask}
             checkedInDaysMask={checkedInDaysMask}
+            partialDaysMask={partialDaysMask}
             todayColor={complianceColor}
             now={now}
             selectedDay={selectedDay}
