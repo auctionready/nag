@@ -114,17 +114,19 @@ export const HabitDetail = ({
 }: HabitDetailProps) => {
   const cardAnchor = useMemo(() => {
     if (!selectedDay) return now;
-    // For the current day, keep the real "now" so upcoming slots render as
-    // such. For past/future selected days, anchor at end-of-day so every
-    // unmatched slot reads as "missed" (retrospective view).
-    return isSameCalendarDay(selectedDay, now) ? now : endOfDay(selectedDay);
+    if (isSameCalendarDay(selectedDay, now)) return now;
+    // Past day → end-of-day so unfilled slots read as "missed" (red).
+    // Future day → start-of-day so unfilled slots read as "upcoming" (white).
+    // Without this split, future days would erroneously paint upcoming
+    // slots red.
+    return selectedDay < now ? endOfDay(selectedDay) : startOfDay(selectedDay);
   }, [selectedDay, now]);
 
   const cardIsToday = isSameCalendarDay(cardAnchor, now);
 
   const match: MatchCheckInsToSlotsResult | null = useMemo(() => {
     if (schedules.length === 0) return null;
-    const result = matchCheckInsToSlots({
+    return matchCheckInsToSlots({
       schedules,
       // `c.timestamp` is the deemed slot time — exactly what the matcher
       // needs to bucket a back-filled check-in to the right slot.
@@ -134,8 +136,13 @@ export const HabitDetail = ({
       })),
       now: cardAnchor,
     });
-    return result.total === 0 ? null : result;
   }, [schedules, checkIns, cardAnchor]);
+
+  // Schedules exist but none target the selected day's day-of-week. We need
+  // to distinguish this from "no schedules at all" so the card can say
+  // "Not scheduled" instead of falling through to period progress.
+  const notScheduledForDay =
+    match !== null && match.total === 0 && schedules.length > 0;
 
   const scheduledDaysMask = useMemo(
     () => schedules.reduce((mask, s) => mask | (s.days ?? 0), 0),
@@ -235,9 +242,16 @@ export const HabitDetail = ({
           <TodayCard
             selectedDay={cardAnchor}
             isToday={cardIsToday}
-            match={match}
+            // Only pass `match` when there are slots for the day; otherwise
+            // suppress it so the card falls through to "Not scheduled" or
+            // the frequency-only fallback.
+            match={match !== null && match.total > 0 ? match : null}
+            notScheduledForDay={notScheduledForDay}
             fallback={
-              match === null && frequency !== null && frequency > 0
+              // Frequency-only fallback only applies when the habit has no
+              // per-day schedules at all. If schedules exist but none for
+              // the selected day, `notScheduledForDay` takes precedence.
+              schedules.length === 0 && frequency !== null && frequency > 0
                 ? {
                     completed: checkInsThisPeriod,
                     frequency,
