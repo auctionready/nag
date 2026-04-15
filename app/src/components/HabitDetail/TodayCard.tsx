@@ -116,6 +116,11 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 16,
     gap: 16,
+    // Stabilize the card height so switching between scheduled days
+    // (chips visible) and unscheduled days ("Not scheduled" — no body)
+    // doesn't make surrounding UI jump up and down. Sized to fit ring
+    // (64) + gap (16) + ~one chip row (32) + vertical padding (32).
+    minHeight: 144,
   },
   headerRow: {
     flexDirection: "row",

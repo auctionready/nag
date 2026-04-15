@@ -244,9 +244,9 @@ describe("HabitDetail", () => {
 
     it("does not expose `done` chips as interactive (no long-press affordance)", () => {
       // Direct DOM inspection: a `done` chip should not advertise the
-      // back-fill role/label that `missed`/`upcoming` chips do. (We can't
-      // reliably assert that a disabled gesture-handler gesture *doesn't
-      // fire* under jest-expo's mock, so we check the accessibility surface
+      // back-fill role/label that `missed` chips do. (We can't reliably
+      // assert that a disabled gesture-handler gesture *doesn't fire*
+      // under jest-expo's mock, so we check the accessibility surface
       // — what the user actually sees.)
       const view = render(
         <HabitDetail
@@ -255,7 +255,8 @@ describe("HabitDetail", () => {
           frequency={3}
           schedules={schedules}
           checkIns={[{ id: 1, timestamp: sundayAt(8, 30), skipped: null }]}
-          now={sundayAt(10)}
+          // 14:00 → 12 PM is now missed (past, unfilled).
+          now={sundayAt(14)}
         />,
       );
       // Missed 12 PM chip is interactive…
@@ -406,6 +407,40 @@ describe("HabitDetail", () => {
       expect(view.queryAllByText("\u25CB")).toHaveLength(3);
       expect(view.queryByText("\u2715")).toBeNull();
       expect(view.getByText("0 of 3 done")).toBeTruthy();
+      // And they should NOT be back-fillable — you can't check in on the
+      // future. The accessibility label is the long-press affordance.
+      expect(
+        view.queryByLabelText("Long-press to add check-in for 8:00 AM"),
+      ).toBeNull();
+    });
+
+    it("does not let the user back-fill today's upcoming slots", () => {
+      // now = Sun 10:00; the 12:00 PM and 6:00 PM slots are upcoming.
+      const view = render(
+        <HabitDetail
+          {...baseProps}
+          regularity="day"
+          frequency={3}
+          schedules={[
+            { days: null, dayOfMonth: null, hour: 8, minute: 0 },
+            { days: null, dayOfMonth: null, hour: 12, minute: 0 },
+            { days: null, dayOfMonth: null, hour: 18, minute: 0 },
+          ]}
+          // 8:00 AM is missed (no check-in, slot time has passed).
+          // 12:00 PM and 6:00 PM are upcoming.
+        />,
+      );
+      // Past missed slot: long-press affordance present.
+      expect(
+        view.queryByLabelText("Long-press to add check-in for 8:00 AM"),
+      ).not.toBeNull();
+      // Today's upcoming slots: no long-press affordance.
+      expect(
+        view.queryByLabelText("Long-press to add check-in for 12:00 PM"),
+      ).toBeNull();
+      expect(
+        view.queryByLabelText("Long-press to add check-in for 6:00 PM"),
+      ).toBeNull();
     });
   });
 
