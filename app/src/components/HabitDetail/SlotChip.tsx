@@ -9,9 +9,10 @@ interface SlotChipProps {
   minute: number;
   status: SlotStatus;
   /**
-   * Long-press handler to back-fill a check-in for this slot. Wired only for
-   * `missed` and `upcoming` chips; `done`/`skipped` chips ignore it (the slot
-   * already has a check-in).
+   * Long-press handler to back-fill a check-in for this slot. Wired only
+   * for `missed` chips — past, unfilled slots. `done`/`skipped` already
+   * have a check-in; `upcoming` hasn't happened yet (you can't back-fill
+   * the future).
    */
   onLongPress?: () => void;
 }
@@ -31,7 +32,10 @@ export const SlotChip = ({
 }: SlotChipProps) => {
   const timeLabel = formatSlotTime(hour, minute);
   const styleForStatus = statusStyles[status];
-  const canBackfill = status === "missed" || status === "upcoming";
+  // Only past, unfilled slots are back-fillable. `upcoming` (today's
+  // future-time slots, and every slot on a future-day view) is excluded
+  // — you can't retroactively record something that hasn't happened.
+  const canBackfill = status === "missed";
 
   // Use `react-native-gesture-handler`'s LongPress (same pattern as
   // `tile/HabitTileView`). RN's built-in `Pressable.onLongPress` is
