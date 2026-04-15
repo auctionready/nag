@@ -2,11 +2,25 @@ import { describe, it, expect, beforeEach } from "vitest";
 import { eq } from "drizzle-orm";
 import * as schema from "@nag/schema";
 import { ZodError } from "zod";
+import type { AnyDb } from "../db";
 import { processCommand } from "../commands/processor";
 import { setupTestDb } from "./testDb";
 import { Day } from "../days";
 
 const getDb = setupTestDb("commands-test.db");
+
+/** Test helper: dispatch a CreateCheckIn command with sensible defaults. */
+const createCheckIn = (
+  db: AnyDb,
+  habitId: number,
+  options: { timestamp?: Date; skipped?: boolean } = {},
+) =>
+  processCommand(db, {
+    type: "CreateCheckIn",
+    habitId,
+    timestamp: options.timestamp ?? new Date(),
+    ...(options.skipped !== undefined ? { skipped: options.skipped } : {}),
+  });
 
 describe("CreateHabit", () => {
   it("creates a habit without a goal", async () => {
@@ -388,11 +402,7 @@ describe("DeleteHabit", () => {
       goal: { regularity: "day", frequency: 1 },
     });
 
-    await processCommand(db, {
-      type: "CreateCheckIn",
-      habitId,
-      timestamp: new Date(),
-    });
+    await createCheckIn(db, habitId);
 
     await processCommand(db, { type: "DeleteHabit", habitId });
 
@@ -445,11 +455,7 @@ describe("CreateCheckIn", () => {
     });
 
     const now = new Date();
-    const result = await processCommand(db, {
-      type: "CreateCheckIn",
-      habitId,
-      timestamp: now,
-    });
+    const result = await createCheckIn(db, habitId, { timestamp: now });
 
     expect(result).toHaveProperty("checkInId");
     const checkIns = await db
@@ -475,11 +481,7 @@ describe("CreateCheckIn", () => {
     eightAmYesterday.setHours(8, 0, 0, 0);
     const beforeInsert = Date.now();
 
-    await processCommand(db, {
-      type: "CreateCheckIn",
-      habitId,
-      timestamp: eightAmYesterday,
-    });
+    await createCheckIn(db, habitId, { timestamp: eightAmYesterday });
 
     const [row] = await db
       .select()
@@ -499,17 +501,9 @@ describe("DeleteCheckIn", () => {
       title: "Test",
     });
 
-    const { checkInId } = await processCommand(db, {
-      type: "CreateCheckIn",
-      habitId,
-      timestamp: new Date(),
-    });
+    const { checkInId } = await createCheckIn(db, habitId);
 
-    await processCommand(db, {
-      type: "CreateCheckIn",
-      habitId,
-      timestamp: new Date(),
-    });
+    await createCheckIn(db, habitId);
 
     await processCommand(db, { type: "DeleteCheckIn", checkInId });
 
@@ -574,11 +568,7 @@ describe("audit logging", () => {
       title: "Multi",
     });
 
-    await processCommand(db, {
-      type: "CreateCheckIn",
-      habitId,
-      timestamp: new Date(),
-    });
+    await createCheckIn(db, habitId);
     await processCommand(db, {
       type: "UpdateHabit",
       habitId,
@@ -952,21 +942,9 @@ describe("multiple check-ins", () => {
       type: "CreateHabit",
       title: "Multi",
     });
-    await processCommand(db, {
-      type: "CreateCheckIn",
-      habitId,
-      timestamp: new Date(),
-    });
-    await processCommand(db, {
-      type: "CreateCheckIn",
-      habitId,
-      timestamp: new Date(),
-    });
-    await processCommand(db, {
-      type: "CreateCheckIn",
-      habitId,
-      timestamp: new Date(),
-    });
+    await createCheckIn(db, habitId);
+    await createCheckIn(db, habitId);
+    await createCheckIn(db, habitId);
     checkIns = await db
       .select()
       .from(schema.checkIn)

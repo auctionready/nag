@@ -1,6 +1,6 @@
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { startOfWeek, addDays } from "date-fns";
-import { buildDayCells, mondayFirstDayLetters } from "@nag/core";
+import { buildDayCells, dayTitles, mondayFirstDayLetters } from "@nag/core";
 import { complianceColors } from "../getComplianceColor";
 
 interface WeekStripProps {
@@ -74,7 +74,7 @@ export const WeekStrip = ({
               style={styles.cell}
               onPress={() => onSelectDay(isSelected ? null : cellDate)}
               accessibilityRole="button"
-              accessibilityLabel={`Select ${WEEKDAY_FULL[dayBit]}`}
+              accessibilityLabel={`Select ${dayTitles[dayBit]}`}
               accessibilityState={{ selected: isSelected }}
             >
               <View
@@ -100,17 +100,6 @@ export const WeekStrip = ({
       </View>
     </View>
   );
-};
-
-// Day-bit to full weekday name, used purely for accessibility labels.
-const WEEKDAY_FULL: Record<number, string> = {
-  1: "Sunday",
-  2: "Monday",
-  4: "Tuesday",
-  8: "Wednesday",
-  16: "Thursday",
-  32: "Friday",
-  64: "Saturday",
 };
 
 const styles = StyleSheet.create({
