@@ -105,6 +105,13 @@ export const DeleteHabit = z.object({
 export const CreateCheckIn = z.object({
   type: z.literal("CreateCheckIn"),
   habitId: z.int().positive(),
+  /**
+   * The deemed slot time for this check-in. For a regular "check in right
+   * now" tap this is `new Date()`; for a long-press back-fill of a missed
+   * slot it's that slot's `Date`. Audit log persists commands as JSON so
+   * `z.coerce.date()` lets callers pass either a `Date` or an ISO string.
+   */
+  timestamp: z.coerce.date(),
   skipped: z.boolean().optional(),
 });
 

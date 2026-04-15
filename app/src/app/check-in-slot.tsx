@@ -20,7 +20,11 @@ const CheckInSlotScreen = () => {
   >({});
 
   const handleCheckIn = useCallback(async (habitId: number) => {
-    await processCommand(db, { type: "CreateCheckIn", habitId });
+    await processCommand(db, {
+      type: "CreateCheckIn",
+      habitId,
+      timestamp: new Date(),
+    });
     setActioned((prev) => ({ ...prev, [habitId]: "checkedIn" }));
   }, []);
 
@@ -28,6 +32,7 @@ const CheckInSlotScreen = () => {
     await processCommand(db, {
       type: "CreateCheckIn",
       habitId,
+      timestamp: new Date(),
       skipped: true,
     });
     setActioned((prev) => ({ ...prev, [habitId]: "skipped" }));

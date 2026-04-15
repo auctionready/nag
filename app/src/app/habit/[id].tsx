@@ -1,5 +1,6 @@
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useLiveQuery } from "drizzle-orm/expo-sqlite";
+import { parse, format } from "date-fns";
 import { db } from "../../db";
 import { getTitle } from "@nag/schema";
 import {
@@ -15,10 +16,16 @@ import {
 import { HabitDetail } from "../../components/HabitDetail";
 import { complianceColors } from "../../components/getComplianceColor";
 
+const DAY_PARAM_FORMAT = "yyyy-MM-dd";
+
 const HabitScreen = () => {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, day } = useLocalSearchParams<{ id: string; day?: string }>();
   const router = useRouter();
   const habitId = Number(id);
+
+  // `day` query param (YYYY-MM-DD) is a routing construct, not component
+  // state — it survives navigation and is bookmarkable.
+  const selectedDay = day ? parse(day, DAY_PARAM_FORMAT, new Date()) : null;
 
   const { data: habits } = useLiveQuery(habitById(db, habitId), [habitId]);
   const habitData = habits?.[0];
@@ -62,6 +69,29 @@ const HabitScreen = () => {
       )
     : null;
 
+  const handleSelectDay = (nextDay: Date | null) => {
+    router.setParams({
+      day: nextDay ? format(nextDay, DAY_PARAM_FORMAT) : undefined,
+    });
+  };
+
+  const handleCheckInAt = async (timestamp: Date) => {
+    await processCommand(db, {
+      type: "CreateCheckIn",
+      habitId,
+      timestamp,
+    });
+  };
+
+  const handleSkipAt = async (timestamp: Date) => {
+    await processCommand(db, {
+      type: "CreateCheckIn",
+      habitId,
+      timestamp,
+      skipped: true,
+    });
+  };
+
   return (
     <HabitDetail
       loading={!habitData}
@@ -75,16 +105,10 @@ const HabitScreen = () => {
       checkIns={checkIns ?? []}
       complianceColor={compliance?.color}
       showSkip={showSkip}
-      onCheckIn={async () => {
-        await processCommand(db, { type: "CreateCheckIn", habitId });
-      }}
-      onSkip={async () => {
-        await processCommand(db, {
-          type: "CreateCheckIn",
-          habitId,
-          skipped: true,
-        });
-      }}
+      selectedDay={selectedDay}
+      onSelectDay={handleSelectDay}
+      onCheckInAt={handleCheckInAt}
+      onSkipAt={handleSkipAt}
       onEdit={() => router.push(`/edit-habit/${habitId}`)}
       onRemoveCheckIn={async (checkInId) => {
         await processCommand(db, { type: "DeleteCheckIn", checkInId });

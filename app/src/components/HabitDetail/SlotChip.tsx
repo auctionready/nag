@@ -1,4 +1,4 @@
-import { StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 import type { SlotStatus } from "@nag/core";
 import { complianceColors } from "../getComplianceColor";
 import { formatSlotTime } from "./formatSlotTime";
@@ -7,6 +7,12 @@ interface SlotChipProps {
   hour: number;
   minute: number;
   status: SlotStatus;
+  /**
+   * Long-press handler to back-fill a check-in for this slot. Wired only for
+   * `missed` and `upcoming` chips; `done`/`skipped` chips ignore it (the slot
+   * already has a check-in).
+   */
+  onLongPress?: () => void;
 }
 
 const glyph: Record<SlotStatus, string> = {
@@ -16,14 +22,32 @@ const glyph: Record<SlotStatus, string> = {
   upcoming: "\u25CB", // circle outline
 };
 
-export const SlotChip = ({ hour, minute, status }: SlotChipProps) => {
+export const SlotChip = ({
+  hour,
+  minute,
+  status,
+  onLongPress,
+}: SlotChipProps) => {
   const timeLabel = formatSlotTime(hour, minute);
   const styleForStatus = statusStyles[status];
+  const canBackfill = status === "missed" || status === "upcoming";
+  const handleLongPress = canBackfill ? onLongPress : undefined;
   return (
-    <View style={[styles.chip, styleForStatus.container]}>
-      <Text style={[styles.glyph, styleForStatus.text]}>{glyph[status]}</Text>
-      <Text style={[styles.label, styleForStatus.text]}>{timeLabel}</Text>
-    </View>
+    <Pressable
+      onLongPress={handleLongPress}
+      disabled={!handleLongPress}
+      accessibilityRole={handleLongPress ? "button" : undefined}
+      accessibilityLabel={
+        handleLongPress
+          ? `Long-press to add check-in for ${timeLabel}`
+          : undefined
+      }
+    >
+      <View style={[styles.chip, styleForStatus.container]}>
+        <Text style={[styles.glyph, styleForStatus.text]}>{glyph[status]}</Text>
+        <Text style={[styles.label, styleForStatus.text]}>{timeLabel}</Text>
+      </View>
+    </Pressable>
   );
 };
 

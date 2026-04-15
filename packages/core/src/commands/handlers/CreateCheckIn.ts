@@ -8,7 +8,13 @@ export async function handleCreateCheckIn(
 ): Promise<{ checkInId: number }> {
   const [inserted] = await db
     .insert(checkIn)
-    .values({ habitId: command.habitId, skipped: command.skipped ?? false })
+    .values({
+      habitId: command.habitId,
+      // `timestamp` is the deemed slot time; `createdAt` is set by
+      // `$defaultFn` to the wall-clock time of this insert.
+      timestamp: command.timestamp,
+      skipped: command.skipped ?? false,
+    })
     .returning({ id: checkIn.id });
 
   return { checkInId: inserted.id };

@@ -1,8 +1,16 @@
 import { useMemo } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import {
+  format,
+  startOfDay,
+  endOfDay,
+  startOfMonth,
+  endOfMonth,
+} from "date-fns";
 import type { Regularity } from "@nag/schema";
 import {
   matchCheckInsToSlots,
+  periodStart,
   type ScheduleInfo,
   type MatchCheckInsToSlotsResult,
 } from "@nag/core";
@@ -25,13 +33,57 @@ export interface HabitDetailProps {
   /** Compliance color for today (used to tint the progress ring and today circle). */
   complianceColor?: string;
   showSkip: boolean;
-  onCheckIn: () => void;
-  onSkip: () => void;
+  /**
+   * The day the user has tapped on the week strip, or `null` when no day is
+   * selected (show the current period). Controls:
+   *  - the TodayCard anchor & weekday label
+   *  - the RecentCheckIns title + window filter
+   *  - the WeekStrip's highlighted cell
+   */
+  selectedDay: Date | null;
+  /** Called when the week strip is tapped. Pass `null` to clear selection. */
+  onSelectDay: (day: Date | null) => void;
+  /**
+   * Record a check-in with the given deemed timestamp. Footer "Check-in"
+   * passes `new Date()` (or a moment on the selected day); long-press on a
+   * missed slot chip passes the slot's timestamp on the selected day.
+   */
+  onCheckInAt: (timestamp: Date) => void;
+  /** Skip with the given deemed timestamp (symmetric with `onCheckInAt`). */
+  onSkipAt: (timestamp: Date) => void;
   onEdit: () => void;
   onRemoveCheckIn: (checkInId: number) => void;
   /** Injectable for tests; defaults to new Date() on each render. */
   now?: Date;
 }
+
+const isSameCalendarDay = (a: Date, b: Date) =>
+  a.getFullYear() === b.getFullYear() &&
+  a.getMonth() === b.getMonth() &&
+  a.getDate() === b.getDate();
+
+const periodWindow = (
+  regularity: Regularity | null,
+  now: Date,
+): { start: Date; end: Date; title: string } => {
+  if (regularity === "week") {
+    const start = periodStart("week", now);
+    return { start, end: endOfDay(now), title: "This Week's Check-ins" };
+  }
+  if (regularity === "month") {
+    return {
+      start: startOfMonth(now),
+      end: endOfMonth(now),
+      title: "This Month's Check-ins",
+    };
+  }
+  // default: day (also fallback when regularity is null)
+  return {
+    start: startOfDay(now),
+    end: endOfDay(now),
+    title: "Today's Check-ins",
+  };
+};
 
 export const HabitDetail = ({
   loading,
@@ -45,24 +97,38 @@ export const HabitDetail = ({
   checkIns,
   complianceColor,
   showSkip,
-  onCheckIn,
-  onSkip,
+  selectedDay,
+  onSelectDay,
+  onCheckInAt,
+  onSkipAt,
   onEdit,
   onRemoveCheckIn,
   now = new Date(),
 }: HabitDetailProps) => {
+  const cardAnchor = useMemo(() => {
+    if (!selectedDay) return now;
+    // For the current day, keep the real "now" so upcoming slots render as
+    // such. For past/future selected days, anchor at end-of-day so every
+    // unmatched slot reads as "missed" (retrospective view).
+    return isSameCalendarDay(selectedDay, now) ? now : endOfDay(selectedDay);
+  }, [selectedDay, now]);
+
+  const cardIsToday = isSameCalendarDay(cardAnchor, now);
+
   const match: MatchCheckInsToSlotsResult | null = useMemo(() => {
     if (schedules.length === 0) return null;
     const result = matchCheckInsToSlots({
       schedules,
+      // `c.timestamp` is the deemed slot time — exactly what the matcher
+      // needs to bucket a back-filled check-in to the right slot.
       checkIns: checkIns.map((c) => ({
         timestamp: c.timestamp,
         skipped: c.skipped,
       })),
-      now,
+      now: cardAnchor,
     });
     return result.total === 0 ? null : result;
-  }, [schedules, checkIns, now]);
+  }, [schedules, checkIns, cardAnchor]);
 
   const scheduledDaysMask = useMemo(
     () => schedules.reduce((mask, s) => mask | (s.days ?? 0), 0),
@@ -82,8 +148,51 @@ export const HabitDetail = ({
     return mask;
   }, [checkIns, now]);
 
+  const { windowStart, windowEnd, listTitle } = useMemo(() => {
+    if (selectedDay) {
+      return {
+        windowStart: startOfDay(selectedDay),
+        windowEnd: endOfDay(selectedDay),
+        listTitle: `${format(selectedDay, "EEEE")}'s Check-ins`,
+      };
+    }
+    const { start, end, title } = periodWindow(regularity, now);
+    return { windowStart: start, windowEnd: end, listTitle: title };
+  }, [selectedDay, regularity, now]);
+
+  const filteredCheckIns = useMemo(
+    () =>
+      checkIns.filter(
+        (c) => c.timestamp >= windowStart && c.timestamp <= windowEnd,
+      ),
+    [checkIns, windowStart, windowEnd],
+  );
+
   const ringColor = complianceColor ?? complianceColors.default;
   const showWeekStrip = regularity === "week" && scheduledDaysMask !== 0;
+
+  const handleCheckInFooter = () => {
+    // If the user has a non-today day selected, back-fill to that day at the
+    // current H:M; otherwise check-in for right now.
+    onCheckInAt(buildFooterTimestamp(selectedDay, now));
+  };
+  const handleSkipFooter = () => {
+    onSkipAt(buildFooterTimestamp(selectedDay, now));
+  };
+
+  const handleAddCheckInForSlot = (hour: number, minute: number) => {
+    const anchor = selectedDay ?? now;
+    const ts = new Date(
+      anchor.getFullYear(),
+      anchor.getMonth(),
+      anchor.getDate(),
+      hour,
+      minute,
+      0,
+      0,
+    );
+    onCheckInAt(ts);
+  };
 
   if (loading) {
     return (
@@ -110,7 +219,8 @@ export const HabitDetail = ({
         {(match !== null ||
           (frequency !== null && frequency > 0 && regularity !== null)) && (
           <TodayCard
-            now={now}
+            selectedDay={cardAnchor}
+            isToday={cardIsToday}
             match={match}
             fallback={
               match === null && frequency !== null && frequency > 0
@@ -121,6 +231,7 @@ export const HabitDetail = ({
                 : undefined
             }
             ringColor={ringColor}
+            onAddCheckInForSlot={handleAddCheckInForSlot}
           />
         )}
 
@@ -129,18 +240,25 @@ export const HabitDetail = ({
             scheduledDaysMask={scheduledDaysMask}
             checkedInDaysMask={checkedInDaysMask}
             todayColor={complianceColor}
+            now={now}
+            selectedDay={selectedDay}
+            onSelectDay={onSelectDay}
           />
         )}
 
-        <RecentCheckIns checkIns={checkIns} onRemove={onRemoveCheckIn} />
+        <RecentCheckIns
+          checkIns={filteredCheckIns}
+          title={listTitle}
+          onRemove={onRemoveCheckIn}
+        />
       </ScrollView>
 
       <View style={styles.footer}>
-        <Pressable style={styles.checkInButton} onPress={onCheckIn}>
+        <Pressable style={styles.checkInButton} onPress={handleCheckInFooter}>
           <Text style={styles.checkInButtonText}>Check-in</Text>
         </Pressable>
         {showSkip && (
-          <Pressable style={styles.skipButton} onPress={onSkip}>
+          <Pressable style={styles.skipButton} onPress={handleSkipFooter}>
             <Text style={styles.skipButtonText}>Skip</Text>
           </Pressable>
         )}
@@ -149,6 +267,19 @@ export const HabitDetail = ({
         </Pressable>
       </View>
     </View>
+  );
+};
+
+const buildFooterTimestamp = (selectedDay: Date | null, now: Date): Date => {
+  if (!selectedDay || isSameCalendarDay(selectedDay, now)) return now;
+  return new Date(
+    selectedDay.getFullYear(),
+    selectedDay.getMonth(),
+    selectedDay.getDate(),
+    now.getHours(),
+    now.getMinutes(),
+    now.getSeconds(),
+    now.getMilliseconds(),
   );
 };
 
