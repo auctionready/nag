@@ -9,8 +9,11 @@ import {
   checkInCount,
   processCommand,
   periodStart,
+  schedulesForHabit,
+  tileColor,
 } from "@nag/core";
 import { HabitDetail } from "../../components/HabitDetail";
+import { complianceColors } from "../../components/getComplianceColor";
 
 const HabitScreen = () => {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -29,6 +32,11 @@ const HabitScreen = () => {
     habitId,
   ]);
 
+  const { data: scheduleRows } = useLiveQuery(schedulesForHabit(db, habitId), [
+    habitId,
+  ]);
+  const schedules = scheduleRows ?? [];
+
   const periodStartDate = goalData
     ? periodStart(goalData.regularity)
     : undefined;
@@ -41,13 +49,31 @@ const HabitScreen = () => {
 
   const goalText = goalData ? getTitle(goalData) : null;
 
+  const compliance = goalData
+    ? tileColor(
+        {
+          frequency: goalData.frequency,
+          regularity: goalData.regularity,
+          createdAt: goalData.createdAt,
+        },
+        currentCount,
+        schedules,
+        complianceColors,
+      )
+    : null;
+
   return (
     <HabitDetail
       loading={!habitData}
       title={habitData?.title ?? ""}
       description={habitData?.description ?? null}
       goalText={goalText}
+      regularity={goalData?.regularity ?? null}
+      frequency={goalData?.frequency ?? null}
+      checkInsThisPeriod={currentCount}
+      schedules={schedules}
       checkIns={checkIns ?? []}
+      complianceColor={compliance?.color}
       showSkip={showSkip}
       onCheckIn={async () => {
         await processCommand(db, { type: "CreateCheckIn", habitId });

@@ -23,6 +23,13 @@ export type {
   WithinDayCompliance,
   WithinDayComplianceInput,
 } from "./withinDayCompliance";
+export { matchCheckInsToSlots } from "./matchCheckInsToSlots";
+export type {
+  SlotStatus,
+  SlotState,
+  MatchCheckInsToSlotsInput,
+  MatchCheckInsToSlotsResult,
+} from "./matchCheckInsToSlots";
 export { dailyCalculator } from "./dailyCalculator";
 export { weeklyCalculator } from "./weeklyCalculator";
 export { monthlyCalculator } from "./monthlyCalculator";
