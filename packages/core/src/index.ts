@@ -34,6 +34,7 @@ export {
   goalForHabitFull,
   checkInCount,
   recentCheckIns,
+  checkInsInPeriod,
   checkInsForHabit,
   calendarCheckIns,
   schedulesForHabit,

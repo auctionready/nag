@@ -16,10 +16,8 @@ interface HabitTileProps {
 export const HabitTile = ({ id, title }: HabitTileProps) => {
   const router = useRouter();
   const goal = useHabitGoalSummary(id);
-  const { checkInCount, recentCheckIns, schedules } = useHabitCompliance(
-    id,
-    goal,
-  );
+  const { checkInCount, periodCheckIns, recentCheckIns, schedules } =
+    useHabitCompliance(id, goal);
   const { color: trafficColor, periodProgress } = tileStatus(
     goal,
     checkInCount,
@@ -28,7 +26,11 @@ export const HabitTile = ({ id, title }: HabitTileProps) => {
   const combinedDays = schedules.reduce((mask, s) => mask | (s.days ?? 0), 0);
   const hasSchedule = goal?.regularity === "week" && combinedDays !== 0;
   const isOffDay = hasSchedule && !isScheduledToday(schedules);
-  const checkedInDaysMask = recentCheckIns.reduce(
+  // Use the unbounded period query so back-filled check-ins (whose deemed
+  // `timestamp` may sort earlier than newer entries) still light up their
+  // day. Without this, the home-board's day cells disagree with the
+  // habit-detail screen for back-filled days.
+  const checkedInDaysMask = periodCheckIns.reduce(
     (mask, c) => mask | (1 << c.timestamp.getDay()),
     0,
   );
@@ -40,7 +42,7 @@ export const HabitTile = ({ id, title }: HabitTileProps) => {
       ? withinDayColor(
           {
             schedules,
-            checkInTimestamps: recentCheckIns.map((c) => c.timestamp),
+            checkInTimestamps: periodCheckIns.map((c) => c.timestamp),
             now,
           },
           complianceColors,
@@ -51,7 +53,7 @@ export const HabitTile = ({ id, title }: HabitTileProps) => {
     hasSchedule,
     scheduledDaysMask: combinedDays,
     schedules,
-    recentCheckIns,
+    recentCheckIns: periodCheckIns,
     frequency: goal?.frequency ?? 0,
     periodProgress,
     now,
