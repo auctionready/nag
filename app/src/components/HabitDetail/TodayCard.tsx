@@ -24,6 +24,12 @@ interface TodayCardProps {
     completed: number;
     frequency: number;
   };
+  /**
+   * True when the habit has schedules but none cover the selected day's
+   * day-of-week. Takes precedence over `fallback` so a weekly Mon/Wed/Fri
+   * habit doesn't show period progress on Tuesday.
+   */
+  notScheduledForDay?: boolean;
   ringColor: string;
   /**
    * Long-press handler for a slot chip: supply the slot's hour/minute so the
@@ -38,21 +44,24 @@ export const TodayCard = ({
   isToday,
   match,
   fallback,
+  notScheduledForDay,
   ringColor,
   onAddCheckInForSlot,
 }: TodayCardProps) => {
   const hasSlots = match !== null && match.total > 0;
   const progress = hasSlots
     ? (match.done + match.extras) / Math.max(1, match.total)
-    : fallback
+    : !notScheduledForDay && fallback
       ? fallback.completed / Math.max(1, fallback.frequency)
       : 0;
   const clampedProgress = Math.min(1, progress);
   const headline = hasSlots
     ? `${match.done} of ${match.total} done${isToday ? " today" : ""}`
-    : fallback
-      ? `${fallback.completed} of ${fallback.frequency} this period`
-      : `Nothing scheduled${isToday ? " today" : ""}`;
+    : notScheduledForDay
+      ? "Not scheduled"
+      : fallback
+        ? `${fallback.completed} of ${fallback.frequency} this period`
+        : `Nothing scheduled${isToday ? " today" : ""}`;
 
   return (
     <View style={styles.card}>
@@ -91,7 +100,7 @@ export const TodayCard = ({
             </View>
           )}
         </View>
-      ) : fallback ? (
+      ) : notScheduledForDay ? null : fallback ? (
         <FrequencyDots
           frequency={fallback.frequency}
           completed={fallback.completed}

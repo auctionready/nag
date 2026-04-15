@@ -343,6 +343,72 @@ describe("HabitDetail", () => {
     });
   });
 
+  describe("scheduled day-of-week behaviour", () => {
+    const monWedFri: ScheduleInfo[] = [
+      {
+        days: Day.Mon | Day.Wed | Day.Fri,
+        dayOfMonth: null,
+        hour: 9,
+        minute: 0,
+      },
+    ];
+
+    it('shows "Not scheduled" when the selected day has no slots', () => {
+      // `now` defaults to Sunday Jun 15 → today is unscheduled for a
+      // Mon/Wed/Fri habit. Should NOT fall through to "0 of 3 this period".
+      const view = render(
+        <HabitDetail
+          {...baseProps}
+          regularity="week"
+          frequency={3}
+          schedules={monWedFri}
+          checkInsThisPeriod={1}
+        />,
+      );
+      expect(view.getByText("Not scheduled")).toBeTruthy();
+      expect(view.queryByText(/this period/)).toBeNull();
+    });
+
+    it('shows "Not scheduled" when an unscheduled past day is selected', () => {
+      // Tuesday Jun 10 — past, but not in the Mon/Wed/Fri mask.
+      const tuesday = new Date(2025, 5, 10);
+      const view = render(
+        <HabitDetail
+          {...baseProps}
+          regularity="week"
+          frequency={3}
+          schedules={monWedFri}
+          checkInsThisPeriod={1}
+          selectedDay={tuesday}
+        />,
+      );
+      expect(view.getByText("Not scheduled")).toBeTruthy();
+    });
+
+    it("renders future-day chips as upcoming, not missed", () => {
+      // Daily habit with 8/12/18 slots; jump to next Sunday (a week ahead).
+      const nextSunday = new Date(2025, 5, 22);
+      const view = render(
+        <HabitDetail
+          {...baseProps}
+          regularity="day"
+          frequency={3}
+          schedules={[
+            { days: null, dayOfMonth: null, hour: 8, minute: 0 },
+            { days: null, dayOfMonth: null, hour: 12, minute: 0 },
+            { days: null, dayOfMonth: null, hour: 18, minute: 0 },
+          ]}
+          selectedDay={nextSunday}
+        />,
+      );
+      // Glyph inventory: ✓ done, – skipped, ✕ missed, ○ upcoming.
+      // Future-day slots should all show ○, never ✕.
+      expect(view.queryAllByText("\u25CB")).toHaveLength(3);
+      expect(view.queryByText("\u2715")).toBeNull();
+      expect(view.getByText("0 of 3 done")).toBeTruthy();
+    });
+  });
+
   describe("period-scoped check-in list", () => {
     // Sun Jun 15 is `now`; Mon Jun 9 2025 is the start of the week.
     const mondayAt = (h: number) => new Date(2025, 5, 9, h, 0);
