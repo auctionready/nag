@@ -252,11 +252,54 @@ Let's Encrypt cert automatically.
 3. Metro bundles and the app loads. First bundle is slow (cold
    cache); incremental rebuilds are quick.
 
+## GitHub Actions auto-deploy (optional)
+
+By default the VPS polls every 2 minutes via the systemd timer. If
+you want near-instant deploys after CI passes, the
+[`deploy-vps.yml`](../.github/workflows/deploy-vps.yml) workflow
+SSHes into the VPS and runs `deploy.sh` whenever the CI workflow
+succeeds.
+
+### One-time setup
+
+1. **Create an SSH key pair for GitHub → VPS** (this is separate from
+   the deploy key, which goes the other direction):
+
+   ```bash
+   ssh-keygen -t ed25519 -f /tmp/gh-deploy -C github-actions -N ''
+   cat /tmp/gh-deploy.pub >> /home/nag/.ssh/authorized_keys
+   cat /tmp/gh-deploy       # you'll paste this into GitHub
+   rm /tmp/gh-deploy /tmp/gh-deploy.pub
+   ```
+
+2. **Add two secrets** in GitHub → the repo → Settings → Secrets →
+   Actions:
+
+   | Secret name   | Value                                           |
+   | ------------- | ----------------------------------------------- |
+   | `VPS_SSH_KEY` | The private key printed above (entire contents) |
+   | `VPS_HOST`    | Your VPS's public IP or hostname                |
+
+3. Push a commit. CI runs; if all three jobs pass,
+   `deploy-vps.yml` fires, SSHs in as `nag`, and runs `deploy.sh`.
+   The timer keeps running as a fallback if the SSH connection fails.
+
+### Notes
+
+- The workflow uses `concurrency: deploy-vps` so rapid-fire pushes
+  don't stack up parallel deploys — only the latest one runs.
+- `deploy.sh` sources `~/.config/nag/deploy.env` when invoked
+  outside of systemd (i.e. via SSH) so it knows which branch to
+  track.
+- If CI passes on a branch the VPS isn't tracking, `deploy.sh`
+  exits early (no-op) because HEAD already matches
+  `origin/$NAG_BRANCH`.
+
 ## Day-to-day
 
-- **Deploys happen automatically** within ~2 minutes of a push to
-  `NAG_BRANCH`. Follow `journalctl --user -u nag-deploy.service -f`
-  if you want to watch.
+- **Deploys happen automatically** — near-instantly via GitHub Actions
+  after CI passes, or within ~2 minutes via the systemd timer
+  fallback.
 - **Force a deploy**: `systemctl --user start nag-deploy.service`.
 - **Restart Metro** (e.g. after an env change):
   `systemctl --user restart nag-expo.service`.

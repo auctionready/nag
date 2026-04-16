@@ -12,6 +12,27 @@
 
 set -euo pipefail
 
+# Ensure node/pnpm are on PATH when invoked from non-interactive contexts
+# (systemd timer, GitHub Actions SSH). mise shims live outside the default
+# PATH and need explicit activation.
+if [ -x "$HOME/.local/bin/mise" ]; then
+  eval "$("$HOME/.local/bin/mise" activate bash)"
+fi
+
+# Ensure the systemd user bus is reachable — non-interactive SSH and
+# systemd services don't inherit XDG_RUNTIME_DIR from a login session.
+export XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
+export DBUS_SESSION_BUS_ADDRESS="${DBUS_SESSION_BUS_ADDRESS:-unix:path=$XDG_RUNTIME_DIR/bus}"
+
+# Load config from the EnvironmentFile if running outside of systemd
+# (e.g. SSH from GitHub Actions, manual invocation).
+if [ -z "${NAG_BRANCH:-}" ] && [ -f "$HOME/.config/nag/deploy.env" ]; then
+  set -a
+  # shellcheck source=/dev/null
+  . "$HOME/.config/nag/deploy.env"
+  set +a
+fi
+
 BRANCH="${NAG_BRANCH:-main}"
 SERVICE="${NAG_SERVICE:-nag-expo.service}"
 
