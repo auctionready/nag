@@ -1,0 +1,13 @@
+[Unit]
+Description=Poll GitHub every couple of minutes for nag updates
+Requires=nag-deploy.service
+
+[Timer]
+# First run shortly after boot, then every 2 minutes.
+OnBootSec=30s
+OnUnitActiveSec=2min
+AccuracySec=15s
+Unit=nag-deploy.service
+
+[Install]
+WantedBy=timers.target
