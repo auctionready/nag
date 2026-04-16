@@ -1,4 +1,4 @@
-import { render, fireEvent } from "@testing-library/react-native";
+import { act, render, fireEvent } from "@testing-library/react-native";
 import { Alert } from "react-native";
 import type { ScheduleInfo } from "@nag/core";
 import { Day } from "@nag/core";
@@ -16,7 +16,12 @@ const baseProps = {
   frequency: null as number | null,
   checkInsThisPeriod: 0,
   schedules: [] as ScheduleInfo[],
-  checkIns: [] as { id: number; timestamp: Date; skipped: boolean | null }[],
+  checkIns: [] as {
+    id: number;
+    timestamp: Date;
+    createdAt: Date;
+    skipped: boolean | null;
+  }[],
   showSkip: false,
   selectedDay: null as Date | null,
   onSelectDay: jest.fn(),
@@ -144,7 +149,14 @@ describe("HabitDetail", () => {
           regularity="day"
           frequency={3}
           schedules={schedules}
-          checkIns={[{ id: 1, timestamp: sundayAt(9), skipped: null }]}
+          checkIns={[
+            {
+              id: 1,
+              timestamp: sundayAt(9),
+              createdAt: sundayAt(9),
+              skipped: null,
+            },
+          ]}
         />,
       );
       expect(view.getByText("1 of 3 done today")).toBeTruthy();
@@ -158,10 +170,30 @@ describe("HabitDetail", () => {
           frequency={3}
           schedules={schedules}
           checkIns={[
-            { id: 1, timestamp: sundayAt(8, 30), skipped: null },
-            { id: 2, timestamp: sundayAt(12, 30), skipped: null },
-            { id: 3, timestamp: sundayAt(18, 30), skipped: null },
-            { id: 4, timestamp: sundayAt(19, 30), skipped: null },
+            {
+              id: 1,
+              timestamp: sundayAt(8, 30),
+              createdAt: sundayAt(8, 30),
+              skipped: null,
+            },
+            {
+              id: 2,
+              timestamp: sundayAt(12, 30),
+              createdAt: sundayAt(12, 30),
+              skipped: null,
+            },
+            {
+              id: 3,
+              timestamp: sundayAt(18, 30),
+              createdAt: sundayAt(18, 30),
+              skipped: null,
+            },
+            {
+              id: 4,
+              timestamp: sundayAt(19, 30),
+              createdAt: sundayAt(19, 30),
+              skipped: null,
+            },
           ]}
           now={sundayAt(20)}
         />,
@@ -254,7 +286,14 @@ describe("HabitDetail", () => {
           regularity="day"
           frequency={3}
           schedules={schedules}
-          checkIns={[{ id: 1, timestamp: sundayAt(8, 30), skipped: null }]}
+          checkIns={[
+            {
+              id: 1,
+              timestamp: sundayAt(8, 30),
+              createdAt: sundayAt(8, 30),
+              skipped: null,
+            },
+          ]}
           // 14:00 → 12 PM is now missed (past, unfilled).
           now={sundayAt(14)}
         />,
@@ -471,9 +510,24 @@ describe("HabitDetail", () => {
     const mondayAt = (h: number) => new Date(2025, 5, 9, h, 0);
     const wednesdayAt = (h: number) => new Date(2025, 5, 11, h, 0);
     const checkIns = [
-      { id: 1, timestamp: mondayAt(10), skipped: null as boolean | null },
-      { id: 2, timestamp: wednesdayAt(10), skipped: null as boolean | null },
-      { id: 3, timestamp: sundayAt(9), skipped: null as boolean | null },
+      {
+        id: 1,
+        timestamp: mondayAt(10),
+        createdAt: mondayAt(10),
+        skipped: null as boolean | null,
+      },
+      {
+        id: 2,
+        timestamp: wednesdayAt(10),
+        createdAt: wednesdayAt(10),
+        skipped: null as boolean | null,
+      },
+      {
+        id: 3,
+        timestamp: sundayAt(9),
+        createdAt: sundayAt(9),
+        skipped: null as boolean | null,
+      },
     ];
 
     it("shows 'This Week's Check-ins (3)' for a weekly habit, expanded by default", () => {
@@ -486,7 +540,10 @@ describe("HabitDetail", () => {
         />,
       );
       expect(view.getByText("This Week's Check-ins (3)")).toBeTruthy();
-      // Expanded by default → Remove buttons visible.
+      // Week scope spans multiple days → full date format.
+      expect(view.getByText("Mon, Jun 9, 2025 10:00 AM")).toBeTruthy();
+      expect(view.getByText("Wed, Jun 11, 2025 10:00 AM")).toBeTruthy();
+      // Remove action per row (rendered inside the Swipeable's right actions).
       expect(view.getAllByText("Remove")).toHaveLength(3);
     });
 
@@ -501,6 +558,9 @@ describe("HabitDetail", () => {
       );
       // Only the Sunday check-in should be listed.
       expect(view.getByText("Today's Check-ins (1)")).toBeTruthy();
+      // Day scope → time-only (date is implied by the heading).
+      expect(view.getByText("9:00 AM")).toBeTruthy();
+      expect(view.queryByText("Sun, Jun 15, 2025 9:00 AM")).toBeNull();
       expect(view.getAllByText("Remove")).toHaveLength(1);
     });
 
@@ -515,6 +575,9 @@ describe("HabitDetail", () => {
         />,
       );
       expect(view.getByText("Wednesday's Check-ins (1)")).toBeTruthy();
+      // Selected-day scope → time-only.
+      expect(view.getByText("10:00 AM")).toBeTruthy();
+      expect(view.queryByText("Wed, Jun 11, 2025 10:00 AM")).toBeNull();
       expect(view.getAllByText("Remove")).toHaveLength(1);
     });
 
@@ -563,8 +626,18 @@ describe("HabitDetail", () => {
 
   describe("with a skipped check-in", () => {
     const checkIns = [
-      { id: 1, timestamp: sundayAt(10), skipped: null as boolean | null },
-      { id: 2, timestamp: sundayAt(14), skipped: true as boolean | null },
+      {
+        id: 1,
+        timestamp: sundayAt(10),
+        createdAt: sundayAt(10),
+        skipped: null as boolean | null,
+      },
+      {
+        id: 2,
+        timestamp: sundayAt(14),
+        createdAt: sundayAt(14),
+        skipped: true as boolean | null,
+      },
     ];
 
     beforeEach(() => {
@@ -592,6 +665,87 @@ describe("HabitDetail", () => {
         buttons.find((b: { text: string }) => b.text === "Remove").onPress();
         expect(baseProps.onRemoveCheckIn).toHaveBeenCalledWith(1);
       });
+
+      it("does not call onRemoveCheckIn when Cancel is tapped in the Alert", () => {
+        const view = render(
+          <HabitDetail
+            {...baseProps}
+            regularity="day"
+            frequency={1}
+            checkIns={checkIns}
+          />,
+        );
+        fireEvent.press(view.getAllByText("Remove")[0]);
+        const buttons = (Alert.alert as jest.Mock).mock.calls[0][2];
+        // Cancel closes the Swipeable (state update) — wrap in act() so
+        // React doesn't warn about updates outside an act scope.
+        act(() => {
+          buttons.find((b: { text: string }) => b.text === "Cancel").onPress();
+        });
+        expect(baseProps.onRemoveCheckIn).not.toHaveBeenCalled();
+      });
+    });
+  });
+
+  describe("back-filled check-in marker", () => {
+    // Slot at 8:00 AM, actually recorded at 10:00 AM → back-fill gap of 2h.
+    const backFilled = [
+      {
+        id: 1,
+        timestamp: sundayAt(8),
+        createdAt: sundayAt(10),
+        skipped: null as boolean | null,
+      },
+    ];
+
+    it("shows (recorded …) in time-only format when scope is a single day", () => {
+      const view = render(
+        <HabitDetail
+          {...baseProps}
+          regularity="day"
+          frequency={1}
+          checkIns={backFilled}
+        />,
+      );
+      expect(view.getByText("8:00 AM")).toBeTruthy();
+      expect(view.getByText("(recorded 10:00 AM)")).toBeTruthy();
+    });
+
+    it("shows (recorded …) in full format when scope is a period", () => {
+      const view = render(
+        <HabitDetail
+          {...baseProps}
+          regularity="week"
+          frequency={1}
+          checkIns={backFilled}
+        />,
+      );
+      expect(view.getByText("Sun, Jun 15, 2025 8:00 AM")).toBeTruthy();
+      expect(
+        view.getByText("(recorded Sun, Jun 15, 2025 10:00 AM)"),
+      ).toBeTruthy();
+    });
+
+    it("omits (recorded …) when timestamp and createdAt are within the threshold", () => {
+      // 30-second gap — below the 60s back-fill threshold — should NOT show
+      // the "(recorded …)" line (fresh check-ins differ by microseconds).
+      const fresh = [
+        {
+          id: 1,
+          timestamp: sundayAt(10, 0),
+          createdAt: new Date(2025, 5, 15, 10, 0, 30),
+          skipped: null as boolean | null,
+        },
+      ];
+      const view = render(
+        <HabitDetail
+          {...baseProps}
+          regularity="day"
+          frequency={1}
+          checkIns={fresh}
+        />,
+      );
+      expect(view.queryByText(/^\(recorded /)).toBeNull();
     });
   });
 });

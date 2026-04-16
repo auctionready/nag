@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Alert, Pressable, StyleSheet, Text, View } from "react-native";
+import { Swipeable } from "react-native-gesture-handler";
 import { format } from "date-fns";
 import { complianceColors } from "../getComplianceColor";
 
@@ -7,6 +8,8 @@ export interface RecentCheckInItem {
   id: number;
   /** Deemed slot time — what the check-in is credited to. */
   timestamp: Date;
+  /** Wall-clock insert time. Differs from `timestamp` for back-filled check-ins. */
+  createdAt: Date;
   skipped: boolean | null;
 }
 
@@ -15,25 +18,50 @@ interface RecentCheckInsProps {
   checkIns: RecentCheckInItem[];
   /** e.g. "This Week's Check-ins", "Wednesday's Check-ins". */
   title: string;
+  /** True when the list is scoped to a single calendar day; controls timestamp format. */
+  singleDay: boolean;
   onRemove: (id: number) => void;
 }
+
+const TIME_ONLY = "h:mm a";
+const FULL_FMT = "EEE, MMM d, yyyy h:mm a";
+
+// Both `timestamp` and `createdAt` default to near-simultaneous `new Date()`
+// calls, so fresh check-ins differ by microseconds. User-driven back-fills
+// (long-press a missed slot, footer check-in on a non-today selected day)
+// put them minutes to hours apart. 60s is a comfortable threshold.
+const BACKFILL_THRESHOLD_MS = 60_000;
+const wasBackFilled = (ts: Date, createdAt: Date) =>
+  Math.abs(createdAt.getTime() - ts.getTime()) >= BACKFILL_THRESHOLD_MS;
 
 /**
  * Period-scoped check-in list: the screen decides the window and title
  * (e.g. "This Week's Check-ins" / "Wednesday's Check-ins"); this component
  * just renders the list with a collapsible header. Expanded by default so
  * the user sees the history without an extra tap.
+ *
+ * Each row is swipe-left-to-reveal a Remove action (iOS-style). Tapping the
+ * revealed action prompts for confirmation via `Alert`; Cancel closes the
+ * row back up.
  */
 export const RecentCheckIns = ({
   checkIns,
   title,
+  singleDay,
   onRemove,
 }: RecentCheckInsProps) => {
   const [expanded, setExpanded] = useState(true);
+  const swipeableRefs = useRef<Map<number, Swipeable | null>>(new Map());
 
-  const handleRemove = (id: number) => {
+  const fmt = singleDay ? TIME_ONLY : FULL_FMT;
+
+  const handleRemovePress = (id: number) => {
     Alert.alert("Remove Check-in", "Are you sure?", [
-      { text: "Cancel", style: "cancel" },
+      {
+        text: "Cancel",
+        style: "cancel",
+        onPress: () => swipeableRefs.current.get(id)?.close(),
+      },
       {
         text: "Remove",
         style: "destructive",
@@ -41,6 +69,17 @@ export const RecentCheckIns = ({
       },
     ]);
   };
+
+  const renderRightActions = (id: number) => (
+    <Pressable
+      onPress={() => handleRemovePress(id)}
+      style={styles.swipeAction}
+      accessibilityRole="button"
+      accessibilityLabel="Remove check-in"
+    >
+      <Text style={styles.swipeActionText}>Remove</Text>
+    </Pressable>
+  );
 
   return (
     <View style={styles.container}>
@@ -61,22 +100,41 @@ export const RecentCheckIns = ({
             <Text style={styles.emptyText}>No check-ins yet</Text>
           ) : (
             checkIns.map((item) => (
-              <View key={item.id} style={styles.row}>
-                <View>
+              <Swipeable
+                key={item.id}
+                ref={(r) => {
+                  swipeableRefs.current.set(item.id, r);
+                }}
+                friction={2}
+                rightThreshold={40}
+                overshootRight={false}
+                renderRightActions={() => renderRightActions(item.id)}
+                containerStyle={styles.swipeContainer}
+              >
+                <View
+                  style={styles.row}
+                  accessibilityActions={[
+                    { name: "remove", label: "Remove check-in" },
+                  ]}
+                  onAccessibilityAction={(e) => {
+                    if (e.nativeEvent.actionName === "remove") {
+                      handleRemovePress(item.id);
+                    }
+                  }}
+                >
                   <Text style={styles.timestamp}>
-                    {format(item.timestamp, "EEE, MMM d, yyyy h:mm a")}
+                    {format(item.timestamp, fmt)}
                   </Text>
+                  {wasBackFilled(item.timestamp, item.createdAt) && (
+                    <Text style={styles.recordedLabel}>
+                      (recorded {format(item.createdAt, fmt)})
+                    </Text>
+                  )}
                   {item.skipped && (
                     <Text style={styles.skippedLabel}>(skipped)</Text>
                   )}
                 </View>
-                <Pressable
-                  onPress={() => handleRemove(item.id)}
-                  style={styles.removeButton}
-                >
-                  <Text style={styles.removeButtonText}>Remove</Text>
-                </Pressable>
-              </View>
+              </Swipeable>
             ))
           )}
         </View>
@@ -114,28 +172,36 @@ const styles = StyleSheet.create({
     textAlign: "center",
     paddingVertical: 12,
   },
-  row: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingVertical: 12,
+  // Divider lives on the Swipeable container so it spans across both the row
+  // and the revealed action.
+  swipeContainer: {
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: "#e0e0e0",
+  },
+  row: {
+    // Opaque so the red action behind the row doesn't bleed through while
+    // swiping.
+    backgroundColor: "#fff",
+    paddingVertical: 12,
   },
   timestamp: {
     fontSize: 15,
     color: "#333",
   },
-  removeButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: complianceColors.failing,
+  recordedLabel: {
+    fontSize: 12,
+    color: "#777",
+    marginTop: 2,
   },
-  removeButtonText: {
-    color: complianceColors.failing,
-    fontSize: 13,
+  swipeAction: {
+    justifyContent: "center",
+    alignItems: "center",
+    width: 88,
+    backgroundColor: complianceColors.failing,
+  },
+  swipeActionText: {
+    color: "#fff",
+    fontSize: 14,
     fontWeight: "600",
   },
   skippedLabel: {

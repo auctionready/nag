@@ -167,16 +167,25 @@ export const HabitDetail = ({
       return classifyScheduledDays({ schedules, checkIns: inWeek });
     }, [checkIns, schedules, now]);
 
-  const { windowStart, windowEnd, listTitle } = useMemo(() => {
+  const { windowStart, windowEnd, listTitle, singleDay } = useMemo(() => {
     if (selectedDay) {
       return {
         windowStart: startOfDay(selectedDay),
         windowEnd: endOfDay(selectedDay),
         listTitle: `${format(selectedDay, "EEEE")}'s Check-ins`,
+        singleDay: true,
       };
     }
     const { start, end, title } = periodWindow(regularity, now);
-    return { windowStart: start, windowEnd: end, listTitle: title };
+    return {
+      windowStart: start,
+      windowEnd: end,
+      listTitle: title,
+      // "Today's Check-ins" is the sole title `periodWindow` returns for the
+      // day / null branches; mirror that here so the format can never drift
+      // out of sync with the heading.
+      singleDay: regularity === "day" || regularity === null,
+    };
   }, [selectedDay, regularity, now]);
 
   const filteredCheckIns = useMemo(
@@ -283,6 +292,7 @@ export const HabitDetail = ({
         <RecentCheckIns
           checkIns={filteredCheckIns}
           title={listTitle}
+          singleDay={singleDay}
           onRemove={onRemoveCheckIn}
         />
       </ScrollView>
