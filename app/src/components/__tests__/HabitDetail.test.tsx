@@ -726,6 +726,33 @@ describe("HabitDetail", () => {
       ).toBeTruthy();
     });
 
+    it("uses full format on (recorded …) when recorded on a different day, even under single-day scope", () => {
+      // Slot on Sun Jun 15 at 8 AM, actually recorded Mon Jun 16 at 10 AM.
+      // The list ("Today's Check-ins") still shows just "8:00 AM" for the
+      // slot, but "(recorded …)" needs the date so the user can see the
+      // recording happened a day later — not the same morning.
+      const laterDay = [
+        {
+          id: 1,
+          timestamp: sundayAt(8),
+          createdAt: new Date(2025, 5, 16, 10, 0),
+          skipped: null as boolean | null,
+        },
+      ];
+      const view = render(
+        <HabitDetail
+          {...baseProps}
+          regularity="day"
+          frequency={1}
+          checkIns={laterDay}
+        />,
+      );
+      expect(view.getByText("8:00 AM")).toBeTruthy();
+      expect(
+        view.getByText("(recorded Mon, Jun 16, 2025 10:00 AM)"),
+      ).toBeTruthy();
+    });
+
     it("omits (recorded …) when timestamp and createdAt are within the threshold", () => {
       // 30-second gap — below the 60s back-fill threshold — should NOT show
       // the "(recorded …)" line (fresh check-ins differ by microseconds).
