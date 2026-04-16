@@ -2,10 +2,7 @@
   "extends": "expo/tsconfig.base",
   "compilerOptions": {
     "strict": true,
-    "composite": true,
-    "outDir": "./dist",
     "types": ["jest"]
   },
-  "include": ["**/*.ts", "**/*.tsx"],
-  "exclude": ["dist"]
+  "include": ["**/*.ts", "**/*.tsx"]
 }
