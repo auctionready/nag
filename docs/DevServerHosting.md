@@ -56,28 +56,39 @@ corepack prepare pnpm@10.33.0 --activate
 
 Verify: `node -v`, `pnpm -v`, `git --version`.
 
-### 3. Clone the repo
+### 3. Set up a GitHub deploy key
 
-```bash
-git clone https://github.com/christensena/nag.git ~/nag
-cd ~/nag
-pnpm install --frozen-lockfile
-```
-
-If the repo is private, add a read-only deploy key:
+The repo is private, so HTTPS clones will prompt for a username and
+fail. Give the VPS a read-only SSH deploy key instead:
 
 ```bash
 ssh-keygen -t ed25519 -f ~/.ssh/nag-deploy -C nag-vps -N ''
-cat ~/.ssh/nag-deploy.pub   # paste into GitHub → Repo → Settings → Deploy keys
 cat >> ~/.ssh/config <<'EOF'
 Host github.com
   IdentityFile ~/.ssh/nag-deploy
   IdentitiesOnly yes
 EOF
-git remote set-url origin git@github.com:christensena/nag.git
+chmod 600 ~/.ssh/config
+cat ~/.ssh/nag-deploy.pub
 ```
 
-### 4. Drop in config
+Copy the printed public key and paste it into
+**GitHub → the repo → Settings → Deploy keys → Add deploy key**
+(read-only is fine). Smoke-test:
+
+```bash
+ssh -T git@github.com   # expect: "Hi christensena/nag! You've successfully authenticated..."
+```
+
+### 4. Clone the repo
+
+```bash
+git clone git@github.com:christensena/nag.git ~/nag
+cd ~/nag
+pnpm install --frozen-lockfile
+```
+
+### 5. Drop in config
 
 ```bash
 mkdir -p ~/.config/nag
@@ -87,7 +98,7 @@ $EDITOR ~/.config/nag/expo.env     # set REACT_NATIVE_PACKAGER_HOSTNAME
 $EDITOR ~/.config/nag/deploy.env   # pick NAG_BRANCH
 ```
 
-### 5. Install and start the user units
+### 6. Install and start the user units
 
 ```bash
 mkdir -p ~/.config/systemd/user
@@ -106,7 +117,7 @@ journalctl --user -u nag-expo.service -f
 journalctl --user -u nag-deploy.service -f
 ```
 
-### 6. Install Caddy (as root)
+### 7. Install Caddy (as root)
 
 ```bash
 sudo apt install -y caddy
@@ -118,7 +129,7 @@ sudo systemctl reload caddy
 First request to `https://your.real.hostname` provisions the
 Let's Encrypt cert automatically.
 
-### 7. Connect a device
+### 8. Connect a device
 
 1. Install a dev-client build on the device
    (`eas build --profile development --platform ios`, then install the
