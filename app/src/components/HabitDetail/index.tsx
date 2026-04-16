@@ -200,12 +200,14 @@ export const HabitDetail = ({
   const showWeekStrip = regularity === "week" && scheduledDaysMask !== 0;
 
   const handleCheckInFooter = () => {
-    // If the user has a non-today day selected, back-fill to that day at the
-    // current H:M; otherwise check-in for right now.
-    onCheckInAt(buildFooterTimestamp(selectedDay, now));
+    // Use a fresh `new Date()` (not the captured-at-render `now` prop) so
+    // the deemed timestamp matches `createdAt` for an immediate check-in.
+    // If we used `now`, leaving the screen open for >60s would cause a
+    // tap-to-check-in to be misclassified as a back-fill in the list.
+    onCheckInAt(buildFooterTimestamp(selectedDay, new Date()));
   };
   const handleSkipFooter = () => {
-    onSkipAt(buildFooterTimestamp(selectedDay, now));
+    onSkipAt(buildFooterTimestamp(selectedDay, new Date()));
   };
 
   const handleAddCheckInForSlot = (hour: number, minute: number) => {
