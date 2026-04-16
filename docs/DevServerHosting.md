@@ -42,9 +42,9 @@ sudo -iu nag
 
 All the remaining steps run as `nag` unless noted.
 
-### 2. Install Node, pnpm, git
+### 2. Install Node, pnpm, git, watchman
 
-Use whatever version manager you prefer. [mise](https://mise.jdx.dev/)
+Use whatever Node version manager you prefer. [mise](https://mise.jdx.dev/)
 is quick:
 
 ```bash
@@ -56,7 +56,15 @@ corepack enable
 corepack prepare pnpm@10.33.0 --activate
 ```
 
-Verify: `node -v`, `pnpm -v`, `git --version`.
+Watchman makes a big difference to Metro's file-watching and
+bundle-cache warmth on Linux — without it Metro falls back to a
+slower polling watcher:
+
+```bash
+sudo apt install -y watchman git
+```
+
+Verify: `node -v`, `pnpm -v`, `git --version`, `watchman version`.
 
 ### 3. Set up a GitHub deploy key
 
@@ -167,6 +175,13 @@ Let's Encrypt cert automatically.
 2. Open the dev client, choose **Enter URL manually**, and type
    `https://your.real.hostname` (no port — the proxy serves 443).
 3. Metro bundles and the app loads.
+
+> **Critical:** `REACT_NATIVE_PACKAGER_HOSTNAME` in
+> `~/.config/nag/expo.env` must match the hostname you put in the
+> proxy config. Otherwise Metro returns a manifest whose URLs point at
+> `localhost:8081`, the device can't reach them, and you get
+> "Could not connect to development server" with a `:8081` URL in the
+> error.
 
 ## Day-to-day
 
