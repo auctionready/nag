@@ -65,10 +65,18 @@ describe("HabitDetail", () => {
       expect(view.queryByText(/weekly/)).toBeNull();
     });
 
-    it("calls onCheckInAt with the current `now` when Check-in is pressed", () => {
+    it("calls onCheckInAt with a fresh `new Date()` when Check-in is pressed", () => {
+      // Must be fresh-at-click (not the captured-at-render `now` prop), so
+      // that an immediate check-in's deemed timestamp matches `createdAt`
+      // and the row doesn't render a misleading "(recorded …)" line.
+      const before = Date.now();
       fireEvent.press(view.getByText("Check-in"));
+      const after = Date.now();
       expect(baseProps.onCheckInAt).toHaveBeenCalledTimes(1);
-      expect(baseProps.onCheckInAt).toHaveBeenCalledWith(baseProps.now);
+      const [called] = baseProps.onCheckInAt.mock.calls[0];
+      expect(called).toBeInstanceOf(Date);
+      expect((called as Date).getTime()).toBeGreaterThanOrEqual(before);
+      expect((called as Date).getTime()).toBeLessThanOrEqual(after);
     });
 
     it("calls onEdit when Edit is pressed", () => {
@@ -114,10 +122,15 @@ describe("HabitDetail", () => {
       expect(view.getByText("Skip")).toBeTruthy();
     });
 
-    it("calls onSkipAt with the current `now` when pressed", () => {
+    it("calls onSkipAt with a fresh `new Date()` when pressed", () => {
+      const before = Date.now();
       fireEvent.press(view.getByText("Skip"));
+      const after = Date.now();
       expect(baseProps.onSkipAt).toHaveBeenCalledTimes(1);
-      expect(baseProps.onSkipAt).toHaveBeenCalledWith(baseProps.now);
+      const [called] = baseProps.onSkipAt.mock.calls[0];
+      expect(called).toBeInstanceOf(Date);
+      expect((called as Date).getTime()).toBeGreaterThanOrEqual(before);
+      expect((called as Date).getTime()).toBeLessThanOrEqual(after);
     });
   });
 
