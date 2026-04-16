@@ -166,5 +166,7 @@ detail's week strip use a tri-state classifier
 ## Further Reading
 
 - [Model](./Model.md) — schema and entity relationships.
+- [Railway](./Railway.md) — hosting the Expo dev server on Railway with
+  an ngrok tunnel.
 - [`CLAUDE.md`](../CLAUDE.md) — project conventions, coding style, tooling,
   and AI-agent workflow.
