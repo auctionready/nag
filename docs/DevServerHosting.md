@@ -128,11 +128,17 @@ starting from nothing.
 
 #### Option A: nginx (recommended if already installed)
 
+The template is HTTP-only on purpose — `certbot --nginx` will upgrade
+it to HTTPS on 443 and add the redirect from 80 automatically. If you
+put a TLS block in before running certbot, `nginx -t` fails because
+the cert file doesn't exist yet and certbot aborts.
+
 ```bash
+sudo apt install -y certbot python3-certbot-nginx   # if not already
 sudo cp /home/nag/nag/ops/nginx-nag.conf /etc/nginx/sites-available/nag.conf
 sudo sed -i 's/dev\.example\.com/your.real.hostname/g' /etc/nginx/sites-available/nag.conf
 sudo ln -sf /etc/nginx/sites-available/nag.conf /etc/nginx/sites-enabled/nag.conf
-# Grab a cert if you don't have a wildcard already:
+sudo nginx -t && sudo systemctl reload nginx
 sudo certbot --nginx -d your.real.hostname
 sudo nginx -t && sudo systemctl reload nginx
 ```
