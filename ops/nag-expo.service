@@ -1,7 +1,5 @@
 [Unit]
 Description=nag Expo dev server (Metro bundler)
-After=network-online.target
-Wants=network-online.target
 
 [Service]
 Type=simple

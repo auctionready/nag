@@ -1,7 +1,5 @@
 [Unit]
 Description=Pull latest nag from GitHub and restart the Expo dev server
-After=network-online.target
-Wants=network-online.target
 
 [Service]
 Type=oneshot
