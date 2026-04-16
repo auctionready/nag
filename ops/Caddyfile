@@ -1,0 +1,21 @@
+# Drop this block into /etc/caddy/Caddyfile (or include it from there) and
+# replace `dev.example.com` with your hostname. Caddy handles the
+# Let's Encrypt cert and WebSocket upgrades automatically.
+
+dev.example.com {
+	encode zstd gzip
+
+	# Metro bundler + dev client WebSocket (`/message`, `/hot`, `/inspector`).
+	reverse_proxy localhost:8081
+
+	# Longer timeout so file-watch WebSockets stay open.
+	@websocket {
+		header Connection *Upgrade*
+		header Upgrade    websocket
+	}
+	reverse_proxy @websocket localhost:8081 {
+		transport http {
+			read_timeout 24h
+		}
+	}
+}
