@@ -1,10 +1,10 @@
 # Hosting the Expo Dev Server on a VPS
 
 For remote-device testing we run the Expo dev server on a VPS with a
-fixed IP. [Caddy](https://caddyserver.com/) fronts Metro with TLS and
+fixed IP. A reverse proxy (nginx or Caddy) fronts Metro with TLS and
 WebSocket upgrades; a pair of systemd **user** units keeps Metro alive
-and polls GitHub every couple of minutes so pushes to `main` deploy
-themselves. No ngrok, no Railway, no CI hop.
+and polls GitHub every couple of minutes so pushes deploy themselves.
+No ngrok, no Railway, no CI hop.
 
 ## How it works
 
@@ -20,8 +20,10 @@ themselves. No ngrok, no Railway, no CI hop.
      `pnpm install --frozen-lockfile` _only if_ `pnpm-lock.yaml`
      changed.
   3. `systemctl --user restart nag-expo.service`.
-- **Caddy** ([`ops/Caddyfile`](../ops/Caddyfile)) reverse-proxies
-  `https://dev.example.com` to `localhost:8081` and handles the
+- **Reverse proxy** in front of Metro — either nginx
+  ([`ops/nginx-nag.conf`](../ops/nginx-nag.conf)) or Caddy
+  ([`ops/Caddyfile`](../ops/Caddyfile)). Terminates TLS on
+  `https://dev.example.com` and proxies to `localhost:8081` with the
   WebSocket upgrade Metro needs for HMR / logs.
 
 ## One-time VPS setup
@@ -117,17 +119,39 @@ journalctl --user -u nag-expo.service -f
 journalctl --user -u nag-deploy.service -f
 ```
 
-### 7. Install Caddy (as root)
+### 7. Put a reverse proxy in front of Metro (as root)
+
+Metro listens on plain HTTP `localhost:8081`. Pick one proxy to
+terminate TLS and handle WebSocket upgrades. **Use nginx if it's
+already running on the VPS** — it's what you want unless you're
+starting from nothing.
+
+#### Option A: nginx (recommended if already installed)
+
+```bash
+sudo cp /home/nag/nag/ops/nginx-nag.conf /etc/nginx/sites-available/nag.conf
+sudo sed -i 's/dev\.example\.com/your.real.hostname/g' /etc/nginx/sites-available/nag.conf
+sudo ln -sf /etc/nginx/sites-available/nag.conf /etc/nginx/sites-enabled/nag.conf
+# Grab a cert if you don't have a wildcard already:
+sudo certbot --nginx -d your.real.hostname
+sudo nginx -t && sudo systemctl reload nginx
+```
+
+#### Option B: Caddy (clean VPS, nothing on 80/443 yet)
 
 ```bash
 sudo apt install -y caddy
 sudo cp /home/nag/nag/ops/Caddyfile /etc/caddy/Caddyfile
 sudo sed -i 's/dev\.example\.com/your.real.hostname/' /etc/caddy/Caddyfile
-sudo systemctl reload caddy
+sudo systemctl enable --now caddy
 ```
 
 First request to `https://your.real.hostname` provisions the
 Let's Encrypt cert automatically.
+
+> Don't install Caddy alongside an existing nginx on the same box —
+> they'll fight over ports 80/443 and Caddy's service will fail to
+> start with `bind: address already in use`.
 
 ### 8. Connect a device
 
@@ -135,7 +159,7 @@ Let's Encrypt cert automatically.
    (`eas build --profile development --platform ios`, then install the
    resulting `.ipa`).
 2. Open the dev client, choose **Enter URL manually**, and type
-   `https://your.real.hostname` (no port — Caddy serves 443).
+   `https://your.real.hostname` (no port — the proxy serves 443).
 3. Metro bundles and the app loads.
 
 ## Day-to-day
@@ -165,7 +189,7 @@ Let's Encrypt cert automatically.
   ```
 - **Webhooks (alternative).** If the 2-minute polling lag matters, put
   a tiny webhook receiver (e.g.
-  [`webhook`](https://github.com/adnanh/webhook)) behind Caddy that
-  triggers `systemctl --user start nag-deploy.service` on GitHub
-  `push` events. Polling is simpler and doesn't require sharing a
-  secret with GitHub.
+  [`webhook`](https://github.com/adnanh/webhook)) behind the reverse
+  proxy that triggers `systemctl --user start nag-deploy.service` on
+  GitHub `push` events. Polling is simpler and doesn't require sharing
+  a secret with GitHub.
