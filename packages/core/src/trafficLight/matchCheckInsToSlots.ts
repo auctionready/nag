@@ -33,16 +33,24 @@ const isSameDay = (a: Date, b: Date) =>
 
 /**
  * Given today's timed schedules and today's check-ins, pair them up
- * greedily in chronological order and return the status of each slot.
+ * by closest time-of-day and return the status of each slot.
  *
  * Slots without `hour` are ignored. Schedules whose `days` mask
  * excludes today are ignored. A null/zero `days` value is treated as
  * applying every day (consistent with `withinDayCompliance`).
  *
- * Greedy pairing: the `i`-th check-in (by timestamp) fills the `i`-th
- * slot (by time). A check-in with `skipped = true` marks its slot as
- * "skipped" rather than "done". Unmatched slots whose time has passed
- * are "missed"; future slots are "upcoming".
+ * Pairing: each check-in is assigned to the unmatched slot whose
+ * time-of-day is closest to the check-in's `timestamp` (the "deemed
+ * slot time" — see docs/Intro.md § "Deemed time vs. recording time").
+ * Check-ins are processed in chronological order; ties are broken by
+ * the earlier slot. Back-filled check-ins — whose timestamp is set to
+ * the slot's exact hour/minute — land on their intended slot even when
+ * other check-ins are missing or were removed.
+ *
+ * A check-in with `skipped = true` marks its slot as "skipped" rather
+ * than "done". Unmatched slots whose time has passed are "missed";
+ * future slots are "upcoming". Check-ins with no slot to claim (more
+ * check-ins than slots) are counted as `extras`.
  */
 export const matchCheckInsToSlots = ({
   schedules,
@@ -66,8 +74,35 @@ export const matchCheckInsToSlots = ({
 
   const nowMinutes = now.getHours() * 60 + now.getMinutes();
 
+  // Nearest-time assignment: for each check-in (in time order), claim
+  // the unmatched slot whose time-of-day is closest. Iterating
+  // `availableSlots` in insertion order (which is chronological, since
+  // we sorted) means ties go to the earlier slot.
+  const matchedBySlot = new Map<
+    number,
+    { timestamp: Date; skipped?: boolean | null }
+  >();
+  const availableSlots = new Set<number>(todaysSlots.map((_, i) => i));
+  for (const checkIn of todaysCheckIns) {
+    if (availableSlots.size === 0) break;
+    const checkInMinutes =
+      checkIn.timestamp.getHours() * 60 + checkIn.timestamp.getMinutes();
+    let bestIdx = -1;
+    let bestDist = Infinity;
+    for (const i of availableSlots) {
+      const slot = todaysSlots[i];
+      const dist = Math.abs(checkInMinutes - (slot.hour * 60 + slot.minute));
+      if (dist < bestDist) {
+        bestDist = dist;
+        bestIdx = i;
+      }
+    }
+    matchedBySlot.set(bestIdx, checkIn);
+    availableSlots.delete(bestIdx);
+  }
+
   const slots: SlotState[] = todaysSlots.map((slot, i) => {
-    const match = todaysCheckIns[i];
+    const match = matchedBySlot.get(i);
     if (match) {
       return {
         hour: slot.hour,
