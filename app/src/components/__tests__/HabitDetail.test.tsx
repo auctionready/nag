@@ -780,4 +780,54 @@ describe("HabitDetail", () => {
       expect(view.queryByText(/^\(recorded /)).toBeNull();
     });
   });
+
+  describe("footer Check-in / Skip use click-time, not render-time", () => {
+    // Regression: HabitDetail used to pass its captured-at-render `now`
+    // prop to the footer handlers. Leaving the screen open for >60s and
+    // then tapping Check-in produced a deemed `timestamp` minutes older
+    // than `createdAt` (set fresh by the DB at insert time), which
+    // tripped the back-fill threshold and rendered "(recorded …)" below
+    // an immediate check-in. Both handlers must use a fresh `new Date()`
+    // at click time.
+
+    beforeEach(() => {
+      jest.useFakeTimers();
+    });
+
+    afterEach(() => {
+      jest.useRealTimers();
+    });
+
+    it("Check-in uses fake-clock at click, not the rendered `now` prop", () => {
+      const renderTime = sundayAt(10); // matches baseProps.now
+      jest.setSystemTime(renderTime);
+      const view = render(<HabitDetail {...baseProps} />);
+
+      // Simulate the user leaving the screen open for 5 minutes — well
+      // past the 60s back-fill threshold.
+      const clickTime = new Date(2025, 5, 15, 10, 5, 0);
+      jest.setSystemTime(clickTime);
+
+      fireEvent.press(view.getByText("Check-in"));
+
+      const [called] = baseProps.onCheckInAt.mock.calls[0];
+      expect((called as Date).getTime()).toBe(clickTime.getTime());
+      expect((called as Date).getTime()).not.toBe(renderTime.getTime());
+    });
+
+    it("Skip uses fake-clock at click, not the rendered `now` prop", () => {
+      const renderTime = sundayAt(10);
+      jest.setSystemTime(renderTime);
+      const view = render(<HabitDetail {...baseProps} showSkip={true} />);
+
+      const clickTime = new Date(2025, 5, 15, 10, 5, 0);
+      jest.setSystemTime(clickTime);
+
+      fireEvent.press(view.getByText("Skip"));
+
+      const [called] = baseProps.onSkipAt.mock.calls[0];
+      expect((called as Date).getTime()).toBe(clickTime.getTime());
+      expect((called as Date).getTime()).not.toBe(renderTime.getTime());
+    });
+  });
 });
