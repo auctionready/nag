@@ -380,6 +380,62 @@ describe("HabitDetail", () => {
       fireEvent.press(view.getByLabelText("Select Wednesday"));
       expect(baseProps.onSelectDay).toHaveBeenCalledWith(null);
     });
+
+    describe("future-day navigation", () => {
+      // `now` = Wed Jun 11 2025 so Mon/Tue/Wed are past/today and
+      // Thu/Fri/Sat/Sun are future — giving us both branches in one setup.
+      const wednesdayNow = new Date(2025, 5, 11, 10);
+
+      it("does not call onSelectDay when tapping a future day cell", () => {
+        const view = render(
+          <HabitDetail
+            {...baseProps}
+            regularity="week"
+            frequency={3}
+            schedules={weeklySchedules}
+            complianceColor={complianceColors.partial}
+            now={wednesdayNow}
+          />,
+        );
+        fireEvent.press(view.getByLabelText("Select Friday"));
+        expect(baseProps.onSelectDay).not.toHaveBeenCalled();
+      });
+
+      it("marks future day cells as disabled via accessibilityState", () => {
+        const view = render(
+          <HabitDetail
+            {...baseProps}
+            regularity="week"
+            frequency={3}
+            schedules={weeklySchedules}
+            complianceColor={complianceColors.partial}
+            now={wednesdayNow}
+          />,
+        );
+        const friday = view.getByLabelText("Select Friday");
+        expect(friday.props.accessibilityState).toEqual(
+          expect.objectContaining({ disabled: true }),
+        );
+      });
+
+      it("still allows selecting today and past days in the same week", () => {
+        const view = render(
+          <HabitDetail
+            {...baseProps}
+            regularity="week"
+            frequency={3}
+            schedules={weeklySchedules}
+            complianceColor={complianceColors.partial}
+            now={wednesdayNow}
+          />,
+        );
+        // Past: Monday.
+        fireEvent.press(view.getByLabelText("Select Monday"));
+        // Today: Wednesday.
+        fireEvent.press(view.getByLabelText("Select Wednesday"));
+        expect(baseProps.onSelectDay).toHaveBeenCalledTimes(2);
+      });
+    });
   });
 
   describe("frequency-only habit (no timed schedule)", () => {

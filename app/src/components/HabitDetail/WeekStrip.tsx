@@ -1,5 +1,5 @@
 import { Pressable, StyleSheet, Text, View } from "react-native";
-import { startOfWeek, addDays } from "date-fns";
+import { startOfWeek, addDays, startOfDay, isAfter } from "date-fns";
 import { buildDayCells, dayTitles, mondayFirstDayLetters } from "@nag/core";
 import { complianceColors } from "../getComplianceColor";
 
@@ -58,6 +58,7 @@ export const WeekStrip = ({
   });
 
   const mondayThisWeek = startOfWeek(now, { weekStartsOn: 1 });
+  const todayStart = startOfDay(now);
 
   return (
     <View style={styles.container}>
@@ -67,21 +68,29 @@ export const WeekStrip = ({
           const cellDate = addDays(mondayThisWeek, i);
           const isSelected =
             selectedDay !== null && isSameCalendarDay(cellDate, selectedDay);
+          // Future days can't be navigated to — you can't check in (or skip)
+          // something that hasn't happened yet. Disable the press and mute
+          // the cell visually so the affordance is obvious.
+          const isFuture = isAfter(cellDate, todayStart);
           const dayBit = mondayFirstDayLetters[i].day;
           return (
             <Pressable
               key={i}
               style={styles.cell}
-              onPress={() => onSelectDay(isSelected ? null : cellDate)}
+              onPress={() =>
+                isFuture ? undefined : onSelectDay(isSelected ? null : cellDate)
+              }
+              disabled={isFuture}
               accessibilityRole="button"
               accessibilityLabel={`Select ${dayTitles[dayBit]}`}
-              accessibilityState={{ selected: isSelected }}
+              accessibilityState={{ selected: isSelected, disabled: isFuture }}
             >
               <View
                 style={[
                   styles.circle,
                   backgroundColor ? { backgroundColor } : styles.circleUnfilled,
                   isSelected && styles.circleSelected,
+                  isFuture && styles.circleFuture,
                 ]}
               >
                 <Text
@@ -89,6 +98,7 @@ export const WeekStrip = ({
                     styles.letter,
                     !backgroundColor && styles.letterUnfilled,
                     !scheduled && styles.letterUnscheduled,
+                    isFuture && styles.letterFuture,
                   ]}
                 >
                   {letter}
@@ -134,6 +144,9 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: "#222",
   },
+  circleFuture: {
+    opacity: 0.4,
+  },
   letter: {
     fontSize: 13,
     fontWeight: "700",
@@ -144,5 +157,8 @@ const styles = StyleSheet.create({
   },
   letterUnscheduled: {
     opacity: 0.4,
+  },
+  letterFuture: {
+    color: "#bbb",
   },
 });
