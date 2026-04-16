@@ -42,17 +42,21 @@ describe("matchCheckInsToSlots", () => {
     });
   });
 
-  describe("greedy pairing", () => {
-    it("pairs the first check-in with the first slot by time order", () => {
+  describe("nearest-slot pairing", () => {
+    it("pairs a check-in with its closest slot by time-of-day", () => {
+      // 1pm check-in is closer to noon (1h away) than to 8am (5h) or
+      // 6pm (5h) — so the noon slot is the one marked done.
       const result = matchCheckInsToSlots({
         schedules: threePerDay,
         checkIns: [{ timestamp: sunday(13), skipped: false }],
         now: sunday(14),
       });
-      expect(result.slots[0]?.status).toBe("done");
-      expect(result.slots[0]?.hour).toBe(8);
-      expect(result.slots[1]?.status).toBe("missed");
-      expect(result.slots[2]?.status).toBe("upcoming");
+      expect(result.slots.map((s) => s.status)).toEqual([
+        "missed",
+        "done",
+        "upcoming",
+      ]);
+      expect(result.slots[1]?.hour).toBe(12);
       expect(result.done).toBe(1);
     });
 
@@ -83,6 +87,50 @@ describe("matchCheckInsToSlots", () => {
       ]);
       expect(result.done).toBe(3);
       expect(result.extras).toBe(0);
+    });
+
+    it("lands a back-filled last-slot check-in on the correct slot (not the first)", () => {
+      // Regression: three scheduled slots (8am/1pm/9:30pm), user only
+      // has a check-in for the 9:30pm slot. The back-fill sets
+      // `timestamp` to the slot time, so nearest-match must put it on
+      // 9:30pm — not shift it onto 8am by chronological index.
+      const schedules: ScheduleInfo[] = [
+        { days: null, dayOfMonth: null, hour: 8, minute: 0 },
+        { days: null, dayOfMonth: null, hour: 13, minute: 0 },
+        { days: null, dayOfMonth: null, hour: 21, minute: 30 },
+      ];
+      const result = matchCheckInsToSlots({
+        schedules,
+        checkIns: [{ timestamp: sunday(21, 30), skipped: false }],
+        // End-of-day anchor — past slots read as "missed", not "upcoming".
+        now: sunday(23, 59),
+      });
+      expect(result.slots.map((s) => s.status)).toEqual([
+        "missed",
+        "missed",
+        "done",
+      ]);
+      expect(result.slots[2]?.hour).toBe(21);
+      expect(result.slots[2]?.minute).toBe(30);
+      expect(result.done).toBe(1);
+    });
+
+    it("survives removing a back-filled check-in from the middle", () => {
+      // User back-filled 8am + 9:30pm; removes the 8am. The remaining
+      // 9:30pm check-in must stay on the 9:30pm slot, not slide up to
+      // 8am (as the old index-based pairing did).
+      const schedules: ScheduleInfo[] = [
+        { days: null, dayOfMonth: null, hour: 8, minute: 0 },
+        { days: null, dayOfMonth: null, hour: 13, minute: 0 },
+        { days: null, dayOfMonth: null, hour: 21, minute: 30 },
+      ];
+      const result = matchCheckInsToSlots({
+        schedules,
+        checkIns: [{ timestamp: sunday(21, 30), skipped: false }],
+        now: sunday(23, 59),
+      });
+      expect(result.slots[0]?.status).toBe("missed");
+      expect(result.slots[2]?.status).toBe("done");
     });
   });
 
