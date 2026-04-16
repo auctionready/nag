@@ -10,7 +10,11 @@
     "test:ui": "maestro test .maestro/"
   },
   "jest": {
-    "preset": "jest-expo"
+    "preset": "jest-expo",
+    "testPathIgnorePatterns": [
+      "/node_modules/",
+      "/dist/"
+    ]
   },
   "dependencies": {
     "@nag/core": "workspace:*",

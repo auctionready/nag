@@ -12,6 +12,7 @@
     "test": "pnpm -r run test",
     "check": "concurrently -g \"pnpm typecheck\" \"pnpm lint\" \"pnpm test\"",
     "typecheck": "tsc -b",
+    "typecheck:watch": "tsc -b --watch",
     "prepare": "lefthook install"
   },
   "packageManager": "pnpm@10.33.0",

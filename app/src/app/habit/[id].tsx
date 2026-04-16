@@ -49,11 +49,15 @@ const HabitScreen = () => {
   const hasWeeklyDaysSchedule =
     goalData?.regularity === "week" &&
     schedules.some((s) => (s.days ?? 0) !== 0);
-  const selectedDay = day
-    ? parse(day, DAY_PARAM_FORMAT, new Date())
-    : hasWeeklyDaysSchedule
-      ? startOfToday()
-      : null;
+  const parsedDay = day ? parse(day, DAY_PARAM_FORMAT, new Date()) : null;
+  // Ignore a `?day=` pointing at the future — a deep link shouldn't bypass
+  // the UI guard that prevents check-in / skip on days that haven't happened.
+  const selectedDay =
+    parsedDay && parsedDay <= startOfToday()
+      ? parsedDay
+      : hasWeeklyDaysSchedule
+        ? startOfToday()
+        : null;
 
   const periodStartDate = goalData
     ? periodStart(goalData.regularity)
@@ -81,6 +85,10 @@ const HabitScreen = () => {
     : null;
 
   const handleSelectDay = (nextDay: Date | null) => {
+    // Guard against future-day selection at the route-param boundary as
+    // well as the UI; the WeekStrip already disables future cells, but
+    // this keeps a stray `?day=` URL from bypassing the guard.
+    if (nextDay && nextDay > startOfToday()) return;
     router.setParams({
       day: nextDay ? format(nextDay, DAY_PARAM_FORMAT) : undefined,
     });
