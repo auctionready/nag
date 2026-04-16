@@ -7,11 +7,14 @@
     "android": "expo run:android",
     "ios": "expo run:ios",
     "test": "jest --passWithNoTests",
-    "test:ui": "maestro test .maestro/",
-    "typecheck": "tsc --noEmit"
+    "test:ui": "maestro test .maestro/"
   },
   "jest": {
-    "preset": "jest-expo"
+    "preset": "jest-expo",
+    "testPathIgnorePatterns": [
+      "/node_modules/",
+      "/dist/"
+    ]
   },
   "dependencies": {
     "@nag/core": "workspace:*",

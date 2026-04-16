@@ -3,6 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "clean": "tsc -b --clean",
     "dev": "pnpm typecheck && pnpm lint",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
@@ -10,7 +11,8 @@
     "format:check": "prettier --check .",
     "test": "pnpm -r run test",
     "check": "concurrently -g \"pnpm typecheck\" \"pnpm lint\" \"pnpm test\"",
-    "typecheck": "pnpm -r run typecheck",
+    "typecheck": "tsc -b",
+    "typecheck:watch": "tsc -b --watch",
     "prepare": "lefthook install"
   },
   "packageManager": "pnpm@10.33.0",
