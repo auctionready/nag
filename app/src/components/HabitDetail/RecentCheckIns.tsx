@@ -1,5 +1,11 @@
 import { useState } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import {
+  LayoutAnimation,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 import { Swipeable } from "react-native-gesture-handler";
 import { format } from "date-fns";
 import { complianceColors } from "../getComplianceColor";
@@ -67,9 +73,16 @@ export const RecentCheckIns = ({
 
   const fmt = singleDay ? TIME_ONLY : FULL_FMT;
 
+  // Schedule a fade+collapse on the next layout pass so the row leaves
+  // smoothly and the rows below it slide up rather than snap.
+  const handleRemove = (id: number) => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    onRemove(id);
+  };
+
   const renderRightActions = (id: number) => (
     <Pressable
-      onPress={() => onRemove(id)}
+      onPress={() => handleRemove(id)}
       style={styles.swipeAction}
       accessibilityRole="button"
       accessibilityLabel="Remove check-in"
@@ -112,7 +125,7 @@ export const RecentCheckIns = ({
                   ]}
                   onAccessibilityAction={(e) => {
                     if (e.nativeEvent.actionName === "remove") {
-                      onRemove(item.id);
+                      handleRemove(item.id);
                     }
                   }}
                 >
