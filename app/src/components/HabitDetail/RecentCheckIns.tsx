@@ -1,5 +1,5 @@
-import { useRef, useState } from "react";
-import { Alert, Pressable, StyleSheet, Text, View } from "react-native";
+import { useState } from "react";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 import { Swipeable } from "react-native-gesture-handler";
 import { format } from "date-fns";
 import { complianceColors } from "../getComplianceColor";
@@ -39,6 +39,14 @@ const isSameCalendarDay = (a: Date, b: Date) =>
   a.getMonth() === b.getMonth() &&
   a.getDate() === b.getDate();
 
+/** Pick the shortest format that still communicates the difference. */
+const recordedFmt = (deemed: Date, recorded: Date): string => {
+  if (isSameCalendarDay(deemed, recorded)) return TIME_ONLY;
+  if (deemed.getFullYear() !== recorded.getFullYear()) return FULL_FMT;
+  if (deemed.getMonth() !== recorded.getMonth()) return "EEE, MMM d, h:mm a";
+  return "EEE d, h:mm a"; // same month+year, different day
+};
+
 /**
  * Period-scoped check-in list: the screen decides the window and title
  * (e.g. "This Week's Check-ins" / "Wednesday's Check-ins"); this component
@@ -46,8 +54,8 @@ const isSameCalendarDay = (a: Date, b: Date) =>
  * the user sees the history without an extra tap.
  *
  * Each row is swipe-left-to-reveal a Remove action (iOS-style). Tapping the
- * revealed action prompts for confirmation via `Alert`; Cancel closes the
- * row back up.
+ * revealed action immediately removes the check-in — two gestures (swipe +
+ * tap) is sufficient intent; undo will replace confirmation.
  */
 export const RecentCheckIns = ({
   checkIns,
@@ -56,28 +64,12 @@ export const RecentCheckIns = ({
   onRemove,
 }: RecentCheckInsProps) => {
   const [expanded, setExpanded] = useState(true);
-  const swipeableRefs = useRef<Map<number, Swipeable | null>>(new Map());
 
   const fmt = singleDay ? TIME_ONLY : FULL_FMT;
 
-  const handleRemovePress = (id: number) => {
-    Alert.alert("Remove Check-in", "Are you sure?", [
-      {
-        text: "Cancel",
-        style: "cancel",
-        onPress: () => swipeableRefs.current.get(id)?.close(),
-      },
-      {
-        text: "Remove",
-        style: "destructive",
-        onPress: () => onRemove(id),
-      },
-    ]);
-  };
-
   const renderRightActions = (id: number) => (
     <Pressable
-      onPress={() => handleRemovePress(id)}
+      onPress={() => onRemove(id)}
       style={styles.swipeAction}
       accessibilityRole="button"
       accessibilityLabel="Remove check-in"
@@ -107,9 +99,6 @@ export const RecentCheckIns = ({
             checkIns.map((item) => (
               <Swipeable
                 key={item.id}
-                ref={(r) => {
-                  swipeableRefs.current.set(item.id, r);
-                }}
                 friction={2}
                 rightThreshold={40}
                 overshootRight={false}
@@ -123,7 +112,7 @@ export const RecentCheckIns = ({
                   ]}
                   onAccessibilityAction={(e) => {
                     if (e.nativeEvent.actionName === "remove") {
-                      handleRemovePress(item.id);
+                      onRemove(item.id);
                     }
                   }}
                 >
@@ -135,14 +124,7 @@ export const RecentCheckIns = ({
                       (recorded{" "}
                       {format(
                         item.createdAt,
-                        // When the recording happened on a different
-                        // calendar day than the deemed slot, always show
-                        // the date — otherwise "(recorded 10:00 AM)" below
-                        // an 8 AM slot hides the fact that recording
-                        // happened on a later day.
-                        isSameCalendarDay(item.timestamp, item.createdAt)
-                          ? fmt
-                          : FULL_FMT,
+                        recordedFmt(item.timestamp, item.createdAt),
                       )}
                       )
                     </Text>

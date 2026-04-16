@@ -1,4 +1,4 @@
-import { act, render, fireEvent } from "@testing-library/react-native";
+import { render, fireEvent } from "@testing-library/react-native";
 import { Alert } from "react-native";
 import type { ScheduleInfo } from "@nag/core";
 import { Day } from "@nag/core";
@@ -640,50 +640,18 @@ describe("HabitDetail", () => {
       },
     ];
 
-    beforeEach(() => {
-      jest.spyOn(Alert, "alert");
-    });
-
-    describe("when Remove is pressed", () => {
-      it("calls onRemoveCheckIn with the check-in id", () => {
-        const view = render(
-          <HabitDetail
-            {...baseProps}
-            regularity="day"
-            frequency={1}
-            checkIns={checkIns}
-          />,
-        );
-        expect(view.getByText("(skipped)")).toBeTruthy();
-        fireEvent.press(view.getAllByText("Remove")[0]);
-        expect(Alert.alert).toHaveBeenCalledWith(
-          "Remove Check-in",
-          "Are you sure?",
-          expect.any(Array),
-        );
-        const buttons = (Alert.alert as jest.Mock).mock.calls[0][2];
-        buttons.find((b: { text: string }) => b.text === "Remove").onPress();
-        expect(baseProps.onRemoveCheckIn).toHaveBeenCalledWith(1);
-      });
-
-      it("does not call onRemoveCheckIn when Cancel is tapped in the Alert", () => {
-        const view = render(
-          <HabitDetail
-            {...baseProps}
-            regularity="day"
-            frequency={1}
-            checkIns={checkIns}
-          />,
-        );
-        fireEvent.press(view.getAllByText("Remove")[0]);
-        const buttons = (Alert.alert as jest.Mock).mock.calls[0][2];
-        // Cancel closes the Swipeable (state update) — wrap in act() so
-        // React doesn't warn about updates outside an act scope.
-        act(() => {
-          buttons.find((b: { text: string }) => b.text === "Cancel").onPress();
-        });
-        expect(baseProps.onRemoveCheckIn).not.toHaveBeenCalled();
-      });
+    it("calls onRemoveCheckIn immediately when the swipe action is tapped", () => {
+      const view = render(
+        <HabitDetail
+          {...baseProps}
+          regularity="day"
+          frequency={1}
+          checkIns={checkIns}
+        />,
+      );
+      expect(view.getByText("(skipped)")).toBeTruthy();
+      fireEvent.press(view.getAllByText("Remove")[0]);
+      expect(baseProps.onRemoveCheckIn).toHaveBeenCalledWith(1);
     });
   });
 
@@ -698,20 +666,9 @@ describe("HabitDetail", () => {
       },
     ];
 
-    it("shows (recorded …) in time-only format when scope is a single day", () => {
-      const view = render(
-        <HabitDetail
-          {...baseProps}
-          regularity="day"
-          frequency={1}
-          checkIns={backFilled}
-        />,
-      );
-      expect(view.getByText("8:00 AM")).toBeTruthy();
-      expect(view.getByText("(recorded 10:00 AM)")).toBeTruthy();
-    });
-
-    it("shows (recorded …) in full format when scope is a period", () => {
+    it("shows time-only on (recorded …) when same calendar day as the slot", () => {
+      // Same-day back-fill: slot at 8 AM, recorded at 10 AM. The day is
+      // already shown (or implied by the title) — only the time differs.
       const view = render(
         <HabitDetail
           {...baseProps}
@@ -721,16 +678,11 @@ describe("HabitDetail", () => {
         />,
       );
       expect(view.getByText("Sun, Jun 15, 2025 8:00 AM")).toBeTruthy();
-      expect(
-        view.getByText("(recorded Sun, Jun 15, 2025 10:00 AM)"),
-      ).toBeTruthy();
+      expect(view.getByText("(recorded 10:00 AM)")).toBeTruthy();
     });
 
-    it("uses full format on (recorded …) when recorded on a different day, even under single-day scope", () => {
-      // Slot on Sun Jun 15 at 8 AM, actually recorded Mon Jun 16 at 10 AM.
-      // The list ("Today's Check-ins") still shows just "8:00 AM" for the
-      // slot, but "(recorded …)" needs the date so the user can see the
-      // recording happened a day later — not the same morning.
+    it("omits month/year on (recorded …) when same month+year, different day", () => {
+      // Slot Sun Jun 15, recorded Mon Jun 16 — same month so month is implied.
       const laterDay = [
         {
           id: 1,
@@ -748,8 +700,48 @@ describe("HabitDetail", () => {
         />,
       );
       expect(view.getByText("8:00 AM")).toBeTruthy();
+      expect(view.getByText("(recorded Mon 16, 10:00 AM)")).toBeTruthy();
+    });
+
+    it("omits year on (recorded …) when same year, different month", () => {
+      const diffMonth = [
+        {
+          id: 1,
+          timestamp: sundayAt(8),
+          createdAt: new Date(2025, 6, 2, 10, 0), // Jul 2
+          skipped: null as boolean | null,
+        },
+      ];
+      const view = render(
+        <HabitDetail
+          {...baseProps}
+          regularity="day"
+          frequency={1}
+          checkIns={diffMonth}
+        />,
+      );
+      expect(view.getByText("(recorded Wed, Jul 2, 10:00 AM)")).toBeTruthy();
+    });
+
+    it("shows full date on (recorded …) when different year", () => {
+      const diffYear = [
+        {
+          id: 1,
+          timestamp: sundayAt(8),
+          createdAt: new Date(2026, 0, 5, 10, 0), // Jan 5 2026
+          skipped: null as boolean | null,
+        },
+      ];
+      const view = render(
+        <HabitDetail
+          {...baseProps}
+          regularity="day"
+          frequency={1}
+          checkIns={diffYear}
+        />,
+      );
       expect(
-        view.getByText("(recorded Mon, Jun 16, 2025 10:00 AM)"),
+        view.getByText("(recorded Mon, Jan 5, 2026 10:00 AM)"),
       ).toBeTruthy();
     });
 
