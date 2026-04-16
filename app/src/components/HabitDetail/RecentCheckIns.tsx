@@ -34,6 +34,11 @@ const BACKFILL_THRESHOLD_MS = 60_000;
 const wasBackFilled = (ts: Date, createdAt: Date) =>
   Math.abs(createdAt.getTime() - ts.getTime()) >= BACKFILL_THRESHOLD_MS;
 
+const isSameCalendarDay = (a: Date, b: Date) =>
+  a.getFullYear() === b.getFullYear() &&
+  a.getMonth() === b.getMonth() &&
+  a.getDate() === b.getDate();
+
 /**
  * Period-scoped check-in list: the screen decides the window and title
  * (e.g. "This Week's Check-ins" / "Wednesday's Check-ins"); this component
@@ -127,7 +132,19 @@ export const RecentCheckIns = ({
                   </Text>
                   {wasBackFilled(item.timestamp, item.createdAt) && (
                     <Text style={styles.recordedLabel}>
-                      (recorded {format(item.createdAt, fmt)})
+                      (recorded{" "}
+                      {format(
+                        item.createdAt,
+                        // When the recording happened on a different
+                        // calendar day than the deemed slot, always show
+                        // the date — otherwise "(recorded 10:00 AM)" below
+                        // an 8 AM slot hides the fact that recording
+                        // happened on a later day.
+                        isSameCalendarDay(item.timestamp, item.createdAt)
+                          ? fmt
+                          : FULL_FMT,
+                      )}
+                      )
                     </Text>
                   )}
                   {item.skipped && (
