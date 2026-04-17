@@ -1,0 +1,44 @@
+name: Deploy VPS (callable)
+
+on:
+  workflow_call:
+    inputs:
+      branch:
+        description: Branch to deploy on the VPS
+        required: true
+        type: string
+
+concurrency:
+  group: deploy-vps
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Validate branch name
+        env:
+          BRANCH: ${{ inputs.branch }}
+        run: |
+          # Refuse anything outside the conservative set git allows without
+          # quoting, so we can pass the branch through ssh safely.
+          case "$BRANCH" in
+            ''|*[!A-Za-z0-9._/-]*)
+              echo "Invalid branch name: $BRANCH" >&2
+              exit 1
+              ;;
+          esac
+
+      - name: Trigger VPS deploy
+        env:
+          SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          BRANCH: ${{ inputs.branch }}
+        run: |
+          install -m 600 /dev/null /tmp/key
+          echo "$SSH_KEY" > /tmp/key
+          ssh -o StrictHostKeyChecking=accept-new -i /tmp/key \
+            nag@"$VPS_HOST" \
+            "~/nag/ops/deploy.sh $BRANCH"
+          rm /tmp/key
