@@ -5,12 +5,14 @@ import {
   habitById,
   goalForHabitFull,
   checkInsForHabit,
+  checkInsForHabitsOnDay,
   calendarCheckIns,
   goalForHabit,
   checkInCount,
   recentCheckIns,
   checkInsInPeriod,
   schedulesForGoal,
+  schedulesForHabits,
   habitsByIds,
 } from "../queries";
 import { subDays } from "date-fns";
@@ -423,6 +425,135 @@ describe("recentCheckIns edge cases", () => {
       .values({ title: "None" })
       .returning();
     const rows = await recentCheckIns(db, h.id);
+    expect(rows).toHaveLength(0);
+  });
+});
+
+describe("checkInsForHabitsOnDay", () => {
+  const at = (h: number, m = 0) => {
+    const d = new Date();
+    return new Date(d.getFullYear(), d.getMonth(), d.getDate(), h, m);
+  };
+  const dayStart = () => {
+    const d = new Date();
+    return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  };
+  const dayEnd = () => {
+    const d = dayStart();
+    return new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1);
+  };
+
+  it("returns today's check-ins for the given habits, chronologically", async () => {
+    const db = getDb();
+    const [a] = await db
+      .insert(schema.habit)
+      .values({ title: "A" })
+      .returning();
+    const [b] = await db
+      .insert(schema.habit)
+      .values({ title: "B" })
+      .returning();
+    const [c] = await db
+      .insert(schema.habit)
+      .values({ title: "C" })
+      .returning();
+    await db.insert(schema.checkIn).values({ habitId: a.id, timestamp: at(9) });
+    await db.insert(schema.checkIn).values({ habitId: b.id, timestamp: at(7) });
+    // Not in the query set:
+    await db.insert(schema.checkIn).values({ habitId: c.id, timestamp: at(8) });
+    // Yesterday:
+    const yesterday = subDays(at(12), 1);
+    await db
+      .insert(schema.checkIn)
+      .values({ habitId: a.id, timestamp: yesterday });
+
+    const rows = await checkInsForHabitsOnDay(
+      db,
+      [a.id, b.id],
+      dayStart(),
+      dayEnd(),
+    );
+    expect(rows).toHaveLength(2);
+    expect(rows[0].habitId).toBe(b.id);
+    expect(rows[0].timestamp.getHours()).toBe(7);
+    expect(rows[1].habitId).toBe(a.id);
+    expect(rows[1].timestamp.getHours()).toBe(9);
+    expect(rows[0].skipped).toBe(false);
+  });
+
+  it("returns skipped flag", async () => {
+    const db = getDb();
+    const [a] = await db
+      .insert(schema.habit)
+      .values({ title: "A" })
+      .returning();
+    await db
+      .insert(schema.checkIn)
+      .values({ habitId: a.id, timestamp: at(10), skipped: true });
+
+    const [row] = await checkInsForHabitsOnDay(
+      db,
+      [a.id],
+      dayStart(),
+      dayEnd(),
+    );
+    expect(row.skipped).toBe(true);
+  });
+
+  it("returns nothing for empty habit list", async () => {
+    const db = getDb();
+    const [a] = await db
+      .insert(schema.habit)
+      .values({ title: "A" })
+      .returning();
+    await db.insert(schema.checkIn).values({ habitId: a.id, timestamp: at(8) });
+
+    const rows = await checkInsForHabitsOnDay(db, [], dayStart(), dayEnd());
+    expect(rows).toHaveLength(0);
+  });
+});
+
+describe("schedulesForHabits", () => {
+  it("returns all schedules for the given habits, keyed by habitId", async () => {
+    const db = getDb();
+    const [a] = await db
+      .insert(schema.habit)
+      .values({ title: "A" })
+      .returning();
+    const [b] = await db
+      .insert(schema.habit)
+      .values({ title: "B" })
+      .returning();
+    const [ga] = await db
+      .insert(schema.goal)
+      .values({ habitId: a.id, regularity: "day", frequency: 1 })
+      .returning();
+    const [gb] = await db
+      .insert(schema.goal)
+      .values({ habitId: b.id, regularity: "day", frequency: 1 })
+      .returning();
+    await db
+      .insert(schema.schedule)
+      .values({ goalId: ga.id, hour: 7, minute: 30 });
+    await db
+      .insert(schema.schedule)
+      .values({ goalId: ga.id, hour: 20, minute: 0 });
+    await db
+      .insert(schema.schedule)
+      .values({ goalId: gb.id, hour: 12, minute: 0 });
+
+    const rows = await schedulesForHabits(db, [a.id, b.id]);
+    expect(rows).toHaveLength(3);
+    const aRows = rows.filter((r) => r.habitId === a.id);
+    expect(aRows).toHaveLength(2);
+    const bRows = rows.filter((r) => r.habitId === b.id);
+    expect(bRows).toHaveLength(1);
+    expect(bRows[0].hour).toBe(12);
+  });
+
+  it("returns empty for empty habit list", async () => {
+    const db = getDb();
+    const rows = await schedulesForHabits(db, []);
     expect(rows).toHaveLength(0);
   });
 });

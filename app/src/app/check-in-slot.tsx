@@ -1,9 +1,19 @@
-import { useCallback, useState } from "react";
+import { useCallback, useMemo } from "react";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useLiveQuery } from "drizzle-orm/expo-sqlite";
 import { db } from "../db";
-import { habitsByIds, processCommand } from "@nag/core";
+import {
+  checkInsForHabitsOnDay,
+  habitsByIds,
+  matchCheckInsToSlots,
+  processCommand,
+  schedulesForHabits,
+  type SlotState,
+} from "@nag/core";
 import { SlotCheckIn, type SlotCheckInItem } from "../components/SlotCheckIn";
+
+const startOfDay = (d: Date) =>
+  new Date(d.getFullYear(), d.getMonth(), d.getDate());
 
 const CheckInSlotScreen = () => {
   const { habitIds: rawIds } = useLocalSearchParams<{ habitIds: string }>();
@@ -13,11 +23,24 @@ const CheckInSlotScreen = () => {
     .map(Number)
     .filter((n) => !isNaN(n) && n > 0);
 
-  const { data: habits } = useLiveQuery(habitsByIds(db, habitIds), [rawIds]);
+  // Freeze `now` for the lifetime of the screen so the day-range passed
+  // to `useLiveQuery` is stable — otherwise every render would re-prepare
+  // the query with a new `Date`.
+  const { now, dayStart, dayEnd } = useMemo(() => {
+    const n = new Date();
+    const s = startOfDay(n);
+    const e = new Date(s.getFullYear(), s.getMonth(), s.getDate() + 1);
+    return { now: n, dayStart: s, dayEnd: e };
+  }, []);
 
-  const [actioned, setActioned] = useState<
-    Record<number, "checkedIn" | "skipped">
-  >({});
+  const { data: habits } = useLiveQuery(habitsByIds(db, habitIds), [rawIds]);
+  const { data: checkIns } = useLiveQuery(
+    checkInsForHabitsOnDay(db, habitIds, dayStart, dayEnd),
+    [rawIds],
+  );
+  const { data: schedules } = useLiveQuery(schedulesForHabits(db, habitIds), [
+    rawIds,
+  ]);
 
   const handleCheckIn = useCallback(async (habitId: number) => {
     await processCommand(db, {
@@ -25,7 +48,6 @@ const CheckInSlotScreen = () => {
       habitId,
       timestamp: new Date(),
     });
-    setActioned((prev) => ({ ...prev, [habitId]: "checkedIn" }));
   }, []);
 
   const handleSkip = useCallback(async (habitId: number) => {
@@ -35,19 +57,30 @@ const CheckInSlotScreen = () => {
       timestamp: new Date(),
       skipped: true,
     });
-    setActioned((prev) => ({ ...prev, [habitId]: "skipped" }));
   }, []);
 
   const handleDone = useCallback(() => {
     router.replace("/(tabs)");
   }, [router]);
 
-  const items: SlotCheckInItem[] = (habits ?? []).map((h) => ({
-    id: h.id,
-    title: h.title,
-    checkedIn: actioned[h.id] === "checkedIn",
-    skipped: actioned[h.id] === "skipped",
-  }));
+  const items: SlotCheckInItem[] = (habits ?? []).map((h) => {
+    const habitSchedules = (schedules ?? []).filter((s) => s.habitId === h.id);
+    const habitCheckIns = (checkIns ?? [])
+      .filter((c) => c.habitId === h.id)
+      .map((c) => ({ timestamp: c.timestamp, skipped: c.skipped }));
+    const { slots } = matchCheckInsToSlots({
+      schedules: habitSchedules,
+      checkIns: habitCheckIns,
+      now,
+    });
+    const slot = nearestSlot(slots, now);
+    return {
+      id: h.id,
+      title: h.title,
+      checkedIn: slot?.status === "done",
+      skipped: slot?.status === "skipped",
+    };
+  });
 
   return (
     <SlotCheckIn
@@ -57,6 +90,16 @@ const CheckInSlotScreen = () => {
       onDone={handleDone}
     />
   );
+};
+
+const nearestSlot = (slots: SlotState[], now: Date): SlotState | undefined => {
+  if (slots.length === 0) return undefined;
+  const nowMins = now.getHours() * 60 + now.getMinutes();
+  return slots.reduce((best, s) => {
+    const d = Math.abs(s.hour * 60 + s.minute - nowMins);
+    const bd = Math.abs(best.hour * 60 + best.minute - nowMins);
+    return d < bd ? s : best;
+  });
 };
 
 export default CheckInSlotScreen;

@@ -40,8 +40,10 @@ export {
   recentCheckIns,
   checkInsInPeriod,
   checkInsForHabit,
+  checkInsForHabitsOnDay,
   calendarCheckIns,
   schedulesForHabit,
+  schedulesForHabits,
   schedulesForGoal,
   allActiveSchedules,
 } from "./queries";

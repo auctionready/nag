@@ -1,4 +1,4 @@
-import { and, count, desc, eq, gte, inArray } from "drizzle-orm";
+import { and, asc, count, desc, eq, gte, inArray, lt } from "drizzle-orm";
 import { checkIn, goal, habit, schedule } from "@nag/schema";
 import type { AnyDb } from "./db";
 
@@ -117,6 +117,50 @@ export function habitsByIds(db: AnyDb, habitIds: number[]) {
     .select({ id: habit.id, title: habit.title })
     .from(habit)
     .where(inArray(habit.id, habitIds.length > 0 ? habitIds : [-1]));
+}
+
+/**
+ * All check-ins for a set of habits whose deemed `timestamp` falls in
+ * `[dayStart, dayEnd)`. Returned chronologically — the order
+ * `matchCheckInsToSlots` expects.
+ */
+export function checkInsForHabitsOnDay(
+  db: AnyDb,
+  habitIds: number[],
+  dayStart: Date,
+  dayEnd: Date,
+) {
+  const ids = habitIds.length > 0 ? habitIds : [-1];
+  return db
+    .select({
+      habitId: checkIn.habitId,
+      timestamp: checkIn.timestamp,
+      skipped: checkIn.skipped,
+    })
+    .from(checkIn)
+    .where(
+      and(
+        inArray(checkIn.habitId, ids),
+        gte(checkIn.timestamp, dayStart),
+        lt(checkIn.timestamp, dayEnd),
+      ),
+    )
+    .orderBy(asc(checkIn.timestamp));
+}
+
+export function schedulesForHabits(db: AnyDb, habitIds: number[]) {
+  const ids = habitIds.length > 0 ? habitIds : [-1];
+  return db
+    .select({
+      habitId: goal.habitId,
+      hour: schedule.hour,
+      minute: schedule.minute,
+      days: schedule.days,
+      dayOfMonth: schedule.dayOfMonth,
+    })
+    .from(schedule)
+    .innerJoin(goal, eq(schedule.goalId, goal.id))
+    .where(inArray(goal.habitId, ids));
 }
 
 export function schedulesForHabit(db: AnyDb, habitId: number) {
