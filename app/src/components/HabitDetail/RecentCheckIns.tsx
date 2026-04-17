@@ -6,11 +6,7 @@ import {
   Text,
   View,
 } from "react-native";
-import {
-  Gesture,
-  GestureDetector,
-  Swipeable,
-} from "react-native-gesture-handler";
+import { Swipeable } from "react-native-gesture-handler";
 import { format } from "date-fns";
 import { complianceColors } from "../getComplianceColor";
 
@@ -65,14 +61,9 @@ const recordedFmt = (deemed: Date, recorded: Date): string => {
 };
 
 /**
- * Period-scoped check-in list: the screen decides the window and title
- * (e.g. "This Week's Check-ins" / "Wednesday's Check-ins"); this component
- * just renders the list with a collapsible header. Expanded by default so
- * the user sees the history without an extra tap.
- *
- * Each row is swipe-left-to-reveal a Remove action (iOS-style). Tapping the
- * revealed action immediately removes the check-in — two gestures (swipe +
- * tap) is sufficient intent; undo will replace confirmation.
+ * Period-scoped check-in list. Each row supports two swipe actions:
+ *   • Swipe left  → Remove (red)
+ *   • Swipe right → Edit   (blue, only when onEditTimestamp is wired)
  */
 export const RecentCheckIns = ({
   checkIns,
@@ -85,8 +76,6 @@ export const RecentCheckIns = ({
 
   const fmt = singleDay ? TIME_ONLY : FULL_FMT;
 
-  // Schedule a fade+collapse on the next layout pass so the row leaves
-  // smoothly and the rows below it slide up rather than snap.
   const handleRemove = (id: number) => {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     onRemove(id);
@@ -95,13 +84,27 @@ export const RecentCheckIns = ({
   const renderRightActions = (id: number) => (
     <Pressable
       onPress={() => handleRemove(id)}
-      style={styles.swipeAction}
+      style={styles.removeAction}
       accessibilityRole="button"
       accessibilityLabel="Remove check-in"
     >
       <Text style={styles.swipeActionText}>Remove</Text>
     </Pressable>
   );
+
+  const renderLeftActions = (id: number, timestamp: Date) => {
+    if (!onEditTimestamp) return null;
+    return (
+      <Pressable
+        onPress={() => onEditTimestamp(id, timestamp)}
+        style={styles.editAction}
+        accessibilityRole="button"
+        accessibilityLabel="Edit check-in"
+      >
+        <Text style={styles.swipeActionText}>Edit</Text>
+      </Pressable>
+    );
+  };
 
   return (
     <View style={styles.container}>
@@ -121,70 +124,64 @@ export const RecentCheckIns = ({
           {checkIns.length === 0 ? (
             <Text style={styles.emptyText}>No check-ins yet</Text>
           ) : (
-            checkIns.map((item) => {
-              const longPress = Gesture.LongPress()
-                .minDuration(500)
-                .enabled(onEditTimestamp != null)
-                .onStart(() => {
-                  onEditTimestamp?.(item.id, item.timestamp);
-                });
-
-              return (
-                <Swipeable
-                  key={item.id}
-                  friction={2}
-                  rightThreshold={40}
-                  overshootRight={false}
-                  renderRightActions={() => renderRightActions(item.id)}
-                  containerStyle={styles.swipeContainer}
+            checkIns.map((item) => (
+              <Swipeable
+                key={item.id}
+                friction={2}
+                leftThreshold={40}
+                rightThreshold={40}
+                overshootLeft={false}
+                overshootRight={false}
+                renderLeftActions={() =>
+                  renderLeftActions(item.id, item.timestamp)
+                }
+                renderRightActions={() => renderRightActions(item.id)}
+                containerStyle={styles.swipeContainer}
+              >
+                <View
+                  style={styles.row}
+                  accessibilityActions={[
+                    { name: "remove", label: "Remove check-in" },
+                    ...(onEditTimestamp
+                      ? [{ name: "edit", label: "Edit check-in time" }]
+                      : []),
+                  ]}
+                  onAccessibilityAction={(e) => {
+                    if (e.nativeEvent.actionName === "remove") {
+                      handleRemove(item.id);
+                    } else if (e.nativeEvent.actionName === "edit") {
+                      onEditTimestamp?.(item.id, item.timestamp);
+                    }
+                  }}
                 >
-                  <GestureDetector gesture={longPress}>
-                    <View
-                      style={styles.row}
-                      accessibilityActions={[
-                        { name: "remove", label: "Remove check-in" },
-                        ...(onEditTimestamp
-                          ? [{ name: "edit", label: "Edit check-in time" }]
-                          : []),
-                      ]}
-                      onAccessibilityAction={(e) => {
-                        if (e.nativeEvent.actionName === "remove") {
-                          handleRemove(item.id);
-                        } else if (e.nativeEvent.actionName === "edit") {
-                          onEditTimestamp?.(item.id, item.timestamp);
-                        }
-                      }}
-                    >
-                      <Text style={styles.timestamp}>
-                        {format(item.timestamp, fmt)}
-                      </Text>
-                      {wasEdited(item.createdAt, item.updatedAt) ? (
-                        <Text style={styles.recordedLabel}>
-                          (edited{" "}
-                          {format(
-                            item.updatedAt,
-                            recordedFmt(item.timestamp, item.updatedAt),
-                          )}
-                          )
-                        </Text>
-                      ) : wasBackFilled(item.timestamp, item.createdAt) ? (
-                        <Text style={styles.recordedLabel}>
-                          (recorded{" "}
-                          {format(
-                            item.createdAt,
-                            recordedFmt(item.timestamp, item.createdAt),
-                          )}
-                          )
-                        </Text>
-                      ) : null}
-                      {item.skipped && (
-                        <Text style={styles.skippedLabel}>(skipped)</Text>
+                  <Text style={styles.timestamp}>
+                    {format(item.timestamp, fmt)}
+                  </Text>
+                  {wasEdited(item.createdAt, item.updatedAt) ? (
+                    <Text style={styles.recordedLabel}>
+                      (edited{" "}
+                      {format(
+                        item.updatedAt,
+                        recordedFmt(item.timestamp, item.updatedAt),
                       )}
-                    </View>
-                  </GestureDetector>
-                </Swipeable>
-              );
-            })
+                      )
+                    </Text>
+                  ) : wasBackFilled(item.timestamp, item.createdAt) ? (
+                    <Text style={styles.recordedLabel}>
+                      (recorded{" "}
+                      {format(
+                        item.createdAt,
+                        recordedFmt(item.timestamp, item.createdAt),
+                      )}
+                      )
+                    </Text>
+                  ) : null}
+                  {item.skipped && (
+                    <Text style={styles.skippedLabel}>(skipped)</Text>
+                  )}
+                </View>
+              </Swipeable>
+            ))
           )}
         </View>
       )}
@@ -221,15 +218,14 @@ const styles = StyleSheet.create({
     textAlign: "center",
     paddingVertical: 12,
   },
-  // Divider lives on the Swipeable container so it spans across both the row
-  // and the revealed action.
+  // Divider lives on the Swipeable container so it spans both the row content
+  // and any revealed action panels.
   swipeContainer: {
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: "#e0e0e0",
   },
   row: {
-    // Opaque so the red action behind the row doesn't bleed through while
-    // swiping.
+    // Opaque so action colours don't bleed through while swiping.
     backgroundColor: "#fff",
     paddingVertical: 12,
   },
@@ -242,7 +238,13 @@ const styles = StyleSheet.create({
     color: "#777",
     marginTop: 2,
   },
-  swipeAction: {
+  editAction: {
+    justifyContent: "center",
+    alignItems: "center",
+    width: 88,
+    backgroundColor: "#007AFF",
+  },
+  removeAction: {
     justifyContent: "center",
     alignItems: "center",
     width: 88,
