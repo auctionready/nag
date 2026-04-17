@@ -13,6 +13,7 @@ import { useHabitGoalSummary } from "./useHabitGoalSummary";
 import { useHabitCompliance } from "./useHabitCompliance";
 import { HabitTileView } from "./HabitTileView";
 import { computeRingProgress } from "./computeRingProgress";
+import type { PeriodIndicatorsProps } from "./PeriodIndicators";
 
 interface HabitTileProps {
   id: number;
@@ -52,6 +53,7 @@ export const HabitTile = ({ id, title }: HabitTileProps) => {
   const effectivePartialMask = hasSchedule ? partialDaysMask : 0;
 
   const now = new Date();
+  const isMonthly = goal?.regularity === "month";
 
   const todayColor =
     hasSchedule && !isOffDay
@@ -63,6 +65,20 @@ export const HabitTile = ({ id, title }: HabitTileProps) => {
           },
           complianceColors,
         )
+      : undefined;
+
+  const periodIndicators: PeriodIndicatorsProps | undefined = isMonthly
+    ? { regularity: "month", checkIns: periodCheckIns, now }
+    : effectiveScheduledMask
+      ? {
+          regularity: "week",
+          scheduledDaysMask: effectiveScheduledMask,
+          checkedInDaysMask: effectiveCheckedInMask,
+          partialDaysMask: effectivePartialMask,
+          todayColor: hasSchedule ? todayColor : undefined,
+          partialColor: hasSchedule ? complianceColors.partial : undefined,
+          missedColor: hasSchedule ? complianceColors.failing : undefined,
+        }
       : undefined;
 
   const ringProgress = computeRingProgress({
@@ -97,12 +113,7 @@ export const HabitTile = ({ id, title }: HabitTileProps) => {
       color={isOffDay ? "#8E8E93" : trafficColor}
       ringProgress={isOffDay ? 0 : ringProgress}
       isOffDay={isOffDay}
-      scheduledDaysMask={effectiveScheduledMask}
-      checkedInDaysMask={effectiveCheckedInMask}
-      partialDaysMask={effectivePartialMask}
-      todayColor={hasSchedule ? todayColor : undefined}
-      partialColor={hasSchedule ? complianceColors.partial : undefined}
-      missedColor={hasSchedule ? complianceColors.failing : undefined}
+      periodIndicators={periodIndicators}
       onPress={handlePress}
       onCheckIn={handleCheckIn}
     />

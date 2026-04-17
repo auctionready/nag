@@ -1,0 +1,39 @@
+import { DayIndicators } from "./DayIndicators";
+import { MonthIndicators } from "./MonthIndicators";
+
+type WeeklyPeriodIndicatorsProps = {
+  regularity: "day" | "week";
+  scheduledDaysMask?: number;
+  checkedInDaysMask?: number;
+  partialDaysMask?: number;
+  todayColor?: string;
+  partialColor?: string;
+  missedColor?: string;
+};
+
+type MonthlyPeriodIndicatorsProps = {
+  regularity: "month";
+  checkIns: { timestamp: Date }[];
+  now?: Date;
+};
+
+export type PeriodIndicatorsProps =
+  | WeeklyPeriodIndicatorsProps
+  | MonthlyPeriodIndicatorsProps;
+
+export const PeriodIndicators = (props: PeriodIndicatorsProps) => {
+  if (props.regularity === "month") {
+    return <MonthIndicators checkIns={props.checkIns} now={props.now} />;
+  }
+  if (!props.scheduledDaysMask) return null;
+  return (
+    <DayIndicators
+      scheduledDaysMask={props.scheduledDaysMask}
+      checkedInDaysMask={props.checkedInDaysMask ?? 0}
+      partialDaysMask={props.partialDaysMask}
+      todayColor={props.todayColor}
+      partialColor={props.partialColor}
+      missedColor={props.missedColor}
+    />
+  );
+};

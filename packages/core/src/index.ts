@@ -7,6 +7,7 @@ export {
   type BuildDayCellsInput,
   type SlotCompletion,
 } from "./dayCells";
+export { buildMonthCells, type MonthDayCell } from "./monthCells";
 export {
   type ComplianceColors,
   type ScheduleInfo,
