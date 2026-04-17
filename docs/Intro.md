@@ -167,6 +167,6 @@ detail's week strip use a tri-state classifier
 
 - [Model](./Model.md) — schema and entity relationships.
 - [Dev Server Hosting](./DevServerHosting.md) — running the Expo dev
-  server on a VPS behind Caddy with systemd auto-deploy.
+  server on a VPS behind Caddy or nginx, deployed on CI success.
 - [`CLAUDE.md`](../CLAUDE.md) — project conventions, coding style, tooling,
   and AI-agent workflow.

@@ -2,19 +2,18 @@
 
 For remote-device testing we run the Expo dev server on a VPS with a
 fixed IP. A reverse proxy (nginx or Caddy) fronts Metro with TLS and
-WebSocket upgrades; a pair of systemd **user** units keeps Metro alive
-and polls GitHub every couple of minutes so pushes deploy themselves.
-No ngrok, no Railway, no CI hop.
+WebSocket upgrades; a systemd **user** unit keeps Metro alive, and a
+GitHub Actions workflow SSHes in after CI passes to deploy the latest
+commit. No ngrok, no Railway.
 
 ## How it works
 
 - **`nag-expo.service`** ([`ops/nag-expo.service`](../ops/nag-expo.service))
   runs `pnpm --filter @nag/app exec expo start --dev-client --port 8081`.
   Restarts on failure.
-- **`nag-deploy.timer`** ([`ops/nag-deploy.timer`](../ops/nag-deploy.timer))
-  fires every two minutes. It triggers **`nag-deploy.service`**
-  ([`ops/nag-deploy.service`](../ops/nag-deploy.service)), which runs
-  [`ops/deploy.sh`](../ops/deploy.sh):
+- **`deploy-vps.yml`** ([`.github/workflows/deploy-vps.yml`](../.github/workflows/deploy-vps.yml))
+  fires after the CI workflow succeeds. It SSHes into the VPS as `nag`
+  and runs [`ops/deploy.sh`](../ops/deploy.sh):
   1. Verify `origin/$NAG_BRANCH` exists (guards against typos).
   2. `git fetch origin $NAG_BRANCH`.
   3. Verify the target commit contains `ops/deploy.sh` (refuses to
@@ -163,24 +162,19 @@ $EDITOR ~/.config/nag/deploy.env   # set NAG_BRANCH
 > reach. Do **not** set `CI=1` — it puts Metro in non-watch mode and
 > kills the bundler cache.
 
-### 8. Install and start the systemd user units
+### 8. Install and start the systemd user unit
 
 ```bash
 mkdir -p ~/.config/systemd/user
-ln -sf ~/nag/ops/nag-expo.service    ~/.config/systemd/user/
-ln -sf ~/nag/ops/nag-deploy.service  ~/.config/systemd/user/
-ln -sf ~/nag/ops/nag-deploy.timer    ~/.config/systemd/user/
+ln -sf ~/nag/ops/nag-expo.service  ~/.config/systemd/user/
 systemctl --user daemon-reload
 systemctl --user enable --now nag-expo.service
-systemctl --user enable --now nag-deploy.timer
-systemctl --user list-unit-files 'nag-*'   # all three should say "enabled"
 ```
 
 Tail the logs:
 
 ```bash
 journalctl --user -u nag-expo.service -f
-journalctl --user -u nag-deploy.service -f
 ```
 
 ### 9. Put a reverse proxy in front of Metro (as root)
@@ -252,13 +246,19 @@ Let's Encrypt cert automatically.
 3. Metro bundles and the app loads. First bundle is slow (cold
    cache); incremental rebuilds are quick.
 
-## GitHub Actions auto-deploy (optional)
+## GitHub Actions auto-deploy
 
-By default the VPS polls every 2 minutes via the systemd timer. If
-you want near-instant deploys after CI passes, the
-[`deploy-vps.yml`](../.github/workflows/deploy-vps.yml) workflow
-SSHes into the VPS and runs `deploy.sh` whenever the CI workflow
-succeeds.
+Three workflows cooperate:
+
+- [`deploy-vps-callable.yml`](../.github/workflows/deploy-vps-callable.yml)
+  is a reusable workflow that SSHes into the VPS and runs
+  `ops/deploy.sh <branch>`. It's not triggered directly.
+- [`deploy-vps.yml`](../.github/workflows/deploy-vps.yml) fires after
+  CI succeeds on `main` and calls the callable with `branch: main`.
+- [`deploy-vps-manual.yml`](../.github/workflows/deploy-vps-manual.yml)
+  is a `workflow_dispatch` trigger that asks for a branch name and
+  calls the callable with that branch. Use it from the Actions tab to
+  deploy a feature branch.
 
 ### One-time setup
 
@@ -280,32 +280,32 @@ succeeds.
    | `VPS_SSH_KEY` | The private key printed above (entire contents) |
    | `VPS_HOST`    | Your VPS's public IP or hostname                |
 
-3. Push a commit. CI runs; if all three jobs pass,
-   `deploy-vps.yml` fires, SSHs in as `nag`, and runs `deploy.sh`.
-   The timer keeps running as a fallback if the SSH connection fails.
+3. Push a commit to `main`. CI runs; if all three jobs pass,
+   `deploy-vps.yml` fires, calls the callable, SSHes in as `nag`, and
+   runs `deploy.sh main`.
 
 ### Notes
 
-- The workflow uses `concurrency: deploy-vps` so rapid-fire pushes
-  don't stack up parallel deploys — only the latest one runs.
-- `deploy.sh` sources `~/.config/nag/deploy.env` when invoked
-  outside of systemd (i.e. via SSH) so it knows which branch to
-  track.
-- If CI passes on a branch the VPS isn't tracking, `deploy.sh`
-  exits early (no-op) because HEAD already matches
-  `origin/$NAG_BRANCH`.
+- The callable uses `concurrency: deploy-vps` so rapid-fire deploys
+  (auto or manual) don't stack up — only the latest one runs.
+- `deploy.sh` takes the branch as its first argument. It also
+  sources `~/.config/nag/deploy.env` for the default branch and the
+  name of the service to restart, but the workflows always pass the
+  branch explicitly.
+- If the requested branch already matches HEAD on the VPS,
+  `deploy.sh` exits early (no-op).
 
 ## Day-to-day
 
-- **Deploys happen automatically** — near-instantly via GitHub Actions
-  after CI passes, or within ~2 minutes via the systemd timer
-  fallback.
-- **Force a deploy**: `systemctl --user start nag-deploy.service`.
+- **Deploys of `main` happen automatically** after CI passes.
+- **Deploy a feature branch**: Actions tab → _Deploy VPS (manual)_ →
+  Run workflow → enter the branch.
+- **Force a deploy from the VPS**: SSH in as `nag` and run
+  `~/nag/ops/deploy.sh <branch>` (omit the arg to use
+  `NAG_BRANCH` from `deploy.env`).
 - **Restart Metro** (e.g. after an env change):
   `systemctl --user restart nag-expo.service`.
 - **Stop the dev server**: `systemctl --user stop nag-expo.service`.
-- **Switch branches**: edit `~/.config/nag/deploy.env`, then
-  `systemctl --user restart nag-deploy.timer`.
 - **From a non-`nag` shell** (e.g. your regular sudo account):
   `sudo -u nag XDG_RUNTIME_DIR=/run/user/$(id -u nag) \
 systemctl --user --machine=nag@ ...`.
@@ -324,7 +324,7 @@ the parse error. In this project it's usually either a stale
 reference to a system-only target (fixed on the current branch) or a
 `git reset` having wiped `ops/` (see next entry).
 
-### `nag-deploy.service` exits 128, or `systemctl restart nag-expo` says "Unit not found"
+### `deploy.sh` exits with "origin has no branch", or `systemctl restart nag-expo` says "Unit not found"
 
 Almost always `NAG_BRANCH` misconfiguration — a typo or pointing at a
 branch that doesn't carry `ops/`. `deploy.sh` guards both cases with
@@ -386,9 +386,7 @@ sudo apt install -y libatk1.0-0 libatk-bridge2.0-0 libcups2 \
   the repo, so it's safe from resets.
 - **Metro restarts per deploy.** Connected dev clients reconnect
   automatically, but in-flight debugger sessions drop.
-- **Webhooks (alternative).** If the 2-minute polling lag matters,
-  put a tiny webhook receiver (e.g.
-  [`webhook`](https://github.com/adnanh/webhook)) behind the reverse
-  proxy that triggers `systemctl --user start nag-deploy.service` on
-  GitHub `push` events. Polling is simpler and doesn't require
-  sharing a secret with GitHub.
+- **No fallback if the workflow doesn't fire.** If GitHub Actions is
+  down or the SSH step fails, deploys stall until the next successful
+  CI run. Force one manually by SSHing in and running
+  `~/nag/ops/deploy.sh`.

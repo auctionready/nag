@@ -1,0 +1,17 @@
+name: Deploy VPS (manual)
+
+on:
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: Branch to deploy
+        required: true
+        default: main
+        type: string
+
+jobs:
+  deploy:
+    uses: ./.github/workflows/deploy-vps-callable.yml
+    with:
+      branch: ${{ inputs.branch }}
+    secrets: inherit
