@@ -40,11 +40,11 @@ const FULL_FMT = "EEE, MMM d, yyyy h:mm a";
 // (long-press a missed slot, footer check-in on a non-today selected day)
 // put them minutes to hours apart. 60s is a comfortable threshold.
 const BACKFILL_THRESHOLD_MS = 60_000;
-const wasBackFilled = (ts: Date, createdAt: Date) =>
-  Math.abs(createdAt.getTime() - ts.getTime()) >= BACKFILL_THRESHOLD_MS;
+const wasBackFilled = ({ timestamp, createdAt }: RecentCheckInItem) =>
+  Math.abs(createdAt.getTime() - timestamp.getTime()) >= BACKFILL_THRESHOLD_MS;
 
 const EDITED_THRESHOLD_MS = 1_000;
-const wasEdited = (createdAt: Date, updatedAt: Date) =>
+const wasEdited = ({ createdAt, updatedAt }: RecentCheckInItem) =>
   updatedAt.getTime() - createdAt.getTime() >= EDITED_THRESHOLD_MS;
 
 const isSameCalendarDay = (a: Date, b: Date) =>
@@ -157,7 +157,7 @@ export const RecentCheckIns = ({
                   <Text style={styles.timestamp}>
                     {format(item.timestamp, fmt)}
                   </Text>
-                  {wasEdited(item.createdAt, item.updatedAt) ? (
+                  {wasEdited(item) ? (
                     <Text style={styles.recordedLabel}>
                       (edited{" "}
                       {format(
@@ -166,7 +166,7 @@ export const RecentCheckIns = ({
                       )}
                       )
                     </Text>
-                  ) : wasBackFilled(item.timestamp, item.createdAt) ? (
+                  ) : wasBackFilled(item) ? (
                     <Text style={styles.recordedLabel}>
                       (recorded{" "}
                       {format(
