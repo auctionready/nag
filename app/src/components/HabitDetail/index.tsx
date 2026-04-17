@@ -225,7 +225,11 @@ export const HabitDetail = ({
       return {
         mode: "time" as const,
         minimumDate: startOfDay(selectedDay),
-        maximumDate: endOfDay(selectedDay),
+        // Cap at now when editing a check-in on today so the user can't pick
+        // a future time; past selected days are fully open (end-of-day).
+        maximumDate: isSameCalendarDay(selectedDay, now)
+          ? now
+          : endOfDay(selectedDay),
       };
     }
     if (regularity === "week") {
