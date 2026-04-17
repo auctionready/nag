@@ -5,7 +5,10 @@ import { formatDistanceToNow } from "date-fns";
 import type { HabitGoalSummary } from "./useHabitGoalSummary";
 import { periodLabels, formatCount } from "./format";
 import { ProgressRing } from "./ProgressRing";
-import { DayIndicators } from "./DayIndicators";
+import {
+  PeriodIndicators,
+  type PeriodIndicatorsProps,
+} from "./PeriodIndicators";
 
 export interface HabitTileViewProps {
   id: number;
@@ -20,12 +23,7 @@ export interface HabitTileViewProps {
    */
   ringProgress: number;
   isOffDay?: boolean;
-  scheduledDaysMask?: number;
-  checkedInDaysMask?: number;
-  partialDaysMask?: number;
-  todayColor?: string;
-  partialColor?: string;
-  missedColor?: string;
+  periodIndicators?: PeriodIndicatorsProps;
   onPress: () => void;
   onCheckIn: () => Promise<void>;
 }
@@ -38,12 +36,7 @@ export const HabitTileView = ({
   color,
   ringProgress,
   isOffDay,
-  scheduledDaysMask,
-  checkedInDaysMask,
-  partialDaysMask,
-  todayColor,
-  partialColor,
-  missedColor,
+  periodIndicators,
   onPress,
   onCheckIn,
 }: HabitTileViewProps) => {
@@ -118,16 +111,7 @@ export const HabitTileView = ({
                 .join(" · ")}
             </Text>
           )}
-          {scheduledDaysMask ? (
-            <DayIndicators
-              scheduledDaysMask={scheduledDaysMask}
-              checkedInDaysMask={checkedInDaysMask ?? 0}
-              partialDaysMask={partialDaysMask ?? 0}
-              todayColor={todayColor}
-              partialColor={partialColor}
-              missedColor={missedColor}
-            />
-          ) : null}
+          {periodIndicators && <PeriodIndicators {...periodIndicators} />}
         </Animated.View>
       </Pressable>
     </GestureDetector>
