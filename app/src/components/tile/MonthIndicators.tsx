@@ -36,8 +36,9 @@ const styles = StyleSheet.create({
     bottom: 10,
     left: 8,
     right: 8,
+    height: 24,
     flexDirection: "row",
-    alignItems: "flex-end",
+    alignItems: "center",
   },
   cell: {
     flex: 1,
