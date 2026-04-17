@@ -1,6 +1,7 @@
 export { periodStart } from "./compliance";
 export {
   buildDayCells,
+  checkInDaysMask,
   classifyScheduledDays,
   type DayCell,
   type BuildDayCellsInput,

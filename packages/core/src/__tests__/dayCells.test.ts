@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { buildDayCells, classifyScheduledDays } from "../dayCells";
+import {
+  buildDayCells,
+  checkInDaysMask,
+  classifyScheduledDays,
+} from "../dayCells";
 import { Day } from "../days";
 
 const GREEN = "#34C759";
@@ -329,5 +333,39 @@ describe("classifyScheduledDays", () => {
       ],
     });
     expect(result.completedDaysMask & Day.Mon).toBeTruthy();
+  });
+});
+
+describe("checkInDaysMask", () => {
+  it("returns 0 for an empty list", () => {
+    expect(checkInDaysMask([])).toBe(0);
+  });
+
+  it("sets the bit for a single check-in's day-of-week", () => {
+    // 2025-06-16 is Monday
+    expect(checkInDaysMask([{ timestamp: new Date(2025, 5, 16, 8, 0) }])).toBe(
+      Day.Mon,
+    );
+  });
+
+  it("deduplicates multiple check-ins on the same day", () => {
+    expect(
+      checkInDaysMask([
+        { timestamp: new Date(2025, 5, 16, 8, 0) },
+        { timestamp: new Date(2025, 5, 16, 12, 0) },
+        { timestamp: new Date(2025, 5, 16, 18, 0) },
+      ]),
+    ).toBe(Day.Mon);
+  });
+
+  it("ORs bits for check-ins across distinct days", () => {
+    // Mon=Jun 16, Wed=Jun 18, Fri=Jun 20
+    expect(
+      checkInDaysMask([
+        { timestamp: new Date(2025, 5, 16, 8, 0) },
+        { timestamp: new Date(2025, 5, 18, 8, 0) },
+        { timestamp: new Date(2025, 5, 20, 8, 0) },
+      ]),
+    ).toBe(Day.Mon | Day.Wed | Day.Fri);
   });
 });

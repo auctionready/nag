@@ -20,7 +20,6 @@ export interface HabitTileViewProps {
    */
   ringProgress: number;
   isOffDay?: boolean;
-  hasSchedule?: boolean;
   scheduledDaysMask?: number;
   checkedInDaysMask?: number;
   partialDaysMask?: number;
@@ -39,7 +38,6 @@ export const HabitTileView = ({
   color,
   ringProgress,
   isOffDay,
-  hasSchedule,
   scheduledDaysMask,
   checkedInDaysMask,
   partialDaysMask,
@@ -120,7 +118,7 @@ export const HabitTileView = ({
                 .join(" · ")}
             </Text>
           )}
-          {hasSchedule && scheduledDaysMask ? (
+          {scheduledDaysMask ? (
             <DayIndicators
               scheduledDaysMask={scheduledDaysMask}
               checkedInDaysMask={checkedInDaysMask ?? 0}
