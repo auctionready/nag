@@ -47,12 +47,7 @@ export {
   schedulesForGoal,
   allActiveSchedules,
 } from "./queries";
-export {
-  processCommand,
-  setPostCommandInterceptor,
-  type CommandResult,
-  type PostCommandInterceptor,
-} from "./commands/processor";
+export { processCommand, type CommandResult } from "./commands/processor";
 export {
   Command,
   CreateHabit,
