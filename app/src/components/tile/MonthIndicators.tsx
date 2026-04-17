@@ -2,8 +2,8 @@ import { StyleSheet, View } from "react-native";
 import { buildMonthCells } from "@nag/core";
 
 const CHECKED_IN_COLOR = "#34C759";
-const TICK_HEIGHT_PAST = 24;
-const TICK_HEIGHT_FUTURE = 14;
+const TICK_HEIGHT_PAST = 14;
+const TICK_HEIGHT_FUTURE = 8;
 
 interface MonthIndicatorsProps {
   checkIns: { timestamp: Date }[];
