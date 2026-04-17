@@ -20,6 +20,7 @@ const baseProps = {
     id: number;
     timestamp: Date;
     createdAt: Date;
+    updatedAt: Date;
     skipped: boolean | null;
   }[],
   showSkip: false,
@@ -29,6 +30,7 @@ const baseProps = {
   onSkipAt: jest.fn(),
   onEdit: jest.fn(),
   onRemoveCheckIn: jest.fn(),
+  onEditCheckInTimestamp: jest.fn(),
   now: sundayAt(10),
 };
 
@@ -167,6 +169,7 @@ describe("HabitDetail", () => {
               id: 1,
               timestamp: sundayAt(9),
               createdAt: sundayAt(9),
+              updatedAt: sundayAt(9),
               skipped: null,
             },
           ]}
@@ -187,24 +190,28 @@ describe("HabitDetail", () => {
               id: 1,
               timestamp: sundayAt(8, 30),
               createdAt: sundayAt(8, 30),
+              updatedAt: sundayAt(8, 30),
               skipped: null,
             },
             {
               id: 2,
               timestamp: sundayAt(12, 30),
               createdAt: sundayAt(12, 30),
+              updatedAt: sundayAt(12, 30),
               skipped: null,
             },
             {
               id: 3,
               timestamp: sundayAt(18, 30),
               createdAt: sundayAt(18, 30),
+              updatedAt: sundayAt(18, 30),
               skipped: null,
             },
             {
               id: 4,
               timestamp: sundayAt(19, 30),
               createdAt: sundayAt(19, 30),
+              updatedAt: sundayAt(19, 30),
               skipped: null,
             },
           ]}
@@ -304,6 +311,7 @@ describe("HabitDetail", () => {
               id: 1,
               timestamp: sundayAt(8, 30),
               createdAt: sundayAt(8, 30),
+              updatedAt: sundayAt(8, 30),
               skipped: null,
             },
           ]}
@@ -583,18 +591,21 @@ describe("HabitDetail", () => {
         id: 1,
         timestamp: mondayAt(10),
         createdAt: mondayAt(10),
+        updatedAt: mondayAt(10),
         skipped: null as boolean | null,
       },
       {
         id: 2,
         timestamp: wednesdayAt(10),
         createdAt: wednesdayAt(10),
+        updatedAt: wednesdayAt(10),
         skipped: null as boolean | null,
       },
       {
         id: 3,
         timestamp: sundayAt(9),
         createdAt: sundayAt(9),
+        updatedAt: sundayAt(9),
         skipped: null as boolean | null,
       },
     ];
@@ -699,12 +710,14 @@ describe("HabitDetail", () => {
         id: 1,
         timestamp: sundayAt(10),
         createdAt: sundayAt(10),
+        updatedAt: sundayAt(10),
         skipped: null as boolean | null,
       },
       {
         id: 2,
         timestamp: sundayAt(14),
         createdAt: sundayAt(14),
+        updatedAt: sundayAt(14),
         skipped: true as boolean | null,
       },
     ];
@@ -731,6 +744,7 @@ describe("HabitDetail", () => {
         id: 1,
         timestamp: sundayAt(8),
         createdAt: sundayAt(10),
+        updatedAt: sundayAt(10),
         skipped: null as boolean | null,
       },
     ];
@@ -757,6 +771,7 @@ describe("HabitDetail", () => {
           id: 1,
           timestamp: sundayAt(8),
           createdAt: new Date(2025, 5, 16, 10, 0),
+          updatedAt: new Date(2025, 5, 16, 10, 0),
           skipped: null as boolean | null,
         },
       ];
@@ -778,6 +793,7 @@ describe("HabitDetail", () => {
           id: 1,
           timestamp: sundayAt(8),
           createdAt: new Date(2025, 6, 2, 10, 0), // Jul 2
+          updatedAt: new Date(2025, 6, 2, 10, 0),
           skipped: null as boolean | null,
         },
       ];
@@ -798,6 +814,7 @@ describe("HabitDetail", () => {
           id: 1,
           timestamp: sundayAt(8),
           createdAt: new Date(2026, 0, 5, 10, 0), // Jan 5 2026
+          updatedAt: new Date(2026, 0, 5, 10, 0),
           skipped: null as boolean | null,
         },
       ];
@@ -822,6 +839,7 @@ describe("HabitDetail", () => {
           id: 1,
           timestamp: sundayAt(10, 0),
           createdAt: new Date(2025, 5, 15, 10, 0, 30),
+          updatedAt: new Date(2025, 5, 15, 10, 0, 30),
           skipped: null as boolean | null,
         },
       ];

@@ -1,4 +1,5 @@
-import { useMemo } from "react";
+import { useMemo, useRef, useState } from "react";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
   Alert,
   Pressable,
@@ -7,6 +8,7 @@ import {
   Text,
   View,
 } from "react-native";
+import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import {
   format,
   startOfDay,
@@ -26,6 +28,7 @@ import { complianceColors } from "../getComplianceColor";
 import { TodayCard } from "./TodayCard";
 import { WeekStrip } from "./WeekStrip";
 import { RecentCheckIns, type RecentCheckInItem } from "./RecentCheckIns";
+import { CheckInDatePickerModal } from "./CheckInDatePickerModal";
 
 export interface HabitDetailProps {
   loading?: boolean;
@@ -61,6 +64,11 @@ export interface HabitDetailProps {
   onSkipAt: (timestamp: Date) => void;
   onEdit: () => void;
   onRemoveCheckIn: (checkInId: number) => void;
+  onEditCheckInTimestamp: (
+    checkInId: number,
+    timestamp: Date,
+    skipped?: boolean,
+  ) => void;
   /** Injectable for tests; defaults to new Date() on each render. */
   now?: Date;
 }
@@ -111,8 +119,11 @@ export const HabitDetail = ({
   onSkipAt,
   onEdit,
   onRemoveCheckIn,
+  onEditCheckInTimestamp,
   now = new Date(),
 }: HabitDetailProps) => {
+  const { bottom: safeBottom } = useSafeAreaInsets();
+
   const cardAnchor = useMemo(() => {
     if (!selectedDay) return now;
     if (isSameCalendarDay(selectedDay, now)) return now;
@@ -199,14 +210,104 @@ export const HabitDetail = ({
   const ringColor = complianceColor ?? complianceColors.default;
   const showWeekStrip = regularity === "week" && scheduledDaysMask !== 0;
 
+  type PickerIntent =
+    | { kind: "edit"; checkInId: number }
+    | { kind: "new-checkin" }
+    | { kind: "new-skip" };
+
+  const [pickerState, setPickerState] = useState<{
+    intent: PickerIntent;
+    timestamp: Date;
+  } | null>(null);
+
+  const pickerConfig = useMemo(() => {
+    if (selectedDay) {
+      return {
+        mode: "time" as const,
+        minimumDate: startOfDay(selectedDay),
+        // Cap at now when editing a check-in on today so the user can't pick
+        // a future time; past selected days are fully open (end-of-day).
+        maximumDate: isSameCalendarDay(selectedDay, now)
+          ? now
+          : endOfDay(selectedDay),
+      };
+    }
+    if (regularity === "week") {
+      return {
+        mode: "datetime" as const,
+        minimumDate: periodStart("week", now),
+        maximumDate: now,
+      };
+    }
+    if (regularity === "month") {
+      return {
+        mode: "datetime" as const,
+        minimumDate: startOfMonth(now),
+        maximumDate: now,
+      };
+    }
+    return {
+      mode: "time" as const,
+      minimumDate: startOfDay(now),
+      maximumDate: now,
+    };
+  }, [selectedDay, regularity, now]);
+
+  const handlePickerConfirm = (date: Date, skipped?: boolean) => {
+    if (!pickerState) return;
+    if (pickerState.intent.kind === "edit") {
+      onEditCheckInTimestamp(pickerState.intent.checkInId, date, skipped);
+    } else if (pickerState.intent.kind === "new-checkin") {
+      onCheckInAt(date);
+    } else if (pickerState.intent.kind === "new-skip") {
+      onSkipAt(date);
+    }
+    setPickerState(null);
+  };
+
+  // Refs track whether a long press just fired so the Pressable.onPress
+  // handler (which fires on finger-up) can skip the regular action.
+  // Using Gesture.LongPress() instead of Pressable.onLongPress because
+  // GestureHandlerRootView intercepts touches at the root and makes
+  // Pressable.onLongPress unreliable — the same reason SlotChip and
+  // HabitTileView use the gesture-handler API.
+  const didCheckInLongPress = useRef(false);
+  const didSkipLongPress = useRef(false);
+
+  const checkInLongPressGesture = Gesture.LongPress()
+    .minDuration(500)
+    .onStart(() => {
+      didCheckInLongPress.current = true;
+      setPickerState({
+        intent: { kind: "new-checkin" },
+        timestamp: buildFooterTimestamp(selectedDay, new Date()),
+      });
+    });
+
+  const skipLongPressGesture = Gesture.LongPress()
+    .minDuration(500)
+    .onStart(() => {
+      didSkipLongPress.current = true;
+      setPickerState({
+        intent: { kind: "new-skip" },
+        timestamp: buildFooterTimestamp(selectedDay, new Date()),
+      });
+    });
+
   const handleCheckInFooter = () => {
+    if (didCheckInLongPress.current) {
+      didCheckInLongPress.current = false;
+      return;
+    }
     // Use a fresh `new Date()` (not the captured-at-render `now` prop) so
     // the deemed timestamp matches `createdAt` for an immediate check-in.
-    // If we used `now`, leaving the screen open for >60s would cause a
-    // tap-to-check-in to be misclassified as a back-fill in the list.
     onCheckInAt(buildFooterTimestamp(selectedDay, new Date()));
   };
   const handleSkipFooter = () => {
+    if (didSkipLongPress.current) {
+      didSkipLongPress.current = false;
+      return;
+    }
     onSkipAt(buildFooterTimestamp(selectedDay, new Date()));
   };
 
@@ -296,22 +397,61 @@ export const HabitDetail = ({
           title={listTitle}
           singleDay={singleDay}
           onRemove={onRemoveCheckIn}
+          onEditTimestamp={(id, ts) =>
+            setPickerState({
+              intent: { kind: "edit", checkInId: id },
+              timestamp: ts,
+            })
+          }
         />
       </ScrollView>
 
-      <View style={styles.footer}>
-        <Pressable style={styles.checkInButton} onPress={handleCheckInFooter}>
-          <Text style={styles.checkInButtonText}>Check-in</Text>
-        </Pressable>
-        {showSkip && (
-          <Pressable style={styles.skipButton} onPress={handleSkipFooter}>
-            <Text style={styles.skipButtonText}>Skip</Text>
+      <View
+        style={[
+          styles.footer,
+          safeBottom > 0 && { paddingBottom: 16 + safeBottom },
+        ]}
+      >
+        <GestureDetector gesture={checkInLongPressGesture}>
+          <Pressable style={styles.checkInButton} onPress={handleCheckInFooter}>
+            <Text style={styles.checkInButtonText}>Check-in</Text>
           </Pressable>
+        </GestureDetector>
+        {showSkip && (
+          <GestureDetector gesture={skipLongPressGesture}>
+            <Pressable style={styles.skipButton} onPress={handleSkipFooter}>
+              <Text style={styles.skipButtonText}>Skip</Text>
+            </Pressable>
+          </GestureDetector>
         )}
         <Pressable style={styles.editButton} onPress={onEdit}>
           <Text style={styles.editButtonText}>Edit</Text>
         </Pressable>
       </View>
+
+      {pickerState && (
+        <CheckInDatePickerModal
+          visible
+          initialDate={pickerState.timestamp}
+          mode={pickerConfig.mode}
+          minimumDate={pickerConfig.minimumDate}
+          maximumDate={pickerConfig.maximumDate}
+          showSkipToggle={pickerState.intent.kind === "edit"}
+          initialSkipped={
+            pickerState.intent.kind === "edit"
+              ? (() => {
+                  const intent = pickerState.intent;
+                  return (
+                    checkIns.find((c) => c.id === intent.checkInId)?.skipped ??
+                    false
+                  );
+                })()
+              : undefined
+          }
+          onConfirm={handlePickerConfirm}
+          onCancel={() => setPickerState(null)}
+        />
+      )}
     </View>
   );
 };

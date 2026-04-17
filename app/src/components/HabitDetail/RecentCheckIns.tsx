@@ -16,6 +16,8 @@ export interface RecentCheckInItem {
   timestamp: Date;
   /** Wall-clock insert time. Differs from `timestamp` for back-filled check-ins. */
   createdAt: Date;
+  /** Last modification time. Greater than `createdAt` when the timestamp was edited. */
+  updatedAt: Date;
   skipped: boolean | null;
 }
 
@@ -27,6 +29,7 @@ interface RecentCheckInsProps {
   /** True when the list is scoped to a single calendar day; controls timestamp format. */
   singleDay: boolean;
   onRemove: (id: number) => void;
+  onEditTimestamp?: (id: number, timestamp: Date) => void;
 }
 
 const TIME_ONLY = "h:mm a";
@@ -37,8 +40,12 @@ const FULL_FMT = "EEE, MMM d, yyyy h:mm a";
 // (long-press a missed slot, footer check-in on a non-today selected day)
 // put them minutes to hours apart. 60s is a comfortable threshold.
 const BACKFILL_THRESHOLD_MS = 60_000;
-const wasBackFilled = (ts: Date, createdAt: Date) =>
-  Math.abs(createdAt.getTime() - ts.getTime()) >= BACKFILL_THRESHOLD_MS;
+const wasBackFilled = ({ timestamp, createdAt }: RecentCheckInItem) =>
+  Math.abs(createdAt.getTime() - timestamp.getTime()) >= BACKFILL_THRESHOLD_MS;
+
+const EDITED_THRESHOLD_MS = 1_000;
+const wasEdited = ({ createdAt, updatedAt }: RecentCheckInItem) =>
+  updatedAt.getTime() - createdAt.getTime() >= EDITED_THRESHOLD_MS;
 
 const isSameCalendarDay = (a: Date, b: Date) =>
   a.getFullYear() === b.getFullYear() &&
@@ -54,27 +61,21 @@ const recordedFmt = (deemed: Date, recorded: Date): string => {
 };
 
 /**
- * Period-scoped check-in list: the screen decides the window and title
- * (e.g. "This Week's Check-ins" / "Wednesday's Check-ins"); this component
- * just renders the list with a collapsible header. Expanded by default so
- * the user sees the history without an extra tap.
- *
- * Each row is swipe-left-to-reveal a Remove action (iOS-style). Tapping the
- * revealed action immediately removes the check-in — two gestures (swipe +
- * tap) is sufficient intent; undo will replace confirmation.
+ * Period-scoped check-in list. Each row supports two swipe actions:
+ *   • Swipe left  → Remove (red)
+ *   • Swipe right → Edit   (blue, only when onEditTimestamp is wired)
  */
 export const RecentCheckIns = ({
   checkIns,
   title,
   singleDay,
   onRemove,
+  onEditTimestamp,
 }: RecentCheckInsProps) => {
   const [expanded, setExpanded] = useState(true);
 
   const fmt = singleDay ? TIME_ONLY : FULL_FMT;
 
-  // Schedule a fade+collapse on the next layout pass so the row leaves
-  // smoothly and the rows below it slide up rather than snap.
   const handleRemove = (id: number) => {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     onRemove(id);
@@ -83,13 +84,27 @@ export const RecentCheckIns = ({
   const renderRightActions = (id: number) => (
     <Pressable
       onPress={() => handleRemove(id)}
-      style={styles.swipeAction}
+      style={styles.removeAction}
       accessibilityRole="button"
       accessibilityLabel="Remove check-in"
     >
       <Text style={styles.swipeActionText}>Remove</Text>
     </Pressable>
   );
+
+  const renderLeftActions = (id: number, timestamp: Date) => {
+    if (!onEditTimestamp) return null;
+    return (
+      <Pressable
+        onPress={() => onEditTimestamp(id, timestamp)}
+        style={styles.editAction}
+        accessibilityRole="button"
+        accessibilityLabel="Edit check-in"
+      >
+        <Text style={styles.swipeActionText}>Edit</Text>
+      </Pressable>
+    );
+  };
 
   return (
     <View style={styles.container}>
@@ -113,8 +128,13 @@ export const RecentCheckIns = ({
               <Swipeable
                 key={item.id}
                 friction={2}
+                leftThreshold={40}
                 rightThreshold={40}
+                overshootLeft={false}
                 overshootRight={false}
+                renderLeftActions={() =>
+                  renderLeftActions(item.id, item.timestamp)
+                }
                 renderRightActions={() => renderRightActions(item.id)}
                 containerStyle={styles.swipeContainer}
               >
@@ -122,17 +142,31 @@ export const RecentCheckIns = ({
                   style={styles.row}
                   accessibilityActions={[
                     { name: "remove", label: "Remove check-in" },
+                    ...(onEditTimestamp
+                      ? [{ name: "edit", label: "Edit check-in time" }]
+                      : []),
                   ]}
                   onAccessibilityAction={(e) => {
                     if (e.nativeEvent.actionName === "remove") {
                       handleRemove(item.id);
+                    } else if (e.nativeEvent.actionName === "edit") {
+                      onEditTimestamp?.(item.id, item.timestamp);
                     }
                   }}
                 >
                   <Text style={styles.timestamp}>
                     {format(item.timestamp, fmt)}
                   </Text>
-                  {wasBackFilled(item.timestamp, item.createdAt) && (
+                  {wasEdited(item) ? (
+                    <Text style={styles.recordedLabel}>
+                      (edited{" "}
+                      {format(
+                        item.updatedAt,
+                        recordedFmt(item.timestamp, item.updatedAt),
+                      )}
+                      )
+                    </Text>
+                  ) : wasBackFilled(item) ? (
                     <Text style={styles.recordedLabel}>
                       (recorded{" "}
                       {format(
@@ -141,7 +175,7 @@ export const RecentCheckIns = ({
                       )}
                       )
                     </Text>
-                  )}
+                  ) : null}
                   {item.skipped && (
                     <Text style={styles.skippedLabel}>(skipped)</Text>
                   )}
@@ -184,15 +218,14 @@ const styles = StyleSheet.create({
     textAlign: "center",
     paddingVertical: 12,
   },
-  // Divider lives on the Swipeable container so it spans across both the row
-  // and the revealed action.
+  // Divider lives on the Swipeable container so it spans both the row content
+  // and any revealed action panels.
   swipeContainer: {
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: "#e0e0e0",
   },
   row: {
-    // Opaque so the red action behind the row doesn't bleed through while
-    // swiping.
+    // Opaque so action colours don't bleed through while swiping.
     backgroundColor: "#fff",
     paddingVertical: 12,
   },
@@ -205,7 +238,13 @@ const styles = StyleSheet.create({
     color: "#777",
     marginTop: 2,
   },
-  swipeAction: {
+  editAction: {
+    justifyContent: "center",
+    alignItems: "center",
+    width: 88,
+    backgroundColor: "#007AFF",
+  },
+  removeAction: {
     justifyContent: "center",
     alignItems: "center",
     width: 88,
