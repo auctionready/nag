@@ -4,9 +4,9 @@ import { useLiveQuery } from "drizzle-orm/expo-sqlite";
 import { db } from "../db";
 import {
   checkInsForHabitsOnDay,
-  createCheckIn,
   habitsByIds,
   matchCheckInsToSlots,
+  processCommand,
   schedulesForHabits,
   type SlotState,
 } from "@nag/core";
@@ -49,11 +49,16 @@ const CheckInSlotScreen = () => {
   ]);
 
   const handleCheckIn = useCallback(async (habitId: number) => {
-    await createCheckIn(db, { habitId, timestamp: new Date() });
+    await processCommand(db, {
+      type: "CreateCheckIn",
+      habitId,
+      timestamp: new Date(),
+    });
   }, []);
 
   const handleSkip = useCallback(async (habitId: number) => {
-    await createCheckIn(db, {
+    await processCommand(db, {
+      type: "CreateCheckIn",
       habitId,
       timestamp: new Date(),
       skipped: true,

@@ -8,9 +8,7 @@ import {
   goalForHabitFull,
   checkInsForHabit,
   checkInCount,
-  createCheckIn,
-  deleteCheckIn,
-  updateCheckIn,
+  processCommand,
   periodStart,
   schedulesForHabit,
   tileColor,
@@ -97,11 +95,16 @@ const HabitScreen = () => {
   };
 
   const handleCheckInAt = async (timestamp: Date) => {
-    await createCheckIn(db, { habitId, timestamp });
+    await processCommand(db, { type: "CreateCheckIn", habitId, timestamp });
   };
 
   const handleSkipAt = async (timestamp: Date) => {
-    await createCheckIn(db, { habitId, timestamp, skipped: true });
+    await processCommand(db, {
+      type: "CreateCheckIn",
+      habitId,
+      timestamp,
+      skipped: true,
+    });
   };
 
   const handleEditCheckInTimestamp = async (
@@ -109,7 +112,12 @@ const HabitScreen = () => {
     timestamp: Date,
     skipped?: boolean,
   ) => {
-    await updateCheckIn(db, { checkInId, timestamp, skipped });
+    await processCommand(db, {
+      type: "UpdateCheckIn",
+      checkInId,
+      timestamp,
+      skipped,
+    });
   };
 
   return (
@@ -131,7 +139,7 @@ const HabitScreen = () => {
       onSkipAt={handleSkipAt}
       onEdit={() => router.push(`/edit-habit/${habitId}`)}
       onRemoveCheckIn={async (checkInId) => {
-        await deleteCheckIn(db, checkInId);
+        await processCommand(db, { type: "DeleteCheckIn", checkInId });
       }}
       onEditCheckInTimestamp={handleEditCheckInTimestamp}
     />

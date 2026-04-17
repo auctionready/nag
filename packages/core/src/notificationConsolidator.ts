@@ -243,15 +243,7 @@ const pendingHabitIndexes = (
   slot: ConsolidatedSlot,
   occurrence: Date,
   checkInsByHabit: Map<number, { timestamp: Date; skipped: boolean | null }[]>,
-  schedulesByHabit: Map<
-    number,
-    {
-      hour: number;
-      minute: number;
-      days: number | null;
-      dayOfMonth: number | null;
-    }[]
-  >,
+  schedulesByHabit: Map<number, ScheduleRow[]>,
 ): number[] => {
   const pending: number[] = [];
   for (let i = 0; i < slot.habitIds.length; i++) {
@@ -319,23 +311,10 @@ export const syncAllNotifications = async (
   }
 
   // Group the raw schedule rows by habit for per-habit slot matching.
-  const schedulesByHabit = new Map<
-    number,
-    {
-      hour: number;
-      minute: number;
-      days: number | null;
-      dayOfMonth: number | null;
-    }[]
-  >();
+  const schedulesByHabit = new Map<number, ScheduleRow[]>();
   for (const row of rows) {
     const list = schedulesByHabit.get(row.habitId) ?? [];
-    list.push({
-      hour: row.hour,
-      minute: row.minute,
-      days: row.days,
-      dayOfMonth: row.dayOfMonth,
-    });
+    list.push(row);
     schedulesByHabit.set(row.habitId, list);
   }
 

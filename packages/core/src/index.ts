@@ -47,7 +47,12 @@ export {
   schedulesForGoal,
   allActiveSchedules,
 } from "./queries";
-export { processCommand, type CommandResult } from "./commands/processor";
+export {
+  processCommand,
+  setPostCommandInterceptor,
+  type CommandResult,
+  type PostCommandInterceptor,
+} from "./commands/processor";
 export {
   Command,
   CreateHabit,
@@ -67,14 +72,6 @@ export {
   weekDayEntries,
   mondayFirstDayLetters,
 } from "./days";
-export {
-  createHabit,
-  updateHabit,
-  deleteHabit,
-  createCheckIn,
-  updateCheckIn,
-  deleteCheckIn,
-} from "./operations";
 export {
   setNotificationScheduler,
   getNotificationScheduler,
