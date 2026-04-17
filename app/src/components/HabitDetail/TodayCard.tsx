@@ -1,6 +1,10 @@
 import { StyleSheet, Text, View } from "react-native";
 import { format } from "date-fns";
-import type { MatchCheckInsToSlotsResult } from "@nag/core";
+import {
+  isBackfill,
+  type MatchCheckInsToSlotsResult,
+  type ScheduleInfo,
+} from "@nag/core";
 import { ProgressRing } from "../tile/ProgressRing";
 import { complianceColors } from "../getComplianceColor";
 import { SlotChip } from "./SlotChip";
@@ -32,11 +36,34 @@ interface TodayCardProps {
   notScheduledForDay?: boolean;
   ringColor: string;
   /**
-   * Long-press handler for a slot chip: supply the slot's hour/minute so the
-   * screen can build a Date on the selected day. Only `missed`/`upcoming`
-   * chips trigger this.
+   * All schedules for the habit, used to classify whether a long-press
+   * is a back-fill or a normal check-in. Required when `onAddCheckInForSlot`
+   * is wired; safe to omit on read-only renders.
    */
-  onAddCheckInForSlot?: (hour: number, minute: number) => void;
+  schedules?: ScheduleInfo[];
+  /**
+   * Same-day check-ins, used with `schedules` to detect the
+   * "later check-in exists" rule for the back-fill classifier.
+   */
+  dayCheckIns?: { timestamp: Date }[];
+  /**
+   * Current wall-clock time, used by the back-fill classifier to check
+   * future/past rules. Defaults to `selectedDay` when not supplied
+   * (tests injecting `now` should pass it explicitly).
+   */
+  now?: Date;
+  /**
+   * Long-press handler for a slot chip: supply the slot's hour/minute so
+   * the screen can build a Date on the selected day. The third argument
+   * is `true` when this action is truly a back-fill (past/superseded
+   * slot) vs. a normal check-in — the parent uses it to pick the prompt
+   * title.
+   */
+  onAddCheckInForSlot?: (
+    hour: number,
+    minute: number,
+    backfill: boolean,
+  ) => void;
 }
 
 export const TodayCard = ({
@@ -46,6 +73,9 @@ export const TodayCard = ({
   fallback,
   notScheduledForDay,
   ringColor,
+  schedules,
+  dayCheckIns,
+  now,
   onAddCheckInForSlot,
 }: TodayCardProps) => {
   const hasSlots = match !== null && match.total > 0;
@@ -89,9 +119,20 @@ export const TodayCard = ({
             const firstUpcomingIdx = isToday
               ? match.slots.findIndex((s) => s.status === "upcoming")
               : -1;
+            const classifyNow = now ?? selectedDay;
             return match.slots.map((slot, i) => {
               const backfillable =
                 slot.status === "missed" || i === firstUpcomingIdx;
+              const backfill =
+                backfillable && schedules
+                  ? isBackfill({
+                      slot: { hour: slot.hour, minute: slot.minute },
+                      day: selectedDay,
+                      schedules,
+                      checkIns: dayCheckIns ?? [],
+                      now: classifyNow,
+                    })
+                  : false;
               return (
                 <SlotChip
                   key={`${slot.hour}:${slot.minute}:${i}`}
@@ -100,7 +141,8 @@ export const TodayCard = ({
                   status={slot.status}
                   onLongPress={
                     backfillable && onAddCheckInForSlot
-                      ? () => onAddCheckInForSlot(slot.hour, slot.minute)
+                      ? () =>
+                          onAddCheckInForSlot(slot.hour, slot.minute, backfill)
                       : undefined
                   }
                 />

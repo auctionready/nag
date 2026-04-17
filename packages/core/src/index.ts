@@ -24,6 +24,8 @@ export {
   type SlotState,
   type MatchCheckInsToSlotsInput,
   type MatchCheckInsToSlotsResult,
+  isBackfill,
+  type IsBackfillArgs,
   isScheduledToday,
   tileColor,
   dailyCalculator,

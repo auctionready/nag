@@ -30,6 +30,15 @@ export type {
   MatchCheckInsToSlotsInput,
   MatchCheckInsToSlotsResult,
 } from "./matchCheckInsToSlots";
+export {
+  isBackfill,
+  isPastDay,
+  isFutureSlot,
+  hasLaterCheckIn,
+  nextSlotAlreadyPassed,
+  halfGapElapsed,
+} from "./isBackfill";
+export type { IsBackfillArgs } from "./isBackfill";
 export { dailyCalculator } from "./dailyCalculator";
 export { weeklyCalculator } from "./weeklyCalculator";
 export { monthlyCalculator } from "./monthlyCalculator";

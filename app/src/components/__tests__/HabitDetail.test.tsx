@@ -251,6 +251,8 @@ describe("HabitDetail", () => {
       });
 
       it("opens a Back-fill prompt with Cancel/As Skip/Check In", () => {
+        // 8 AM slot at 14:00 → next scheduled slot (12 PM) has already
+        // passed, so this is a real back-fill.
         triggerLongPressOnEightAm();
         expect(Alert.alert).toHaveBeenCalledWith(
           "Back-fill check-in?",
@@ -559,7 +561,8 @@ describe("HabitDetail", () => {
       ).toBeNull();
     });
 
-    it("triggering long-press on the nearest upcoming slot opens the prompt", () => {
+    it("triggering long-press on the nearest upcoming slot opens a 'Check in?' prompt", () => {
+      // 12 PM is in the future (now = 10 AM) so this is NOT a back-fill.
       jest.spyOn(Alert, "alert");
       const view = render(
         <HabitDetail
@@ -575,8 +578,63 @@ describe("HabitDetail", () => {
       );
       fireEvent(view.getByText("12:00 PM"), "longPress");
       expect(Alert.alert).toHaveBeenCalledWith(
-        "Back-fill check-in?",
+        "Check in?",
         "For 12:00 PM",
+        expect.any(Array),
+      );
+    });
+
+    it("uses 'Check in?' when the slot only just passed and nothing newer exists", () => {
+      // Only one slot today (8 AM) and now is 8:10 — within the 30-min
+      // fallback half-gap, no later check-in → normal check-in.
+      jest.spyOn(Alert, "alert");
+      const view = render(
+        <HabitDetail
+          {...baseProps}
+          regularity="day"
+          frequency={1}
+          schedules={[{ days: null, dayOfMonth: null, hour: 8, minute: 0 }]}
+          now={sundayAt(8, 10)}
+        />,
+      );
+      fireEvent(view.getByText("8:00 AM"), "longPress");
+      expect(Alert.alert).toHaveBeenCalledWith(
+        "Check in?",
+        "For 8:00 AM",
+        expect.any(Array),
+      );
+    });
+
+    it("uses 'Back-fill check-in?' when a later check-in on the same day already exists", () => {
+      // Evening scenario: 8 AM was missed, 8 PM check-in already
+      // logged and matched to the 20:00 slot — so long-pressing 8 AM
+      // really IS reaching back past something newer.
+      jest.spyOn(Alert, "alert");
+      const view = render(
+        <HabitDetail
+          {...baseProps}
+          regularity="day"
+          frequency={2}
+          schedules={[
+            { days: null, dayOfMonth: null, hour: 8, minute: 0 },
+            { days: null, dayOfMonth: null, hour: 20, minute: 0 },
+          ]}
+          checkIns={[
+            {
+              id: 1,
+              timestamp: sundayAt(19, 30),
+              createdAt: sundayAt(19, 30),
+              updatedAt: sundayAt(19, 30),
+              skipped: null,
+            },
+          ]}
+          now={sundayAt(21)}
+        />,
+      );
+      fireEvent(view.getByText("8:00 AM"), "longPress");
+      expect(Alert.alert).toHaveBeenCalledWith(
+        "Back-fill check-in?",
+        "For 8:00 AM",
         expect.any(Array),
       );
     });

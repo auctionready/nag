@@ -311,7 +311,11 @@ export const HabitDetail = ({
     onSkipAt(buildFooterTimestamp(selectedDay, new Date()));
   };
 
-  const handleAddCheckInForSlot = (hour: number, minute: number) => {
+  const handleAddCheckInForSlot = (
+    hour: number,
+    minute: number,
+    backfill: boolean,
+  ) => {
     const anchor = selectedDay ?? now;
     const ts = new Date(
       anchor.getFullYear(),
@@ -325,7 +329,10 @@ export const HabitDetail = ({
     // Long-press is overloaded: the user might want to record the slot as
     // done, OR record it as skipped (e.g. "I missed my 8 a.m. run, but I
     // intentionally skipped it"). Prompt to disambiguate before writing.
-    Alert.alert("Back-fill check-in?", `For ${format(ts, "h:mm a")}`, [
+    // Title is "Check in?" for future/just-passed slots and "Back-fill
+    // check-in?" only when reaching back into history (see `isBackfill`).
+    const title = backfill ? "Back-fill check-in?" : "Check in?";
+    Alert.alert(title, `For ${format(ts, "h:mm a")}`, [
       { text: "Cancel", style: "cancel" },
       { text: "As Skip", onPress: () => onSkipAt(ts) },
       { text: "Check In", onPress: () => onCheckInAt(ts) },
@@ -376,6 +383,9 @@ export const HabitDetail = ({
                 : undefined
             }
             ringColor={ringColor}
+            schedules={schedules}
+            dayCheckIns={checkIns.map((c) => ({ timestamp: c.timestamp }))}
+            now={now}
             onAddCheckInForSlot={handleAddCheckInForSlot}
           />
         )}
