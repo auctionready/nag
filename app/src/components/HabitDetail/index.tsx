@@ -1,4 +1,5 @@
 import { useMemo, useRef, useState } from "react";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
   Alert,
   Pressable,
@@ -121,6 +122,8 @@ export const HabitDetail = ({
   onEditCheckInTimestamp,
   now = new Date(),
 }: HabitDetailProps) => {
+  const { bottom: safeBottom } = useSafeAreaInsets();
+
   const cardAnchor = useMemo(() => {
     if (!selectedDay) return now;
     if (isSameCalendarDay(selectedDay, now)) return now;
@@ -399,7 +402,12 @@ export const HabitDetail = ({
         />
       </ScrollView>
 
-      <View style={styles.footer}>
+      <View
+        style={[
+          styles.footer,
+          safeBottom > 0 && { paddingBottom: 16 + safeBottom },
+        ]}
+      >
         <GestureDetector gesture={checkInLongPressGesture}>
           <Pressable style={styles.checkInButton} onPress={handleCheckInFooter}>
             <Text style={styles.checkInButtonText}>Check-in</Text>
