@@ -71,7 +71,18 @@ describe("buildDayCells", () => {
     expect(cells[1].backgroundColor).toBeUndefined();
   });
 
-  it("uses todayColor for today's scheduled cell", () => {
+  it("uses todayColor for today's scheduled cell when not yet checked in", () => {
+    const cells = buildDayCells({
+      scheduledDaysMask: Day.Mon,
+      checkedInDaysMask: 0,
+      checkedInColor: GREEN,
+      todayColor: ORANGE,
+      now: monday(),
+    });
+    expect(cells[0].backgroundColor).toBe(ORANGE);
+  });
+
+  it("prefers checkedInColor over todayColor when today is fully completed", () => {
     const cells = buildDayCells({
       scheduledDaysMask: Day.Mon,
       checkedInDaysMask: Day.Mon,
@@ -79,7 +90,7 @@ describe("buildDayCells", () => {
       todayColor: ORANGE,
       now: monday(),
     });
-    expect(cells[0].backgroundColor).toBe(ORANGE);
+    expect(cells[0].backgroundColor).toBe(GREEN);
   });
 
   it("ignores todayColor when today is not scheduled", () => {

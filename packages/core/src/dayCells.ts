@@ -59,7 +59,11 @@ export const buildDayCells = ({
     const partial = scheduled && (partialDaysMask & day) !== 0;
     const isToday = day === todayBit;
     const isPast = index < todayIndex;
-    const todayOverride = isToday && scheduled ? todayColor : undefined;
+    // A fully checked-in today should stay green — the blue "action needed"
+    // todayColor would misrepresent a completed day. Partial/missed today
+    // still gets the override since the day isn't done yet.
+    const todayOverride =
+      isToday && scheduled && !checkedIn ? todayColor : undefined;
     const missed = scheduled && isPast && !checkedIn && !partial;
     // Partial-with-no-partialColor falls back to checkedInColor: the day
     // does have at least one check-in, so painting it `missedColor` would
