@@ -80,6 +80,15 @@ export const buildDayCells = ({
   });
 };
 
+/**
+ * Returns a day-of-week bitmask (Sun=bit0..Sat=bit6) covering every day
+ * that has at least one check-in in the supplied list. Used for
+ * unscheduled weekly goals so their board card can highlight the days
+ * a user actually checked in on.
+ */
+export const checkInDaysMask = (checkIns: { timestamp: Date }[]): number =>
+  checkIns.reduce((mask, c) => mask | (1 << c.timestamp.getDay()), 0);
+
 export interface SlotCompletion {
   /** Days where check-ins meet or exceed that day's scheduled slot count. */
   completedDaysMask: number;

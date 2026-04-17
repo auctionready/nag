@@ -5,6 +5,7 @@ import {
   processCommand,
   isScheduledToday,
   withinDayColor,
+  checkInDaysMask,
   classifyScheduledDays,
 } from "@nag/core";
 import { tileStatus, complianceColors } from "../getComplianceColor";
@@ -29,14 +30,26 @@ export const HabitTile = ({ id, title }: HabitTileProps) => {
     schedules,
   );
   const combinedDays = schedules.reduce((mask, s) => mask | (s.days ?? 0), 0);
-  const hasSchedule = goal?.regularity === "week" && combinedDays !== 0;
+  const isWeekly = goal?.regularity === "week";
+  const hasSchedule = isWeekly && combinedDays !== 0;
   const isOffDay = hasSchedule && !isScheduledToday(schedules);
   // Use the unbounded period query so back-filled check-ins (whose deemed
   // `timestamp` may sort earlier than newer entries) still light up their
   // day. Partial completion (e.g. 2 of 3 slots) is reported separately so
   // the day cell paints orange instead of green.
-  const { completedDaysMask: checkedInDaysMask, partialDaysMask } =
+  const { completedDaysMask: scheduledCompletedMask, partialDaysMask } =
     classifyScheduledDays({ schedules, checkIns: periodCheckIns });
+  // Weekly goal with no day-of-week schedule: light up the days the
+  // user actually checked in on, in plain green (no today/partial/missed).
+  const unscheduledWeeklyMask =
+    isWeekly && !hasSchedule ? checkInDaysMask(periodCheckIns) : 0;
+  const effectiveScheduledMask = hasSchedule
+    ? combinedDays
+    : unscheduledWeeklyMask;
+  const effectiveCheckedInMask = hasSchedule
+    ? scheduledCompletedMask
+    : unscheduledWeeklyMask;
+  const effectivePartialMask = hasSchedule ? partialDaysMask : 0;
 
   const now = new Date();
 
@@ -84,13 +97,12 @@ export const HabitTile = ({ id, title }: HabitTileProps) => {
       color={isOffDay ? "#8E8E93" : trafficColor}
       ringProgress={isOffDay ? 0 : ringProgress}
       isOffDay={isOffDay}
-      hasSchedule={hasSchedule}
-      scheduledDaysMask={combinedDays}
-      checkedInDaysMask={checkedInDaysMask}
-      partialDaysMask={partialDaysMask}
-      todayColor={todayColor}
-      partialColor={complianceColors.partial}
-      missedColor={complianceColors.failing}
+      scheduledDaysMask={effectiveScheduledMask}
+      checkedInDaysMask={effectiveCheckedInMask}
+      partialDaysMask={effectivePartialMask}
+      todayColor={hasSchedule ? todayColor : undefined}
+      partialColor={hasSchedule ? complianceColors.partial : undefined}
+      missedColor={hasSchedule ? complianceColors.failing : undefined}
       onPress={handlePress}
       onCheckIn={handleCheckIn}
     />

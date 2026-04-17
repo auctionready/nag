@@ -30,4 +30,17 @@ describe("DayIndicators", () => {
       />,
     );
   });
+
+  // Unscheduled-weekly goals pass the same mask for both `scheduledDaysMask`
+  // and `checkedInDaysMask` (the days the user actually checked in on) with
+  // no `todayColor`/`partialColor`/`missedColor`. Should render without
+  // crashing; `buildDayCells` tests cover the resulting green fills.
+  it("renders the unscheduled-weekly shape without crashing", () => {
+    render(
+      <DayIndicators
+        scheduledDaysMask={Day.Mon | Day.Wed}
+        checkedInDaysMask={Day.Mon | Day.Wed}
+      />,
+    );
+  });
 });
