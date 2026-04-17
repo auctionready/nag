@@ -13,12 +13,19 @@ import {
 import { SlotCheckIn, type SlotCheckInItem } from "../components/SlotCheckIn";
 
 const CheckInSlotScreen = () => {
-  const { habitIds: rawIds } = useLocalSearchParams<{ habitIds: string }>();
+  const {
+    habitIds: rawIds,
+    h: slotHourRaw,
+    m: slotMinuteRaw,
+  } = useLocalSearchParams<{ habitIds: string; h?: string; m?: string }>();
   const router = useRouter();
   const habitIds = (rawIds ?? "")
     .split(",")
     .map(Number)
     .filter((n) => !isNaN(n) && n > 0);
+  const slotHour = slotHourRaw !== undefined ? Number(slotHourRaw) : undefined;
+  const slotMinute =
+    slotMinuteRaw !== undefined ? Number(slotMinuteRaw) : undefined;
 
   // Freeze `now` for the lifetime of the screen so the day-range passed
   // to `useLiveQuery` is stable — otherwise every render would re-prepare
@@ -72,7 +79,7 @@ const CheckInSlotScreen = () => {
       checkIns: habitCheckIns,
       now,
     });
-    const slot = nearestSlot(slots, now);
+    const slot = pickSlot(slots, slotHour, slotMinute, now);
     return {
       id: h.id,
       title: h.title,
@@ -91,8 +98,24 @@ const CheckInSlotScreen = () => {
   );
 };
 
-const nearestSlot = (slots: SlotState[], now: Date): SlotState | undefined => {
+const pickSlot = (
+  slots: SlotState[],
+  slotHour: number | undefined,
+  slotMinute: number | undefined,
+  now: Date,
+): SlotState | undefined => {
   if (slots.length === 0) return undefined;
+  if (
+    slotHour !== undefined &&
+    slotMinute !== undefined &&
+    !isNaN(slotHour) &&
+    !isNaN(slotMinute)
+  ) {
+    const exact = slots.find(
+      (s) => s.hour === slotHour && s.minute === slotMinute,
+    );
+    if (exact) return exact;
+  }
   const nowMins = now.getHours() * 60 + now.getMinutes();
   return slots.reduce((best, s) => {
     const d = Math.abs(s.hour * 60 + s.minute - nowMins);

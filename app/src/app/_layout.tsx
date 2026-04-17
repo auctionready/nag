@@ -1,6 +1,7 @@
 import "../db/devMenu";
 import { init } from "../infrastructure/init";
 import { useNotificationResponseHandler } from "../infrastructure/notificationResponseHandler";
+import { useForegroundNotificationSync } from "../infrastructure/foregroundSync";
 import { Stack } from "expo-router";
 
 import { GestureHandlerRootView } from "react-native-gesture-handler";
@@ -10,6 +11,7 @@ init();
 
 const InnerLayout = () => {
   useNotificationResponseHandler();
+  useForegroundNotificationSync();
 
   return (
     <Stack>

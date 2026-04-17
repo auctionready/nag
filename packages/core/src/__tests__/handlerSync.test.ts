@@ -1,0 +1,122 @@
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import { processCommand } from "../commands/processor";
+import { syncAllNotifications } from "../notificationConsolidator";
+import { setupTestDb } from "./testDb";
+
+vi.mock("../notificationConsolidator", async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import("../notificationConsolidator")>();
+  return {
+    ...actual,
+    syncAllNotifications: vi.fn(async () => {}),
+  };
+});
+
+const mockSyncAll = vi.mocked(syncAllNotifications);
+const getDb = setupTestDb("handler-sync-test.db");
+
+beforeEach(() => {
+  vi.clearAllMocks();
+});
+
+describe("handlers call syncAllNotifications", () => {
+  it("CreateHabit (no goal)", async () => {
+    await processCommand(getDb(), { type: "CreateHabit", title: "Read" });
+    expect(mockSyncAll).toHaveBeenCalledOnce();
+    expect(mockSyncAll).toHaveBeenCalledWith(getDb());
+  });
+
+  it("CreateHabit (scheduled goal)", async () => {
+    await processCommand(getDb(), {
+      type: "CreateHabit",
+      title: "Read",
+      goal: {
+        regularity: "day",
+        schedules: [{ hour: 8, minute: 0, reminder: true }],
+      },
+    });
+    expect(mockSyncAll).toHaveBeenCalledOnce();
+  });
+
+  it("UpdateHabit", async () => {
+    const { habitId } = await processCommand(getDb(), {
+      type: "CreateHabit",
+      title: "Read",
+    });
+    mockSyncAll.mockClear();
+    await processCommand(getDb(), {
+      type: "UpdateHabit",
+      habitId,
+      title: "Studying",
+    });
+    expect(mockSyncAll).toHaveBeenCalledOnce();
+  });
+
+  it("DeleteHabit", async () => {
+    const { habitId } = await processCommand(getDb(), {
+      type: "CreateHabit",
+      title: "Read",
+    });
+    mockSyncAll.mockClear();
+    await processCommand(getDb(), { type: "DeleteHabit", habitId });
+    expect(mockSyncAll).toHaveBeenCalledOnce();
+  });
+
+  it("CreateCheckIn", async () => {
+    const { habitId } = await processCommand(getDb(), {
+      type: "CreateHabit",
+      title: "Read",
+    });
+    mockSyncAll.mockClear();
+    await processCommand(getDb(), {
+      type: "CreateCheckIn",
+      habitId,
+      timestamp: new Date(),
+    });
+    expect(mockSyncAll).toHaveBeenCalledOnce();
+  });
+
+  it("UpdateCheckIn", async () => {
+    const { habitId } = await processCommand(getDb(), {
+      type: "CreateHabit",
+      title: "Read",
+    });
+    const { checkInId } = await processCommand(getDb(), {
+      type: "CreateCheckIn",
+      habitId,
+      timestamp: new Date(),
+    });
+    mockSyncAll.mockClear();
+    await processCommand(getDb(), {
+      type: "UpdateCheckIn",
+      checkInId,
+      timestamp: new Date(),
+    });
+    expect(mockSyncAll).toHaveBeenCalledOnce();
+  });
+
+  it("DeleteCheckIn", async () => {
+    const { habitId } = await processCommand(getDb(), {
+      type: "CreateHabit",
+      title: "Read",
+    });
+    const { checkInId } = await processCommand(getDb(), {
+      type: "CreateCheckIn",
+      habitId,
+      timestamp: new Date(),
+    });
+    mockSyncAll.mockClear();
+    await processCommand(getDb(), { type: "DeleteCheckIn", checkInId });
+    expect(mockSyncAll).toHaveBeenCalledOnce();
+  });
+
+  it("is not called when validation fails before the handler runs", async () => {
+    await expect(
+      processCommand(getDb(), {
+        type: "CreateHabit",
+        title: "",
+      }),
+    ).rejects.toBeDefined();
+    expect(mockSyncAll).not.toHaveBeenCalled();
+  });
+});

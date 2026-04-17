@@ -6,8 +6,7 @@ import {
   habitById,
   goalForHabitFull,
   schedulesForGoal,
-  updateHabit,
-  deleteHabit,
+  processCommand,
 } from "@nag/core";
 import { HabitForm, type HabitFormData } from "../../components/HabitForm";
 import { buildGoalPayload } from "../../operations";
@@ -57,7 +56,9 @@ const EditHabitScreen = () => {
 
   const onSubmit = async (values: HabitFormData) => {
     const goal = buildGoalPayload(values);
-    await updateHabit(db, habitId, {
+    await processCommand(db, {
+      type: "UpdateHabit",
+      habitId,
       title: values.title,
       description: values.description || null,
       goal: goal ?? null,
@@ -66,7 +67,7 @@ const EditHabitScreen = () => {
   };
 
   const onDelete = async () => {
-    await deleteHabit(db, habitId);
+    await processCommand(db, { type: "DeleteHabit", habitId });
     router.replace("/(tabs)");
   };
 

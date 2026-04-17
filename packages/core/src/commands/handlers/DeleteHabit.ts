@@ -1,6 +1,7 @@
 import { eq } from "drizzle-orm";
 import { habit } from "@nag/schema";
 import type { AnyDb } from "../../db";
+import { syncAllNotifications } from "../../notificationConsolidator";
 import type { DeleteHabit } from "../schemas";
 
 export async function handleDeleteHabit(
@@ -8,4 +9,5 @@ export async function handleDeleteHabit(
   command: DeleteHabit,
 ): Promise<void> {
   await db.delete(habit).where(eq(habit.id, command.habitId));
+  await syncAllNotifications(db);
 }

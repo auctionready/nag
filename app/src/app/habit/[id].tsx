@@ -95,11 +95,7 @@ const HabitScreen = () => {
   };
 
   const handleCheckInAt = async (timestamp: Date) => {
-    await processCommand(db, {
-      type: "CreateCheckIn",
-      habitId,
-      timestamp,
-    });
+    await processCommand(db, { type: "CreateCheckIn", habitId, timestamp });
   };
 
   const handleSkipAt = async (timestamp: Date) => {

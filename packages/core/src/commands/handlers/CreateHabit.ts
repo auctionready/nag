@@ -1,5 +1,6 @@
 import { habit, goal, schedule } from "@nag/schema";
 import type { AnyDb } from "../../db";
+import { syncAllNotifications } from "../../notificationConsolidator";
 import type { CreateHabit } from "../schemas";
 
 function popcount(n: number): number {
@@ -56,6 +57,7 @@ export async function handleCreateHabit(
           })),
         )
         .returning({ id: schedule.id });
+      await syncAllNotifications(db);
       return {
         habitId: inserted.id,
         scheduleIds: insertedSchedules.map((s) => s.id),
@@ -63,5 +65,6 @@ export async function handleCreateHabit(
     }
   }
 
+  await syncAllNotifications(db);
   return { habitId: inserted.id, scheduleIds: [] };
 }
