@@ -6,7 +6,11 @@ import {
   Text,
   View,
 } from "react-native";
-import { Swipeable } from "react-native-gesture-handler";
+import {
+  Gesture,
+  GestureDetector,
+  Swipeable,
+} from "react-native-gesture-handler";
 import { format } from "date-fns";
 import { complianceColors } from "../getComplianceColor";
 
@@ -16,6 +20,8 @@ export interface RecentCheckInItem {
   timestamp: Date;
   /** Wall-clock insert time. Differs from `timestamp` for back-filled check-ins. */
   createdAt: Date;
+  /** Last modification time. Greater than `createdAt` when the timestamp was edited. */
+  updatedAt: Date;
   skipped: boolean | null;
 }
 
@@ -27,6 +33,7 @@ interface RecentCheckInsProps {
   /** True when the list is scoped to a single calendar day; controls timestamp format. */
   singleDay: boolean;
   onRemove: (id: number) => void;
+  onEditTimestamp?: (id: number, timestamp: Date) => void;
 }
 
 const TIME_ONLY = "h:mm a";
@@ -39,6 +46,10 @@ const FULL_FMT = "EEE, MMM d, yyyy h:mm a";
 const BACKFILL_THRESHOLD_MS = 60_000;
 const wasBackFilled = (ts: Date, createdAt: Date) =>
   Math.abs(createdAt.getTime() - ts.getTime()) >= BACKFILL_THRESHOLD_MS;
+
+const EDITED_THRESHOLD_MS = 1_000;
+const wasEdited = (createdAt: Date, updatedAt: Date) =>
+  updatedAt.getTime() - createdAt.getTime() >= EDITED_THRESHOLD_MS;
 
 const isSameCalendarDay = (a: Date, b: Date) =>
   a.getFullYear() === b.getFullYear() &&
@@ -68,6 +79,7 @@ export const RecentCheckIns = ({
   title,
   singleDay,
   onRemove,
+  onEditTimestamp,
 }: RecentCheckInsProps) => {
   const [expanded, setExpanded] = useState(true);
 
@@ -109,45 +121,70 @@ export const RecentCheckIns = ({
           {checkIns.length === 0 ? (
             <Text style={styles.emptyText}>No check-ins yet</Text>
           ) : (
-            checkIns.map((item) => (
-              <Swipeable
-                key={item.id}
-                friction={2}
-                rightThreshold={40}
-                overshootRight={false}
-                renderRightActions={() => renderRightActions(item.id)}
-                containerStyle={styles.swipeContainer}
-              >
-                <View
-                  style={styles.row}
-                  accessibilityActions={[
-                    { name: "remove", label: "Remove check-in" },
-                  ]}
-                  onAccessibilityAction={(e) => {
-                    if (e.nativeEvent.actionName === "remove") {
-                      handleRemove(item.id);
-                    }
-                  }}
+            checkIns.map((item) => {
+              const longPress = Gesture.LongPress()
+                .minDuration(500)
+                .enabled(onEditTimestamp != null)
+                .onStart(() => {
+                  onEditTimestamp?.(item.id, item.timestamp);
+                });
+
+              return (
+                <Swipeable
+                  key={item.id}
+                  friction={2}
+                  rightThreshold={40}
+                  overshootRight={false}
+                  renderRightActions={() => renderRightActions(item.id)}
+                  containerStyle={styles.swipeContainer}
                 >
-                  <Text style={styles.timestamp}>
-                    {format(item.timestamp, fmt)}
-                  </Text>
-                  {wasBackFilled(item.timestamp, item.createdAt) && (
-                    <Text style={styles.recordedLabel}>
-                      (recorded{" "}
-                      {format(
-                        item.createdAt,
-                        recordedFmt(item.timestamp, item.createdAt),
+                  <GestureDetector gesture={longPress}>
+                    <View
+                      style={styles.row}
+                      accessibilityActions={[
+                        { name: "remove", label: "Remove check-in" },
+                        ...(onEditTimestamp
+                          ? [{ name: "edit", label: "Edit check-in time" }]
+                          : []),
+                      ]}
+                      onAccessibilityAction={(e) => {
+                        if (e.nativeEvent.actionName === "remove") {
+                          handleRemove(item.id);
+                        } else if (e.nativeEvent.actionName === "edit") {
+                          onEditTimestamp?.(item.id, item.timestamp);
+                        }
+                      }}
+                    >
+                      <Text style={styles.timestamp}>
+                        {format(item.timestamp, fmt)}
+                      </Text>
+                      {wasEdited(item.createdAt, item.updatedAt) ? (
+                        <Text style={styles.recordedLabel}>
+                          (edited{" "}
+                          {format(
+                            item.updatedAt,
+                            recordedFmt(item.timestamp, item.updatedAt),
+                          )}
+                          )
+                        </Text>
+                      ) : wasBackFilled(item.timestamp, item.createdAt) ? (
+                        <Text style={styles.recordedLabel}>
+                          (recorded{" "}
+                          {format(
+                            item.createdAt,
+                            recordedFmt(item.timestamp, item.createdAt),
+                          )}
+                          )
+                        </Text>
+                      ) : null}
+                      {item.skipped && (
+                        <Text style={styles.skippedLabel}>(skipped)</Text>
                       )}
-                      )
-                    </Text>
-                  )}
-                  {item.skipped && (
-                    <Text style={styles.skippedLabel}>(skipped)</Text>
-                  )}
-                </View>
-              </Swipeable>
-            ))
+                    </View>
+                  </GestureDetector>
+                </Swipeable>
+              );
+            })
           )}
         </View>
       )}

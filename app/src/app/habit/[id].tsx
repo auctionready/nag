@@ -111,6 +111,19 @@ const HabitScreen = () => {
     });
   };
 
+  const handleEditCheckInTimestamp = async (
+    checkInId: number,
+    timestamp: Date,
+    skipped?: boolean,
+  ) => {
+    await processCommand(db, {
+      type: "UpdateCheckIn",
+      checkInId,
+      timestamp,
+      skipped,
+    });
+  };
+
   return (
     <HabitDetail
       loading={!habitData}
@@ -132,6 +145,7 @@ const HabitScreen = () => {
       onRemoveCheckIn={async (checkInId) => {
         await processCommand(db, { type: "DeleteCheckIn", checkInId });
       }}
+      onEditCheckInTimestamp={handleEditCheckInTimestamp}
     />
   );
 };

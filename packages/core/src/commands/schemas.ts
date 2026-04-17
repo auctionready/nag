@@ -120,12 +120,20 @@ export const DeleteCheckIn = z.object({
   checkInId: z.int().positive(),
 });
 
+export const UpdateCheckIn = z.object({
+  type: z.literal("UpdateCheckIn"),
+  checkInId: z.int().positive(),
+  timestamp: z.coerce.date(),
+  skipped: z.boolean().optional(),
+});
+
 export const Command = z.discriminatedUnion("type", [
   CreateHabit,
   UpdateHabit,
   DeleteHabit,
   CreateCheckIn,
   DeleteCheckIn,
+  UpdateCheckIn,
 ]);
 
 export type GoalPayload = z.infer<typeof GoalPayload>;
@@ -135,3 +143,4 @@ export type UpdateHabit = z.infer<typeof UpdateHabit>;
 export type DeleteHabit = z.infer<typeof DeleteHabit>;
 export type CreateCheckIn = z.infer<typeof CreateCheckIn>;
 export type DeleteCheckIn = z.infer<typeof DeleteCheckIn>;
+export type UpdateCheckIn = z.infer<typeof UpdateCheckIn>;
