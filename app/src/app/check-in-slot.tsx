@@ -12,9 +12,6 @@ import {
 } from "@nag/core";
 import { SlotCheckIn, type SlotCheckInItem } from "../components/SlotCheckIn";
 
-const startOfDay = (d: Date) =>
-  new Date(d.getFullYear(), d.getMonth(), d.getDate());
-
 const CheckInSlotScreen = () => {
   const { habitIds: rawIds } = useLocalSearchParams<{ habitIds: string }>();
   const router = useRouter();
@@ -27,10 +24,12 @@ const CheckInSlotScreen = () => {
   // to `useLiveQuery` is stable — otherwise every render would re-prepare
   // the query with a new `Date`.
   const { now, dayStart, dayEnd } = useMemo(() => {
-    const n = new Date();
-    const s = startOfDay(n);
-    const e = new Date(s.getFullYear(), s.getMonth(), s.getDate() + 1);
-    return { now: n, dayStart: s, dayEnd: e };
+    const now = new Date();
+    return {
+      now,
+      dayStart: new Date(now.getFullYear(), now.getMonth(), now.getDate()),
+      dayEnd: new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1),
+    };
   }, []);
 
   const { data: habits } = useLiveQuery(habitsByIds(db, habitIds), [rawIds]);
