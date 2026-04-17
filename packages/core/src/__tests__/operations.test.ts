@@ -1,7 +1,14 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { createHabit, updateHabit, deleteHabit } from "../operations";
+import {
+  createCheckIn,
+  createHabit,
+  deleteCheckIn,
+  deleteHabit,
+  updateCheckIn,
+  updateHabit,
+} from "../operations";
 import { setupTestDb } from "./testDb";
-import { habitById } from "../queries";
+import { checkInsForHabit, habitById } from "../queries";
 import { syncAllNotifications } from "../notificationConsolidator";
 
 vi.mock("../notificationConsolidator", async (importOriginal) => {
@@ -169,6 +176,71 @@ describe("error paths", () => {
       const after = await allHabits(getDb());
       expect(after.length).toBe(before.length + 1);
     });
+  });
+});
+
+describe("createCheckIn", () => {
+  let habitId: number;
+  beforeEach(async () => {
+    ({ habitId } = await createHabit(getDb(), { title: "Read" }));
+    vi.clearAllMocks();
+  });
+
+  it("persists the check-in", async () => {
+    await createCheckIn(getDb(), { habitId, timestamp: new Date() });
+    const rows = await checkInsForHabit(getDb(), habitId);
+    expect(rows).toHaveLength(1);
+    expect(rows[0].skipped).toBe(false);
+  });
+
+  it("honours the skipped flag", async () => {
+    await createCheckIn(getDb(), {
+      habitId,
+      timestamp: new Date(),
+      skipped: true,
+    });
+    const rows = await checkInsForHabit(getDb(), habitId);
+    expect(rows[0].skipped).toBe(true);
+  });
+
+  it("calls syncAllNotifications", async () => {
+    await createCheckIn(getDb(), { habitId, timestamp: new Date() });
+    expect(mockSyncAll).toHaveBeenCalledOnce();
+  });
+});
+
+describe("updateCheckIn", () => {
+  it("updates the check-in and calls syncAllNotifications", async () => {
+    const { habitId } = await createHabit(getDb(), { title: "Read" });
+    const { checkInId } = await createCheckIn(getDb(), {
+      habitId,
+      timestamp: new Date(2025, 0, 1, 8, 0),
+    });
+    vi.clearAllMocks();
+
+    const newTime = new Date(2025, 0, 1, 9, 0);
+    await updateCheckIn(getDb(), { checkInId, timestamp: newTime });
+
+    const rows = await checkInsForHabit(getDb(), habitId);
+    expect(rows[0].timestamp.getTime()).toBe(newTime.getTime());
+    expect(mockSyncAll).toHaveBeenCalledOnce();
+  });
+});
+
+describe("deleteCheckIn", () => {
+  it("deletes the check-in and calls syncAllNotifications", async () => {
+    const { habitId } = await createHabit(getDb(), { title: "Read" });
+    const { checkInId } = await createCheckIn(getDb(), {
+      habitId,
+      timestamp: new Date(),
+    });
+    vi.clearAllMocks();
+
+    await deleteCheckIn(getDb(), checkInId);
+
+    const rows = await checkInsForHabit(getDb(), habitId);
+    expect(rows).toHaveLength(0);
+    expect(mockSyncAll).toHaveBeenCalledOnce();
   });
 });
 

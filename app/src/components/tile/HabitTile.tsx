@@ -2,7 +2,7 @@ import { useCallback } from "react";
 import { useRouter } from "expo-router";
 import { db } from "../../db";
 import {
-  processCommand,
+  createCheckIn,
   isScheduledToday,
   withinDayColor,
   checkInDaysMask,
@@ -96,11 +96,7 @@ export const HabitTile = ({ id, title }: HabitTileProps) => {
   }, [router, id]);
 
   const handleCheckIn = useCallback(async () => {
-    await processCommand(db, {
-      type: "CreateCheckIn",
-      habitId: id,
-      timestamp: new Date(),
-    });
+    await createCheckIn(db, { habitId: id, timestamp: new Date() });
   }, [id]);
 
   return (

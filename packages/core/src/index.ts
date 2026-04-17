@@ -67,7 +67,14 @@ export {
   weekDayEntries,
   mondayFirstDayLetters,
 } from "./days";
-export { createHabit, updateHabit, deleteHabit } from "./operations";
+export {
+  createHabit,
+  updateHabit,
+  deleteHabit,
+  createCheckIn,
+  updateCheckIn,
+  deleteCheckIn,
+} from "./operations";
 export {
   setNotificationScheduler,
   getNotificationScheduler,
