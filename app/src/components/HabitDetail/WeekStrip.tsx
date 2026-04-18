@@ -14,6 +14,11 @@ interface WeekStripProps {
   checkedInDaysMask: number;
   /** Days where some — but not all — scheduled slots have a check-in. */
   partialDaysMask?: number;
+  /**
+   * Days with at least one check-in regardless of schedule. Used to show
+   * a dimmed green fill on unscheduled days the user still checked in on.
+   */
+  anyCheckInDaysMask?: number;
   /** Override for today's circle (partial/failing/compliant). */
   todayColor?: string;
   /** Anchor day for the week (today by default). */
@@ -41,6 +46,7 @@ export const WeekStrip = ({
   scheduledDaysMask,
   checkedInDaysMask,
   partialDaysMask,
+  anyCheckInDaysMask,
   todayColor,
   now = new Date(),
   selectedDay,
@@ -50,6 +56,7 @@ export const WeekStrip = ({
     scheduledDaysMask,
     checkedInDaysMask,
     partialDaysMask,
+    anyCheckInDaysMask,
     checkedInColor: complianceColors.compliant,
     partialColor: complianceColors.partial,
     todayColor,
@@ -73,6 +80,10 @@ export const WeekStrip = ({
           // the cell visually so the affordance is obvious.
           const isFuture = isAfter(cellDate, todayStart);
           const dayBit = mondayFirstDayLetters[i].day;
+          // Unscheduled day with a check-in: dim the whole circle to match
+          // the faded letter, so the extra check-in reads as "bonus" not
+          // required.
+          const unscheduledFilled = !scheduled && backgroundColor !== undefined;
           return (
             <Pressable
               key={i}
@@ -91,13 +102,16 @@ export const WeekStrip = ({
                   backgroundColor ? { backgroundColor } : styles.circleUnfilled,
                   isSelected && styles.circleSelected,
                   isFuture && styles.circleFuture,
+                  unscheduledFilled && styles.circleUnscheduledFilled,
                 ]}
               >
                 <Text
                   style={[
                     styles.letter,
                     !backgroundColor && styles.letterUnfilled,
-                    !scheduled && styles.letterUnscheduled,
+                    !scheduled &&
+                      !unscheduledFilled &&
+                      styles.letterUnscheduled,
                     isFuture && styles.letterFuture,
                   ]}
                 >
@@ -156,6 +170,9 @@ const styles = StyleSheet.create({
     color: "#888",
   },
   letterUnscheduled: {
+    opacity: 0.4,
+  },
+  circleUnscheduledFilled: {
     opacity: 0.4,
   },
   letterFuture: {

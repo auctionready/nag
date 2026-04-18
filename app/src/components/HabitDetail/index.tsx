@@ -152,6 +152,9 @@ export const HabitDetail = ({
   const scheduledDaysMask = snap.scheduledDaysMask;
   const checkedInDaysMask = snap.completedDaysMask;
   const partialDaysMask = snap.partialDaysMask;
+  // Dim-fill any unscheduled day the user still checked in on, so those
+  // back-fills aren't invisible in the week strip.
+  const anyCheckInDaysMask = snap.anyCheckInDaysMask;
 
   const { windowStart, windowEnd, listTitle, singleDay } = useMemo(() => {
     if (selectedDay) {
@@ -357,6 +360,7 @@ export const HabitDetail = ({
             scheduledDaysMask={scheduledDaysMask}
             checkedInDaysMask={checkedInDaysMask}
             partialDaysMask={partialDaysMask}
+            anyCheckInDaysMask={anyCheckInDaysMask}
             todayColor={complianceColor}
             now={now}
             selectedDay={selectedDay}

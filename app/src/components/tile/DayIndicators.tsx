@@ -8,6 +8,7 @@ interface DayIndicatorsProps {
   scheduledDaysMask: number;
   checkedInDaysMask: number;
   partialDaysMask?: number;
+  anyCheckInDaysMask?: number;
   todayColor?: string;
   partialColor?: string;
   missedColor?: string;
@@ -17,6 +18,7 @@ export const DayIndicators = ({
   scheduledDaysMask,
   checkedInDaysMask,
   partialDaysMask,
+  anyCheckInDaysMask,
   todayColor,
   partialColor,
   missedColor,
@@ -25,6 +27,7 @@ export const DayIndicators = ({
     scheduledDaysMask,
     checkedInDaysMask,
     partialDaysMask,
+    anyCheckInDaysMask,
     checkedInColor: CHECKED_IN_COLOR,
     partialColor,
     todayColor,
@@ -32,22 +35,31 @@ export const DayIndicators = ({
   });
   return (
     <View style={styles.row}>
-      {cells.map(({ letter, scheduled, backgroundColor }, i) => (
-        <View key={i} style={styles.cell}>
-          <View
-            style={[
-              styles.circle,
-              backgroundColor ? { backgroundColor } : null,
-            ]}
-          >
-            <Text
-              style={[styles.letter, !scheduled && styles.unscheduledLetter]}
+      {cells.map(({ letter, scheduled, backgroundColor }, i) => {
+        // Unscheduled day with a check-in: dim the whole circle to match
+        // the faded letter so the check-in is visible but reads as "extra".
+        const unscheduledFilled = !scheduled && backgroundColor !== undefined;
+        return (
+          <View key={i} style={styles.cell}>
+            <View
+              style={[
+                styles.circle,
+                backgroundColor ? { backgroundColor } : null,
+                unscheduledFilled && styles.unscheduledFilled,
+              ]}
             >
-              {letter}
-            </Text>
+              <Text
+                style={[
+                  styles.letter,
+                  !scheduled && !unscheduledFilled && styles.unscheduledLetter,
+                ]}
+              >
+                {letter}
+              </Text>
+            </View>
           </View>
-        </View>
-      ))}
+        );
+      })}
     </View>
   );
 };
@@ -77,6 +89,9 @@ const styles = StyleSheet.create({
     color: "#fff",
   },
   unscheduledLetter: {
+    opacity: 0.35,
+  },
+  unscheduledFilled: {
     opacity: 0.35,
   },
 });
