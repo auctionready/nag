@@ -34,11 +34,14 @@ export { dailyCalculator } from "./dailyCalculator";
 export { weeklyCalculator } from "./weeklyCalculator";
 export { monthlyCalculator } from "./monthlyCalculator";
 
+export { combineScheduleDays } from "./combineScheduleDays";
+import { combineScheduleDays } from "./combineScheduleDays";
+
 export const isScheduledToday = (
   schedules: ScheduleInfo[],
   now = new Date(),
 ): boolean => {
-  const combinedDays = schedules.reduce((mask, s) => mask | (s.days ?? 0), 0);
+  const combinedDays = combineScheduleDays(schedules);
   if (combinedDays === 0) return true;
   return (combinedDays & (1 << now.getDay())) !== 0;
 };
