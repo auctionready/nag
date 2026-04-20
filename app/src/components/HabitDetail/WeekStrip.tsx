@@ -1,6 +1,11 @@
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { startOfWeek, addDays, startOfDay, isAfter } from "date-fns";
-import { buildDayCells, dayTitles, mondayFirstDayLetters } from "@nag/core";
+import {
+  buildDayCells,
+  dayTitles,
+  isSameCalendarDay,
+  mondayFirstDayLetters,
+} from "@nag/core";
 import { complianceColors } from "../getComplianceColor";
 
 interface WeekStripProps {
@@ -23,11 +28,6 @@ interface WeekStripProps {
 }
 
 const CIRCLE_SIZE = 36;
-
-const isSameCalendarDay = (a: Date, b: Date) =>
-  a.getFullYear() === b.getFullYear() &&
-  a.getMonth() === b.getMonth() &&
-  a.getDate() === b.getDate();
 
 /**
  * Full-width weekly strip showing scheduled vs. checked-in days, with

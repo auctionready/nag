@@ -8,6 +8,7 @@ import {
 } from "react-native";
 import { Swipeable } from "react-native-gesture-handler";
 import { format } from "date-fns";
+import { isSameCalendarDay } from "@nag/core";
 import { complianceColors } from "../getComplianceColor";
 
 export interface RecentCheckInItem {
@@ -46,11 +47,6 @@ const wasBackFilled = ({ timestamp, createdAt }: RecentCheckInItem) =>
 const EDITED_THRESHOLD_MS = 1_000;
 const wasEdited = ({ createdAt, updatedAt }: RecentCheckInItem) =>
   updatedAt.getTime() - createdAt.getTime() >= EDITED_THRESHOLD_MS;
-
-const isSameCalendarDay = (a: Date, b: Date) =>
-  a.getFullYear() === b.getFullYear() &&
-  a.getMonth() === b.getMonth() &&
-  a.getDate() === b.getDate();
 
 /** Pick the shortest format that still communicates the difference. */
 const recordedFmt = (deemed: Date, recorded: Date): string => {
