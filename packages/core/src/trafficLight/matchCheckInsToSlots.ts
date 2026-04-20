@@ -1,3 +1,4 @@
+import { isSameCalendarDay } from "../days";
 import type { ScheduleInfo } from "./types";
 
 export type SlotStatus = "done" | "skipped" | "missed" | "upcoming";
@@ -25,11 +26,6 @@ export interface MatchCheckInsToSlotsResult {
   /** Count of timed slots scheduled for today. */
   total: number;
 }
-
-const isSameDay = (a: Date, b: Date) =>
-  a.getFullYear() === b.getFullYear() &&
-  a.getMonth() === b.getMonth() &&
-  a.getDate() === b.getDate();
 
 /**
  * Given today's timed schedules and today's check-ins, pair them up
@@ -68,7 +64,7 @@ export const matchCheckInsToSlots = ({
     .sort((a, b) => a.hour * 60 + a.minute - (b.hour * 60 + b.minute));
 
   const todaysCheckIns = checkIns
-    .filter((c) => isSameDay(c.timestamp, now))
+    .filter((c) => isSameCalendarDay(c.timestamp, now))
     .slice()
     .sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
 

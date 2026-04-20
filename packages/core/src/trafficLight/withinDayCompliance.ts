@@ -1,3 +1,4 @@
+import { isSameCalendarDay } from "../days";
 import type { ScheduleInfo, ComplianceColors } from "./types";
 import { colorForRatio } from "./colorForRatio";
 
@@ -15,11 +16,6 @@ export interface WithinDayCompliance {
   /** elapsed > 0 ? checkInsToday / elapsed : null */
   ratio: number | null;
 }
-
-const isSameDay = (a: Date, b: Date) =>
-  a.getFullYear() === b.getFullYear() &&
-  a.getMonth() === b.getMonth() &&
-  a.getDate() === b.getDate();
 
 /**
  * Computes within-day compliance for habits with multiple timed schedules
@@ -48,7 +44,7 @@ export const withinDayCompliance = ({
   ).length;
 
   const checkInsToday = checkInTimestamps.filter((t) =>
-    isSameDay(t, now),
+    isSameCalendarDay(t, now),
   ).length;
 
   return {

@@ -66,6 +66,7 @@ export {
   dayTitles,
   weekDayEntries,
   mondayFirstDayLetters,
+  isSameCalendarDay,
 } from "./days";
 export {
   setNotificationScheduler,
