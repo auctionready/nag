@@ -1,5 +1,6 @@
 import { startOfWeek, differenceInCalendarDays } from "date-fns";
 import type { TrafficLightCalculator } from "./types";
+import { combineScheduleDays } from "./combineScheduleDays";
 import { resultForRatio, defaultResult } from "./colorForRatio";
 
 /** Week order starting Monday, using Date.getDay() values */
@@ -43,8 +44,7 @@ export const weeklyCalculator: TrafficLightCalculator = (input, colors) => {
     };
   }
 
-  // Combine all schedule day bitmasks
-  const combinedDays = schedules.reduce((mask, s) => mask | (s.days ?? 0), 0);
+  const combinedDays = combineScheduleDays(schedules);
 
   const expected =
     combinedDays !== 0

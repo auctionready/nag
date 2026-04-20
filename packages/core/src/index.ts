@@ -25,6 +25,7 @@ export {
   type MatchCheckInsToSlotsInput,
   type MatchCheckInsToSlotsResult,
   isScheduledToday,
+  combineScheduleDays,
   tileColor,
   dailyCalculator,
   weeklyCalculator,
