@@ -1,5 +1,11 @@
 export { periodStart, periodWindow } from "./compliance";
 export {
+  habitProgressSnapshot,
+  type AnchorKind,
+  type HabitProgressInput,
+  type HabitProgressSnapshot,
+} from "./habitProgressSnapshot";
+export {
   buildDayCells,
   checkInDaysMask,
   classifyScheduledDays,
