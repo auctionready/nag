@@ -38,13 +38,13 @@ const base = (overrides: Partial<HabitProgressInput>): HabitProgressInput => ({
 
 describe("habitProgressSnapshot", () => {
   describe("anchorKind: none", () => {
-    it("classifies missing goal as none", () => {
+    it("classifies missing goal + no schedules as none", () => {
       const snap = habitProgressSnapshot(base({ goal: null }));
       expect(snap.anchorKind).toBe("none");
       expect(snap.ring).toBe(0);
     });
 
-    it("classifies zero-frequency goal as none", () => {
+    it("classifies zero-frequency goal + no schedules as none", () => {
       const snap = habitProgressSnapshot(
         base({
           goal: {
@@ -56,6 +56,18 @@ describe("habitProgressSnapshot", () => {
       );
       expect(snap.anchorKind).toBe("none");
       expect(snap.ring).toBe(0);
+    });
+
+    it("scheduled-day classification works even without a goal", () => {
+      const snap = habitProgressSnapshot(
+        base({
+          goal: null,
+          schedules: [timed(Day.Mon | Day.Wed | Day.Fri, 8)],
+          periodCheckIns: [{ timestamp: new Date(2025, 5, 4, 8, 5) }],
+        }),
+      );
+      expect(snap.anchorKind).toBe("scheduled-day");
+      expect(snap.ring).toBe(1);
     });
   });
 

@@ -444,6 +444,55 @@ describe("HabitDetail", () => {
         expect(baseProps.onSelectDay).toHaveBeenCalledTimes(2);
       });
     });
+
+    describe("Sunday-boundary regression", () => {
+      // The previous implementation hand-rolled a Sunday-first week start
+      // for the week-strip classification, while buildDayCells (and the
+      // rest of the app) uses Monday-first via periodStart. That mismatch
+      // silently mis-classified Sunday check-ins. This locks in the fix.
+      const sundayScheduled: ScheduleInfo[] = [
+        {
+          days: Day.Sun,
+          dayOfMonth: null,
+          hour: 9,
+          minute: 0,
+        },
+      ];
+
+      it("a Sunday check-in lights up the Sunday cell green on a Sunday", () => {
+        const view = render(
+          <HabitDetail
+            {...baseProps}
+            regularity="week"
+            frequency={1}
+            goalCreatedAt={new Date(2020, 0, 1)}
+            schedules={sundayScheduled}
+            complianceColor={complianceColors.compliant}
+            checkIns={[
+              {
+                id: 1,
+                timestamp: sundayAt(9, 5),
+                createdAt: sundayAt(9, 5),
+                updatedAt: sundayAt(9, 5),
+                skipped: false,
+              },
+            ]}
+          />,
+        );
+        // The Pressable wraps a circle View whose style carries the
+        // backgroundColor buildDayCells derived. Walk the rendered tree
+        // to find the inner circle, then flatten its style array.
+        const sundayCell = view.getByLabelText("Select Sunday");
+        const circle = sundayCell.children[0] as {
+          props: { style: unknown };
+        };
+        const rawStyles = Array.isArray(circle.props.style)
+          ? circle.props.style
+          : [circle.props.style];
+        const flat = Object.assign({}, ...rawStyles.filter(Boolean));
+        expect(flat.backgroundColor).toBe(complianceColors.compliant);
+      });
+    });
   });
 
   describe("frequency-only habit (no timed schedule)", () => {
