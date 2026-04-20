@@ -1,4 +1,4 @@
-export { periodStart } from "./compliance";
+export { periodStart, periodWindow } from "./compliance";
 export {
   buildDayCells,
   checkInDaysMask,
