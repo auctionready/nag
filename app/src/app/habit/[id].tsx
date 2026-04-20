@@ -8,6 +8,7 @@ import {
   goalForHabitFull,
   checkInsForHabit,
   checkInCount,
+  combineScheduleDays,
   processCommand,
   periodStart,
   schedulesForHabit,
@@ -47,8 +48,7 @@ const HabitScreen = () => {
   // default, the week strip would show no selection and the long-press
   // affordances on slot chips would feel disconnected from the strip above.
   const hasWeeklyDaysSchedule =
-    goalData?.regularity === "week" &&
-    schedules.some((s) => (s.days ?? 0) !== 0);
+    goalData?.regularity === "week" && combineScheduleDays(schedules) !== 0;
   const parsedDay = day ? parse(day, DAY_PARAM_FORMAT, new Date()) : null;
   // Ignore a `?day=` pointing at the future — a deep link shouldn't bypass
   // the UI guard that prevents check-in / skip on days that haven't happened.
