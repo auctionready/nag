@@ -153,11 +153,15 @@ export const habitProgressSnapshot = (
         })
       : null;
 
+  const hasGoal = goal !== null && goal.frequency > 0;
   let anchorKind: AnchorKind;
-  if (!goal || goal.frequency === 0) anchorKind = "none";
-  else if (schedules.length === 0) anchorKind = "frequency-only";
-  else if (slots && slots.total > 0) anchorKind = "scheduled-day";
-  else anchorKind = "off-day";
+  if (schedules.length === 0) {
+    anchorKind = hasGoal ? "frequency-only" : "none";
+  } else if (slots && slots.total > 0) {
+    anchorKind = "scheduled-day";
+  } else {
+    anchorKind = "off-day";
+  }
 
   let ring = 0;
   if (anchorKind === "scheduled-day" && slots) {

@@ -128,6 +128,7 @@ const HabitScreen = () => {
       goalText={goalText}
       regularity={goalData?.regularity ?? null}
       frequency={goalData?.frequency ?? null}
+      goalCreatedAt={goalData?.createdAt ?? null}
       checkInsThisPeriod={currentCount}
       schedules={schedules}
       checkIns={checkIns ?? []}

@@ -9,20 +9,14 @@ import {
   View,
 } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
-import {
-  format,
-  startOfDay,
-  endOfDay,
-  startOfMonth,
-  endOfMonth,
-} from "date-fns";
+import { format, startOfDay, endOfDay, startOfMonth } from "date-fns";
 import type { Regularity } from "@nag/schema";
 import {
-  classifyScheduledDays,
-  matchCheckInsToSlots,
+  habitProgressSnapshot,
+  isSameCalendarDay,
   periodStart,
+  periodWindow,
   type ScheduleInfo,
-  type MatchCheckInsToSlotsResult,
 } from "@nag/core";
 import { complianceColors } from "../getComplianceColor";
 import { TodayCard } from "./TodayCard";
@@ -37,6 +31,9 @@ export interface HabitDetailProps {
   goalText: string | null;
   regularity: Regularity | null;
   frequency: number | null;
+  /** Goal creation time — used by the weekly traffic-light to avoid
+   * penalising the current week when the goal was just created. */
+  goalCreatedAt?: Date | null;
   /** Check-ins within the current period (for frequency-only progress). */
   checkInsThisPeriod: number;
   schedules: ScheduleInfo[];
@@ -73,32 +70,10 @@ export interface HabitDetailProps {
   now?: Date;
 }
 
-const isSameCalendarDay = (a: Date, b: Date) =>
-  a.getFullYear() === b.getFullYear() &&
-  a.getMonth() === b.getMonth() &&
-  a.getDate() === b.getDate();
-
-const periodWindow = (
-  regularity: Regularity | null,
-  now: Date,
-): { start: Date; end: Date; title: string } => {
-  if (regularity === "week") {
-    const start = periodStart("week", now);
-    return { start, end: endOfDay(now), title: "This Week's Check-ins" };
-  }
-  if (regularity === "month") {
-    return {
-      start: startOfMonth(now),
-      end: endOfMonth(now),
-      title: "This Month's Check-ins",
-    };
-  }
-  // default: day (also fallback when regularity is null)
-  return {
-    start: startOfDay(now),
-    end: endOfDay(now),
-    title: "Today's Check-ins",
-  };
+const periodTitle = (regularity: Regularity | null): string => {
+  if (regularity === "week") return "This Week's Check-ins";
+  if (regularity === "month") return "This Month's Check-ins";
+  return "Today's Check-ins";
 };
 
 export const HabitDetail = ({
@@ -108,6 +83,7 @@ export const HabitDetail = ({
   goalText,
   regularity,
   frequency,
+  goalCreatedAt,
   checkInsThisPeriod,
   schedules,
   checkIns,
@@ -134,49 +110,48 @@ export const HabitDetail = ({
     return selectedDay < now ? endOfDay(selectedDay) : startOfDay(selectedDay);
   }, [selectedDay, now]);
 
-  const cardIsToday = isSameCalendarDay(cardAnchor, now);
-
-  const match: MatchCheckInsToSlotsResult | null = useMemo(() => {
-    if (schedules.length === 0) return null;
-    return matchCheckInsToSlots({
+  const snap = useMemo(() => {
+    // Scope check-ins to the current period so prior-period back-fills
+    // don't leak into this period's masks. Uses periodStart (Monday-first
+    // for `week`), which fixes the Sunday-boundary bug the old inline
+    // `start.setDate(start.getDate() - start.getDay())` introduced.
+    const periodStartDate = regularity ? periodStart(regularity, now) : null;
+    const periodCheckIns = periodStartDate
+      ? checkIns.filter((c) => c.timestamp >= periodStartDate)
+      : checkIns;
+    const goal =
+      regularity !== null && frequency !== null && goalCreatedAt != null
+        ? { regularity, frequency, createdAt: goalCreatedAt }
+        : null;
+    return habitProgressSnapshot({
+      goal,
       schedules,
-      // `c.timestamp` is the deemed slot time — exactly what the matcher
-      // needs to bucket a back-filled check-in to the right slot.
-      checkIns: checkIns.map((c) => ({
+      periodCheckIns: periodCheckIns.map((c) => ({
         timestamp: c.timestamp,
         skipped: c.skipped,
       })),
-      now: cardAnchor,
+      periodCheckInCount: checkInsThisPeriod,
+      now,
+      anchor: cardAnchor,
+      colors: complianceColors,
     });
-  }, [schedules, checkIns, cardAnchor]);
+  }, [
+    regularity,
+    frequency,
+    goalCreatedAt,
+    schedules,
+    checkIns,
+    checkInsThisPeriod,
+    now,
+    cardAnchor,
+  ]);
 
-  // Schedules exist but none target the selected day's day-of-week. We need
-  // to distinguish this from "no schedules at all" so the card can say
-  // "Not scheduled" instead of falling through to period progress.
-  const notScheduledForDay =
-    match !== null && match.total === 0 && schedules.length > 0;
-
-  const scheduledDaysMask = useMemo(
-    () => schedules.reduce((mask, s) => mask | (s.days ?? 0), 0),
-    [schedules],
-  );
-
-  // Per-day completion classification for the week strip:
-  //   - completed → green (all of that day's slots have a check-in)
-  //   - partial   → orange (some but not all)
-  //   - missed    → red (past, none)
-  // Filters check-ins to this calendar week so prior-week back-fills
-  // don't leak into this week's strip colouring.
-  const { completedDaysMask: checkedInDaysMask, partialDaysMask } =
-    useMemo(() => {
-      const start = new Date(now);
-      start.setHours(0, 0, 0, 0);
-      start.setDate(start.getDate() - start.getDay()); // back to Sunday
-      const inWeek = checkIns.filter(
-        (c) => c.timestamp >= start && c.timestamp <= now,
-      );
-      return classifyScheduledDays({ schedules, checkIns: inWeek });
-    }, [checkIns, schedules, now]);
+  const match = snap.slots;
+  const cardIsToday = snap.headline.isToday;
+  const notScheduledForDay = snap.anchorKind === "off-day";
+  const scheduledDaysMask = snap.scheduledDaysMask;
+  const checkedInDaysMask = snap.completedDaysMask;
+  const partialDaysMask = snap.partialDaysMask;
 
   const { windowStart, windowEnd, listTitle, singleDay } = useMemo(() => {
     if (selectedDay) {
@@ -187,14 +162,11 @@ export const HabitDetail = ({
         singleDay: true,
       };
     }
-    const { start, end, title } = periodWindow(regularity, now);
+    const { start, end } = periodWindow(regularity, now);
     return {
       windowStart: start,
       windowEnd: end,
-      listTitle: title,
-      // "Today's Check-ins" is the sole title `periodWindow` returns for the
-      // day / null branches; mirror that here so the format can never drift
-      // out of sync with the heading.
+      listTitle: periodTitle(regularity),
       singleDay: regularity === "day" || regularity === null,
     };
   }, [selectedDay, regularity, now]);
