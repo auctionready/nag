@@ -1,7 +1,23 @@
-import { ExpoConfig } from "expo/config";
+import { ConfigContext, ExpoConfig } from "expo/config";
 
-const config: ExpoConfig = {
-  name: "nag",
+const IS_DEV = process.env.APP_VARIANT === "development";
+const IS_PREVIEW = process.env.APP_VARIANT === "preview";
+
+const bundleId = () => {
+  if (IS_DEV) return "com.auctionready.nag.app.dev";
+  if (IS_PREVIEW) return "com.auctionready.nag.app.preview";
+  return "com.auctionready.nag.app";
+};
+
+const appName = () => {
+  if (IS_DEV) return "nag (Dev)";
+  if (IS_PREVIEW) return "nag (Preview)";
+  return "nag";
+};
+
+export default ({ config }: ConfigContext): ExpoConfig => ({
+  ...config,
+  name: appName(),
   slug: "nag",
   version: "1.0.0",
   orientation: "portrait",
@@ -14,8 +30,9 @@ const config: ExpoConfig = {
     backgroundColor: "#8b6545",
   },
   ios: {
+    ...config.ios,
     supportsTablet: true,
-    bundleIdentifier: "com.auctionready.nag.app",
+    bundleIdentifier: bundleId(),
     infoPlist: {
       ITSAppUsesNonExemptEncryption: false,
     },
@@ -47,6 +64,4 @@ const config: ExpoConfig = {
     },
   },
   owner: "nag-stable",
-};
-
-export default config;
+});
