@@ -22,6 +22,10 @@ jest.mock("../ScheduleEditorModal", () => {
 
 const onSubmit = jest.fn().mockResolvedValue(undefined);
 
+// Flush all pending microtasks and macrotasks so react-hook-form's async
+// handleSubmit chain fully completes before act() exits.
+const flush = () => new Promise<void>((resolve) => setImmediate(resolve));
+
 beforeEach(() => {
   jest.clearAllMocks();
 });
@@ -29,8 +33,9 @@ beforeEach(() => {
 describe("rendering", () => {
   let view: ReturnType<typeof render>;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     view = render(<HabitForm onSubmit={onSubmit} />);
+    await act(async () => {});
   });
 
   it("renders title input and Save button", () => {
@@ -49,10 +54,13 @@ describe("rendering", () => {
     expect(getByText("Delete Habit")).toBeTruthy();
   });
 
-  it("pre-fills title from initialValues", () => {
+  it("pre-fills title from initialValues", async () => {
     const { getByDisplayValue } = render(
       <HabitForm onSubmit={onSubmit} initialValues={{ title: "Exercise" }} />,
     );
+    await act(async () => {
+      await flush();
+    });
     expect(getByDisplayValue("Exercise")).toBeTruthy();
   });
 });
@@ -64,9 +72,11 @@ describe("submission", () => {
     );
     await act(async () => {
       fireEvent.changeText(getByPlaceholderText("e.g. Exercise"), "Meditation");
+      await flush();
     });
     await act(async () => {
       fireEvent.press(getByText("Save"));
+      await flush();
     });
     expect(onSubmit).toHaveBeenCalledTimes(1);
     expect(onSubmit.mock.calls[0][0]).toMatchObject({ title: "Meditation" });
@@ -81,50 +91,68 @@ describe("validation", () => {
     // Trigger onChange validation by typing then clearing
     await act(async () => {
       fireEvent.changeText(getByPlaceholderText("e.g. Exercise"), "x");
+      await flush();
     });
     await act(async () => {
       fireEvent.changeText(getByPlaceholderText("e.g. Exercise"), "");
+      await flush();
     });
     await waitFor(() => expect(getByText("Title is required")).toBeTruthy());
-    fireEvent.press(getByText("Save"));
+    await act(async () => {
+      fireEvent.press(getByText("Save"));
+      await flush();
+    });
     expect(onSubmit).not.toHaveBeenCalled();
   });
 
   describe("frequency", () => {
     let view: ReturnType<typeof render>;
 
-    beforeEach(() => {
+    beforeEach(async () => {
       view = render(<HabitForm onSubmit={onSubmit} />);
-      fireEvent.press(view.getByText("Daily"));
-      fireEvent.changeText(
-        view.getByPlaceholderText("e.g. Exercise"),
-        "Exercise",
-      );
+      await act(async () => {
+        fireEvent.press(view.getByText("Daily"));
+      });
+      await act(async () => {
+        fireEvent.changeText(
+          view.getByPlaceholderText("e.g. Exercise"),
+          "Exercise",
+        );
+        await flush();
+      });
     });
 
     it.each([["0"], ["abc"], ["1.5"]])(
       "blocks submit for '%s'",
       async (value) => {
-        fireEvent.changeText(view.getByPlaceholderText("1"), value);
-        fireEvent.press(view.getByText("Save"));
+        await act(async () => {
+          fireEvent.changeText(view.getByPlaceholderText("1"), value);
+          fireEvent.press(view.getByText("Save"));
+          await flush();
+        });
         await waitFor(() => expect(onSubmit).not.toHaveBeenCalled());
       },
     );
 
     it("submits when frequency is a valid integer", async () => {
-      fireEvent.changeText(view.getByPlaceholderText("1"), "3");
-      fireEvent.press(view.getByText("Save"));
+      await act(async () => {
+        fireEvent.changeText(view.getByPlaceholderText("1"), "3");
+        fireEvent.press(view.getByText("Save"));
+        await flush();
+      });
       await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1));
     });
   });
 });
 
 describe("regularity", () => {
-  it("shows frequency input when Daily is selected", () => {
+  it("shows frequency input when Daily is selected", async () => {
     const { getByText, getByPlaceholderText } = render(
       <HabitForm onSubmit={onSubmit} />,
     );
-    fireEvent.press(getByText("Daily"));
+    await act(async () => {
+      fireEvent.press(getByText("Daily"));
+    });
     expect(getByPlaceholderText("1")).toBeTruthy();
     expect(getByText("per day")).toBeTruthy();
   });
@@ -136,23 +164,27 @@ describe("regularity", () => {
     expect(queryByPlaceholderText("1")).toBeNull();
   });
 
-  it("shows Add Time button when Scheduled is selected", () => {
+  it("shows Add Time button when Scheduled is selected", async () => {
     const { getByText } = render(<HabitForm onSubmit={onSubmit} />);
-    fireEvent.press(getByText("Scheduled"));
+    await act(async () => {
+      fireEvent.press(getByText("Scheduled"));
+    });
     expect(getByText("+ Add Time")).toBeTruthy();
   });
 
-  it("does not prompt when switching to Scheduled", () => {
+  it("does not prompt when switching to Scheduled", async () => {
     jest.spyOn(Alert, "alert");
     const { getByText } = render(<HabitForm onSubmit={onSubmit} />);
-    fireEvent.press(getByText("Scheduled"));
+    await act(async () => {
+      fireEvent.press(getByText("Scheduled"));
+    });
     expect(Alert.alert).not.toHaveBeenCalled();
   });
 
   describe("switching away from Scheduled with entries", () => {
     let view: ReturnType<typeof render>;
 
-    beforeEach(() => {
+    beforeEach(async () => {
       jest.spyOn(Alert, "alert");
       view = render(
         <HabitForm
@@ -163,7 +195,9 @@ describe("regularity", () => {
           }}
         />,
       );
-      fireEvent.press(view.getByText("Daily"));
+      await act(async () => {
+        fireEvent.press(view.getByText("Daily"));
+      });
     });
 
     it("prompts with a confirmation alert", () => {
@@ -193,8 +227,9 @@ describe("description", () => {
   describe("without initial values", () => {
     let view: ReturnType<typeof render>;
 
-    beforeEach(() => {
+    beforeEach(async () => {
       view = render(<HabitForm onSubmit={onSubmit} />);
+      await act(async () => {});
     });
 
     it("renders description input", () => {
@@ -204,15 +239,18 @@ describe("description", () => {
     it("includes description in submitted data", async () => {
       await act(async () => {
         fireEvent.changeText(view.getByPlaceholderText("e.g. Exercise"), "Run");
+        await flush();
       });
       await act(async () => {
         fireEvent.changeText(
           view.getByPlaceholderText("Describe the habit"),
           "Go for a run",
         );
+        await flush();
       });
       await act(async () => {
         fireEvent.press(view.getByText("Save"));
+        await flush();
       });
       expect(onSubmit).toHaveBeenCalledTimes(1);
       expect(onSubmit.mock.calls[0][0]).toMatchObject({
@@ -223,13 +261,16 @@ describe("description", () => {
   });
 
   describe("with initial description", () => {
-    it("pre-fills from initialValues", () => {
+    it("pre-fills from initialValues", async () => {
       const { getByDisplayValue } = render(
         <HabitForm
           onSubmit={onSubmit}
           initialValues={{ title: "Test", description: "My description" }}
         />,
       );
+      await act(async () => {
+        await flush();
+      });
       expect(getByDisplayValue("My description")).toBeTruthy();
     });
   });
@@ -239,11 +280,13 @@ describe("delete", () => {
   const onDelete = jest.fn();
   let view: ReturnType<typeof render>;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     onDelete.mockClear();
     jest.spyOn(Alert, "alert");
     view = render(<HabitForm onSubmit={onSubmit} onDelete={onDelete} />);
-    fireEvent.press(view.getByText("Delete Habit"));
+    await act(async () => {
+      fireEvent.press(view.getByText("Delete Habit"));
+    });
   });
 
   it("shows confirmation alert", () => {
@@ -270,10 +313,14 @@ describe("delete", () => {
 describe("schedule editor", () => {
   let view: ReturnType<typeof render>;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     view = render(<HabitForm onSubmit={onSubmit} />);
-    fireEvent.press(view.getByText("Scheduled"));
-    fireEvent.press(view.getByText("+ Add Time"));
+    await act(async () => {
+      fireEvent.press(view.getByText("Scheduled"));
+    });
+    await act(async () => {
+      fireEvent.press(view.getByText("+ Add Time"));
+    });
   });
 
   it("opens the modal", () => {
@@ -281,14 +328,18 @@ describe("schedule editor", () => {
   });
 
   it("closes when cancel is pressed", async () => {
-    fireEvent.press(view.getByTestId("modal-cancel"));
+    await act(async () => {
+      fireEvent.press(view.getByTestId("modal-cancel"));
+    });
     await waitFor(() =>
       expect(view.queryByTestId("schedule-editor-modal")).toBeNull(),
     );
   });
 
   it("closes when apply is pressed", async () => {
-    fireEvent.press(view.getByTestId("modal-apply"));
+    await act(async () => {
+      fireEvent.press(view.getByTestId("modal-apply"));
+    });
     await waitFor(() =>
       expect(view.queryByTestId("schedule-editor-modal")).toBeNull(),
     );
