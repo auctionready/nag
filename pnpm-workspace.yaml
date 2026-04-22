@@ -4,8 +4,8 @@ packages:
 approveBuilds: better-sqlite3
 
 catalog:
-  "@types/node": ^25.5.2
+  "@types/node": ^25.6.0
   drizzle-orm: ^0.45.2
   typescript: ~5.9.3
-  vitest: ^4.1.4
+  vitest: ^4.1.5
   zod: ^4.0.0
