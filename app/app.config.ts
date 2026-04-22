@@ -24,11 +24,6 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   icon: "./assets/icon.png",
   userInterfaceStyle: "light",
   scheme: "nag",
-  splash: {
-    image: "./assets/splash-icon.png",
-    resizeMode: "cover",
-    backgroundColor: "#8b6545",
-  },
   ios: {
     ...config.ios,
     supportsTablet: true,
@@ -44,8 +39,8 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     [
       "expo-splash-screen",
       {
-        image: "./assets/splash-icon.png",
-        resizeMode: "cover",
+        image: "./assets/donkey-splash.jpeg",
+        resizeMode: "contain",
         backgroundColor: "#8b6545",
       },
     ],
