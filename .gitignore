@@ -11,3 +11,4 @@ android/
 .dolt/
 .beads-credential-key
 app/junit.xml
+.claude/settings.local.json
