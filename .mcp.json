@@ -1,8 +1,0 @@
-{
-  "mcpServers": {
-    "Sentry": {
-      "type": "http",
-      "url": "https://mcp.sentry.dev/mcp/nag-stable/react-native"
-    }
-  }
-}
