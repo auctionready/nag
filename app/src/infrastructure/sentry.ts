@@ -1,5 +1,12 @@
 import * as Sentry from "@sentry/react-native";
 
+const navigationIntegration = Sentry.reactNavigationIntegration({
+  enableTimeToInitialDisplay: true,
+});
+
+export const registerNavigationContainer =
+  navigationIntegration.registerNavigationContainer;
+
 Sentry.init({
   dsn: "https://08efe873f2d78ca522c637c112347142@o4511267724001280.ingest.de.sentry.io/4511267736649808",
 
@@ -16,6 +23,7 @@ Sentry.init({
   integrations: [
     Sentry.mobileReplayIntegration(),
     Sentry.reactNativeTracingIntegration(),
+    navigationIntegration,
   ],
 });
 

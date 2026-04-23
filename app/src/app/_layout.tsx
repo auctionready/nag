@@ -1,11 +1,11 @@
 // Sentry must initialize before any other module that may emit spans or
 // errors — notably the db module, which opens SQLite at import time.
-import { Sentry } from "../infrastructure/sentry";
+import { Sentry, registerNavigationContainer } from "../infrastructure/sentry";
 import "../db/devMenu";
 import { init } from "../infrastructure/init";
 import { useNotificationResponseHandler } from "../infrastructure/notificationResponseHandler";
 import { useForegroundNotificationSync } from "../infrastructure/foregroundSync";
-import { Stack } from "expo-router";
+import { useNavigationContainerRef, Stack } from "expo-router";
 
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { DatabaseProvider } from "../db/DatabaseProvider";
@@ -33,6 +33,9 @@ const InnerLayout = () => {
 };
 
 const RootLayout = () => {
+  const ref = useNavigationContainerRef();
+  registerNavigationContainer(ref);
+
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <DatabaseProvider>
