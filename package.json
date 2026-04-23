@@ -15,20 +15,17 @@
     "typecheck:watch": "tsc -b --watch",
     "prepare": "lefthook install"
   },
-  "packageManager": "pnpm@10.33.0",
   "pnpm": {
     "onlyBuiltDependencies": [
       "@sentry/cli",
       "better-sqlite3",
       "lefthook"
-    ],
-    "patchedDependencies": {
-      "@expo/dom-webview@55.0.3": "patches/@expo__dom-webview@55.0.3.patch"
-    }
+    ]
   },
+  "packageManager": "pnpm@10.33.2",
   "volta": {
     "node": "24.14.1",
-    "pnpm": "10.33.0"
+    "pnpm": "10.33.2"
   },
   "devDependencies": {
     "concurrently": "^9.2.1",
