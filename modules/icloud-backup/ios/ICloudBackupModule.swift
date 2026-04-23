@@ -75,7 +75,21 @@ public class ICloudBackupModule: Module {
         return nil
       }
 
-      try? FileManager.default.startDownloadingUbiquitousItem(at: fileUrl)
+      // Wait for the file to finish downloading from iCloud (up to 15s).
+      // After a reinstall the file is a placeholder until downloaded.
+      try FileManager.default.startDownloadingUbiquitousItem(at: fileUrl)
+      let deadline = Date().addingTimeInterval(15)
+      while Date() < deadline {
+        if let values = try? fileUrl.resourceValues(
+          forKeys: [.ubiquitousItemDownloadingStatusKey]
+        ),
+          let status = values.ubiquitousItemDownloadingStatus,
+          status == .current
+        {
+          break
+        }
+        Thread.sleep(forTimeInterval: 0.1)
+      }
 
       var coordinatorError: NSError?
       var result: String?

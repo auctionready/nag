@@ -4,7 +4,12 @@ import * as Sentry from "@sentry/react-native";
 import { File, Paths } from "expo-file-system";
 import { db } from "./index";
 import { runMigrations } from "./runMigrations";
-import { exportSnapshot, importSnapshot, setAfterCommitHook } from "@nag/core";
+import {
+  allHabits,
+  exportSnapshot,
+  importSnapshot,
+  setAfterCommitHook,
+} from "@nag/core";
 import * as ICloudBackup from "@nag/icloud-backup";
 
 const SPLASH_BACKGROUND = "#8b6545";
@@ -27,6 +32,24 @@ const tryRestoreFromBackup = async () =>
         return;
       }
 
+      // If the DB already has data (e.g. user created habits before iCloud
+      // synced), don't overwrite it — just write the marker and move on.
+      const habits = await allHabits(db);
+      if (habits.length > 0) {
+        console.log(
+          "[icloud] restore: skipped — database already has",
+          habits.length,
+          "habits",
+        );
+        span.setStatus({ code: 0, message: "db_has_data" });
+        try {
+          marker?.write("1");
+        } catch {
+          // marker write is best-effort
+        }
+        return;
+      }
+
       try {
         const available = await ICloudBackup.isAvailable();
         console.log("[icloud] restore: isAvailable =", available);
@@ -42,16 +65,19 @@ const tryRestoreFromBackup = async () =>
         } else {
           span.setStatus({ code: 0, message: "icloud_unavailable" });
         }
+
+        // Only write the marker after a successful restore or when we've
+        // confirmed there is nothing to restore.
+        try {
+          marker?.write("1");
+        } catch {
+          // marker write is best-effort
+        }
       } catch (e) {
+        // Don't write the marker — next launch should retry the restore.
         console.warn("[icloud] restore failed:", e);
         Sentry.captureException(e);
         span.setStatus({ code: 2, message: "restore_failed" });
-      }
-
-      try {
-        marker?.write("1");
-      } catch {
-        // marker write is best-effort
       }
     },
   );
