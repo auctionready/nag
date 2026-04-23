@@ -1,4 +1,4 @@
-name: EAS preview build
+name: EAS build
 
 on:
   workflow_run:
@@ -16,7 +16,7 @@ on:
           - development
 
 concurrency:
-  group: eas-preview-build-${{ github.ref }}
+  group: eas-build-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
