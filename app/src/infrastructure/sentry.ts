@@ -7,6 +7,7 @@ const navigationIntegration = Sentry.reactNavigationIntegration({
 export const registerNavigationContainer =
   navigationIntegration.registerNavigationContainer;
 
+console.log("Initializing Sentry..."); // https://github.com/getsentry/sentry-react-native/issues/5508
 Sentry.init({
   dsn: "https://08efe873f2d78ca522c637c112347142@o4511267724001280.ingest.de.sentry.io/4511267736649808",
 
