@@ -2,7 +2,6 @@ import { ConfigContext, ExpoConfig } from "expo/config";
 
 const IS_DEV = process.env.APP_VARIANT === "development";
 const IS_PREVIEW = process.env.APP_VARIANT === "preview";
-const IS_PRODUCTION = !IS_DEV && !IS_PREVIEW;
 
 const bundleId = () => {
   if (IS_DEV) return "com.auctionready.nag.app.dev";
