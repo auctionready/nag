@@ -17,6 +17,7 @@
     ]
   },
   "dependencies": {
+    "@expo/metro-runtime": "~55.0.10",
     "@nag/core": "workspace:*",
     "@nag/schema": "workspace:*",
     "@react-native-community/datetimepicker": "8.6.0",
@@ -25,7 +26,9 @@
     "date-fns": "catalog:",
     "drizzle-orm": "catalog:",
     "expo": "~55.0.17",
+    "expo-constants": "~55.0.15",
     "expo-dev-client": "^55.0.28",
+    "expo-linking": "~55.0.14",
     "expo-notifications": "~55.0.20",
     "expo-router": "~55.0.13",
     "expo-sqlite": "^55.0.15",
