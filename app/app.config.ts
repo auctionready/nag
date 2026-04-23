@@ -50,7 +50,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     ],
     "expo-router",
     "expo-sqlite",
-    ...(IS_PRODUCTION ? (["@nag/icloud-backup"] as const) : []),
+    ...(!IS_DEV ? (["@nag/icloud-backup"] as const) : []),
     [
       "@sentry/react-native/expo",
       {
