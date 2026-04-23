@@ -24,6 +24,11 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   icon: "./assets/icon.png",
   userInterfaceStyle: "light",
   scheme: "nag",
+  splash: {
+    image: "./assets/donkey-splash.jpeg",
+    resizeMode: "cover",
+    backgroundColor: "#8b6545",
+  },
   ios: {
     ...config.ios,
     supportsTablet: true,
@@ -37,17 +42,9 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   plugins: [
     "@react-native-community/datetimepicker",
     [
-      "expo-splash-screen",
-      {
-        image: "./assets/donkey-splash.jpeg",
-        resizeMode: "contain",
-        backgroundColor: "#8b6545",
-      },
-    ],
-    [
       "expo-notifications",
       {
-        mode: "development",
+        mode: IS_DEV ? "development" : "production",
       },
     ],
     "expo-router",
