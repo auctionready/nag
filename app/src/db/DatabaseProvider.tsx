@@ -28,6 +28,7 @@ const tryRestoreFromBackup = async () =>
     async (span) => {
       const marker = getInitMarker();
       if (marker?.exists) {
+        console.log("[icloud] restore: skipped — already initialized");
         span.setStatus({ code: 0, message: "already_initialized" });
         return;
       }
