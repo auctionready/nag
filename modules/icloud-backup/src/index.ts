@@ -1,12 +1,21 @@
 import { requireNativeModule } from "expo-modules-core";
 
-const ICloudBackupNative = requireNativeModule("ICloudBackup");
+let ICloudBackupNative: any;
+try {
+  ICloudBackupNative = requireNativeModule("ICloudBackup");
+} catch {
+  ICloudBackupNative = null;
+}
 
 export const isAvailable = (): Promise<boolean> =>
-  ICloudBackupNative.isAvailable();
+  ICloudBackupNative
+    ? ICloudBackupNative.isAvailable()
+    : Promise.resolve(false);
 
 export const writeBackup = (content: string): Promise<void> =>
-  ICloudBackupNative.writeBackup(content);
+  ICloudBackupNative
+    ? ICloudBackupNative.writeBackup(content)
+    : Promise.resolve();
 
 export const readBackup = (): Promise<string | null> =>
-  ICloudBackupNative.readBackup();
+  ICloudBackupNative ? ICloudBackupNative.readBackup() : Promise.resolve(null);
