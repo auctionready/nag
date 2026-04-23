@@ -52,6 +52,14 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     ],
     "expo-router",
     "expo-sqlite",
+    [
+      "@sentry/react-native/expo",
+      {
+        url: "https://sentry.io/",
+        project: "react-native",
+        organization: "nag-stable",
+      },
+    ],
   ],
   extra: {
     eas: {
