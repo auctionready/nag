@@ -61,7 +61,10 @@ describe("buildDayCells", () => {
     expect(cells[2].backgroundColor).toBeUndefined();
   });
 
-  it("does not fill unscheduled checked-in days", () => {
+  it("does not fill unscheduled days when only checkedInDaysMask is passed", () => {
+    // `checkedInDaysMask` is the "fully-completed *scheduled* slots" mask;
+    // unscheduled days never end up in it. Without the separate
+    // `anyCheckInDaysMask` the unscheduled day stays unfilled.
     const cells = buildDayCells({
       scheduledDaysMask: Day.Mon,
       checkedInDaysMask: Day.Tue,
@@ -69,6 +72,38 @@ describe("buildDayCells", () => {
       now: sunday(),
     });
     expect(cells[1].backgroundColor).toBeUndefined();
+  });
+
+  it("fills unscheduled days with check-ins via anyCheckInDaysMask", () => {
+    // User did a Tuesday check-in on a Mon-scheduled habit: the Tue cell
+    // should still light up green (the caller then dims it to match the
+    // faded letter). Scheduled Mon stays unfilled because no check-in.
+    const cells = buildDayCells({
+      scheduledDaysMask: Day.Mon,
+      checkedInDaysMask: 0,
+      anyCheckInDaysMask: Day.Tue,
+      checkedInColor: GREEN,
+      now: sunday(),
+    });
+    expect(cells[1].scheduled).toBe(false);
+    expect(cells[1].backgroundColor).toBe(GREEN);
+  });
+
+  it("prefers scheduled completion over unscheduled fill when both apply", () => {
+    // Defensive: even if a day is both "checked in" (scheduled) and in
+    // `anyCheckInDaysMask`, the scheduled path wins so the caller
+    // renders full-opacity green.
+    const cells = buildDayCells({
+      scheduledDaysMask: Day.Mon,
+      checkedInDaysMask: Day.Mon,
+      anyCheckInDaysMask: Day.Mon | Day.Tue,
+      checkedInColor: GREEN,
+      now: sunday(),
+    });
+    expect(cells[0].scheduled).toBe(true);
+    expect(cells[0].backgroundColor).toBe(GREEN);
+    expect(cells[1].scheduled).toBe(false);
+    expect(cells[1].backgroundColor).toBe(GREEN);
   });
 
   it("uses todayColor for today's scheduled cell when not yet checked in", () => {

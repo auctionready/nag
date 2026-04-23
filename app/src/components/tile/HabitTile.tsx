@@ -43,6 +43,11 @@ export const HabitTile = ({ id, title }: HabitTileProps) => {
   const effectiveCheckedInMask = hasSchedule
     ? snap.completedDaysMask
     : snap.unscheduledWeeklyMask;
+  // Check-ins on *unscheduled* days still need to light up their letter so
+  // the user sees them. Only meaningful for scheduled habits — the
+  // unscheduled-weekly branch already fills every check-in day via
+  // `unscheduledWeeklyMask`.
+  const effectiveAnyCheckInMask = hasSchedule ? snap.anyCheckInDaysMask : 0;
 
   const periodIndicators: PeriodIndicatorsProps | undefined = isMonthly
     ? { regularity: "month", checkIns: periodCheckIns, now }
@@ -52,6 +57,7 @@ export const HabitTile = ({ id, title }: HabitTileProps) => {
           scheduledDaysMask: effectiveScheduledMask,
           checkedInDaysMask: effectiveCheckedInMask,
           partialDaysMask: hasSchedule ? snap.partialDaysMask : 0,
+          anyCheckInDaysMask: effectiveAnyCheckInMask,
           todayColor: hasSchedule ? snap.anchorColor : undefined,
           partialColor: hasSchedule ? complianceColors.partial : undefined,
           missedColor: hasSchedule ? complianceColors.failing : undefined,

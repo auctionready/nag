@@ -23,6 +23,14 @@ export interface BuildDayCellsInput {
    * `classifyScheduledDays`.
    */
   partialDaysMask?: number;
+  /**
+   * Days that have at least one check-in, *regardless* of the schedule.
+   * Lets unscheduled days still show a fill when the user checked in,
+   * so a Tuesday check-in on a Mon/Wed habit isn't invisible. Callers
+   * render these cells dimmed (via the `scheduled: false` flag) to match
+   * the faded letter.
+   */
+  anyCheckInDaysMask?: number;
   /** Color used for fully-completed scheduled days (e.g. green). */
   checkedInColor: string;
   /** Color used for partially-completed past scheduled days (orange). */
@@ -43,6 +51,7 @@ export const buildDayCells = ({
   scheduledDaysMask,
   checkedInDaysMask,
   partialDaysMask = 0,
+  anyCheckInDaysMask = 0,
   checkedInColor,
   partialColor,
   todayColor,
@@ -57,6 +66,7 @@ export const buildDayCells = ({
     const scheduled = (scheduledDaysMask & day) !== 0;
     const checkedIn = scheduled && (checkedInDaysMask & day) !== 0;
     const partial = scheduled && (partialDaysMask & day) !== 0;
+    const unscheduledCheckIn = !scheduled && (anyCheckInDaysMask & day) !== 0;
     const isToday = day === todayBit;
     const isPast = index < todayIndex;
     // A fully checked-in today should stay green — the blue "action needed"
@@ -77,9 +87,11 @@ export const buildDayCells = ({
           ? isPast && partialColor
             ? partialColor
             : checkedInColor
-          : missed
-            ? missedColor
-            : undefined);
+          : unscheduledCheckIn
+            ? checkedInColor
+            : missed
+              ? missedColor
+              : undefined);
     return { letter, scheduled, backgroundColor };
   });
 };

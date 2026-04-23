@@ -21,7 +21,7 @@
     "@nag/schema": "workspace:*",
     "@react-native-community/datetimepicker": "8.6.0",
     "@react-navigation/material-top-tabs": "^7.4.23",
-    "date-fns": "^4.1.0",
+    "date-fns": "catalog:",
     "drizzle-orm": "catalog:",
     "expo": "~55.0.17",
     "expo-dev-client": "^55.0.28",

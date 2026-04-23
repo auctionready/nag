@@ -162,6 +162,9 @@ detail's week strip use a tri-state classifier
   check-in.
 - **Partial** (orange) — some, but not all, of the day's slots are done.
 - **Missed** (red) — past, scheduled, none done.
+- **Unscheduled check-in** (dimmed green) — a check-in fell on a day that
+  isn't part of the schedule. Rendered green at the same reduced opacity
+  as the day's letter so it reads as "extra" rather than required.
 
 ## Further Reading
 

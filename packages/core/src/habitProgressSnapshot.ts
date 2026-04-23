@@ -91,6 +91,12 @@ export interface HabitProgressSnapshot {
   /** Days where some — but not all — slots have a check-in. */
   partialDaysMask: number;
   /**
+   * Day-of-week bitmask of every check-in in the period, *regardless* of
+   * schedule. Lets callers dim-fill unscheduled days the user still
+   * checked in on so those check-ins aren't invisible.
+   */
+  anyCheckInDaysMask: number;
+  /**
    * For unscheduled weekly goals: the days the user actually checked in
    * on (used to light up the week strip with plain green). 0 otherwise.
    */
@@ -186,9 +192,10 @@ export const habitProgressSnapshot = (
     schedules,
     checkIns: periodCheckIns,
   });
+  const anyCheckInDaysMask = checkInDaysMask(periodCheckIns);
   const unscheduledWeeklyMask =
     goal?.regularity === "week" && scheduledDaysMask === 0
-      ? checkInDaysMask(periodCheckIns)
+      ? anyCheckInDaysMask
       : 0;
 
   const isAnchorOffDay =
@@ -208,6 +215,7 @@ export const habitProgressSnapshot = (
     scheduledDaysMask,
     completedDaysMask,
     partialDaysMask,
+    anyCheckInDaysMask,
     unscheduledWeeklyMask,
     headline: {
       kind: anchorKind,
