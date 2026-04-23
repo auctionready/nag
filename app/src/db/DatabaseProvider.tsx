@@ -29,8 +29,10 @@ const tryRestoreFromBackup = async () =>
 
       try {
         const available = await ICloudBackup.isAvailable();
+        console.log("[icloud] restore: isAvailable =", available);
         if (available) {
           const json = await ICloudBackup.readBackup();
+          console.log("[icloud] restore: backup found =", json != null);
           if (json) {
             await importSnapshot(db, json);
             span.setStatus({ code: 1, message: "restored" });
@@ -41,6 +43,7 @@ const tryRestoreFromBackup = async () =>
           span.setStatus({ code: 0, message: "icloud_unavailable" });
         }
       } catch (e) {
+        console.warn("[icloud] restore failed:", e);
         Sentry.captureException(e);
         span.setStatus({ code: 2, message: "restore_failed" });
       }
@@ -54,29 +57,30 @@ const tryRestoreFromBackup = async () =>
   );
 
 const performBackup = async () =>
-  Sentry.startSpan(
-    { name: "icloud.backup", op: "db.backup" },
-    async (span) => {
-      try {
-        const available = await ICloudBackup.isAvailable();
-        if (!available) {
-          span.setStatus({ code: 0, message: "icloud_unavailable" });
-          return;
-        }
-        const json = await Sentry.startSpan(
-          { name: "icloud.backup.export", op: "db.query" },
-          () => exportSnapshot(db),
-        );
-        await Sentry.startSpan(
-          { name: "icloud.backup.write", op: "file.write" },
-          () => ICloudBackup.writeBackup(json),
-        );
-      } catch (e) {
-        Sentry.captureException(e);
-        span.setStatus({ code: 2, message: "backup_failed" });
+  Sentry.startSpan({ name: "icloud.backup", op: "db.backup" }, async (span) => {
+    try {
+      const available = await ICloudBackup.isAvailable();
+      console.log("[icloud] backup: isAvailable =", available);
+      if (!available) {
+        span.setStatus({ code: 0, message: "icloud_unavailable" });
+        return;
       }
-    },
-  );
+      const json = await Sentry.startSpan(
+        { name: "icloud.backup.export", op: "db.query" },
+        () => exportSnapshot(db),
+      );
+      console.log("[icloud] backup: exported", json.length, "bytes");
+      await Sentry.startSpan(
+        { name: "icloud.backup.write", op: "file.write" },
+        () => ICloudBackup.writeBackup(json),
+      );
+      console.log("[icloud] backup: write complete");
+    } catch (e) {
+      console.warn("[icloud] backup failed:", e);
+      Sentry.captureException(e);
+      span.setStatus({ code: 2, message: "backup_failed" });
+    }
+  });
 
 export const DatabaseProvider = ({ children }: PropsWithChildren) => {
   const [ready, setReady] = useState(false);
