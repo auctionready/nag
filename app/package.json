@@ -21,7 +21,7 @@
     "@nag/schema": "workspace:*",
     "@react-native-community/datetimepicker": "8.6.0",
     "@react-navigation/material-top-tabs": "^7.4.23",
-    "@sentry/react-native": "^8.8.0",
+    "@sentry/react-native": "^7.11.0",
     "date-fns": "catalog:",
     "drizzle-orm": "catalog:",
     "expo": "~55.0.17",
@@ -41,7 +41,7 @@
     "react-native-tab-view": "^4.3.0"
   },
   "devDependencies": {
-    "@sentry/cli": "3.3.5",
+    "@sentry/cli": "3.4.0",
     "@testing-library/react-native": "^13.3.3",
     "@types/jest": "29.5.14",
     "@types/react": "~19.2.2",
