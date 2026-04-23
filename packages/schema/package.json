@@ -18,9 +18,9 @@
     "drizzle-orm": "catalog:"
   },
   "devDependencies": {
-    "@types/better-sqlite3": "^7.0.0",
+    "@types/better-sqlite3": "catalog:",
     "@types/node": "catalog:",
-    "better-sqlite3": "^12.9.0",
+    "better-sqlite3": "catalog:",
     "drizzle-kit": "^0.31.10",
     "drizzle-orm": "catalog:",
     "typescript": "catalog:",
