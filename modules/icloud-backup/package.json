@@ -1,0 +1,9 @@
+{
+  "name": "@nag/icloud-backup",
+  "version": "0.1.0",
+  "main": "./src/index.ts",
+  "peerDependencies": {
+    "expo": ">=55.0.0",
+    "expo-modules-core": "*"
+  }
+}

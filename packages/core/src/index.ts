@@ -54,7 +54,12 @@ export {
   schedulesForGoal,
   allActiveSchedules,
 } from "./queries";
-export { processCommand, type CommandResult } from "./commands/processor";
+export {
+  processCommand,
+  setAfterCommitHook,
+  type CommandResult,
+} from "./commands/processor";
+export { exportSnapshot, importSnapshot } from "./backup/snapshot";
 export {
   Command,
   CreateHabit,

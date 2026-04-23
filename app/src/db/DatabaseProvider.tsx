@@ -1,16 +1,94 @@
-import { useEffect, useState, type PropsWithChildren } from "react";
+import { useEffect, useRef, useState, type PropsWithChildren } from "react";
 import { Text, View } from "react-native";
+import * as Sentry from "@sentry/react-native";
+import { File, Paths } from "expo-file-system";
+import { db } from "./index";
 import { runMigrations } from "./runMigrations";
+import { exportSnapshot, importSnapshot, setAfterCommitHook } from "@nag/core";
+import * as ICloudBackup from "@nag/icloud-backup";
 
 const SPLASH_BACKGROUND = "#8b6545";
+
+const getInitMarker = () => {
+  try {
+    return new File(Paths.document, ".nag-initialized");
+  } catch {
+    return null;
+  }
+};
+
+const tryRestoreFromBackup = async () =>
+  Sentry.startSpan(
+    { name: "icloud.restore", op: "db.restore" },
+    async (span) => {
+      const marker = getInitMarker();
+      if (marker?.exists) {
+        span.setStatus({ code: 0, message: "already_initialized" });
+        return;
+      }
+
+      try {
+        const available = await ICloudBackup.isAvailable();
+        if (available) {
+          const json = await ICloudBackup.readBackup();
+          if (json) {
+            await importSnapshot(db, json);
+            span.setStatus({ code: 1, message: "restored" });
+          } else {
+            span.setStatus({ code: 0, message: "no_backup" });
+          }
+        } else {
+          span.setStatus({ code: 0, message: "icloud_unavailable" });
+        }
+      } catch (e) {
+        Sentry.captureException(e);
+        span.setStatus({ code: 2, message: "restore_failed" });
+      }
+
+      try {
+        marker?.write("1");
+      } catch {
+        // marker write is best-effort
+      }
+    },
+  );
+
+const performBackup = async () =>
+  Sentry.startSpan(
+    { name: "icloud.backup", op: "db.backup" },
+    async (span) => {
+      try {
+        const available = await ICloudBackup.isAvailable();
+        if (!available) {
+          span.setStatus({ code: 0, message: "icloud_unavailable" });
+          return;
+        }
+        const json = await Sentry.startSpan(
+          { name: "icloud.backup.export", op: "db.query" },
+          () => exportSnapshot(db),
+        );
+        await Sentry.startSpan(
+          { name: "icloud.backup.write", op: "file.write" },
+          () => ICloudBackup.writeBackup(json),
+        );
+      } catch (e) {
+        Sentry.captureException(e);
+        span.setStatus({ code: 2, message: "backup_failed" });
+      }
+    },
+  );
 
 export const DatabaseProvider = ({ children }: PropsWithChildren) => {
   const [ready, setReady] = useState(false);
   const [error, setError] = useState<Error | null>(null);
+  const backupTimer = useRef<ReturnType<typeof setTimeout> | undefined>(
+    undefined,
+  );
 
   useEffect(() => {
     let cancelled = false;
     runMigrations()
+      .then(() => tryRestoreFromBackup())
       .then(() => {
         if (!cancelled) setReady(true);
       })
@@ -23,6 +101,22 @@ export const DatabaseProvider = ({ children }: PropsWithChildren) => {
       cancelled = true;
     };
   }, []);
+
+  useEffect(() => {
+    if (!ready) return;
+
+    setAfterCommitHook(() => {
+      if (backupTimer.current) clearTimeout(backupTimer.current);
+      backupTimer.current = setTimeout(() => {
+        void performBackup();
+      }, 5_000);
+    });
+
+    return () => {
+      setAfterCommitHook(undefined);
+      if (backupTimer.current) clearTimeout(backupTimer.current);
+    };
+  }, [ready]);
 
   if (error) {
     return (

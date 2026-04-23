@@ -49,6 +49,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     ],
     "expo-router",
     "expo-sqlite",
+    "@nag/icloud-backup",
     [
       "@sentry/react-native/expo",
       {

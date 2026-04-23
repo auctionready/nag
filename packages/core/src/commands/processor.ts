@@ -9,6 +9,12 @@ export type CommandResult<T extends Command> = Awaited<
   ReturnType<HandlerMap[T["type"]]>
 >;
 
+let afterCommitHook: (() => void) | undefined;
+
+export const setAfterCommitHook = (hook: (() => void) | undefined) => {
+  afterCommitHook = hook;
+};
+
 export async function processCommand<T extends Command>(
   db: AnyDb,
   input: T,
@@ -24,6 +30,7 @@ export async function processCommand<T extends Command>(
     const result = await handler(db, command);
     await audit(db, command);
     await db.run(sql`COMMIT`);
+    afterCommitHook?.();
     return result;
   } catch (error) {
     await db.run(sql`ROLLBACK`);

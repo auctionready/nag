@@ -3,8 +3,9 @@ dist/
 .env
 *.tsbuildinfo
 .expo/
-ios/
-android/
+/ios/
+/android/
+!modules/**/ios/
 *.db
 
 # Beads / Dolt files (added by bd init)
