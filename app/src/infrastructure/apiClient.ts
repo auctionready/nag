@@ -83,21 +83,34 @@ export const postCommands: PostCommandsFn = async (
   const start = Date.now();
 
   try {
+    logger.debug(`POST ${url} fetch() …`);
     const response = await fetch(url, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${apiKey}`,
         Accept: "application/json",
+        // Force the server to close the connection after responding so
+        // we don't block on chunked-transfer tail handling. RN's fetch
+        // on iOS simulator against HTTP+localhost has been observed
+        // to hang waiting for the 0-length terminator otherwise.
+        Connection: "close",
       },
       body,
       signal: controller.signal,
     });
-    const elapsed = Date.now() - start;
+    const fetchElapsed = Date.now() - start;
     const status = response.status;
-    const text = await response.text();
+    const contentLength = response.headers.get("content-length");
     logger.debug(
-      `POST ${url} responded status=${status} length=${text.length} (${elapsed}ms)`,
+      `POST ${url} fetch() resolved status=${status} content-length=${contentLength ?? "<null/chunked>"} (${fetchElapsed}ms)`,
+    );
+
+    logger.debug(`POST ${url} reading body …`);
+    const text = await response.text();
+    const totalElapsed = Date.now() - start;
+    logger.debug(
+      `POST ${url} body read length=${text.length} total=${totalElapsed}ms`,
     );
 
     if (status >= 200 && status < 300) {
@@ -115,7 +128,7 @@ export const postCommands: PostCommandsFn = async (
 
     if (status >= 500 || TRANSIENT_STATUSES.has(status)) {
       logger.warn(
-        `POST ${url} transient (${elapsed}ms) status=${status}`,
+        `POST ${url} transient (${totalElapsed}ms) status=${status}`,
         text,
       );
       return {
@@ -126,7 +139,7 @@ export const postCommands: PostCommandsFn = async (
     }
 
     logger.error(
-      `POST ${url} non-retriable (${elapsed}ms) status=${status}`,
+      `POST ${url} non-retriable (${totalElapsed}ms) status=${status}`,
       text,
     );
     return {
