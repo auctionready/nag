@@ -94,6 +94,9 @@ export const postCommands: PostCommandsFn = async (
   logger.debug(
     `POST /commands id=${envelope.id} type=${envelope.type} timestamp=${envelope.timestamp}`,
   );
+  // Dump the exact body so a server-side parse error (e.g. "$.id is not a
+  // supported Guid format") can be diffed against what we actually sent.
+  logger.debug(`POST /commands body=${JSON.stringify(envelope)}`);
   const start = Date.now();
   try {
     const response = await withTimeout(
