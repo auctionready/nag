@@ -90,6 +90,11 @@ export const SyncStatusProvider = ({ children }: PropsWithChildren) => {
     return e;
   }, []);
 
+  // Run-id counter so we can correlate kick → inner → complete across
+  // overlapping calls and see singleflight coalescing at a glance.
+  const runIdRef = useRef(0);
+  const activeRunRef = useRef<number | null>(null);
+
   const runWithSingleflight = useMemo(() => {
     if (!enabled) return async () => {};
     const dispatcher = createDispatcher({
@@ -103,26 +108,34 @@ export const SyncStatusProvider = ({ children }: PropsWithChildren) => {
       },
     });
     const inner = async () => {
+      const runId = ++runIdRef.current;
+      activeRunRef.current = runId;
+      logger.debug(`run[${runId}] enter`);
       if (!onlineRef.current) {
-        logger.debug("run skipped — offline");
+        logger.debug(`run[${runId}] skipped — offline`);
         setStatus("offline");
         await refreshCounts();
+        activeRunRef.current = null;
         return;
       }
-      logger.debug("run start");
+      logger.debug(`run[${runId}] start`);
       setStatus("syncing");
+      const started = Date.now();
       try {
         const result: DispatchStatus = await dispatcher.run();
-        logger.info(`run complete result=${result}`);
+        logger.info(
+          `run[${runId}] complete (${Date.now() - started}ms) result=${result}`,
+        );
         if (result === "halted") setStatus("halted");
         else if (result === "offline") setStatus("offline");
         else setStatus("idle");
       } catch (e) {
-        logger.error("run threw", e);
+        logger.error(`run[${runId}] threw (${Date.now() - started}ms)`, e);
         Sentry.captureException(e);
         setStatus("offline");
       } finally {
         await refreshCounts();
+        activeRunRef.current = null;
       }
     };
     return makeSingleflight(inner);
@@ -134,7 +147,12 @@ export const SyncStatusProvider = ({ children }: PropsWithChildren) => {
         logger.debug(`kick(${source}) ignored — disabled`);
         return;
       }
-      logger.debug(`kick(${source})`);
+      const active = activeRunRef.current;
+      if (active !== null) {
+        logger.debug(`kick(${source}) coalesced into in-flight run[${active}]`);
+      } else {
+        logger.debug(`kick(${source}) → launching new run`);
+      }
       void runWithSingleflight();
     },
     [enabled, runWithSingleflight],
