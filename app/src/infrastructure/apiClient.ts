@@ -53,6 +53,32 @@ export const logApiConfig = (): void => {
 const TRANSIENT_STATUSES = new Set([408, 425, 429]);
 
 /**
+ * Wall-clock budget per POST /commands request. Without this the Zodios/
+ * axios client (which has no default timeout) hangs indefinitely against
+ * an unreachable backend, which leaves the sync provider stuck in
+ * `"syncing"` state forever. Timeouts surface as transient errors → the
+ * row stays pending and retries on the next trigger.
+ */
+const POST_TIMEOUT_MS = 20_000;
+
+const withTimeout = <T>(
+  promise: Promise<T>,
+  ms: number,
+  label: string,
+): Promise<T> => {
+  let handle: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<never>((_, reject) => {
+    handle = setTimeout(
+      () => reject(new Error(`${label} timed out after ${ms}ms`)),
+      ms,
+    );
+  });
+  return Promise.race([promise, timeout]).finally(() => {
+    if (handle) clearTimeout(handle);
+  }) as Promise<T>;
+};
+
+/**
  * Translates a Zodios/axios result into the dispatcher's `PostResult`
  * shape. Network failures are re-thrown so the dispatcher's catch branch
  * handles them as transient (offline).
@@ -68,33 +94,48 @@ export const postCommands: PostCommandsFn = async (
   logger.debug(
     `POST /commands id=${envelope.id} type=${envelope.type} timestamp=${envelope.timestamp}`,
   );
+  const start = Date.now();
   try {
-    const response = await client.postCommands(
-      envelope as Parameters<typeof client.postCommands>[0],
+    const response = await withTimeout(
+      client.postCommands(
+        envelope as Parameters<typeof client.postCommands>[0],
+      ),
+      POST_TIMEOUT_MS,
+      "POST /commands",
     );
     logger.debug(
-      `POST /commands ok sequence=${response.sequence} accepted=${(response as { accepted?: boolean }).accepted}`,
+      `POST /commands ok (${Date.now() - start}ms) sequence=${response.sequence} accepted=${(response as { accepted?: boolean }).accepted}`,
     );
     return { ok: true, sequence: response.sequence ?? 0 };
   } catch (error: unknown) {
+    const elapsed = Date.now() - start;
     if (isAxiosError(error) && error.response) {
       const status = error.response.status;
       const data = error.response.data as { message?: string } | undefined;
       const message = data?.message ?? error.message;
       if (status >= 500 || TRANSIENT_STATUSES.has(status)) {
-        logger.warn(`POST /commands transient status=${status}`, message);
+        logger.warn(
+          `POST /commands transient (${elapsed}ms) status=${status}`,
+          message,
+        );
         return {
           ok: false,
           kind: "transient",
           message: `${status}: ${message}`,
         };
       }
-      logger.error(`POST /commands non-retriable status=${status}`, message);
+      logger.error(
+        `POST /commands non-retriable (${elapsed}ms) status=${status}`,
+        message,
+      );
       return { ok: false, kind: "non-retriable", status, message };
     }
     // Network error, timeout, or thrown before a response — let the
     // dispatcher treat it as transient.
-    logger.warn("POST /commands network error (rethrowing)", error);
+    logger.warn(
+      `POST /commands network/timeout error (${elapsed}ms, rethrowing)`,
+      error,
+    );
     throw error;
   }
 };
