@@ -1,0 +1,36 @@
+/**
+ * GENERATED — do not edit by hand.
+ *
+ * Regenerate with:
+ *   pnpm --filter @nag/api-client generate
+ */
+import { z } from "zod";
+
+{{#each schemas}}
+export const {{@key}} = {{{this}}};
+export type {{@key}} = z.infer<typeof {{@key}}>;
+
+{{/each}}
+
+export const endpoints = [
+{{#each endpoints}}
+  {
+    method: "{{method}}",
+    path: "{{path}}",
+    alias: "{{alias}}",
+    parameters: [
+{{#each parameters}}
+      { name: "{{name}}", type: "{{type}}", schema: {{{schema}}} },
+{{/each}}
+    ],
+    response: {{{response}}},
+    errors: [
+{{#each errors}}
+      { status: {{status}}, schema: {{{schema}}} },
+{{/each}}
+    ],
+  },
+{{/each}}
+] as const;
+
+export type Endpoints = typeof endpoints;

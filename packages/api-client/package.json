@@ -1,0 +1,26 @@
+{
+  "name": "@nag/api-client",
+  "version": "0.1.0",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "generate": "tsx scripts/generate-endpoints.ts"
+  },
+  "dependencies": {
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "openapi-zod-client": "^1.18.3",
+    "tsx": "^4.19.2",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  },
+  "volta": {
+    "extends": "../../package.json"
+  }
+}
