@@ -1,6 +1,9 @@
 using FluentValidation;
 using JasperFx.Events.Projections;
 using Marten;
+#if DEBUG
+using Microsoft.OpenApi;
+#endif
 using Nag.Api.Auth;
 using Nag.Api.Endpoints;
 using Nag.Api.Infrastructure;
@@ -105,6 +108,31 @@ builder.Services.AddSwaggerGen(c =>
     c.UseAllOfToExtendReferenceSchemas();
     c.SchemaFilter<EnumSchemaFilter>();
     c.DocumentFilter<CommandSchemasFilter>();
+
+    var devApiKey = builder.Configuration["Nag:ApiKey"];
+    var description =
+        "Bearer API key. Send as header: `Authorization: Bearer <key>`."
+        + (string.IsNullOrEmpty(devApiKey) ? "" : $" Dev key: `{devApiKey}`");
+
+    c.AddSecurityDefinition(
+        "Bearer",
+        new OpenApiSecurityScheme
+        {
+            Type = SecuritySchemeType.Http,
+            Scheme = "bearer",
+            BearerFormat = "API key",
+            In = ParameterLocation.Header,
+            Name = "Authorization",
+            Description = description,
+        }
+    );
+
+    c.AddSecurityRequirement(
+        new OpenApiSecurityRequirement
+        {
+            { new OpenApiSecuritySchemeReference("Bearer"), new List<string>() },
+        }
+    );
 });
 #endif
 
