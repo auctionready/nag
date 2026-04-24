@@ -25,6 +25,8 @@ export default [
       "**/.expo/",
       "**/drizzle/",
       "app/expo-env.d.ts",
+      "infra/",
+      "infra-bootstrap/",
     ],
   },
   prettierConfig,
