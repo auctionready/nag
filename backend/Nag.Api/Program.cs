@@ -64,7 +64,12 @@ builder.Services.AddValidatorsFromAssemblyContaining<CreateHabitValidator>(filte
 
 #if DEBUG
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
+builder.Services.AddSwaggerGen(c =>
+{
+    c.UseAllOfToExtendReferenceSchemas();
+    c.SchemaFilter<EnumSchemaFilter>();
+    c.DocumentFilter<CommandSchemasFilter>();
+});
 #endif
 
 var app = builder.Build();
