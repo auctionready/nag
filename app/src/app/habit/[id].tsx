@@ -9,11 +9,11 @@ import {
   checkInsForHabit,
   checkInCount,
   combineScheduleDays,
-  processCommand,
   periodStart,
   schedulesForHabit,
   tileColor,
 } from "@nag/core";
+import { dispatch } from "../../infrastructure/dispatch";
 import { HabitDetail } from "../../components/HabitDetail";
 import { complianceColors } from "../../components/getComplianceColor";
 
@@ -95,11 +95,11 @@ const HabitScreen = () => {
   };
 
   const handleCheckInAt = async (timestamp: Date) => {
-    await processCommand(db, { type: "CreateCheckIn", habitId, timestamp });
+    await dispatch({ type: "CreateCheckIn", habitId, timestamp });
   };
 
   const handleSkipAt = async (timestamp: Date) => {
-    await processCommand(db, {
+    await dispatch({
       type: "CreateCheckIn",
       habitId,
       timestamp,
@@ -112,7 +112,7 @@ const HabitScreen = () => {
     timestamp: Date,
     skipped?: boolean,
   ) => {
-    await processCommand(db, {
+    await dispatch({
       type: "UpdateCheckIn",
       checkInId,
       timestamp,
@@ -140,7 +140,7 @@ const HabitScreen = () => {
       onSkipAt={handleSkipAt}
       onEdit={() => router.push(`/edit-habit/${habitId}`)}
       onRemoveCheckIn={async (checkInId) => {
-        await processCommand(db, { type: "DeleteCheckIn", checkInId });
+        await dispatch({ type: "DeleteCheckIn", checkInId });
       }}
       onEditCheckInTimestamp={handleEditCheckInTimestamp}
     />

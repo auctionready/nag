@@ -1,4 +1,5 @@
 import { beforeAll, beforeEach } from "vitest";
+import { eq } from "drizzle-orm";
 import {
   drizzle,
   type BetterSQLite3Database,
@@ -38,6 +39,12 @@ export function setupTestDb(name: string): () => TestDb {
     await db.delete(schema.checkIn);
     await db.delete(schema.goal);
     await db.delete(schema.habit);
+    // sync_state is a single-row flag table; reset its state instead of
+    // deleting the row (the row is seeded by migration 0008).
+    await db
+      .update(schema.syncState)
+      .set({ halted: false })
+      .where(eq(schema.syncState.id, 1));
   });
 
   return () => db;

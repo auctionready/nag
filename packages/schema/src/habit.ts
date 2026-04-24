@@ -3,6 +3,16 @@ import { isoTimestamp } from "./isoTimestamp";
 
 export const habit = sqliteTable("habit", {
   id: integer("id", { mode: "number" }).primaryKey({ autoIncrement: true }),
+  /**
+   * Stable UUID used when the row is referenced in command envelopes shipped
+   * to the server. Generated in JS at insert time; the column is enforced
+   * NOT NULL + UNIQUE at the schema layer. Existing rows were backfilled by
+   * migration 0008.
+   */
+  externalId: text("external_id")
+    .notNull()
+    .unique()
+    .$defaultFn(() => crypto.randomUUID()),
   title: text("title").notNull(),
   description: text("description"),
   icon: text("icon"),

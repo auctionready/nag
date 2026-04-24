@@ -2,12 +2,8 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { useLiveQuery } from "drizzle-orm/expo-sqlite";
 import { useMemo } from "react";
 import { db } from "../../db";
-import {
-  habitById,
-  goalForHabitFull,
-  schedulesForGoal,
-  processCommand,
-} from "@nag/core";
+import { habitById, goalForHabitFull, schedulesForGoal } from "@nag/core";
+import { dispatch } from "../../infrastructure/dispatch";
 import { HabitForm, type HabitFormData } from "../../components/HabitForm";
 import { buildGoalPayload } from "../../operations";
 
@@ -56,7 +52,7 @@ const EditHabitScreen = () => {
 
   const onSubmit = async (values: HabitFormData) => {
     const goal = buildGoalPayload(values);
-    await processCommand(db, {
+    await dispatch({
       type: "UpdateHabit",
       habitId,
       title: values.title,
@@ -67,7 +63,7 @@ const EditHabitScreen = () => {
   };
 
   const onDelete = async () => {
-    await processCommand(db, { type: "DeleteHabit", habitId });
+    await dispatch({ type: "DeleteHabit", habitId });
     router.replace("/(tabs)");
   };
 

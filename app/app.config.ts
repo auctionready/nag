@@ -62,6 +62,8 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     eas: {
       projectId: "bc1ee86a-bc83-4f06-aa4f-d4f757d18e55",
     },
+    apiBaseUrl: process.env.NAG_API_BASE_URL ?? "",
+    apiKey: process.env.NAG_API_KEY ?? "",
   },
   owner: "nag-stable",
 });

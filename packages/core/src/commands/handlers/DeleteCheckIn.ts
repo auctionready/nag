@@ -7,7 +7,18 @@ import type { DeleteCheckIn } from "../schemas";
 export async function handleDeleteCheckIn(
   db: AnyDb,
   command: DeleteCheckIn,
-): Promise<void> {
-  await db.delete(checkIn).where(eq(checkIn.id, command.checkInId));
+): Promise<{ externalId: string }> {
+  const deleted = await db
+    .delete(checkIn)
+    .where(eq(checkIn.id, command.checkInId))
+    .returning({ externalId: checkIn.externalId });
+
+  if (deleted.length === 0) {
+    throw new Error(
+      `DeleteCheckIn: check-in id=${command.checkInId} not found`,
+    );
+  }
+
   await syncAllNotifications(db);
+  return { externalId: deleted[0].externalId };
 }

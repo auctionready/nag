@@ -6,10 +6,10 @@ import {
   checkInsForHabitsOnDay,
   habitsByIds,
   matchCheckInsToSlots,
-  processCommand,
   schedulesForHabits,
   type SlotState,
 } from "@nag/core";
+import { dispatch } from "../infrastructure/dispatch";
 import { SlotCheckIn, type SlotCheckInItem } from "../components/SlotCheckIn";
 
 const CheckInSlotScreen = () => {
@@ -49,7 +49,7 @@ const CheckInSlotScreen = () => {
   ]);
 
   const handleCheckIn = useCallback(async (habitId: number) => {
-    await processCommand(db, {
+    await dispatch({
       type: "CreateCheckIn",
       habitId,
       timestamp: new Date(),
@@ -57,7 +57,7 @@ const CheckInSlotScreen = () => {
   }, []);
 
   const handleSkip = useCallback(async (habitId: number) => {
-    await processCommand(db, {
+    await dispatch({
       type: "CreateCheckIn",
       habitId,
       timestamp: new Date(),

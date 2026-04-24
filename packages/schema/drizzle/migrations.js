@@ -9,6 +9,7 @@ import m0004 from './0004_glossy_the_hand.sql';
 import m0005 from './0005_conscious_wonder_man.sql';
 import m0006 from './0006_replace_day_of_week_with_days.sql';
 import m0007 from './0007_add_reminder_to_schedule.sql';
+import m0008 from './0008_clean_changeling.sql';
 
   export default {
     journal,
@@ -20,6 +21,8 @@ m0003,
 m0004,
 m0005,
 m0006,
-m0007
+m0007,
+m0008
     }
   }
+  

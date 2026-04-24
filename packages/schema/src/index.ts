@@ -4,7 +4,8 @@ export { habit } from "./habit";
 export { checkIn } from "./checkIn";
 export { goal, getTitle } from "./goal";
 export { schedule } from "./schedule";
-export { auditLog } from "./auditLog";
+export { auditLog, auditLogStatuses, type AuditLogStatus } from "./auditLog";
+export { syncState } from "./syncState";
 export {
   habitRelations,
   checkInRelations,

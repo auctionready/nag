@@ -1,7 +1,7 @@
 import { useCallback } from "react";
 import { useRouter } from "expo-router";
-import { db } from "../../db";
-import { habitProgressSnapshot, processCommand } from "@nag/core";
+import { habitProgressSnapshot } from "@nag/core";
+import { dispatch } from "../../infrastructure/dispatch";
 import { complianceColors } from "../getComplianceColor";
 import { useHabitGoalSummary } from "./useHabitGoalSummary";
 import { useHabitCompliance } from "./useHabitCompliance";
@@ -69,7 +69,7 @@ export const HabitTile = ({ id, title }: HabitTileProps) => {
   }, [router, id]);
 
   const handleCheckIn = useCallback(async () => {
-    await processCommand(db, {
+    await dispatch({
       type: "CreateCheckIn",
       habitId: id,
       timestamp: new Date(),

@@ -7,7 +7,16 @@ import type { DeleteHabit } from "../schemas";
 export async function handleDeleteHabit(
   db: AnyDb,
   command: DeleteHabit,
-): Promise<void> {
-  await db.delete(habit).where(eq(habit.id, command.habitId));
+): Promise<{ externalId: string }> {
+  const deleted = await db
+    .delete(habit)
+    .where(eq(habit.id, command.habitId))
+    .returning({ externalId: habit.externalId });
+
+  if (deleted.length === 0) {
+    throw new Error(`DeleteHabit: habit id=${command.habitId} not found`);
+  }
+
   await syncAllNotifications(db);
+  return { externalId: deleted[0].externalId };
 }
