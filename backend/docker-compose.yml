@@ -1,20 +1,20 @@
 services:
   postgres:
     image: postgres:17
-    container_name: nag-postgres
+    container_name: my_postgres
     environment:
-      POSTGRES_USER: nag
-      POSTGRES_PASSWORD: nag
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
       POSTGRES_DB: nag
     ports:
       - "5432:5432"
     volumes:
-      - nag-pg:/var/lib/postgresql/data
+      - my-db:/var/lib/postgresql
     healthcheck:
-      test: ["CMD", "pg_isready", "-U", "nag"]
+      test: ["CMD", "pg_isready", "-U", "postgres"]
       interval: 5s
       timeout: 5s
       retries: 10
 
 volumes:
-  nag-pg:
+  my-db: {}

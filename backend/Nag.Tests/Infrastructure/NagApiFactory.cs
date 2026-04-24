@@ -1,6 +1,7 @@
+using Marten;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
-using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Nag.Tests.Infrastructure;
 
@@ -13,18 +14,21 @@ public class NagApiFactory : WebApplicationFactory<Program>
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.UseEnvironment("Development");
-        builder.ConfigureAppConfiguration(
-            (_, cfg) =>
+        builder.UseSetting("Nag:ApiKey", ApiKey);
+        builder.UseSetting("Nag:SchemaName", SchemaName);
+        builder.UseSetting("ConnectionStrings:Nag", ConnectionString);
+
+        builder.ConfigureServices(services =>
+        {
+            services.PostConfigure<StoreOptions>(opts =>
             {
-                cfg.AddInMemoryCollection(
-                    new Dictionary<string, string?>
-                    {
-                        ["ConnectionStrings:Nag"] = ConnectionString,
-                        ["Nag:ApiKey"] = ApiKey,
-                        ["Nag:SchemaName"] = SchemaName,
-                    }
-                );
-            }
-        );
+                opts.Connection(ConnectionString);
+                if (!string.IsNullOrWhiteSpace(SchemaName))
+                {
+                    opts.DatabaseSchemaName = SchemaName;
+                    opts.Events.DatabaseSchemaName = SchemaName;
+                }
+            });
+        });
     }
 }

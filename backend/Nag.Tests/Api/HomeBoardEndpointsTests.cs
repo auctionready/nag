@@ -1,5 +1,6 @@
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using Nag.Core.Contracts;
 using Nag.Core.ReadModels;
 using Nag.Tests.Infrastructure;
 using Shouldly;
@@ -52,7 +53,7 @@ public class HomeBoardEndpointsTests : IClassFixture<HomeBoardEndpointsTests.Fac
         var resp = await client.PostAsJsonAsync("/commands", envelope);
         resp.EnsureSuccessStatusCode();
 
-        var board = await client.GetFromJsonAsync<HomeBoard>("/home-board");
+        var board = await client.GetFromJsonAsync<HomeBoard>("/home-board", NagJsonOptions.Default);
         board.ShouldNotBeNull();
         board!.Habits.ShouldContain(h => h.Id == habitId && h.Title == "Read");
     }
@@ -95,7 +96,7 @@ public class HomeBoardEndpointsTests : IClassFixture<HomeBoardEndpointsTests.Fac
             }
         );
 
-        var board = await client.GetFromJsonAsync<HomeBoard>("/home-board");
+        var board = await client.GetFromJsonAsync<HomeBoard>("/home-board", NagJsonOptions.Default);
         var habit = board!.Habits.Single(h => h.Id == habitId);
         habit.PeriodCheckIns.ShouldContain(c => c.Id == checkInId);
     }

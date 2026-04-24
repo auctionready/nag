@@ -12,7 +12,28 @@ public sealed class HomeBoardProjection : SingleStreamProjection<HomeBoard, Guid
         // Single document keyed by NagStreams.Root.
     }
 
-    public static HomeBoard Create() => new() { Id = NagStreams.Root };
+    public static HomeBoard Create(CreateHabit @event) =>
+        new()
+        {
+            Id = NagStreams.Root,
+            Habits = new List<HomeHabit>
+            {
+                new()
+                {
+                    Id = @event.HabitId,
+                    Title = @event.Title,
+                    Description = @event.Description,
+                    Icon = @event.Icon,
+                    Goal = @event.Goal is null
+                        ? null
+                        : new HomeGoal(@event.Goal.Regularity, @event.Goal.Frequency),
+                    Schedules = @event.Goal?.Schedules is null
+                        ? new()
+                        : @event.Goal.Schedules.Select(MapSchedule).ToList(),
+                    PeriodCheckIns = new(),
+                },
+            },
+        };
 
     public void Apply(CreateHabit cmd, HomeBoard board)
     {

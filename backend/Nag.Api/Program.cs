@@ -58,7 +58,9 @@ builder.Services.AddMarten(opts =>
 builder.Services.AddScoped<CommandDispatcher>();
 builder.Services.AddScoped<CommandsReader>();
 
-builder.Services.AddValidatorsFromAssemblyContaining<CreateHabitValidator>();
+builder.Services.AddValidatorsFromAssemblyContaining<CreateHabitValidator>(filter: result =>
+    result.ValidatorType != typeof(ScheduleEntryValidator)
+);
 
 #if DEBUG
 builder.Services.AddEndpointsApiExplorer();
