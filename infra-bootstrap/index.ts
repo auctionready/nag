@@ -23,9 +23,7 @@ const oidcProvider = new aws.iam.OpenIdConnectProvider("github", {
 });
 
 const subjects: string[] = [
-  ...allowedRefs.map(
-    (r) => `repo:${githubOrg}/${githubRepo}:ref:${r}`,
-  ),
+  ...allowedRefs.map((r) => `repo:${githubOrg}/${githubRepo}:ref:${r}`),
   ...allowedEnvironments.map(
     (e) => `repo:${githubOrg}/${githubRepo}:environment:${e}`,
   ),

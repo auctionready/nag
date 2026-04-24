@@ -17,35 +17,35 @@ The source lives in [`backend/`](../backend) and has its own
 2. **Pointer-driven sync.** The client tracks the last sequence number
    it has seen. After reconnecting (or on a fresh install) it pulls
    anything newer.
-3. **Read-your-writes views.** A Marten *inline projection* updates a
+3. **Read-your-writes views.** A Marten _inline projection_ updates a
    `HomeBoard` document in the same transaction as the event append, so
    any client that reads `/home-board` immediately after a successful
    POST sees the change.
 
 ## Stack
 
-| Concern | Choice |
-|---|---|
-| Runtime | .NET 10 (LTS, GA on AWS Lambda since Jan 2026) |
-| Web framework | ASP.NET Core minimal APIs |
-| Lambda bridge | `Amazon.Lambda.AspNetCoreServer.Hosting` |
-| Event store | Marten 8 on Postgres 17 |
-| Messaging | Wolverine 5 (registered for future async work) |
-| Read models | Marten inline projections |
-| Database | Amazon RDS for PostgreSQL Serverless v2 |
-| Auth | Static `Authorization: Bearer <key>` (single user, for now) |
-| Logging | Serilog → JSON console (CloudWatch picks up stdout) |
-| Validation | FluentValidation |
-| Formatting | CSharpier (pinned in `.config/dotnet-tools.json`) |
+| Concern       | Choice                                                      |
+| ------------- | ----------------------------------------------------------- |
+| Runtime       | .NET 10 (LTS, GA on AWS Lambda since Jan 2026)              |
+| Web framework | ASP.NET Core minimal APIs                                   |
+| Lambda bridge | `Amazon.Lambda.AspNetCoreServer.Hosting`                    |
+| Event store   | Marten 8 on Postgres 17                                     |
+| Messaging     | Wolverine 5 (registered for future async work)              |
+| Read models   | Marten inline projections                                   |
+| Database      | Amazon RDS for PostgreSQL Serverless v2                     |
+| Auth          | Static `Authorization: Bearer <key>` (single user, for now) |
+| Logging       | Serilog → JSON console (CloudWatch picks up stdout)         |
+| Validation    | FluentValidation                                            |
+| Formatting    | CSharpier (pinned in `.config/dotnet-tools.json`)           |
 
 ## Endpoints
 
-| Method | Path | Auth | Notes |
-|---|---|---|---|
-| `POST` | `/commands` | yes | Append a command. Idempotent on `id`. |
-| `GET` | `/commands?since=<long>&limit=<int?>` | yes | Page of commands; `limit` capped at 500. |
-| `GET` | `/home-board` | yes | The materialized view. |
-| `GET` | `/health` | no | Liveness. |
+| Method | Path                                  | Auth | Notes                                    |
+| ------ | ------------------------------------- | ---- | ---------------------------------------- |
+| `POST` | `/commands`                           | yes  | Append a command. Idempotent on `id`.    |
+| `GET`  | `/commands?since=<long>&limit=<int?>` | yes  | Page of commands; `limit` capped at 500. |
+| `GET`  | `/home-board`                         | yes  | The materialized view.                   |
+| `GET`  | `/health`                             | no   | Liveness.                                |
 
 In Debug builds, `/swagger` serves OpenAPI UI. In Release builds the
 Swashbuckle package is conditionally excluded from the binary.
@@ -55,10 +55,12 @@ Swashbuckle package is conditionally excluded from the binary.
 ```jsonc
 // POST /commands body
 {
-  "id": "<uuid>",                 // client-generated; doubles as idempotency key
-  "type": "CreateHabit",          // discriminator from CommandRegistry
+  "id": "<uuid>", // client-generated; doubles as idempotency key
+  "type": "CreateHabit", // discriminator from CommandRegistry
   "timestamp": "2026-04-24T09:15:00Z",
-  "payload": { /* command-specific fields */ }
+  "payload": {
+    /* command-specific fields */
+  },
 }
 ```
 
@@ -82,7 +84,7 @@ Response:
 
 ## Commands & projection
 
-Commands live in `Nag.Core/Commands/`. They are also the *events*
+Commands live in `Nag.Core/Commands/`. They are also the _events_
 written to Marten — a 1:1 mapping for now. All events land on a single
 stream identified by `NagStreams.Root` (single-tenant; this becomes a
 per-user GUID when we add multi-tenancy).
