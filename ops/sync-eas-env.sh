@@ -56,15 +56,30 @@ mask () {
 }
 
 echo "Reading values from Pulumi stack '$STACK'…"
-API_URL="$(pulumi -C "$INFRA" stack output apiUrl --stack "$STACK")"
-API_KEY="$(pulumi -C "$INFRA" config get nag:apiKey --stack "$STACK" --show-secrets)"
+
+# `apiUrl` is the canonical output (added when custom-domain support
+# landed). Fall back to `invokeUrl` for stacks deployed before that, so
+# the script keeps working until the next `pulumi up`.
+API_URL=""
+for output in apiUrl invokeUrl; do
+  if API_URL="$(pulumi -C "$INFRA" stack output "$output" --stack "$STACK" 2>/dev/null)" \
+     && [[ -n "$API_URL" ]]; then
+    echo "  source = stack output '$output'"
+    break
+  fi
+  API_URL=""
+done
 
 if [[ -z "$API_URL" ]]; then
-  echo "error: pulumi stack output 'apiUrl' is empty for stack '$STACK'" >&2
+  echo "error: stack '$STACK' has neither 'apiUrl' nor 'invokeUrl' output." >&2
+  echo "       Run 'cd infra && pulumi up --stack $STACK' first." >&2
   exit 1
 fi
+
+API_KEY="$(pulumi -C "$INFRA" config get nag:apiKey --stack "$STACK" --show-secrets 2>/dev/null || true)"
 if [[ -z "$API_KEY" ]]; then
-  echo "error: pulumi config 'nag:apiKey' is empty for stack '$STACK'" >&2
+  echo "error: pulumi config 'nag:apiKey' is unset (or empty) for stack '$STACK'." >&2
+  echo "       Run 'cd infra && pulumi config set --secret nag:apiKey <value> --stack $STACK'." >&2
   exit 1
 fi
 
