@@ -79,7 +79,7 @@ fi
 PULUMI_ERR="$(mktemp)"
 trap 'rm -f "$PULUMI_ERR"' EXIT
 
-if ! API_KEY="$(pulumi -C "$INFRA" config get nag:apiKey --stack "$STACK" --show-secrets 2>"$PULUMI_ERR")"; then
+if ! API_KEY="$(pulumi -C "$INFRA" config get nag:apiKey --stack "$STACK" 2>"$PULUMI_ERR")"; then
   echo "error: 'pulumi config get nag:apiKey' failed for stack '$STACK':" >&2
   sed 's/^/       /' "$PULUMI_ERR" >&2
   exit 1
