@@ -64,6 +64,13 @@
       "when": 1777014479990,
       "tag": "0008_clean_changeling",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "6",
+      "when": 1777071102878,
+      "tag": "0009_early_mantis",
+      "breakpoints": true
     }
   ]
 }
