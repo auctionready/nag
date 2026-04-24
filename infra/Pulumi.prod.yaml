@@ -22,4 +22,4 @@ config:
   nag:dbPassword:
     secure: AAABABHObgMRRA+CSbpLYaYK6wAJ4WYRBLy2kFELytWNIBZPC3KkcoDLGd7Vl65VZi5HmA==
   nag:hostedZoneName: auctionready.co.nz
-  nag:apiDomainName: nag.auctionready.co.nz
+  nag:apiDomainName: nagapi.auctionready.co.nz
