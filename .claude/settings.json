@@ -52,8 +52,8 @@
       "Bash(pnpm typecheck:*)",
       "Bash(sips:*)",
       "WebFetch(domain:docs.expo.dev)",
-      "WebFetch(domain:github.com)"
-      "WebSearch",
+      "WebFetch(domain:github.com)",
+      "WebSearch"
     ]
   }
 }
