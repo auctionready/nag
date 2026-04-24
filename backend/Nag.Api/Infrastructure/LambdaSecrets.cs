@@ -1,37 +1,20 @@
-using System.Text.Json;
-using Amazon.SecretsManager;
-using Amazon.SecretsManager.Model;
-
 namespace Nag.Api.Infrastructure;
 
 /// <summary>
-/// When running in Lambda, fetches the RDS-managed master secret and the API
-/// key secret from AWS Secrets Manager and pushes them into
-/// <see cref="IConfiguration"/>. Opt-in: only runs when <c>DB_SECRET_ARN</c>
-/// is set, so local <c>dotnet run</c> and tests are unaffected.
+/// In Lambda, assembles the DB connection string and API key from the
+/// function's environment variables. Opt-in: only runs when
+/// <c>DB_PASSWORD</c> is set, so local <c>dotnet run</c> and tests fall
+/// back to <c>appsettings</c>.
 /// </summary>
 public static class LambdaSecrets
 {
-    public static async Task HydrateFromSecretsManagerAsync(ConfigurationManager configuration)
+    public static void HydrateFromEnvironment(ConfigurationManager configuration)
     {
-        var dbSecretArn = Environment.GetEnvironmentVariable("DB_SECRET_ARN");
-        if (string.IsNullOrWhiteSpace(dbSecretArn))
+        var password = Environment.GetEnvironmentVariable("DB_PASSWORD");
+        if (string.IsNullOrWhiteSpace(password))
         {
             return;
         }
-
-        using var client = new AmazonSecretsManagerClient();
-
-        var dbSecret = await client.GetSecretValueAsync(
-            new GetSecretValueRequest { SecretId = dbSecretArn }
-        );
-
-        using var json = JsonDocument.Parse(dbSecret.SecretString);
-        var password =
-            json.RootElement.GetProperty("password").GetString()
-            ?? throw new InvalidOperationException(
-                "RDS master secret does not contain a 'password' field."
-            );
 
         var host =
             Environment.GetEnvironmentVariable("DB_HOST")
@@ -42,13 +25,10 @@ public static class LambdaSecrets
         configuration["ConnectionStrings:Nag"] =
             $"Host={host};Port=5432;Database={database};Username={username};Password={password};SSL Mode=Require;Trust Server Certificate=true";
 
-        var apiKeyArn = Environment.GetEnvironmentVariable("API_KEY_SECRET_ARN");
-        if (!string.IsNullOrWhiteSpace(apiKeyArn))
+        var apiKey = Environment.GetEnvironmentVariable("API_KEY");
+        if (!string.IsNullOrWhiteSpace(apiKey))
         {
-            var apiKeySecret = await client.GetSecretValueAsync(
-                new GetSecretValueRequest { SecretId = apiKeyArn }
-            );
-            configuration["Nag:ApiKey"] = apiKeySecret.SecretString;
+            configuration["Nag:ApiKey"] = apiKey;
         }
     }
 }

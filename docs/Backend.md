@@ -160,11 +160,19 @@ one-time bootstrap stack in [`infra-bootstrap/`](../infra-bootstrap).
 Region: `ap-southeast-2`. State backend: Pulumi Cloud.
 
 Topology: API Gateway HTTP API → Lambda (`dotnet10`, arm64) in a VPC →
-Aurora PostgreSQL Serverless v2 (engine 17). The API key and RDS master
-password live in AWS Secrets Manager. On cold start,
-[`LambdaSecrets.HydrateFromSecretsManager`](../backend/Nag.Api/Infrastructure/LambdaSecrets.cs)
-pulls both and injects them into `IConfiguration` — no plaintext secrets
-in Lambda env vars.
+Aurora PostgreSQL Serverless v2 (engine 17). The API key and DB password
+are passed as KMS-encrypted Lambda environment variables (`API_KEY`,
+`DB_PASSWORD`). On cold start,
+[`LambdaSecrets.HydrateFromEnvironment`](../backend/Nag.Api/Infrastructure/LambdaSecrets.cs)
+reads them and writes the connection string + API key into
+`IConfiguration`.
+
+The VPC has no NAT Gateway and no VPC endpoints — the Lambda only needs
+to reach Aurora (over its Hyperplane ENI inside the private subnet) and
+the runtime delivers logs to CloudWatch via a Lambda-internal path.
+Aurora auto-pauses after 50 minutes of inactivity (`minCapacity: 0`,
+`secondsUntilAutoPause: 3000`); the first query after a long idle period
+pays a ~10–15 s warm-up.
 
 Deploys run via
 [`.github/workflows/deploy-backend.yml`](../.github/workflows/deploy-backend.yml),

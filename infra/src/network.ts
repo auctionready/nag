@@ -12,7 +12,7 @@ export interface Network {
 export const createNetwork = (): Network => {
   const vpc = new awsx.ec2.Vpc("nag", {
     numberOfAvailabilityZones: 2,
-    natGateways: { strategy: awsx.ec2.NatGatewayStrategy.Single },
+    natGateways: { strategy: awsx.ec2.NatGatewayStrategy.None },
     subnetStrategy: "Auto",
     enableDnsHostnames: true,
     enableDnsSupport: true,
