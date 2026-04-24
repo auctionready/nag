@@ -7,7 +7,7 @@ import {
   loadIdentity,
   getAccountId,
 } from "../identity";
-import type { RegisterDeviceFn } from "../types";
+import type { RegisterDeviceResult } from "../types";
 
 const getDb = setupTestDb("identity-test.db");
 
@@ -18,11 +18,13 @@ describe("ensureDeviceRegistered", () => {
     const db = getDb();
     await db.delete(identity); // simulate fresh install
 
-    const register: RegisterDeviceFn = vi.fn(async () => ({
-      ok: true,
-      accountId: "acc-from-server",
-      registeredAt: new Date("2026-04-25T00:00:00.000Z"),
-    }));
+    const register = vi.fn(
+      async (): Promise<RegisterDeviceResult> => ({
+        ok: true,
+        accountId: "acc-from-server",
+        registeredAt: new Date("2026-04-25T00:00:00.000Z"),
+      }),
+    );
 
     const result = await ensureDeviceRegistered({
       db,
@@ -47,7 +49,11 @@ describe("ensureDeviceRegistered", () => {
       const db = getDb();
       // testDb already seeds an identity row; verify shortcut path.
 
-      const register: RegisterDeviceFn = vi.fn();
+      const register = vi.fn(
+        async (): Promise<RegisterDeviceResult> => {
+          throw new Error("register should not be called when already registered");
+        },
+      );
 
       const result = await ensureDeviceRegistered({
         db,
@@ -70,11 +76,13 @@ describe("ensureDeviceRegistered", () => {
         deviceId: persistedDeviceId,
       });
 
-      const register: RegisterDeviceFn = vi.fn(async () => ({
-        ok: true,
-        accountId: "acc-on-retry",
-        registeredAt: new Date("2026-04-25T00:00:00.000Z"),
-      }));
+      const register = vi.fn(
+        async (): Promise<RegisterDeviceResult> => ({
+          ok: true,
+          accountId: "acc-on-retry",
+          registeredAt: new Date("2026-04-25T00:00:00.000Z"),
+        }),
+      );
 
       const result = await ensureDeviceRegistered({
         db,
@@ -91,11 +99,13 @@ describe("ensureDeviceRegistered", () => {
       const db = getDb();
       await db.delete(identity);
 
-      const register: RegisterDeviceFn = vi.fn(async () => ({
-        ok: false,
-        kind: "transient",
-        message: "network down",
-      }));
+      const register = vi.fn(
+        async (): Promise<RegisterDeviceResult> => ({
+          ok: false,
+          kind: "transient",
+          message: "network down",
+        }),
+      );
 
       const result = await ensureDeviceRegistered({
         db,
@@ -120,12 +130,14 @@ describe("ensureDeviceRegistered", () => {
       const db = getDb();
       await db.delete(identity);
 
-      const register: RegisterDeviceFn = vi.fn(async () => ({
-        ok: false,
-        kind: "non-retriable",
-        status: 400,
-        message: "bad request",
-      }));
+      const register = vi.fn(
+        async (): Promise<RegisterDeviceResult> => ({
+          ok: false,
+          kind: "non-retriable",
+          status: 400,
+          message: "bad request",
+        }),
+      );
 
       const result = await ensureDeviceRegistered({
         db,
