@@ -2,7 +2,6 @@ using System.Net;
 using System.Net.Http.Headers;
 using Nag.Tests.Infrastructure;
 using Shouldly;
-using Xunit;
 
 namespace Nag.Tests.Api;
 

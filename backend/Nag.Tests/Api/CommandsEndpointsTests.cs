@@ -1,11 +1,9 @@
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
-using System.Text.Json;
 using Nag.Core.Contracts;
 using Nag.Tests.Infrastructure;
 using Shouldly;
-using Xunit;
 
 namespace Nag.Tests.Api;
 

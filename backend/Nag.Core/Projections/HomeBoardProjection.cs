@@ -16,9 +16,9 @@ public sealed class HomeBoardProjection : SingleStreamProjection<HomeBoard, Guid
         new()
         {
             Id = NagStreams.Root,
-            Habits = new List<HomeHabit>
-            {
-                new()
+            Habits =
+            [
+                new HomeHabit
                 {
                     Id = @event.HabitId,
                     Title = @event.Title,
@@ -28,11 +28,11 @@ public sealed class HomeBoardProjection : SingleStreamProjection<HomeBoard, Guid
                         ? null
                         : new HomeGoal(@event.Goal.Regularity, @event.Goal.Frequency),
                     Schedules = @event.Goal?.Schedules is null
-                        ? new()
-                        : @event.Goal.Schedules.Select(MapSchedule).ToList(),
-                    PeriodCheckIns = new(),
+                        ? []
+                        : [.. @event.Goal.Schedules.Select(MapSchedule)],
+                    PeriodCheckIns = [],
                 },
-            },
+            ],
         };
 
     public void Apply(CreateHabit cmd, HomeBoard board)
@@ -49,9 +49,9 @@ public sealed class HomeBoardProjection : SingleStreamProjection<HomeBoard, Guid
                     ? null
                     : new HomeGoal(cmd.Goal.Regularity, cmd.Goal.Frequency),
                 Schedules = cmd.Goal?.Schedules is null
-                    ? new()
-                    : cmd.Goal.Schedules.Select(MapSchedule).ToList(),
-                PeriodCheckIns = new(),
+                    ? []
+                    : [.. cmd.Goal.Schedules.Select(MapSchedule)],
+                PeriodCheckIns = [],
             }
         );
     }
@@ -70,9 +70,9 @@ public sealed class HomeBoardProjection : SingleStreamProjection<HomeBoard, Guid
             : cmd.Goal is null ? habit.Goal
             : new HomeGoal(cmd.Goal.Regularity, cmd.Goal.Frequency);
         var schedules =
-            cmd.ClearGoal ? new List<HomeSchedule>()
+            cmd.ClearGoal ? []
             : cmd.Goal?.Schedules is null ? habit.Schedules
-            : cmd.Goal.Schedules.Select(MapSchedule).ToList();
+            : [.. cmd.Goal.Schedules.Select(MapSchedule)];
 
         board.Habits[idx] = habit with
         {

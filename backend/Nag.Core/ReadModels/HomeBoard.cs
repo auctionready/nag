@@ -2,11 +2,11 @@ using Nag.Core.Domain;
 
 namespace Nag.Core.ReadModels;
 
-public sealed record HomeBoard
+public sealed class HomeBoard
 {
     public Guid Id { get; init; } = NagStreams.Root;
     public long LastSequence { get; init; }
-    public List<HomeHabit> Habits { get; init; } = new();
+    public List<HomeHabit> Habits { get; init; } = [];
 }
 
 public sealed record HomeHabit
@@ -16,8 +16,8 @@ public sealed record HomeHabit
     public string? Description { get; init; }
     public string? Icon { get; init; }
     public HomeGoal? Goal { get; init; }
-    public List<HomeSchedule> Schedules { get; init; } = new();
-    public List<HomeCheckIn> PeriodCheckIns { get; init; } = new();
+    public List<HomeSchedule> Schedules { get; init; } = [];
+    public List<HomeCheckIn> PeriodCheckIns { get; init; } = [];
 }
 
 public sealed record HomeGoal(Regularity Regularity, int? Frequency);

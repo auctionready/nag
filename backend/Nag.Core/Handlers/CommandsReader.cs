@@ -4,24 +4,15 @@ using Nag.Core.Contracts;
 
 namespace Nag.Core.Handlers;
 
-public sealed class CommandsReader
+public sealed class CommandsReader(IQuerySession session, JsonSerializerOptions jsonOptions)
 {
-    public const int MaxLimit = 500;
-
-    private readonly IQuerySession _session;
-    private readonly JsonSerializerOptions _jsonOptions;
-
-    public CommandsReader(IQuerySession session, JsonSerializerOptions jsonOptions)
-    {
-        _session = session;
-        _jsonOptions = jsonOptions;
-    }
+    private const int MaxLimit = 500;
 
     public async Task<CommandsPage> ReadSinceAsync(long since, int? limit, CancellationToken ct)
     {
         var take = Math.Clamp(limit ?? MaxLimit, 1, MaxLimit);
 
-        var events = await _session
+        var events = await session
             .Events.QueryAllRawEvents()
             .Where(e => e.Sequence > since)
             .OrderBy(e => e.Sequence)
@@ -35,7 +26,7 @@ public sealed class CommandsReader
                 CommandRegistry.ByName.FirstOrDefault(kv => kv.Value == e.Data!.GetType()).Key
                     ?? e.EventTypeName,
                 new DateTimeOffset(e.Timestamp.UtcDateTime, TimeSpan.Zero),
-                JsonSerializer.SerializeToElement(e.Data, _jsonOptions)
+                JsonSerializer.SerializeToElement(e.Data, jsonOptions)
             ))
             .ToList();
 
