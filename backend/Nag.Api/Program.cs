@@ -95,6 +95,7 @@ app.UseMiddleware<BearerKeyMiddleware>();
 app.MapGet("/health", NoContent).WithTags("Health").Produces(StatusCodes.Status204NoContent);
 app.MapCommandsEndpoints();
 app.MapHomeBoardEndpoints();
+app.MapDevicesEndpoints();
 
 #if DEBUG
 app.UseSwagger();
