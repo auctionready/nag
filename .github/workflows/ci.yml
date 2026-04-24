@@ -66,7 +66,7 @@ jobs:
           JEST_JUNIT_OUTPUT_DIR: ./junit
           JEST_JUNIT_OUTPUT_NAME: results.xml
 
-      - uses: dorny/test-reporter@v2
+      - uses: dorny/test-reporter@v3
         if: always()
         with:
           name: Jest Test Report
@@ -81,9 +81,9 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/setup-dotnet@v5
         with:
-          dotnet-version: '10.0.x'
+          dotnet-version: "10.0.x"
 
       - run: dotnet tool restore
 
@@ -95,7 +95,7 @@ jobs:
 
       - run: dotnet test --configuration Release --no-build --logger "trx;LogFileName=results.trx"
 
-      - uses: dorny/test-reporter@v2
+      - uses: dorny/test-reporter@v3
         if: always()
         with:
           name: .NET Test Report
