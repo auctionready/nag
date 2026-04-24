@@ -20,3 +20,5 @@ public sealed record CommandEnvelopeOut(
     DateTimeOffset Timestamp,
     JsonElement Payload
 );
+
+public sealed record ErrorResponse(IReadOnlyList<string> Errors);
