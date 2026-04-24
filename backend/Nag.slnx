@@ -1,0 +1,5 @@
+<Solution>
+  <Project Path="Nag.Api/Nag.Api.csproj" />
+  <Project Path="Nag.Core/Nag.Core.csproj" />
+  <Project Path="Nag.Tests/Nag.Tests.csproj" />
+</Solution>

@@ -10,3 +10,8 @@ pre-commit:
     - name: format
       glob: "*.{js,jsx,ts,tsx,mjs,cjs,json,md,yaml,yml,css}"
       run: pnpm prettier --write {staged_files} && git add {staged_files}
+
+    - name: csharpier
+      glob: "*.cs"
+      root: backend/
+      run: dotnet csharpier format {staged_files} && git add {staged_files}
