@@ -54,6 +54,22 @@ If `nag:hostedZoneName` and `nag:apiDomainName` are both set, Pulumi will:
 
 The stack output `apiUrl` always exists: it's the friendly `https://<subdomain>/` when the custom domain is configured, and the raw `https://<id>.execute-api.<region>.amazonaws.com/` invoke URL otherwise. The raw invoke URL is also exposed separately as `invokeUrl` for diagnostics.
 
+## Bind an EAS build to this backend
+
+After `pulumi up` succeeds, push `apiUrl` and `nag:apiKey` into the EAS
+environment that an `eas.json` build profile reads from:
+
+```bash
+ops/sync-eas-env.sh <pulumi-stack> <eas-environment>
+# e.g. ops/sync-eas-env.sh prod preview     # preview build → prod backend
+# e.g. ops/sync-eas-env.sh prod production  # prod build    → prod backend
+```
+
+The script sets `NAG_API_BASE_URL` (plaintext) and `NAG_API_KEY` (secret)
+in the named EAS environment, replacing any existing values. Re-run
+after rotating the API key or moving the backend behind a custom
+domain.
+
 ## Build the Lambda package
 
 From the repo root:
