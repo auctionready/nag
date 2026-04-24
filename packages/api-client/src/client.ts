@@ -1,6 +1,19 @@
-import axios, { type AxiosAdapter } from "axios";
+import axios from "axios";
 import { Zodios, headerPlugin } from "@zodios/core";
 import { endpoints } from "./endpoint-definition";
+
+/**
+ * Controls zodios's runtime schema validation.
+ *
+ *   - `true` / `"all"` — validate both request bodies and responses
+ *     against the generated zod schemas (default).
+ *   - `"request"` — only request bodies.
+ *   - `"response"` — only responses.
+ *   - `"none"` / `false` — skip all validation.
+ *
+ * Mirrors `@zodios/core`'s own `validate` option; see zodios docs.
+ */
+export type NagApiValidate = boolean | "request" | "response" | "all" | "none";
 
 export interface NagApiClientOptions {
   baseUrl: string;
@@ -8,39 +21,31 @@ export interface NagApiClientOptions {
   /** Per-request timeout in ms (applied to the underlying axios instance). */
   timeoutMs?: number;
   /**
-   * Optional axios adapter override.
-   *
-   * Defaults to **undefined** (axios auto-picks: XHR on React Native,
-   * native http/https on Node). An earlier revision hardcoded
-   * `"fetch"`, which caused RN's fetch polyfill to silently hang
-   * against HTTP + localhost + chunked-transfer responses on the iOS
-   * simulator. XHR is the actual native transport underneath RN's
-   * fetch and is stable for this path.
-   *
-   * Tests that mock `global.fetch` should pass `"fetch"` here so they
-   * continue to work without rewiring to an XHR/http mocker.
+   * Zodios validation mode. Defaults to zodios's default (validate
+   * everything). Pass `"none"` or `false` to skip validation when you
+   * want to observe whatever the server actually returned.
    */
-  adapter?: "fetch" | "xhr" | "http" | AxiosAdapter;
+  validate?: NagApiValidate;
 }
 
 /**
  * Zodios-backed client over the generated `endpoints` array.
  *
- * Zodios runs zod validation on both request bodies (pre-send) and
- * response bodies (post-receive), so callers get typed methods with
- * contract enforcement baked in.
+ * Uses axios's default adapter — XHR on React Native (stable against
+ * HTTP + localhost), native http/https on Node. Request body and
+ * response body validation is on by default; opt out via `validate`.
  */
 export const createNagApiClient = ({
   baseUrl,
   apiKey,
   timeoutMs = 20_000,
-  adapter,
+  validate,
 }: NagApiClientOptions) => {
-  const axiosInstance = axios.create({
-    timeout: timeoutMs,
-    ...(adapter ? { adapter } : {}),
+  const axiosInstance = axios.create({ timeout: timeoutMs });
+  const api = new Zodios(baseUrl, endpoints, {
+    axiosInstance,
+    ...(validate !== undefined ? { validate } : {}),
   });
-  const api = new Zodios(baseUrl, endpoints, { axiosInstance });
   api.use(headerPlugin("Authorization", `Bearer ${apiKey}`));
   return api;
 };

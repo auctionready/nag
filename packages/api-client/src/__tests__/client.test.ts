@@ -1,18 +1,9 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
+import { describe, it, expect, beforeAll, afterAll, afterEach } from "vitest";
+import nock from "nock";
 import { createNagApiClient } from "../client";
 
-type FetchMock = ReturnType<typeof vi.fn<typeof fetch>>;
-
-const jsonResponse = (body: unknown, init: ResponseInit = {}): Response =>
-  new Response(JSON.stringify(body), {
-    status: 200,
-    headers: { "Content-Type": "application/json" },
-    ...init,
-  });
-
-/** Axios's fetch adapter always calls `fetch(request)` with a Request. */
-const firstRequest = (fetchMock: FetchMock): Request =>
-  fetchMock.mock.calls[0]![0] as Request;
+const BASE_URL = "https://api.example.test";
+const API_KEY = "test-api-key";
 
 const envelope = {
   id: "11111111-1111-4111-8111-111111111111",
@@ -35,97 +26,92 @@ const commandEnvelopeOut = {
   },
 };
 
-describe("nagApiClient", () => {
-  let fetchMock: FetchMock;
+const makeClient = () =>
+  createNagApiClient({ baseUrl: BASE_URL, apiKey: API_KEY });
 
-  beforeEach(() => {
-    fetchMock = vi.fn<typeof fetch>();
-    vi.stubGlobal("fetch", fetchMock);
+describe("nagApiClient", () => {
+  beforeAll(() => {
+    nock.disableNetConnect();
   });
 
   afterEach(() => {
-    vi.unstubAllGlobals();
+    if (!nock.isDone()) {
+      const pending = nock.pendingMocks();
+      nock.cleanAll();
+      throw new Error(`unfulfilled nock interceptors: ${pending.join(", ")}`);
+    }
   });
 
-  const makeClient = () =>
-    createNagApiClient({
-      baseUrl: "https://api.example.test",
-      apiKey: "test-api-key",
-      // Force the fetch adapter in tests so the global `fetch` mock
-      // below is what axios calls. Production defaults to XHR on RN.
-      adapter: "fetch",
-    });
+  afterAll(() => {
+    nock.enableNetConnect();
+    nock.restore();
+  });
 
   describe("postCommands", () => {
-    beforeEach(() => {
-      fetchMock.mockResolvedValue(
-        jsonResponse({ accepted: true, sequence: 7 }),
-      );
-    });
-
     it("sends the envelope with bearer auth and JSON headers", async () => {
-      const api = makeClient();
-      const result = await api.postCommands(envelope);
+      const scope = nock(BASE_URL, {
+        reqheaders: {
+          authorization: `Bearer ${API_KEY}`,
+          "content-type": /^application\/json/,
+        },
+      })
+        .post("/commands", (body) => {
+          expect(body).toEqual(envelope);
+          return true;
+        })
+        .reply(200, { accepted: true, sequence: 7 });
 
-      expect(fetchMock).toHaveBeenCalledOnce();
-      const req = firstRequest(fetchMock);
-      expect(req.url).toBe("https://api.example.test/commands");
-      expect(req.method).toBe("POST");
-      expect(req.headers.get("Authorization")).toBe("Bearer test-api-key");
-      expect(req.headers.get("Content-Type")).toMatch(/^application\/json/);
-      expect(JSON.parse(await req.text())).toEqual(envelope);
+      const result = await makeClient().postCommands(envelope);
+
       expect(result).toEqual({ accepted: true, sequence: 7 });
+      expect(scope.isDone()).toBe(true);
     });
 
     it("rejects on 400", async () => {
-      fetchMock.mockResolvedValue(
-        jsonResponse({ errors: ["envelope.id is required"] }, { status: 400 }),
-      );
-      const api = makeClient();
+      nock(BASE_URL)
+        .post("/commands")
+        .reply(400, { errors: ["envelope.id is required"] });
 
-      await expect(api.postCommands(envelope)).rejects.toThrow();
+      await expect(makeClient().postCommands(envelope)).rejects.toThrow();
     });
 
     it("rejects on 401", async () => {
-      fetchMock.mockResolvedValue(new Response("", { status: 401 }));
-      const api = makeClient();
+      nock(BASE_URL).post("/commands").reply(401);
 
-      await expect(api.postCommands(envelope)).rejects.toThrow();
+      await expect(makeClient().postCommands(envelope)).rejects.toThrow();
     });
   });
 
   describe("getCommands", () => {
     it("builds a query string from since and limit", async () => {
-      fetchMock.mockResolvedValue(
-        jsonResponse({ commands: [], nextSince: null }),
-      );
-      const api = makeClient();
-      await api.getCommands({ queries: { since: 0, limit: 10 } });
+      const scope = nock(BASE_URL)
+        .get("/commands")
+        .query({ since: "0", limit: "10" })
+        .reply(200, { commands: [], nextSince: null });
 
-      const req = firstRequest(fetchMock);
-      expect(req.url).toBe(
-        "https://api.example.test/commands?since=0&limit=10",
-      );
+      await makeClient().getCommands({ queries: { since: 0, limit: 10 } });
+
+      expect(scope.isDone()).toBe(true);
     });
 
     it("omits optional params when not provided", async () => {
-      fetchMock.mockResolvedValue(
-        jsonResponse({ commands: [], nextSince: null }),
-      );
-      const api = makeClient();
-      await api.getCommands({ queries: { since: 42 } });
+      const scope = nock(BASE_URL)
+        .get("/commands")
+        .query({ since: "42" })
+        .reply(200, { commands: [], nextSince: null });
 
-      const req = firstRequest(fetchMock);
-      expect(req.url).toBe("https://api.example.test/commands?since=42");
+      await makeClient().getCommands({ queries: { since: 42 } });
+
+      expect(scope.isDone()).toBe(true);
     });
 
     it("decodes ISO timestamps inside returned commands into Date instances", async () => {
-      fetchMock.mockResolvedValue(
-        jsonResponse({ commands: [commandEnvelopeOut], nextSince: null }),
-      );
-      const api = makeClient();
+      nock(BASE_URL)
+        .get("/commands")
+        .query({ since: "0" })
+        .reply(200, { commands: [commandEnvelopeOut], nextSince: null });
 
-      const page = await api.getCommands({ queries: { since: 0 } });
+      const page = await makeClient().getCommands({ queries: { since: 0 } });
 
       const first = page.commands![0]!;
       expect(first.timestamp).toBeInstanceOf(Date);
@@ -139,22 +125,23 @@ describe("nagApiClient", () => {
     // /health returns 204 No Content; the generated response schema is
     // z.void(), so the backend must send no body.
     it("sends GET with bearer and handles a 204", async () => {
-      fetchMock.mockResolvedValue(new Response(null, { status: 204 }));
-      const api = makeClient();
+      const scope = nock(BASE_URL, {
+        reqheaders: { authorization: `Bearer ${API_KEY}` },
+      })
+        .get("/health")
+        .reply(204);
 
-      await api.getHealth();
+      await makeClient().getHealth();
 
-      const req = firstRequest(fetchMock);
-      expect(req.url).toBe("https://api.example.test/health");
-      expect(req.method).toBe("GET");
-      expect(req.headers.get("Authorization")).toBe("Bearer test-api-key");
+      expect(scope.isDone()).toBe(true);
     });
   });
 
   describe("getHomeBoard", () => {
     it("decodes periodCheckIn timestamps into Date instances", async () => {
-      fetchMock.mockResolvedValue(
-        jsonResponse({
+      const scope = nock(BASE_URL)
+        .get("/home-board")
+        .reply(200, {
           id: "00000000-0000-0000-0000-000000000000",
           lastSequence: 3,
           habits: [
@@ -171,15 +158,11 @@ describe("nagApiClient", () => {
               ],
             },
           ],
-        }),
-      );
-      const api = makeClient();
+        });
 
-      const board = await api.getHomeBoard();
+      const board = await makeClient().getHomeBoard();
 
-      expect(firstRequest(fetchMock).url).toBe(
-        "https://api.example.test/home-board",
-      );
+      expect(scope.isDone()).toBe(true);
       const ts = board.habits![0]!.periodCheckIns![0]!.timestamp;
       expect(ts).toBeInstanceOf(Date);
       expect((ts as Date).toISOString()).toBe("2024-05-01T10:00:00.000Z");

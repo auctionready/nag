@@ -63,11 +63,6 @@ const TRANSIENT_STATUSES = new Set([408, 425, 429]);
  * Translates a Zodios/axios result into the dispatcher's `PostResult`
  * shape. Network failures / timeouts are re-thrown so the dispatcher's
  * catch branch handles them as transient (offline).
- *
- * The envelope is cast at the boundary because Zodios's generated body
- * type is a closed discriminated union; the dispatcher ships whatever
- * the audit log captured, which the server re-validates against the
- * same schema.
  */
 export const postCommands: PostCommandsFn = async (
   envelope: CommandEnvelope,
@@ -79,6 +74,11 @@ export const postCommands: PostCommandsFn = async (
   logger.debug(`POST /commands body=${JSON.stringify(envelope)}`);
   const start = Date.now();
   try {
+    // TODO: replace this cast with one of zodios's per-alias/per-route
+    // mapped types (e.g. `ZodiosBodyByAlias<typeof endpoints, "postCommands">`).
+    // The dispatcher ships whatever the audit log captured; the server
+    // re-validates against the same zod schema, so this cast is safe at
+    // runtime but loses compile-time safety here.
     const response = await client.postCommands(
       envelope as Parameters<typeof client.postCommands>[0],
     );

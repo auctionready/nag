@@ -4,10 +4,9 @@ import { useSyncStatus } from "../infrastructure/syncStatus";
 
 /**
  * Persistent banner shown only while the dispatcher is halted on a
- * non-retriable 4xx. Surfaces the server's error text directly and
- * exposes a one-tap Retry (calls `resume()`) so the user doesn't have
- * to navigate to admin for the common case. Tapping the body still
- * deep-links to admin for full inspection / manual fixing.
+ * non-retriable 4xx. The copy is user-facing, focused on impact +
+ * action (not technical cause). Tapping the body deep-links to admin
+ * for detail; the Retry button calls `resume()` directly.
  */
 export const SyncHaltedBanner = () => {
   const { status, lastError, resume } = useSyncStatus();
@@ -16,7 +15,12 @@ export const SyncHaltedBanner = () => {
   if (status !== "halted") return null;
 
   const isAuth = !!lastError && /^(401|403)/.test(lastError);
-  const title = isAuth ? "Sync paused — auth failed" : "Sync paused";
+  const title = isAuth
+    ? "Can't connect to your account"
+    : "Not syncing right now";
+  const body = isAuth
+    ? "Your check-ins are saved on this device but can't reach the server. Tap Retry, or tap the banner to see details."
+    : "Your recent changes are safe on this device, but we can't sync them right now. Tap Retry to try again.";
 
   return (
     <View style={styles.banner}>
@@ -24,11 +28,11 @@ export const SyncHaltedBanner = () => {
         style={styles.textRegion}
         onPress={() => router.push("/admin")}
         accessibilityRole="button"
-        accessibilityLabel="Sync paused — open admin"
+        accessibilityLabel={`${title} — open details`}
       >
         <Text style={styles.title}>{title}</Text>
         <Text style={styles.detail} numberOfLines={3}>
-          {lastError ?? "A command could not be synced. Tap for details."}
+          {body}
         </Text>
       </Pressable>
       <Pressable
