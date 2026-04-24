@@ -23,10 +23,7 @@ LambdaSecrets.HydrateFromEnvironment(builder.Configuration);
 
 builder.Host.UseSerilog(
     (ctx, lc) =>
-        lc
-            .ReadFrom.Configuration(ctx.Configuration)
-            .Enrich.FromLogContext()
-            .WriteTo.Console(new Serilog.Formatting.Json.JsonFormatter())
+        lc.ReadFrom.Configuration(ctx.Configuration).Enrich.FromLogContext().WriteTo.Console() // new Serilog.Formatting.Json.JsonFormatter()
 );
 
 builder.Services.AddAWSLambdaHosting(LambdaEventSource.HttpApi);
