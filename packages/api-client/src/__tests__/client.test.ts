@@ -133,11 +133,10 @@ describe("nagApiClient", () => {
   });
 
   describe("getHealth", () => {
-    // The OpenAPI doc declares no response body for /health; the generator's
-    // sed pipeline rewrites z.void() → z.unknown() so zodios accepts the
-    // real body ({status:"ok"}) without throwing.
-    it("sends GET with bearer and returns the body as unknown", async () => {
-      fetchMock.mockResolvedValue(jsonResponse({ status: "ok" }));
+    // /health returns 204 No Content; the generated response schema is
+    // z.void(), so the backend must send no body.
+    it("sends GET with bearer and handles a 204", async () => {
+      fetchMock.mockResolvedValue(new Response(null, { status: 204 }));
       const api = makeClient();
 
       await api.getHealth();
