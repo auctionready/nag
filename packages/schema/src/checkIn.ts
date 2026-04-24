@@ -1,6 +1,7 @@
 import { sqliteTable, integer, index, text } from "drizzle-orm/sqlite-core";
 import { habit } from "./habit";
 import { isoTimestamp } from "./isoTimestamp";
+import { safeDefault } from "./safeDefault";
 
 export const checkIn = sqliteTable(
   "check_in",
@@ -13,7 +14,7 @@ export const checkIn = sqliteTable(
     externalId: text("external_id")
       .notNull()
       .unique()
-      .$defaultFn(() => crypto.randomUUID()),
+      .$defaultFn(safeDefault("checkIn.externalId", () => crypto.randomUUID())),
     habitId: integer("habit_id", { mode: "number" })
       .notNull()
       .references(() => habit.id, { onDelete: "cascade" }),

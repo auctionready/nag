@@ -1,5 +1,6 @@
 import { sqliteTable, integer, text } from "drizzle-orm/sqlite-core";
 import { isoTimestamp } from "./isoTimestamp";
+import { safeDefault } from "./safeDefault";
 
 export const habit = sqliteTable("habit", {
   id: integer("id", { mode: "number" }).primaryKey({ autoIncrement: true }),
@@ -12,7 +13,7 @@ export const habit = sqliteTable("habit", {
   externalId: text("external_id")
     .notNull()
     .unique()
-    .$defaultFn(() => crypto.randomUUID()),
+    .$defaultFn(safeDefault("habit.externalId", () => crypto.randomUUID())),
   title: text("title").notNull(),
   description: text("description"),
   icon: text("icon"),

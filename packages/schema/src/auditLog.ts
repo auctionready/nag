@@ -1,5 +1,6 @@
 import { sqliteTable, integer, text } from "drizzle-orm/sqlite-core";
 import { isoTimestamp } from "./isoTimestamp";
+import { safeDefault } from "./safeDefault";
 
 export const auditLogStatuses = ["pending", "sent", "failed"] as const;
 export type AuditLogStatus = (typeof auditLogStatuses)[number];
@@ -15,7 +16,7 @@ export const auditLog = sqliteTable("audit_log", {
   envelopeId: text("envelope_id")
     .notNull()
     .unique()
-    .$defaultFn(() => crypto.randomUUID()),
+    .$defaultFn(safeDefault("auditLog.envelopeId", () => crypto.randomUUID())),
   commandType: text("command_type").notNull(),
   payload: text("payload"),
   timestamp: isoTimestamp("timestamp")
