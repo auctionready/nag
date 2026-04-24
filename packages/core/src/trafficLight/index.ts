@@ -9,6 +9,7 @@ import type {
 import { dailyCalculator } from "./dailyCalculator";
 import { weeklyCalculator } from "./weeklyCalculator";
 import { monthlyCalculator } from "./monthlyCalculator";
+import { combineScheduleDays } from "./combineScheduleDays";
 
 export type {
   ComplianceColors,
@@ -33,9 +34,7 @@ export type {
 export { dailyCalculator } from "./dailyCalculator";
 export { weeklyCalculator } from "./weeklyCalculator";
 export { monthlyCalculator } from "./monthlyCalculator";
-
 export { combineScheduleDays } from "./combineScheduleDays";
-import { combineScheduleDays } from "./combineScheduleDays";
 
 export const isScheduledToday = (
   schedules: ScheduleInfo[],

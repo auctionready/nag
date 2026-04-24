@@ -6,6 +6,7 @@ export { goal, getTitle } from "./goal";
 export { schedule } from "./schedule";
 export { auditLog, auditLogStatuses, type AuditLogStatus } from "./auditLog";
 export { syncState } from "./syncState";
+export { identity } from "./identity";
 export {
   habitRelations,
   checkInRelations,

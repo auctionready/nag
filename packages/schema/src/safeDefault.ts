@@ -10,7 +10,6 @@ export const safeDefault =
     try {
       return fn();
     } catch (err) {
-      // eslint-disable-next-line no-console
       console.error(`[nag][schema] $defaultFn(${name}) threw`, err);
       throw err;
     }

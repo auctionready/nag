@@ -358,6 +358,39 @@ describe("envelope shape", () => {
   });
 });
 
+describe("dispatcher gating on device registration", () => {
+  it("returns offline without calling post when no accountId is set", async () => {
+    const db = getDb();
+    await seedThreeCommands(db);
+
+    // Clear the identity row that testDb seeds by default — simulate a
+    // device that hasn't yet completed POST /devices/register.
+    await db.delete(schema.identity);
+
+    const post = vi.fn();
+    const status = await createDispatcher({ db, post }).run();
+
+    expect(status).toBe("offline");
+    expect(post).not.toHaveBeenCalled();
+  });
+
+  it("returns offline when an identity row exists but accountId is unset", async () => {
+    const db = getDb();
+    await seedThreeCommands(db);
+
+    await db.delete(schema.identity);
+    await db
+      .insert(schema.identity)
+      .values({ id: 1, deviceId: "d-with-no-account" });
+
+    const post = vi.fn();
+    const status = await createDispatcher({ db, post }).run();
+
+    expect(status).toBe("offline");
+    expect(post).not.toHaveBeenCalled();
+  });
+});
+
 describe("dispatcher + previously-sent rows", () => {
   it("does not reprocess rows with status='sent' (e.g. migrated pre-sync history)", async () => {
     const db = getDb();

@@ -45,6 +45,15 @@ export function setupTestDb(name: string): () => TestDb {
       .update(schema.syncState)
       .set({ halted: false })
       .where(eq(schema.syncState.id, 1));
+    // identity is also single-row but unseeded by migration — every test
+    // starts from a registered device unless the test explicitly clears it.
+    await db.delete(schema.identity);
+    await db.insert(schema.identity).values({
+      id: 1,
+      deviceId: "00000000-0000-4000-8000-000000000001",
+      accountId: "00000000-0000-4000-8000-0000000000aa",
+      registeredAt: new Date("2026-01-01T00:00:00.000Z"),
+    });
   });
 
   return () => db;

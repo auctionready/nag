@@ -275,6 +275,23 @@ export const CommandsPage = z
   .partial();
 export type CommandsPage = z.infer<typeof CommandsPage>;
 
+export const RegisterDeviceRequest = z
+  .object({ deviceId: z.uuid(), label: z.string().nullable() })
+  .partial();
+export type RegisterDeviceRequest = z.infer<typeof RegisterDeviceRequest>;
+
+export const postDevicesregister_Body = RegisterDeviceRequest;
+export type postDevicesregister_Body = z.infer<typeof postDevicesregister_Body>;
+
+export const RegisterDeviceResponse = z
+  .object({
+    accountId: z.uuid(),
+    deviceId: z.uuid(),
+    registeredAt: IsoDatetime,
+  })
+  .partial();
+export type RegisterDeviceResponse = z.infer<typeof RegisterDeviceResponse>;
+
 export const HomeGoal = z
   .object({ regularity: Regularity, frequency: z.int().nullable() })
   .partial();
@@ -341,6 +358,16 @@ export const endpoints = makeApi([
     ],
     response: CommandsPage,
     errors: [],
+  },
+  {
+    method: "post",
+    path: "/devices/register",
+    alias: "postDevicesregister",
+    parameters: [
+      { name: "body", type: "Body", schema: postDevicesregister_Body },
+    ],
+    response: RegisterDeviceResponse,
+    errors: [{ status: 400, schema: ErrorResponse }],
   },
   {
     method: "get",

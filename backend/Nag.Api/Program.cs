@@ -9,6 +9,7 @@ using Nag.Core.Handlers;
 using Nag.Core.Projections;
 using Nag.Core.Validation;
 using Serilog;
+using Wolverine;
 using static Microsoft.AspNetCore.Http.Results;
 
 #if DEBUG
@@ -62,6 +63,12 @@ builder.Services.AddMarten(opts =>
     opts.Projections.Add<HomeBoardProjection>(ProjectionLifecycle.Inline);
 });
 
+builder.Host.UseWolverine(opts =>
+{
+    opts.Durability.Mode = DurabilityMode.Serverless;
+    opts.Discovery.IncludeAssembly(typeof(CommandDispatcher).Assembly);
+});
+
 builder.Services.AddScoped<CommandDispatcher>();
 builder.Services.AddScoped<CommandsReader>();
 
@@ -88,6 +95,7 @@ app.UseMiddleware<BearerKeyMiddleware>();
 app.MapGet("/health", NoContent).WithTags("Health").Produces(StatusCodes.Status204NoContent);
 app.MapCommandsEndpoints();
 app.MapHomeBoardEndpoints();
+app.MapDevicesEndpoints();
 
 #if DEBUG
 app.UseSwagger();

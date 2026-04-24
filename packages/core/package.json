@@ -10,6 +10,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@nag/api-client": "workspace:*",
     "@nag/schema": "workspace:*",
     "zod": "catalog:"
   },

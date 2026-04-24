@@ -72,6 +72,16 @@ export {
   type PendingRow,
 } from "./sync";
 export {
+  ensureDeviceRegistered,
+  loadIdentity,
+  getAccountId,
+  type IdentityRow,
+  type EnsureDeviceRegisteredOptions,
+  type EnsureDeviceRegisteredResult,
+  type RegisterDeviceFn,
+  type RegisterDeviceResult,
+} from "./identity";
+export {
   Command,
   CreateHabit,
   UpdateHabit,
