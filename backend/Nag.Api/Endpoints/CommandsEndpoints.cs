@@ -10,7 +10,7 @@ public static class CommandsEndpoints
     {
         var group = app.MapGroup("/commands").WithTags("Commands");
 
-        group.MapPost("/", PostCommand).Produces<CommandAccepted>().ProducesValidationProblem();
+        group.MapPost("/", PostCommand).Produces<CommandAccepted>().Produces<ErrorResponse>(400);
 
         group.MapGet("/", GetCommands).Produces<CommandsPage>();
     }
@@ -24,7 +24,7 @@ public static class CommandsEndpoints
     {
         if (envelope.Id == Guid.Empty)
         {
-            return Results.BadRequest(new { errors = new[] { "envelope.id is required" } });
+            return Results.BadRequest(new ErrorResponse(["envelope.id is required"]));
         }
 
         if (
@@ -37,7 +37,7 @@ public static class CommandsEndpoints
         )
         {
             return Results.BadRequest(
-                new { errors = new[] { $"Unknown command type: {envelope.Type}" } }
+                new ErrorResponse([$"Unknown command type: {envelope.Type}"])
             );
         }
 
@@ -46,7 +46,7 @@ public static class CommandsEndpoints
         {
             DispatchOutcome.Accepted => Results.Ok(new CommandAccepted(true, result.Sequence)),
             DispatchOutcome.Duplicate => Results.Ok(new CommandAccepted(false, result.Sequence)),
-            DispatchOutcome.Invalid => Results.BadRequest(new { errors = result.Errors }),
+            DispatchOutcome.Invalid => Results.BadRequest(new ErrorResponse(result.Errors)),
             _ => Results.StatusCode(500),
         };
     }

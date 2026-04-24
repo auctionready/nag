@@ -8,6 +8,7 @@ using Nag.Core.Handlers;
 using Nag.Core.Projections;
 using Nag.Core.Validation;
 using Serilog;
+using static Microsoft.AspNetCore.Http.Results;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -78,7 +79,7 @@ app.UseSerilogRequestLogging();
 
 app.UseMiddleware<BearerKeyMiddleware>();
 
-app.MapGet("/health", () => Results.Ok(new { status = "ok" })).WithTags("Health");
+app.MapGet("/health", NoContent).WithTags("Health").Produces(StatusCodes.Status204NoContent);
 app.MapCommandsEndpoints();
 app.MapHomeBoardEndpoints();
 
