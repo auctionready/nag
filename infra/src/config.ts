@@ -11,4 +11,6 @@ export const stackConfig = {
   lambdaMemoryMb: cfg.getNumber("lambdaMemoryMb") ?? 1536,
   lambdaPackagePath: cfg.get("lambdaPackagePath") ?? "./artifacts/nag-api.zip",
   logRetentionDays: cfg.getNumber("logRetentionDays") ?? 14,
+  apiDomainName: cfg.get("apiDomainName"),
+  hostedZoneName: cfg.get("hostedZoneName"),
 };

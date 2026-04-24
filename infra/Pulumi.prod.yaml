@@ -7,6 +7,15 @@ config:
   nag:logRetentionDays: "14"
   # nag:apiKey is set via: pulumi config set --secret nag:apiKey <value>
   # nag:dbPassword is set via: pulumi config set --secret nag:dbPassword <value>
+  #
+  # Custom domain (optional — both must be set or neither). When set, Pulumi
+  # creates an ACM cert + API Gateway custom domain + Route 53 alias, and the
+  # `apiUrl` stack output points at the friendly URL instead of the raw
+  # `*.execute-api.*` invoke URL. Set via:
+  #   pulumi config set nag:hostedZoneName <existing-route53-zone-name>
+  #   pulumi config set nag:apiDomainName  <subdomain.example.com>
+  # nag:hostedZoneName: example.com
+  # nag:apiDomainName:  api.example.com
 
   nag:apiKey:
     secure: AAABAHqvJWXa9LwHynaS8fnmfIk+twCeAe/CjT5IYBgd9no/NNmZLFtXHj3B/J1OmviXrozz
