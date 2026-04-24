@@ -2,18 +2,3 @@ name: nag-bootstrap
 runtime: nodejs
 description: One-time bootstrap — GitHub OIDC provider + deploy role for the Nag CI workflow.
 main: index.ts
-config:
-  aws:region:
-    description: AWS region.
-  nag-bootstrap:githubOrg:
-    description: GitHub org / user that owns the repo.
-    default: christensena
-  nag-bootstrap:githubRepo:
-    description: GitHub repo name.
-    default: nag
-  nag-bootstrap:allowedRefs:
-    description: Comma-separated GitHub refs that may assume the deploy role.
-    default: refs/heads/main,refs/heads/claude/aws-pulumi-deployment-LETFa
-  nag-bootstrap:allowedEnvironments:
-    description: Comma-separated GitHub Actions environments that may assume the role.
-    default: prod
