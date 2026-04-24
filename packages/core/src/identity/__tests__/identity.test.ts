@@ -49,11 +49,11 @@ describe("ensureDeviceRegistered", () => {
       const db = getDb();
       // testDb already seeds an identity row; verify shortcut path.
 
-      const register = vi.fn(
-        async (): Promise<RegisterDeviceResult> => {
-          throw new Error("register should not be called when already registered");
-        },
-      );
+      const register = vi.fn(async (): Promise<RegisterDeviceResult> => {
+        throw new Error(
+          "register should not be called when already registered",
+        );
+      });
 
       const result = await ensureDeviceRegistered({
         db,

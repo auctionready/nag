@@ -126,9 +126,7 @@ describe("operations", () => {
     });
 
     it("treats a 200 with missing fields as non-retriable", async () => {
-      nock(BASE_URL)
-        .post("/devices/register")
-        .reply(200, { deviceId });
+      nock(BASE_URL).post("/devices/register").reply(200, { deviceId });
 
       const result = await registerDevice(makeClient(), { deviceId });
 
