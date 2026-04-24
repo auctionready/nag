@@ -174,6 +174,11 @@ export const CommandAccepted = z
   .partial();
 export type CommandAccepted = z.infer<typeof CommandAccepted>;
 
+export const ErrorResponse = z
+  .object({ errors: z.array(z.string()).nullable() })
+  .partial();
+export type ErrorResponse = z.infer<typeof ErrorResponse>;
+
 export const CommandEnvelopeOut_CreateHabit = z
   .object({
     sequence: z.int().optional(),
@@ -317,21 +322,6 @@ export const HomeBoard = z
   .partial();
 export type HomeBoard = z.infer<typeof HomeBoard>;
 
-export const HttpValidationProblemDetails = z
-  .object({
-    type: z.string().nullable(),
-    title: z.string().nullable(),
-    status: z.int().nullable(),
-    detail: z.string().nullable(),
-    instance: z.string().nullable(),
-    errors: z.record(z.string(), z.array(z.string())).nullable(),
-  })
-  .partial()
-  .passthrough();
-export type HttpValidationProblemDetails = z.infer<
-  typeof HttpValidationProblemDetails
->;
-
 export const endpoints = makeApi([
   {
     method: "post",
@@ -339,7 +329,7 @@ export const endpoints = makeApi([
     alias: "postCommands",
     parameters: [{ name: "body", type: "Body", schema: postCommands_Body }],
     response: CommandAccepted,
-    errors: [{ status: 400, schema: z.unknown() }],
+    errors: [{ status: 400, schema: ErrorResponse }],
   },
   {
     method: "get",
@@ -357,7 +347,7 @@ export const endpoints = makeApi([
     path: "/health",
     alias: "getHealth",
     parameters: [],
-    response: z.unknown(),
+    response: z.void(),
     errors: [],
   },
   {
