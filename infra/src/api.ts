@@ -7,8 +7,8 @@ export interface ApiArgs {
   dbEndpoint: pulumi.Output<string>;
   dbName: pulumi.Output<string>;
   dbUsername: pulumi.Output<string>;
-  dbSecretArn: pulumi.Output<string>;
-  apiKeySecretArn: pulumi.Output<string>;
+  dbPassword: pulumi.Output<string>;
+  apiKey: pulumi.Output<string>;
   lambdaPackagePath: string;
   memoryMb: number;
   logRetentionDays: number;
@@ -51,24 +51,6 @@ export const createApi = (args: ApiArgs): Api => {
       "arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole",
   });
 
-  new aws.iam.RolePolicy("nag-api-secrets", {
-    role: role.id,
-    policy: pulumi
-      .all([args.dbSecretArn, args.apiKeySecretArn])
-      .apply(([dbArn, apiArn]) =>
-        JSON.stringify({
-          Version: "2012-10-17",
-          Statement: [
-            {
-              Effect: "Allow",
-              Action: ["secretsmanager:GetSecretValue"],
-              Resource: [dbArn, apiArn],
-            },
-          ],
-        }),
-      ),
-  });
-
   const fn = new aws.lambda.Function("nag-api", {
     name: "nag-api",
     runtime: "dotnet10",
@@ -92,8 +74,8 @@ export const createApi = (args: ApiArgs): Api => {
         DB_HOST: args.dbEndpoint,
         DB_NAME: args.dbName,
         DB_USERNAME: args.dbUsername,
-        DB_SECRET_ARN: args.dbSecretArn,
-        API_KEY_SECRET_ARN: args.apiKeySecretArn,
+        DB_PASSWORD: args.dbPassword,
+        API_KEY: args.apiKey,
         Nag__SchemaName: "public",
       },
     },

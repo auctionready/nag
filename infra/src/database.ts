@@ -4,15 +4,16 @@ import * as pulumi from "@pulumi/pulumi";
 export interface DatabaseArgs {
   privateSubnetIds: pulumi.Output<string[]>;
   dbSgId: pulumi.Output<string>;
+  masterPassword: pulumi.Output<string>;
   minAcu: number;
   maxAcu: number;
+  autoPauseSeconds: number;
 }
 
 export interface Database {
   endpoint: pulumi.Output<string>;
   databaseName: pulumi.Output<string>;
   masterUsername: pulumi.Output<string>;
-  masterSecretArn: pulumi.Output<string>;
 }
 
 export const createDatabase = (args: DatabaseArgs): Database => {
@@ -26,7 +27,7 @@ export const createDatabase = (args: DatabaseArgs): Database => {
     engineVersion: "17.4",
     databaseName: "nag",
     masterUsername: "nag",
-    manageMasterUserPassword: true,
+    masterPassword: args.masterPassword,
     dbSubnetGroupName: subnetGroup.name,
     vpcSecurityGroupIds: [args.dbSgId],
     storageEncrypted: true,
@@ -38,6 +39,7 @@ export const createDatabase = (args: DatabaseArgs): Database => {
     serverlessv2ScalingConfiguration: {
       minCapacity: args.minAcu,
       maxCapacity: args.maxAcu,
+      secondsUntilAutoPause: args.autoPauseSeconds,
     },
   });
 
@@ -49,14 +51,9 @@ export const createDatabase = (args: DatabaseArgs): Database => {
     publiclyAccessible: false,
   });
 
-  const masterSecretArn = cluster.masterUserSecrets.apply(
-    (s) => s[0]?.secretArn ?? "",
-  );
-
   return {
     endpoint: cluster.endpoint,
     databaseName: cluster.databaseName.apply((n) => n ?? "nag"),
     masterUsername: cluster.masterUsername,
-    masterSecretArn,
   };
 };

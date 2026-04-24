@@ -80,6 +80,7 @@ included yet — track that work in GitHub Issues.
 Production assumes:
 
 - AWS Lambda with the managed `dotnet10` runtime (GA Jan 2026)
-- Amazon RDS for PostgreSQL Serverless v2 (Postgres 17)
-- API key stored in AWS Secrets Manager, exposed to Lambda as
-  `NAG__APIKEY`
+- Amazon RDS for PostgreSQL Serverless v2 (Postgres 17), auto-pause on
+- DB password and API key passed as KMS-encrypted Lambda environment
+  variables (`DB_PASSWORD`, `API_KEY`) — see
+  `Nag.Api/Infrastructure/LambdaSecrets.cs`

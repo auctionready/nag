@@ -1,10 +1,12 @@
 config:
   aws:region: ap-southeast-2
-  nag:dbMinAcu: "0.5"
+  nag:dbMinAcu: "0"
   nag:dbMaxAcu: "2"
+  nag:dbAutoPauseSeconds: "300"
   nag:lambdaMemoryMb: "1536"
   nag:logRetentionDays: "14"
   # nag:apiKey is set via: pulumi config set --secret nag:apiKey <value>
+  # nag:dbPassword is set via: pulumi config set --secret nag:dbPassword <value>
 
   nag:apiKey:
     secure: AAABAHqvJWXa9LwHynaS8fnmfIk+twCeAe/CjT5IYBgd9no/NNmZLFtXHj3B/J1OmviXrozz

@@ -13,7 +13,7 @@ using static Microsoft.AspNetCore.Http.Results;
 
 var builder = WebApplication.CreateBuilder(args);
 
-await LambdaSecrets.HydrateFromSecretsManagerAsync(builder.Configuration);
+LambdaSecrets.HydrateFromEnvironment(builder.Configuration);
 
 builder.Host.UseSerilog(
     (ctx, lc) =>
