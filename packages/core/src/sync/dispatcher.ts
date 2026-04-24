@@ -91,7 +91,7 @@ export const createDispatcher = ({
         );
         try {
           await markSent(db, row.id, result.sequence);
-          info(`dispatcher: row id=${row.id} marked sent`);
+          debug(`dispatcher: row id=${row.id} marked sent`);
         } catch (err) {
           error(`dispatcher: markSent threw for row id=${row.id}`, err);
           onError?.(err);

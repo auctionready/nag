@@ -40,7 +40,7 @@ export const installGlobalErrorHandlers = (): void => {
       Sentry.captureException(error);
       prev?.(error, isFatal);
     });
-    logger.info("ErrorUtils.setGlobalHandler installed");
+    logger.debug("ErrorUtils.setGlobalHandler installed");
   } else {
     logger.warn("ErrorUtils.setGlobalHandler unavailable");
   }
@@ -56,7 +56,7 @@ export const installGlobalErrorHandlers = (): void => {
         logger.debug(`promise rejection handled late id=${id}`);
       },
     });
-    logger.info("HermesInternal.enablePromiseRejectionTracker installed");
+    logger.debug("HermesInternal.enablePromiseRejectionTracker installed");
   } else {
     logger.warn("HermesInternal.enablePromiseRejectionTracker unavailable");
   }

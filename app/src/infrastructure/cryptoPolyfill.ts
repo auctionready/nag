@@ -15,7 +15,7 @@ const logger = log("crypto-polyfill");
 export const installCryptoPolyfill = (): void => {
   const g = globalThis as { crypto?: { randomUUID?: () => string } };
   if (typeof g.crypto?.randomUUID === "function") {
-    logger.info("crypto.randomUUID already present — no polyfill needed");
+    logger.debug("crypto.randomUUID already present — no polyfill needed");
     return;
   }
   if (!g.crypto) {
@@ -29,7 +29,7 @@ export const installCryptoPolyfill = (): void => {
   }
   try {
     const sample = globalThis.crypto.randomUUID();
-    logger.info(
+    logger.debug(
       `installed crypto.randomUUID via expo-crypto (sample=${sample})`,
     );
   } catch (e) {

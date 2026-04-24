@@ -36,7 +36,7 @@ export const getApiClient = (): NagApiClient => {
         "(see app.config.ts → extra).",
     );
   }
-  logger.info(
+  logger.debug(
     `creating client baseUrl=${apiBaseUrl} apiKey=${maskKey(apiKey)}`,
   );
   singleton = createNagApiClient({ baseUrl: apiBaseUrl, apiKey });
