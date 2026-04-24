@@ -51,6 +51,9 @@ describe("nagApiClient", () => {
     createNagApiClient({
       baseUrl: "https://api.example.test",
       apiKey: "test-api-key",
+      // Force the fetch adapter in tests so the global `fetch` mock
+      // below is what axios calls. Production defaults to XHR on RN.
+      adapter: "fetch",
     });
 
   describe("postCommands", () => {
