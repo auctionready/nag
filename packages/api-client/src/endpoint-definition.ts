@@ -305,7 +305,7 @@ export const HttpValidationProblemDetails = z
     status: z.int().nullable(),
     detail: z.string().nullable(),
     instance: z.string().nullable(),
-    errors: z.record(z.array(z.string())).nullable(),
+    errors: z.record(z.string(), z.array(z.string())).nullable(),
   })
   .partial()
   .passthrough();

@@ -1,4 +1,4 @@
-import type { z } from "zod";
+import { z } from "zod";
 import { endpoints as defaultEndpoints } from "./endpoint-definition";
 import { ApiError, ApiValidationError } from "./errors";
 
@@ -40,7 +40,17 @@ type RequiredKeys<P extends readonly EndpointParameter[]> = Exclude<
 >;
 
 type InputOf<S> = S extends z.ZodType ? z.input<S> : never;
-type OutputOf<S> = S extends z.ZodType ? z.output<S> : never;
+/**
+ * For endpoints whose OpenAPI spec doesn't describe a response body, the
+ * generator emits `z.void()`. In that case the server still returns data,
+ * so we surface it as `unknown` (the caller can narrow) and at runtime we
+ * pass the raw JSON through without validation.
+ */
+type OutputOf<S> = S extends z.ZodVoid
+  ? unknown
+  : S extends z.ZodType
+    ? z.output<S>
+    : never;
 
 type SchemaFor<
   P extends readonly EndpointParameter[],
@@ -183,7 +193,10 @@ export const createNagApiClient = <
         raiseFromErrorResponse(endpoint, res.status, json);
       }
 
-      return validatesResponse(validate) ? endpoint.response.parse(json) : json;
+      const shouldValidate =
+        validatesResponse(validate) &&
+        !(endpoint.response instanceof z.ZodVoid);
+      return shouldValidate ? endpoint.response.parse(json) : json;
     };
   }
 

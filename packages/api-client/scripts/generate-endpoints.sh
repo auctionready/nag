@@ -19,6 +19,7 @@ sed -i '' -E \
   -e 's/z\.number\(\)\.int\(\)/z.int()/g' \
   -e 's/z\.string\(\)\.datetime\(([^)]*)\)/z.iso.datetime(\1).transform((s) => new Date(s))/g' \
   -e 's/z\.string\(\)\.date\(\)/z.iso.date().transform((s) => new Date(s))/g' \
+  -e 's/z\.record\(z\.array\(z\.string\(\)\)\)/z.record(z.string(), z.array(z.string()))/g' \
   "$OUTPUT"
 
 echo "Done."
