@@ -3,3 +3,6 @@ packages/schema/drizzle/
 packages/api-client/scripts/*.hbs
 .beads/
 .claude/
+bin/
+obj/
+dotnet-tools.json
