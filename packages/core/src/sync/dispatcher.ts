@@ -48,7 +48,6 @@ export const createDispatcher = ({
   log,
 }: DispatcherOptions): Dispatcher => {
   const debug = log?.debug ?? (() => {});
-  const info = log?.info ?? (() => {});
   const error = log?.error ?? (() => {});
 
   const run = async (): Promise<DispatchStatus> => {
