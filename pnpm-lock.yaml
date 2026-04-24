@@ -175,9 +175,6 @@ importers:
       openapi-zod-client:
         specifier: ^1.18.3
         version: 1.18.3(react@19.2.4)
-      tsx:
-        specifier: ^4.19.2
-        version: 4.21.0
       typescript:
         specifier: 'catalog:'
         version: 5.9.3
