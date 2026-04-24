@@ -1,4 +1,5 @@
 import type { AnyDb } from "../db";
+import { getAccountId } from "../identity";
 import {
   loadPendingBatch,
   markSent,
@@ -54,6 +55,12 @@ export const createDispatcher = ({
     if (await isHalted(db)) {
       debug("dispatcher.run: halted — skipping");
       return "halted";
+    }
+
+    const accountId = await getAccountId(db);
+    if (!accountId) {
+      debug("dispatcher.run: no accountId — device not registered, treating as offline");
+      return "offline";
     }
 
     const rows = await loadPendingBatch(db, batchSize);
