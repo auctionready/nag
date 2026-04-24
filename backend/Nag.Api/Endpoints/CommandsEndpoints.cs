@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Microsoft.AspNetCore.Mvc;
 using Nag.Core.Contracts;
 using Nag.Core.Handlers;
@@ -30,17 +31,32 @@ public static class CommandsEndpoints
             return Results.BadRequest(new ErrorResponse(["envelope.id is required"]));
         }
 
-        if (
-            !CommandRegistry.TryDeserialize(
-                envelope.Type,
-                envelope.Payload,
-                NagJsonOptions.Default,
-                out var command
-            )
-        )
+        object? command;
+        try
         {
+            if (
+                !CommandRegistry.TryDeserialize(
+                    envelope.Type,
+                    envelope.Payload,
+                    NagJsonOptions.Default,
+                    out command
+                )
+            )
+            {
+                return Results.BadRequest(
+                    new ErrorResponse([$"Unknown command type: {envelope.Type}"])
+                );
+            }
+        }
+        catch (JsonException ex)
+        {
+            // Payload JSON is well-formed at the envelope level (otherwise
+            // the request wouldn't have gotten here) but fails to bind to
+            // the command record — e.g. payload.habitId is not a Guid.
+            // Translate to a 400 so the client halts this command rather
+            // than treating it as a transient 5xx and retrying forever.
             return Results.BadRequest(
-                new ErrorResponse([$"Unknown command type: {envelope.Type}"])
+                new ErrorResponse([$"Invalid payload for {envelope.Type}: {ex.Message}"])
             );
         }
 
