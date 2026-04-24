@@ -149,11 +149,10 @@ describe("nagApiClient", () => {
     });
   });
 
-  describe("void-response endpoints (getHealth, getHomeBoard)", () => {
-    // The backend OpenAPI currently describes these with no response body,
-    // so the generator emits `response: z.void()`. The client passes the
-    // actual body through unchanged rather than failing runtime validation.
-    it("getHealth: sends GET and returns the raw body", async () => {
+  describe("getHealth", () => {
+    // /health is still described as response: z.void() in the OpenAPI doc,
+    // so the client passes its actual body through unchanged.
+    it("sends GET and returns the raw body", async () => {
       fetchMock.mockResolvedValue(jsonResponse({ status: "ok" }));
       const client = makeClient();
 
@@ -167,22 +166,40 @@ describe("nagApiClient", () => {
       });
       expect(result).toEqual({ status: "ok" });
     });
+  });
 
-    it("getHomeBoard: sends GET and returns the raw body", async () => {
-      const board = {
-        id: "00000000-0000-0000-0000-000000000000",
-        lastSequence: 3,
-        habits: [],
-      };
-      fetchMock.mockResolvedValue(jsonResponse(board));
+  describe("getHomeBoard", () => {
+    it("decodes periodCheckIn timestamps into Date instances", async () => {
+      fetchMock.mockResolvedValue(
+        jsonResponse({
+          id: "00000000-0000-0000-0000-000000000000",
+          lastSequence: 3,
+          habits: [
+            {
+              id: "33333333-3333-4333-8333-333333333333",
+              title: "Read",
+              schedules: [],
+              periodCheckIns: [
+                {
+                  id: "44444444-4444-4444-8444-444444444444",
+                  timestamp: "2024-05-01T10:00:00.000Z",
+                  skipped: false,
+                },
+              ],
+            },
+          ],
+        }),
+      );
       const client = makeClient();
 
-      const result = await client.getHomeBoard();
+      const board = await client.getHomeBoard();
 
       expect(fetchMock.mock.calls[0]![0]).toBe(
         "https://api.example.test/home-board",
       );
-      expect(result).toEqual(board);
+      const ts = board.habits![0]!.periodCheckIns![0]!.timestamp;
+      expect(ts).toBeInstanceOf(Date);
+      expect((ts as Date).toISOString()).toBe("2024-05-01T10:00:00.000Z");
     });
   });
 });
