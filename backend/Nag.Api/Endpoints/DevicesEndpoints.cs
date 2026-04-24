@@ -32,11 +32,7 @@ public static class DevicesEndpoints
         if (existing is not null)
         {
             return Results.Ok(
-                new RegisterDeviceResponse(
-                    existing.AccountId,
-                    existing.Id,
-                    existing.RegisteredAt
-                )
+                new RegisterDeviceResponse(existing.AccountId, existing.Id, existing.RegisteredAt)
             );
         }
 
@@ -54,8 +50,6 @@ public static class DevicesEndpoints
         session.Store(device);
         await session.SaveChangesAsync(ct);
 
-        return Results.Ok(
-            new RegisterDeviceResponse(account.Id, device.Id, device.RegisteredAt)
-        );
+        return Results.Ok(new RegisterDeviceResponse(account.Id, device.Id, device.RegisteredAt));
     }
 }
