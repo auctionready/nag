@@ -1,0 +1,25 @@
+name: nag
+runtime: nodejs
+description: AWS deployment for the Nag backend (API Gateway HTTP API + Lambda + Aurora PostgreSQL Serverless v2).
+main: index.ts
+config:
+  aws:region:
+    description: AWS region for all resources.
+  nag:apiKey:
+    description: Bearer API key stored in Secrets Manager and read by the Lambda at cold start.
+    secret: true
+  nag:dbMinAcu:
+    description: Aurora Serverless v2 min capacity (ACUs).
+    default: 0.5
+  nag:dbMaxAcu:
+    description: Aurora Serverless v2 max capacity (ACUs).
+    default: 2
+  nag:lambdaMemoryMb:
+    description: Lambda memory in MB.
+    default: 1536
+  nag:lambdaPackagePath:
+    description: Path (relative to infra/) to the nag-api Lambda deployment zip.
+    default: ./artifacts/nag-api.zip
+  nag:logRetentionDays:
+    description: CloudWatch log retention for the Lambda log group.
+    default: 14
