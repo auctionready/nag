@@ -10,8 +10,12 @@ public static class CommandsEndpoints
     {
         var group = app.MapGroup("/commands").WithTags("Commands");
 
-        group.MapPost("/", PostCommand);
-        group.MapGet("/", GetCommands);
+        group
+            .MapPost("/", PostCommand)
+            .Produces<CommandAccepted>()
+            .Produces<ErrorResponse>(400, "application/json");
+
+        group.MapGet("/", GetCommands).Produces<CommandsPage>();
     }
 
     public static async Task<IResult> PostCommand(
