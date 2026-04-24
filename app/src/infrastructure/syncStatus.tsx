@@ -121,6 +121,21 @@ export const SyncStatusProvider = ({ children }: PropsWithChildren) => {
       logger.debug(`run[${runId}] start`);
       setStatus("syncing");
       const started = Date.now();
+      // Heartbeats at 10s and 30s so a stuck run announces itself instead
+      // of looking indistinguishable from silence. The per-POST timeout
+      // should rescue at 20s, but backlogged batches can legitimately run
+      // longer; the 30s warning flags those too.
+      const slowWarn10 = setTimeout(
+        () => logger.warn(`run[${runId}] still running after 10s`),
+        10_000,
+      );
+      const slowWarn30 = setTimeout(
+        () =>
+          logger.warn(
+            `run[${runId}] still running after 30s — per-POST timeout should have fired; inspect earlier [nag][api] POST lines`,
+          ),
+        30_000,
+      );
       try {
         const result: DispatchStatus = await dispatcher.run();
         logger.info(
@@ -134,6 +149,8 @@ export const SyncStatusProvider = ({ children }: PropsWithChildren) => {
         Sentry.captureException(e);
         setStatus("offline");
       } finally {
+        clearTimeout(slowWarn10);
+        clearTimeout(slowWarn30);
         await refreshCounts();
         activeRunRef.current = null;
       }
