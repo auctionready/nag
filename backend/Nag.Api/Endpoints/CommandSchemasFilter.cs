@@ -1,5 +1,6 @@
 #if DEBUG
-using Microsoft.OpenApi.Models;
+using System.Text.Json.Nodes;
+using Microsoft.OpenApi;
 using Nag.Core.Contracts;
 using Swashbuckle.AspNetCore.SwaggerGen;
 
@@ -13,7 +14,7 @@ public sealed class CommandSchemasFilter : IDocumentFilter
 {
     public void Apply(OpenApiDocument swaggerDoc, DocumentFilterContext context)
     {
-        var variants = new List<(string name, OpenApiSchema payloadRef)>();
+        var variants = new List<(string name, IOpenApiSchema payloadRef)>();
         foreach (var (name, type) in CommandRegistry.ByName)
         {
             var payloadRef = context.SchemaGenerator.GenerateSchema(type, context.SchemaRepository);
@@ -28,23 +29,28 @@ public sealed class CommandSchemasFilter : IDocumentFilter
         OpenApiDocument doc,
         DocumentFilterContext context,
         string schemaName,
-        List<(string name, OpenApiSchema payloadRef)> variants
+        List<(string name, IOpenApiSchema payloadRef)> variants
     )
     {
-        if (!doc.Components.Schemas.TryGetValue(schemaName, out var envelope))
+        if (
+            doc.Components?.Schemas is null
+            || !doc.Components.Schemas.TryGetValue(schemaName, out var envelopeSchema)
+        )
+            return;
+
+        if (envelopeSchema is not OpenApiSchema envelope)
             return;
 
         // Build a named variant schema for each command type.
-        // E.g. CommandEnvelope_CreateHabit with type=const "CreateHabit" and payload=$ref CreateHabit.
-        var variantRefs = new List<OpenApiSchema>();
-        var mapping = new Dictionary<string, string>();
+        var variantRefs = new List<IOpenApiSchema>();
+        var mapping = new Dictionary<string, OpenApiSchemaReference>();
 
         foreach (var (name, payloadRef) in variants)
         {
             var variantName = $"{schemaName}_{name}";
 
             // Copy shared properties (id, timestamp, etc.) from the base envelope
-            var variantProps = new Dictionary<string, OpenApiSchema>();
+            var variantProps = new Dictionary<string, IOpenApiSchema>();
             var required = new HashSet<string>();
             if (envelope.Properties is not null)
             {
@@ -64,8 +70,8 @@ public sealed class CommandSchemasFilter : IDocumentFilter
             // Fixed type value
             variantProps["type"] = new OpenApiSchema
             {
-                Type = "string",
-                Enum = [new Microsoft.OpenApi.Any.OpenApiString(name)],
+                Type = JsonSchemaType.String,
+                Enum = [JsonValue.Create(name)!],
             };
             required.Add("type");
 
@@ -75,23 +81,15 @@ public sealed class CommandSchemasFilter : IDocumentFilter
 
             var variantSchema = new OpenApiSchema
             {
-                Type = "object",
+                Type = JsonSchemaType.Object,
                 Properties = variantProps,
                 Required = required,
             };
 
             doc.Components.Schemas[variantName] = variantSchema;
-            variantRefs.Add(
-                new OpenApiSchema
-                {
-                    Reference = new OpenApiReference
-                    {
-                        Type = ReferenceType.Schema,
-                        Id = variantName,
-                    },
-                }
-            );
-            mapping[name] = $"#/components/schemas/{variantName}";
+            var schemaRef = new OpenApiSchemaReference(variantName, doc);
+            variantRefs.Add(schemaRef);
+            mapping[name] = schemaRef;
         }
 
         // Replace the base envelope with a oneOf + discriminator

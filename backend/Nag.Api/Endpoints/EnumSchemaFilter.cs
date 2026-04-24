@@ -1,7 +1,7 @@
 #if DEBUG
 using System.Text.Json;
-using Microsoft.OpenApi.Any;
-using Microsoft.OpenApi.Models;
+using System.Text.Json.Nodes;
+using Microsoft.OpenApi;
 using Swashbuckle.AspNetCore.SwaggerGen;
 
 namespace Nag.Api.Endpoints;
@@ -13,15 +13,18 @@ namespace Nag.Api.Endpoints;
 /// </summary>
 public sealed class EnumSchemaFilter : ISchemaFilter
 {
-    public void Apply(OpenApiSchema schema, SchemaFilterContext context)
+    public void Apply(IOpenApiSchema schema, SchemaFilterContext context)
     {
         if (!context.Type.IsEnum)
             return;
 
-        schema.Type = "string";
-        schema.Enum = Enum.GetNames(context.Type)
+        if (schema is not OpenApiSchema openApiSchema)
+            return;
+
+        openApiSchema.Type = JsonSchemaType.String;
+        openApiSchema.Enum = Enum.GetNames(context.Type)
             .Select(name =>
-                (IOpenApiAny)new OpenApiString(JsonNamingPolicy.CamelCase.ConvertName(name))
+                (JsonNode)JsonValue.Create(JsonNamingPolicy.CamelCase.ConvertName(name))!
             )
             .ToList();
     }
