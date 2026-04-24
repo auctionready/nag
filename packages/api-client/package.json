@@ -11,6 +11,8 @@
     "generate": "./scripts/generate-endpoints.sh"
   },
   "dependencies": {
+    "@zodios/core": "^10.9.6",
+    "axios": "^1.15.2",
     "zod": "catalog:"
   },
   "devDependencies": {

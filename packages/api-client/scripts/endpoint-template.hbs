@@ -4,6 +4,7 @@
  * Regenerate with:
  *   pnpm --filter @nag/api-client generate
  */
+import { makeApi } from "@zodios/core";
 import { z } from "zod";
 
 const IsoDatetime = z.iso.datetime({ offset: true }).transform((s) => new Date(s));
@@ -14,7 +15,7 @@ export type {{@key}} = z.infer<typeof {{@key}}>;
 
 {{/each}}
 
-export const endpoints = [
+export const endpoints = makeApi([
 {{#each endpoints}}
   {
     method: "{{method}}",
@@ -33,6 +34,6 @@ export const endpoints = [
     ],
   },
 {{/each}}
-] as const;
+]);
 
 export type Endpoints = typeof endpoints;

@@ -21,6 +21,7 @@ sed -i '' -E \
   -e 's/z\.string\(\)\.datetime\([^)]*\)/IsoDatetime/g' \
   -e 's/z\.string\(\)\.date\(\)/IsoDatetime/g' \
   -e 's/z\.record\(z\.array\(z\.string\(\)\)\)/z.record(z.string(), z.array(z.string()))/g' \
+  -e 's/z\.void\(\)/z.unknown()/g' \
   "$OUTPUT"
 
 echo "Done."

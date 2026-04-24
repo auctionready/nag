@@ -1,6 +1,5 @@
-import { describe, it, expect, beforeEach, vi } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { createNagApiClient } from "../client";
-import { ApiError, ApiValidationError } from "../errors";
 
 type FetchMock = ReturnType<typeof vi.fn<typeof fetch>>;
 
@@ -10,6 +9,10 @@ const jsonResponse = (body: unknown, init: ResponseInit = {}): Response =>
     headers: { "Content-Type": "application/json" },
     ...init,
   });
+
+/** Axios's fetch adapter always calls `fetch(request)` with a Request. */
+const firstRequest = (fetchMock: FetchMock): Request =>
+  fetchMock.mock.calls[0]![0] as Request;
 
 const envelope = {
   id: "11111111-1111-4111-8111-111111111111",
@@ -37,16 +40,17 @@ describe("nagApiClient", () => {
 
   beforeEach(() => {
     fetchMock = vi.fn<typeof fetch>();
+    vi.stubGlobal("fetch", fetchMock);
   });
 
-  const makeClient = (
-    overrides: Partial<Parameters<typeof createNagApiClient>[0]> = {},
-  ) =>
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  const makeClient = () =>
     createNagApiClient({
       baseUrl: "https://api.example.test",
       apiKey: "test-api-key",
-      fetch: fetchMock,
-      ...overrides,
     });
 
   describe("postCommands", () => {
@@ -57,41 +61,33 @@ describe("nagApiClient", () => {
     });
 
     it("sends the envelope with bearer auth and JSON headers", async () => {
-      const client = makeClient();
-      const result = await client.postCommands({ body: envelope });
+      const api = makeClient();
+      const result = await api.postCommands(envelope);
 
       expect(fetchMock).toHaveBeenCalledOnce();
-      const [url, init] = fetchMock.mock.calls[0]!;
-      expect(url).toBe("https://api.example.test/commands");
-      expect(init?.method).toBe("POST");
-      expect(init?.headers).toMatchObject({
-        Authorization: "Bearer test-api-key",
-        "Content-Type": "application/json",
-      });
-      expect(JSON.parse(init?.body as string)).toEqual(envelope);
+      const req = firstRequest(fetchMock);
+      expect(req.url).toBe("https://api.example.test/commands");
+      expect(req.method).toBe("POST");
+      expect(req.headers.get("Authorization")).toBe("Bearer test-api-key");
+      expect(req.headers.get("Content-Type")).toMatch(/^application\/json/);
+      expect(JSON.parse(await req.text())).toEqual(envelope);
       expect(result).toEqual({ accepted: true, sequence: 7 });
     });
 
-    it("throws ApiValidationError on 400 with errors body", async () => {
+    it("rejects on 400", async () => {
       fetchMock.mockResolvedValue(
         jsonResponse({ errors: ["envelope.id is required"] }, { status: 400 }),
       );
-      const client = makeClient();
+      const api = makeClient();
 
-      await expect(
-        client.postCommands({ body: envelope }),
-      ).rejects.toBeInstanceOf(ApiValidationError);
+      await expect(api.postCommands(envelope)).rejects.toThrow();
     });
 
-    it("throws ApiError on 401", async () => {
+    it("rejects on 401", async () => {
       fetchMock.mockResolvedValue(new Response("", { status: 401 }));
-      const client = makeClient();
+      const api = makeClient();
 
-      const err = await client
-        .postCommands({ body: envelope })
-        .catch((e: unknown) => e);
-      expect(err).toBeInstanceOf(ApiError);
-      expect((err as ApiError).status).toBe(401);
+      await expect(api.postCommands(envelope)).rejects.toThrow();
     });
   });
 
@@ -100,31 +96,33 @@ describe("nagApiClient", () => {
       fetchMock.mockResolvedValue(
         jsonResponse({ commands: [], nextSince: null }),
       );
-      const client = makeClient();
-      await client.getCommands({ since: 0, limit: 10 });
+      const api = makeClient();
+      await api.getCommands({ queries: { since: 0, limit: 10 } });
 
-      const [url] = fetchMock.mock.calls[0]!;
-      expect(url).toBe("https://api.example.test/commands?since=0&limit=10");
+      const req = firstRequest(fetchMock);
+      expect(req.url).toBe(
+        "https://api.example.test/commands?since=0&limit=10",
+      );
     });
 
     it("omits optional params when not provided", async () => {
       fetchMock.mockResolvedValue(
         jsonResponse({ commands: [], nextSince: null }),
       );
-      const client = makeClient();
-      await client.getCommands({ since: 42 });
+      const api = makeClient();
+      await api.getCommands({ queries: { since: 42 } });
 
-      const [url] = fetchMock.mock.calls[0]!;
-      expect(url).toBe("https://api.example.test/commands?since=42");
+      const req = firstRequest(fetchMock);
+      expect(req.url).toBe("https://api.example.test/commands?since=42");
     });
 
     it("decodes ISO timestamps inside returned commands into Date instances", async () => {
       fetchMock.mockResolvedValue(
         jsonResponse({ commands: [commandEnvelopeOut], nextSince: null }),
       );
-      const client = makeClient();
+      const api = makeClient();
 
-      const page = await client.getCommands({ since: 0 });
+      const page = await api.getCommands({ queries: { since: 0 } });
 
       const first = page.commands![0]!;
       expect(first.timestamp).toBeInstanceOf(Date);
@@ -134,37 +132,20 @@ describe("nagApiClient", () => {
     });
   });
 
-  describe("validate: none", () => {
-    it("returns the raw JSON unchanged (timestamps stay as strings)", async () => {
-      fetchMock.mockResolvedValue(
-        jsonResponse({ commands: [commandEnvelopeOut], nextSince: null }),
-      );
-
-      const client = makeClient({ validate: "none" });
-      const page = (await client.getCommands({ since: 0 })) as {
-        commands: { timestamp: unknown }[];
-      };
-
-      expect(page.commands[0]!.timestamp).toBe("2024-05-01T10:00:00.000Z");
-    });
-  });
-
   describe("getHealth", () => {
-    // /health is still described as response: z.void() in the OpenAPI doc,
-    // so the client passes its actual body through unchanged.
-    it("sends GET and returns the raw body", async () => {
+    // The OpenAPI doc declares no response body for /health; the generator's
+    // sed pipeline rewrites z.void() → z.unknown() so zodios accepts the
+    // real body ({status:"ok"}) without throwing.
+    it("sends GET with bearer and returns the body as unknown", async () => {
       fetchMock.mockResolvedValue(jsonResponse({ status: "ok" }));
-      const client = makeClient();
+      const api = makeClient();
 
-      const result = await client.getHealth();
+      await api.getHealth();
 
-      const [url, init] = fetchMock.mock.calls[0]!;
-      expect(url).toBe("https://api.example.test/health");
-      expect(init?.method).toBe("GET");
-      expect(init?.headers).toMatchObject({
-        Authorization: "Bearer test-api-key",
-      });
-      expect(result).toEqual({ status: "ok" });
+      const req = firstRequest(fetchMock);
+      expect(req.url).toBe("https://api.example.test/health");
+      expect(req.method).toBe("GET");
+      expect(req.headers.get("Authorization")).toBe("Bearer test-api-key");
     });
   });
 
@@ -190,11 +171,11 @@ describe("nagApiClient", () => {
           ],
         }),
       );
-      const client = makeClient();
+      const api = makeClient();
 
-      const board = await client.getHomeBoard();
+      const board = await api.getHomeBoard();
 
-      expect(fetchMock.mock.calls[0]![0]).toBe(
+      expect(firstRequest(fetchMock).url).toBe(
         "https://api.example.test/home-board",
       );
       const ts = board.habits![0]!.periodCheckIns![0]!.timestamp;

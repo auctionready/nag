@@ -4,6 +4,7 @@
  * Regenerate with:
  *   pnpm --filter @nag/api-client generate
  */
+import { makeApi } from "@zodios/core";
 import { z } from "zod";
 
 const IsoDatetime = z.iso
@@ -331,14 +332,14 @@ export type HttpValidationProblemDetails = z.infer<
   typeof HttpValidationProblemDetails
 >;
 
-export const endpoints = [
+export const endpoints = makeApi([
   {
     method: "post",
     path: "/commands",
     alias: "postCommands",
     parameters: [{ name: "body", type: "Body", schema: postCommands_Body }],
     response: CommandAccepted,
-    errors: [{ status: 400, schema: z.void() }],
+    errors: [{ status: 400, schema: z.unknown() }],
   },
   {
     method: "get",
@@ -356,7 +357,7 @@ export const endpoints = [
     path: "/health",
     alias: "getHealth",
     parameters: [],
-    response: z.void(),
+    response: z.unknown(),
     errors: [],
   },
   {
@@ -367,6 +368,6 @@ export const endpoints = [
     response: HomeBoard,
     errors: [],
   },
-] as const;
+]);
 
 export type Endpoints = typeof endpoints;

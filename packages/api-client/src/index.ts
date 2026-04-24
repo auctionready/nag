@@ -2,8 +2,7 @@ export {
   createNagApiClient,
   type NagApiClient,
   type NagApiClientOptions,
-  type ValidateMode,
 } from "./client";
-export { ApiError, ApiValidationError } from "./errors";
+export { isErrorFromAlias, isErrorFromPath, ZodiosError } from "@zodios/core";
 export * as schemas from "./endpoint-definition";
 export { endpoints } from "./endpoint-definition";
