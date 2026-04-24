@@ -6,7 +6,4 @@ export {
   type EnsureDeviceRegisteredOptions,
   type EnsureDeviceRegisteredResult,
 } from "./identity";
-export {
-  type RegisterDeviceFn,
-  type RegisterDeviceResult,
-} from "./types";
+export { type RegisterDeviceFn, type RegisterDeviceResult } from "./types";

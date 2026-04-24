@@ -9,9 +9,7 @@ export type IdentityRow = {
   registeredAt: Date | null;
 };
 
-export const loadIdentity = async (
-  db: AnyDb,
-): Promise<IdentityRow | null> => {
+export const loadIdentity = async (db: AnyDb): Promise<IdentityRow | null> => {
   const [row] = await db
     .select({
       deviceId: identity.deviceId,

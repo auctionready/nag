@@ -204,7 +204,10 @@ export const registerDevice: RegisterDeviceFn = async ({
       };
     }
     const message = error instanceof Error ? error.message : String(error);
-    logger.error(`POST /devices/register unexpected error (${elapsed}ms)`, error);
+    logger.error(
+      `POST /devices/register unexpected error (${elapsed}ms)`,
+      error,
+    );
     return { ok: false, kind: "transient", message };
   }
 };

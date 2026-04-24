@@ -111,10 +111,7 @@ describe("ensureDeviceRegistered", () => {
       });
 
       // deviceId is persisted so the next boot can retry.
-      const [row] = await db
-        .select()
-        .from(identity)
-        .where(eq(identity.id, 1));
+      const [row] = await db.select().from(identity).where(eq(identity.id, 1));
       expect(row.deviceId).toBe(newDeviceId());
       expect(row.accountId).toBeNull();
     });
@@ -157,8 +154,6 @@ describe("getAccountId", () => {
 
   it("returns the accountId once registered", async () => {
     const db = getDb();
-    expect(await getAccountId(db)).toBe(
-      "00000000-0000-4000-8000-0000000000aa",
-    );
+    expect(await getAccountId(db)).toBe("00000000-0000-4000-8000-0000000000aa");
   });
 });

@@ -59,7 +59,9 @@ export const createDispatcher = ({
 
     const accountId = await getAccountId(db);
     if (!accountId) {
-      debug("dispatcher.run: no accountId — device not registered, treating as offline");
+      debug(
+        "dispatcher.run: no accountId — device not registered, treating as offline",
+      );
       return "offline";
     }
 
