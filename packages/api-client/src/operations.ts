@@ -1,7 +1,12 @@
 import { isAxiosError } from "axios";
-import type { ZodiosBodyByAlias, ZodiosResponseByAlias } from "@zodios/core";
+import {
+  isErrorFromAlias,
+  type ZodiosBodyByAlias,
+  type ZodiosErrorByAlias,
+  type ZodiosResponseByAlias,
+} from "@zodios/core";
 import type { NagApiClient } from "./client";
-import type { endpoints } from "./endpoint-definition";
+import { endpoints } from "./endpoint-definition";
 
 export type Endpoints = typeof endpoints;
 
@@ -40,28 +45,39 @@ export type RegisterDeviceResult =
   | { ok: false; kind: "non-retriable"; status: number; message: string }
   | { ok: false; kind: "transient"; message: string };
 
-/** HTTP status codes that indicate a transient failure callers should retry. */
+/** HTTP status codes outside 5xx that still indicate a transient failure. */
 const TRANSIENT_STATUSES = new Set([408, 425, 429]);
+
+const isTransientStatus = (status: number): boolean =>
+  status >= 500 || TRANSIENT_STATUSES.has(status);
 
 type Failure =
   | { ok: false; kind: "non-retriable"; status: number; message: string }
   | { ok: false; kind: "transient"; message: string };
 
-const classifyError = (
-  error: unknown,
+/**
+ * Builds the appropriate `Failure` shape for an axios response error or a
+ * raw network/unexpected error. The caller supplies an alias-narrowed
+ * extractor so that documented error bodies (e.g. `ErrorResponse` for 400s)
+ * are typed when reading `errors[0]`.
+ */
+const failureFromError = (
   label: string,
   log: WrapperLog | undefined,
   elapsedMs: number,
+  error: unknown,
+  extractDocumentedMessage: () => string | undefined,
 ): Failure => {
   if (isAxiosError(error)) {
     if (error.response) {
       const status = error.response.status;
       const data = error.response.data;
       const message =
+        extractDocumentedMessage() ??
         (data as { message?: string } | undefined)?.message ??
         (typeof data === "string" ? data : "") ??
         error.message;
-      if (status >= 500 || TRANSIENT_STATUSES.has(status)) {
+      if (isTransientStatus(status)) {
         log?.warn?.(
           `${label} transient (${elapsedMs}ms) status=${status}`,
           data,
@@ -94,6 +110,11 @@ const classifyError = (
 
 type PostCommandsBody = ZodiosBodyByAlias<Endpoints, "postCommands">;
 type PostCommandsResponse = ZodiosResponseByAlias<Endpoints, "postCommands">;
+type PostCommandsError400 = ZodiosErrorByAlias<Endpoints, "postCommands", 400>;
+
+// Re-export the mapped type for downstream callers that want to peek at the
+// documented 400 body shape without re-deriving it.
+export type { ZodiosErrorByAlias };
 
 /**
  * POSTs a command envelope and translates the Zodios/axios response into
@@ -119,7 +140,21 @@ export const postCommands = async (
     );
     return { ok: true, sequence: response.sequence ?? 0 };
   } catch (error: unknown) {
-    return classifyError(error, "POST /commands", log, Date.now() - start);
+    return failureFromError(
+      "POST /commands",
+      log,
+      Date.now() - start,
+      error,
+      () => {
+        if (isErrorFromAlias(endpoints, "postCommands", error)) {
+          // error.response.data is narrowed to the documented union
+          // (currently just ErrorResponse for 400).
+          const data: PostCommandsError400 = error.response.data;
+          return data.errors?.[0];
+        }
+        return undefined;
+      },
+    );
   }
 };
 
@@ -127,6 +162,11 @@ type RegisterDeviceBody = ZodiosBodyByAlias<Endpoints, "postDevicesregister">;
 type RegisterDeviceResponse = ZodiosResponseByAlias<
   Endpoints,
   "postDevicesregister"
+>;
+type RegisterDeviceError400 = ZodiosErrorByAlias<
+  Endpoints,
+  "postDevicesregister",
+  400
 >;
 
 /**
@@ -167,11 +207,18 @@ export const registerDevice = async (
       registeredAt: response.registeredAt,
     };
   } catch (error: unknown) {
-    return classifyError(
-      error,
+    return failureFromError(
       "POST /devices/register",
       log,
       Date.now() - start,
+      error,
+      () => {
+        if (isErrorFromAlias(endpoints, "postDevicesregister", error)) {
+          const data: RegisterDeviceError400 = error.response.data;
+          return data.errors?.[0];
+        }
+        return undefined;
+      },
     );
   }
 };

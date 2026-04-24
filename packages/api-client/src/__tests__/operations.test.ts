@@ -87,11 +87,21 @@ describe("operations", () => {
     });
 
     it("classifies a network failure as transient", async () => {
+      // delayConnection holds the response longer than axios's timeout, so
+      // axios rejects with an AxiosError that has no `.response` — exactly
+      // the shape the wrapper's network-error branch handles.
       nock(BASE_URL)
         .post("/commands")
-        .replyWithError({ code: "ECONNREFUSED", message: "no connection" });
+        .delayConnection(500)
+        .reply(200, { accepted: true, sequence: 1 });
 
-      const result = await postCommands(makeClient(), envelope);
+      const fastClient = createNagApiClient({
+        baseUrl: BASE_URL,
+        apiKey: API_KEY,
+        timeoutMs: 50,
+      });
+
+      const result = await postCommands(fastClient, envelope);
 
       expect(result.ok).toBe(false);
       if (!result.ok) expect(result.kind).toBe("transient");
