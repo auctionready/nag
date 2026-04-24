@@ -210,6 +210,9 @@ importers:
 
   packages/core:
     dependencies:
+      '@nag/api-client':
+        specifier: workspace:*
+        version: link:../api-client
       '@nag/schema':
         specifier: workspace:*
         version: link:../schema
