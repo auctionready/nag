@@ -6,7 +6,11 @@
  */
 import { z } from "zod";
 
-export const Regularity = z.union([z.literal(0), z.literal(1), z.literal(2)]);
+const IsoDatetime = z.iso
+  .datetime({ offset: true })
+  .transform((s) => new Date(s));
+
+export const Regularity = z.enum(["day", "week", "month"]);
 export type Regularity = z.infer<typeof Regularity>;
 
 export const ScheduleEntry = z
@@ -35,7 +39,7 @@ export const CreateHabit = z
     title: z.string().nullable(),
     description: z.string().nullable(),
     icon: z.string().nullable(),
-    goal: GoalPayload,
+    goal: GoalPayload.nullable(),
   })
   .partial();
 export type CreateHabit = z.infer<typeof CreateHabit>;
@@ -43,10 +47,7 @@ export type CreateHabit = z.infer<typeof CreateHabit>;
 export const CommandEnvelope_CreateHabit = z
   .object({
     id: z.uuid().optional(),
-    timestamp: z.iso
-      .datetime({ offset: true })
-      .transform((s) => new Date(s))
-      .optional(),
+    timestamp: IsoDatetime.optional(),
     type: z.literal("CreateHabit"),
     payload: CreateHabit,
   })
@@ -61,7 +62,7 @@ export const UpdateHabit = z
     title: z.string().nullable(),
     description: z.string().nullable(),
     icon: z.string().nullable(),
-    goal: GoalPayload,
+    goal: GoalPayload.nullable(),
     clearDescription: z.boolean(),
     clearIcon: z.boolean(),
     clearGoal: z.boolean(),
@@ -72,10 +73,7 @@ export type UpdateHabit = z.infer<typeof UpdateHabit>;
 export const CommandEnvelope_UpdateHabit = z
   .object({
     id: z.uuid().optional(),
-    timestamp: z.iso
-      .datetime({ offset: true })
-      .transform((s) => new Date(s))
-      .optional(),
+    timestamp: IsoDatetime.optional(),
     type: z.literal("UpdateHabit"),
     payload: UpdateHabit,
   })
@@ -90,10 +88,7 @@ export type DeleteHabit = z.infer<typeof DeleteHabit>;
 export const CommandEnvelope_DeleteHabit = z
   .object({
     id: z.uuid().optional(),
-    timestamp: z.iso
-      .datetime({ offset: true })
-      .transform((s) => new Date(s))
-      .optional(),
+    timestamp: IsoDatetime.optional(),
     type: z.literal("DeleteHabit"),
     payload: DeleteHabit,
   })
@@ -106,7 +101,7 @@ export const CreateCheckIn = z
   .object({
     checkInId: z.uuid(),
     habitId: z.uuid(),
-    timestamp: z.iso.datetime({ offset: true }).transform((s) => new Date(s)),
+    timestamp: IsoDatetime,
     skipped: z.boolean().nullable(),
   })
   .partial();
@@ -115,10 +110,7 @@ export type CreateCheckIn = z.infer<typeof CreateCheckIn>;
 export const CommandEnvelope_CreateCheckIn = z
   .object({
     id: z.uuid().optional(),
-    timestamp: z.iso
-      .datetime({ offset: true })
-      .transform((s) => new Date(s))
-      .optional(),
+    timestamp: IsoDatetime.optional(),
     type: z.literal("CreateCheckIn"),
     payload: CreateCheckIn,
   })
@@ -130,7 +122,7 @@ export type CommandEnvelope_CreateCheckIn = z.infer<
 export const UpdateCheckIn = z
   .object({
     checkInId: z.uuid(),
-    timestamp: z.iso.datetime({ offset: true }).transform((s) => new Date(s)),
+    timestamp: IsoDatetime,
     skipped: z.boolean().nullable(),
   })
   .partial();
@@ -139,10 +131,7 @@ export type UpdateCheckIn = z.infer<typeof UpdateCheckIn>;
 export const CommandEnvelope_UpdateCheckIn = z
   .object({
     id: z.uuid().optional(),
-    timestamp: z.iso
-      .datetime({ offset: true })
-      .transform((s) => new Date(s))
-      .optional(),
+    timestamp: IsoDatetime.optional(),
     type: z.literal("UpdateCheckIn"),
     payload: UpdateCheckIn,
   })
@@ -157,10 +146,7 @@ export type DeleteCheckIn = z.infer<typeof DeleteCheckIn>;
 export const CommandEnvelope_DeleteCheckIn = z
   .object({
     id: z.uuid().optional(),
-    timestamp: z.iso
-      .datetime({ offset: true })
-      .transform((s) => new Date(s))
-      .optional(),
+    timestamp: IsoDatetime.optional(),
     type: z.literal("DeleteCheckIn"),
     payload: DeleteCheckIn,
   })
@@ -179,6 +165,9 @@ export const CommandEnvelope = z.discriminatedUnion("type", [
 ]);
 export type CommandEnvelope = z.infer<typeof CommandEnvelope>;
 
+export const postCommands_Body = CommandEnvelope;
+export type postCommands_Body = z.infer<typeof postCommands_Body>;
+
 export const CommandAccepted = z
   .object({ accepted: z.boolean(), sequence: z.int() })
   .partial();
@@ -188,10 +177,7 @@ export const CommandEnvelopeOut_CreateHabit = z
   .object({
     sequence: z.int().optional(),
     id: z.uuid().optional(),
-    timestamp: z.iso
-      .datetime({ offset: true })
-      .transform((s) => new Date(s))
-      .optional(),
+    timestamp: IsoDatetime.optional(),
     type: z.literal("CreateHabit"),
     payload: CreateHabit,
   })
@@ -204,10 +190,7 @@ export const CommandEnvelopeOut_UpdateHabit = z
   .object({
     sequence: z.int().optional(),
     id: z.uuid().optional(),
-    timestamp: z.iso
-      .datetime({ offset: true })
-      .transform((s) => new Date(s))
-      .optional(),
+    timestamp: IsoDatetime.optional(),
     type: z.literal("UpdateHabit"),
     payload: UpdateHabit,
   })
@@ -220,10 +203,7 @@ export const CommandEnvelopeOut_DeleteHabit = z
   .object({
     sequence: z.int().optional(),
     id: z.uuid().optional(),
-    timestamp: z.iso
-      .datetime({ offset: true })
-      .transform((s) => new Date(s))
-      .optional(),
+    timestamp: IsoDatetime.optional(),
     type: z.literal("DeleteHabit"),
     payload: DeleteHabit,
   })
@@ -236,10 +216,7 @@ export const CommandEnvelopeOut_CreateCheckIn = z
   .object({
     sequence: z.int().optional(),
     id: z.uuid().optional(),
-    timestamp: z.iso
-      .datetime({ offset: true })
-      .transform((s) => new Date(s))
-      .optional(),
+    timestamp: IsoDatetime.optional(),
     type: z.literal("CreateCheckIn"),
     payload: CreateCheckIn,
   })
@@ -252,10 +229,7 @@ export const CommandEnvelopeOut_UpdateCheckIn = z
   .object({
     sequence: z.int().optional(),
     id: z.uuid().optional(),
-    timestamp: z.iso
-      .datetime({ offset: true })
-      .transform((s) => new Date(s))
-      .optional(),
+    timestamp: IsoDatetime.optional(),
     type: z.literal("UpdateCheckIn"),
     payload: UpdateCheckIn,
   })
@@ -268,10 +242,7 @@ export const CommandEnvelopeOut_DeleteCheckIn = z
   .object({
     sequence: z.int().optional(),
     id: z.uuid().optional(),
-    timestamp: z.iso
-      .datetime({ offset: true })
-      .transform((s) => new Date(s))
-      .optional(),
+    timestamp: IsoDatetime.optional(),
     type: z.literal("DeleteCheckIn"),
     payload: DeleteCheckIn,
   })
@@ -298,6 +269,53 @@ export const CommandsPage = z
   .partial();
 export type CommandsPage = z.infer<typeof CommandsPage>;
 
+export const HomeGoal = z
+  .object({ regularity: Regularity, frequency: z.int().nullable() })
+  .partial();
+export type HomeGoal = z.infer<typeof HomeGoal>;
+
+export const HomeSchedule = z
+  .object({
+    hour: z.int(),
+    minute: z.int(),
+    days: z.int().nullable(),
+    dayOfMonth: z.int().nullable(),
+    reminder: z.boolean(),
+  })
+  .partial();
+export type HomeSchedule = z.infer<typeof HomeSchedule>;
+
+export const HomeCheckIn = z
+  .object({
+    id: z.uuid(),
+    timestamp: IsoDatetime,
+    skipped: z.boolean(),
+  })
+  .partial();
+export type HomeCheckIn = z.infer<typeof HomeCheckIn>;
+
+export const HomeHabit = z
+  .object({
+    id: z.uuid(),
+    title: z.string().nullable(),
+    description: z.string().nullable(),
+    icon: z.string().nullable(),
+    goal: HomeGoal.nullable(),
+    schedules: z.array(HomeSchedule).nullable(),
+    periodCheckIns: z.array(HomeCheckIn).nullable(),
+  })
+  .partial();
+export type HomeHabit = z.infer<typeof HomeHabit>;
+
+export const HomeBoard = z
+  .object({
+    id: z.uuid(),
+    lastSequence: z.int(),
+    habits: z.array(HomeHabit).nullable(),
+  })
+  .partial();
+export type HomeBoard = z.infer<typeof HomeBoard>;
+
 export const HttpValidationProblemDetails = z
   .object({
     type: z.string().nullable(),
@@ -318,7 +336,7 @@ export const endpoints = [
     method: "post",
     path: "/commands",
     alias: "postCommands",
-    parameters: [{ name: "body", type: "Body", schema: CommandEnvelope }],
+    parameters: [{ name: "body", type: "Body", schema: postCommands_Body }],
     response: CommandAccepted,
     errors: [{ status: 400, schema: z.void() }],
   },
@@ -346,7 +364,7 @@ export const endpoints = [
     path: "/home-board",
     alias: "getHomeBoard",
     parameters: [],
-    response: z.void(),
+    response: HomeBoard,
     errors: [],
   },
 ] as const;
