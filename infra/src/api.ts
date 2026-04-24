@@ -15,6 +15,8 @@ export interface ApiArgs {
 }
 
 export interface Api {
+  apiId: pulumi.Output<string>;
+  stageName: pulumi.Output<string>;
   invokeUrl: pulumi.Output<string>;
   logGroupName: pulumi.Output<string>;
   functionName: pulumi.Output<string>;
@@ -127,6 +129,8 @@ export const createApi = (args: ApiArgs): Api => {
   });
 
   return {
+    apiId: api.id,
+    stageName: stage.name,
     invokeUrl: stage.invokeUrl,
     logGroupName: logGroup.name,
     functionName: fn.name,

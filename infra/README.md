@@ -38,7 +38,37 @@ pulumi config set --secret nag:dbPassword <strong-db-password>
 # optional: pulumi config set nag:dbMinAcu 0.5     # keep a warm floor instead of auto-pause
 # optional: pulumi config set nag:dbMaxAcu 2
 # optional: pulumi config set nag:dbAutoPauseSeconds 3000
+# optional: custom domain (set both, or neither)
+# pulumi config set nag:hostedZoneName example.com
+# pulumi config set nag:apiDomainName  api.example.com
 ```
+
+## Custom domain (optional)
+
+If `nag:hostedZoneName` and `nag:apiDomainName` are both set, Pulumi will:
+
+1. Request an ACM certificate (regional, in `ap-southeast-2`) for the subdomain.
+2. Look up the existing Route 53 public hosted zone by name (read-only — the zone itself is **not** managed by Pulumi).
+3. Create the DNS validation record, wait for ACM validation, and bind the cert to an API Gateway v2 custom domain (`REGIONAL`, `TLS_1_2`).
+4. Map the custom domain → API Gateway stage, and add an A-record alias at `nag:apiDomainName` pointing at the regional API Gateway endpoint.
+
+The stack output `apiUrl` always exists: it's the friendly `https://<subdomain>/` when the custom domain is configured, and the raw `https://<id>.execute-api.<region>.amazonaws.com/` invoke URL otherwise. The raw invoke URL is also exposed separately as `invokeUrl` for diagnostics.
+
+## Bind an EAS build to this backend
+
+After `pulumi up` succeeds, push `apiUrl` and `nag:apiKey` into the EAS
+environment that an `eas.json` build profile reads from:
+
+```bash
+ops/sync-eas-env.sh <pulumi-stack> <eas-environment>
+# e.g. ops/sync-eas-env.sh prod preview     # preview build → prod backend
+# e.g. ops/sync-eas-env.sh prod production  # prod build    → prod backend
+```
+
+The script sets `NAG_API_BASE_URL` (plaintext) and `NAG_API_KEY` (secret)
+in the named EAS environment, replacing any existing values. Re-run
+after rotating the API key or moving the backend behind a custom
+domain.
 
 ## Build the Lambda package
 
@@ -95,6 +125,7 @@ infra/
     network.ts            # VPC, subnets (no NAT), SGs
     database.ts           # Aurora Serverless v2 cluster + writer (auto-pause)
     api.ts                # Lambda + API Gateway + log group + IAM
+    domain.ts             # ACM cert + API Gateway custom domain + Route 53 alias (optional)
   Pulumi.yaml             # project
   Pulumi.prod.yaml        # prod stack config
 ```
