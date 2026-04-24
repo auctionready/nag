@@ -76,9 +76,16 @@ if [[ -z "$API_URL" ]]; then
   exit 1
 fi
 
-API_KEY="$(pulumi -C "$INFRA" config get nag:apiKey --stack "$STACK" --show-secrets 2>/dev/null || true)"
+PULUMI_ERR="$(mktemp)"
+trap 'rm -f "$PULUMI_ERR"' EXIT
+
+if ! API_KEY="$(pulumi -C "$INFRA" config get nag:apiKey --stack "$STACK" --show-secrets 2>"$PULUMI_ERR")"; then
+  echo "error: 'pulumi config get nag:apiKey' failed for stack '$STACK':" >&2
+  sed 's/^/       /' "$PULUMI_ERR" >&2
+  exit 1
+fi
 if [[ -z "$API_KEY" ]]; then
-  echo "error: pulumi config 'nag:apiKey' is unset (or empty) for stack '$STACK'." >&2
+  echo "error: pulumi config 'nag:apiKey' is unset for stack '$STACK'." >&2
   echo "       Run 'cd infra && pulumi config set --secret nag:apiKey <value> --stack $STACK'." >&2
   exit 1
 fi
