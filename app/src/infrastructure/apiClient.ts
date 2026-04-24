@@ -1,6 +1,4 @@
 import Constants from "expo-constants";
-import { isAxiosError } from "axios";
-import { createNagApiClient, type NagApiClient } from "@nag/api-client";
 import type { CommandEnvelope, PostCommandsFn, PostResult } from "@nag/core";
 import { log } from "./log";
 
@@ -9,7 +7,6 @@ type Extra = {
   apiKey?: string;
 };
 
-let singleton: NagApiClient | null = null;
 const logger = log("api");
 
 const extra = (): Extra => (Constants.expoConfig?.extra as Extra) ?? {};
@@ -18,22 +15,6 @@ const maskKey = (key: string | undefined): string => {
   if (!key) return "<missing>";
   if (key.length <= 8) return "***";
   return `${key.slice(0, 4)}…${key.slice(-4)}`;
-};
-
-export const getApiClient = (): NagApiClient => {
-  if (singleton) return singleton;
-  const { apiBaseUrl, apiKey } = extra();
-  if (!apiBaseUrl || !apiKey) {
-    throw new Error(
-      "API client not configured: set NAG_API_BASE_URL and NAG_API_KEY " +
-        "(see app.config.ts → extra).",
-    );
-  }
-  logger.info(
-    `creating client baseUrl=${apiBaseUrl} apiKey=${maskKey(apiKey)}`,
-  );
-  singleton = createNagApiClient({ baseUrl: apiBaseUrl, apiKey });
-  return singleton;
 };
 
 export const isApiConfigured = (): boolean => {
@@ -53,92 +34,119 @@ export const logApiConfig = (): void => {
 const TRANSIENT_STATUSES = new Set([408, 425, 429]);
 
 /**
- * Wall-clock budget per POST /commands request. Without this the Zodios/
- * axios client (which has no default timeout) hangs indefinitely against
- * an unreachable backend, which leaves the sync provider stuck in
- * `"syncing"` state forever. Timeouts surface as transient errors → the
- * row stays pending and retries on the next trigger.
+ * Wall-clock budget per POST /commands request. An AbortController fires
+ * at expiry so the underlying fetch is torn down (not just abandoned) —
+ * fixes the zombie-promise-across-Metro-reload issue we saw with the
+ * axios/fetch adapter combo.
  */
 const POST_TIMEOUT_MS = 20_000;
 
-const withTimeout = <T>(
-  promise: Promise<T>,
-  ms: number,
-  label: string,
-): Promise<T> => {
-  let handle: ReturnType<typeof setTimeout> | undefined;
-  const timeout = new Promise<never>((_, reject) => {
-    handle = setTimeout(
-      () => reject(new Error(`${label} timed out after ${ms}ms`)),
-      ms,
-    );
-  });
-  return Promise.race([promise, timeout]).finally(() => {
-    if (handle) clearTimeout(handle);
-  }) as Promise<T>;
+const joinUrl = (base: string, path: string): string => {
+  const b = base.endsWith("/") ? base.slice(0, -1) : base;
+  const p = path.startsWith("/") ? path : `/${path}`;
+  return b + p;
 };
 
 /**
- * Translates a Zodios/axios result into the dispatcher's `PostResult`
- * shape. Network failures are re-thrown so the dispatcher's catch branch
- * handles them as transient (offline).
+ * POSTs a CommandEnvelope to `/commands` using raw `fetch`, bypassing
+ * axios + zodios entirely.
  *
- * The envelope is cast at the boundary because Zodios's generated body type
- * is a closed discriminated union; the dispatcher ships whatever the audit
- * log captured, which is already validated server-side by the same schema.
+ * Why raw fetch: the previous implementation went through
+ * `@zodios/core` on top of axios-with-fetch-adapter. Under React
+ * Native + Hermes we observed the POST promise neither resolving nor
+ * rejecting even when the server returned 200 — classic "response
+ * coalescing / adapter bug" signature. Raw fetch keeps the transport
+ * deterministic and easy to instrument; zodios is still available for
+ * other endpoints via `@nag/api-client`, we just don't route commands
+ * through it.
  */
 export const postCommands: PostCommandsFn = async (
   envelope: CommandEnvelope,
 ): Promise<PostResult> => {
-  const client = getApiClient();
+  const { apiBaseUrl, apiKey } = extra();
+  if (!apiBaseUrl || !apiKey) {
+    throw new Error(
+      "API client not configured: set NAG_API_BASE_URL and NAG_API_KEY " +
+        "(see app.config.ts → extra).",
+    );
+  }
+  const url = joinUrl(apiBaseUrl, "/commands");
+  const body = JSON.stringify(envelope);
+
   logger.debug(
-    `POST /commands id=${envelope.id} type=${envelope.type} timestamp=${envelope.timestamp}`,
+    `POST ${url} id=${envelope.id} type=${envelope.type} timestamp=${envelope.timestamp}`,
   );
-  // Dump the exact body so a server-side parse error (e.g. "$.id is not a
-  // supported Guid format") can be diffed against what we actually sent.
-  logger.debug(`POST /commands body=${JSON.stringify(envelope)}`);
+  logger.debug(`POST ${url} body=${body}`);
+
+  const controller = new AbortController();
+  const timeoutHandle = setTimeout(() => controller.abort(), POST_TIMEOUT_MS);
   const start = Date.now();
+
   try {
-    const response = await withTimeout(
-      client.postCommands(
-        envelope as Parameters<typeof client.postCommands>[0],
-      ),
-      POST_TIMEOUT_MS,
-      "POST /commands",
-    );
+    const response = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`,
+        Accept: "application/json",
+      },
+      body,
+      signal: controller.signal,
+    });
+    const elapsed = Date.now() - start;
+    const status = response.status;
+    const text = await response.text();
     logger.debug(
-      `POST /commands ok (${Date.now() - start}ms) sequence=${response.sequence} accepted=${(response as { accepted?: boolean }).accepted}`,
+      `POST ${url} responded status=${status} length=${text.length} (${elapsed}ms)`,
     );
-    return { ok: true, sequence: response.sequence ?? 0 };
+
+    if (status >= 200 && status < 300) {
+      let parsed: { sequence?: number; accepted?: boolean } = {};
+      try {
+        parsed = text ? JSON.parse(text) : {};
+      } catch (e) {
+        logger.warn(`POST ${url} response JSON parse failed`, e, text);
+      }
+      logger.debug(
+        `POST ${url} ok sequence=${parsed.sequence} accepted=${parsed.accepted}`,
+      );
+      return { ok: true, sequence: parsed.sequence ?? 0 };
+    }
+
+    if (status >= 500 || TRANSIENT_STATUSES.has(status)) {
+      logger.warn(
+        `POST ${url} transient (${elapsed}ms) status=${status}`,
+        text,
+      );
+      return {
+        ok: false,
+        kind: "transient",
+        message: `${status}: ${text.slice(0, 500)}`,
+      };
+    }
+
+    logger.error(
+      `POST ${url} non-retriable (${elapsed}ms) status=${status}`,
+      text,
+    );
+    return {
+      ok: false,
+      kind: "non-retriable",
+      status,
+      message: text.slice(0, 500) || response.statusText,
+    };
   } catch (error: unknown) {
     const elapsed = Date.now() - start;
-    if (isAxiosError(error) && error.response) {
-      const status = error.response.status;
-      const data = error.response.data as { message?: string } | undefined;
-      const message = data?.message ?? error.message;
-      if (status >= 500 || TRANSIENT_STATUSES.has(status)) {
-        logger.warn(
-          `POST /commands transient (${elapsed}ms) status=${status}`,
-          message,
-        );
-        return {
-          ok: false,
-          kind: "transient",
-          message: `${status}: ${message}`,
-        };
-      }
-      logger.error(
-        `POST /commands non-retriable (${elapsed}ms) status=${status}`,
-        message,
-      );
-      return { ok: false, kind: "non-retriable", status, message };
+    const message = error instanceof Error ? error.message : String(error);
+    if (error instanceof Error && error.name === "AbortError") {
+      logger.warn(`POST ${url} aborted after timeout (${elapsed}ms)`);
+      throw new Error(`POST ${url} timed out after ${POST_TIMEOUT_MS}ms`);
     }
-    // Network error, timeout, or thrown before a response — let the
-    // dispatcher treat it as transient.
     logger.warn(
-      `POST /commands network/timeout error (${elapsed}ms, rethrowing)`,
-      error,
+      `POST ${url} network error (${elapsed}ms, rethrowing): ${message}`,
     );
     throw error;
+  } finally {
+    clearTimeout(timeoutHandle);
   }
 };
