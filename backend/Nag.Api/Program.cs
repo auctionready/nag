@@ -13,6 +13,12 @@ using static Microsoft.AspNetCore.Http.Results;
 
 var builder = WebApplication.CreateBuilder(args);
 
+#if DEBUG
+dotenv.net.DotEnv.Load(
+    new dotenv.net.DotEnvOptions(envFilePaths: [".env", ".env.local"], ignoreExceptions: true)
+);
+#endif
+
 LambdaSecrets.HydrateFromEnvironment(builder.Configuration);
 
 builder.Host.UseSerilog(

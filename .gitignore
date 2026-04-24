@@ -12,3 +12,4 @@ android/
 .beads-credential-key
 app/junit.xml
 .claude/settings.local.json
+backend/.env.local
