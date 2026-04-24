@@ -1,0 +1,4 @@
+name: nag-bootstrap
+runtime: nodejs
+description: One-time bootstrap — GitHub OIDC provider + deploy role for the Nag CI workflow.
+main: index.ts

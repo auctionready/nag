@@ -3,6 +3,7 @@ using JasperFx.Events.Projections;
 using Marten;
 using Nag.Api.Auth;
 using Nag.Api.Endpoints;
+using Nag.Api.Infrastructure;
 using Nag.Core.Contracts;
 using Nag.Core.Handlers;
 using Nag.Core.Projections;
@@ -11,6 +12,8 @@ using Serilog;
 using static Microsoft.AspNetCore.Http.Results;
 
 var builder = WebApplication.CreateBuilder(args);
+
+await LambdaSecrets.HydrateFromSecretsManagerAsync(builder.Configuration);
 
 builder.Host.UseSerilog(
     (ctx, lc) =>

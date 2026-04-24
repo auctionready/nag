@@ -150,3 +150,25 @@ integration test class uses a distinct schema for isolation.
 `.github/workflows/ci.yml` adds a `backend` job that runs in parallel
 with the existing client `check` / `build-app` / `test` jobs:
 `dotnet csharpier check`, `dotnet build`, `dotnet test`.
+
+## Deployment
+
+Infrastructure is Pulumi (TypeScript) in [`infra/`](../infra), with a
+one-time bootstrap stack in [`infra-bootstrap/`](../infra-bootstrap).
+Region: `ap-southeast-2`. State backend: Pulumi Cloud.
+
+Topology: API Gateway HTTP API → Lambda (`dotnet10`, arm64) in a VPC →
+Aurora PostgreSQL Serverless v2 (engine 17). The API key and RDS master
+password live in AWS Secrets Manager. On cold start,
+[`LambdaSecrets.HydrateFromSecretsManager`](../backend/Nag.Api/Infrastructure/LambdaSecrets.cs)
+pulls both and injects them into `IConfiguration` — no plaintext secrets
+in Lambda env vars.
+
+Deploys run via
+[`.github/workflows/deploy-backend.yml`](../.github/workflows/deploy-backend.yml),
+which assumes the `nag-github-deploy` role via GitHub OIDC and runs
+`pulumi up`. Triggers: push to `main` touching `backend/**` or
+`infra/**`, or manual dispatch.
+
+See [`infra/README.md`](../infra/README.md) for first-time setup and
+smoke tests.
