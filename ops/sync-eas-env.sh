@@ -103,14 +103,14 @@ upsert () {
   # Delete first (idempotent — `|| true` swallows "not found"). Use
   # --force to bypass the interactive confirmation; --non-interactive
   # alone is not enough on `env:delete`.
-  npx --no-install eas-cli env:delete \
+  npx --yes eas-cli env:delete \
     --variable-name "$name" \
     --variable-environment "$EAS_ENV" \
     --non-interactive --force \
     >/dev/null 2>&1 || true
 
   echo "Setting $name (visibility=$visibility) in '$EAS_ENV'…"
-  npx --no-install eas-cli env:create \
+  npx --yes eas-cli env:create \
     --name "$name" \
     --value "$value" \
     --visibility "$visibility" \
