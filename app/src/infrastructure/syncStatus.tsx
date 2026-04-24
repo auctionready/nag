@@ -106,6 +106,11 @@ export const SyncStatusProvider = ({ children }: PropsWithChildren) => {
         setLastError(message);
         Sentry.captureException(err);
       },
+      log: {
+        debug: (m, ...a) => logger.debug(m, ...a),
+        info: (m, ...a) => logger.info(m, ...a),
+        error: (m, ...a) => logger.error(m, ...a),
+      },
     });
     const inner = async () => {
       const runId = ++runIdRef.current;

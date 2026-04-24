@@ -17,6 +17,16 @@ export type DispatcherOptions = {
    * capture). Not called on happy-path success.
    */
   onError?: (error: unknown) => void;
+  /**
+   * Optional structured log sink. The app injects a tag-prefixed logger so
+   * dispatcher internals (batch size, per-row transitions, markSent success)
+   * appear in the same stream as the rest of the sync pipeline.
+   */
+  log?: {
+    debug?: (msg: string, ...args: unknown[]) => void;
+    info?: (msg: string, ...args: unknown[]) => void;
+    error?: (msg: string, ...args: unknown[]) => void;
+  };
 };
 
 export type Dispatcher = {
@@ -35,11 +45,20 @@ export const createDispatcher = ({
   post,
   batchSize = 20,
   onError,
+  log,
 }: DispatcherOptions): Dispatcher => {
+  const debug = log?.debug ?? (() => {});
+  const info = log?.info ?? (() => {});
+  const error = log?.error ?? (() => {});
+
   const run = async (): Promise<DispatchStatus> => {
-    if (await isHalted(db)) return "halted";
+    if (await isHalted(db)) {
+      debug("dispatcher.run: halted — skipping");
+      return "halted";
+    }
 
     const rows = await loadPendingBatch(db, batchSize);
+    debug(`dispatcher.run: loaded ${rows.length} pending row(s)`);
     if (rows.length === 0) return "idle";
 
     for (const row of rows) {
@@ -49,34 +68,57 @@ export const createDispatcher = ({
         type: row.commandType,
         payload: row.payload ? JSON.parse(row.payload) : {},
       };
+      debug(
+        `dispatcher: POSTing row id=${row.id} envelope=${envelope.id} type=${envelope.type}`,
+      );
 
       let result;
       try {
         result = await post(envelope);
-      } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        error(
+          `dispatcher: post threw for row id=${row.id} envelope=${envelope.id}: ${message}`,
+        );
         await markPendingWithError(db, row.id, message);
-        onError?.(error);
+        onError?.(err);
         return "offline";
       }
 
       if (result.ok) {
-        await markSent(db, row.id, result.sequence);
+        debug(
+          `dispatcher: row id=${row.id} accepted sequence=${result.sequence} — marking sent`,
+        );
+        try {
+          await markSent(db, row.id, result.sequence);
+          info(`dispatcher: row id=${row.id} marked sent`);
+        } catch (err) {
+          error(`dispatcher: markSent threw for row id=${row.id}`, err);
+          onError?.(err);
+          throw err;
+        }
         continue;
       }
 
       if (result.kind === "non-retriable") {
         const detail = `${result.status}: ${result.message}`;
+        error(
+          `dispatcher: row id=${row.id} non-retriable — halting (${detail})`,
+        );
         await markFailedAndHalt(db, row.id, detail);
         onError?.(new Error(`non-retriable ${detail}`));
         return "halted";
       }
 
       // transient
+      debug(
+        `dispatcher: row id=${row.id} transient (${result.message}) — stopping batch`,
+      );
       await markPendingWithError(db, row.id, result.message);
       return "offline";
     }
 
+    debug("dispatcher.run: batch complete — idle");
     return "idle";
   };
 
