@@ -1,20 +1,14 @@
 services:
   postgres:
-    image: postgres:17
+    image: postgres:17.7-alpine # NOTE try to keep this matching RDS version
     container_name: my_postgres
+    restart: always
     environment:
-      POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: nag
     ports:
       - "5432:5432"
     volumes:
       - my-db:/var/lib/postgresql
-    healthcheck:
-      test: ["CMD", "pg_isready", "-U", "postgres"]
-      interval: 5s
-      timeout: 5s
-      retries: 10
 
 volumes:
   my-db: {}

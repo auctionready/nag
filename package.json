@@ -20,7 +20,10 @@
       "@sentry/cli",
       "better-sqlite3",
       "lefthook"
-    ]
+    ],
+    "patchedDependencies": {
+      "@expo/dom-webview@55.0.3": "patches/@expo__dom-webview@55.0.3.patch"
+    }
   },
   "packageManager": "pnpm@10.33.2",
   "volta": {

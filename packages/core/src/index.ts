@@ -56,6 +56,22 @@ export {
 } from "./queries";
 export { processCommand, type CommandResult } from "./commands/processor";
 export {
+  createDispatcher,
+  makeSingleflight,
+  isHalted,
+  resumeDispatch,
+  countPending,
+  countFailed,
+  loadPendingBatch,
+  type Dispatcher,
+  type DispatcherOptions,
+  type CommandEnvelope,
+  type DispatchStatus,
+  type PostResult,
+  type PostCommandsFn,
+  type PendingRow,
+} from "./sync";
+export {
   Command,
   CreateHabit,
   UpdateHabit,

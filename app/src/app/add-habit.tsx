@@ -1,6 +1,5 @@
 import { useRouter } from "expo-router";
-import { processCommand } from "@nag/core";
-import { db } from "../db";
+import { dispatch } from "../infrastructure/dispatch";
 import { HabitForm, type HabitFormData } from "../components/HabitForm";
 import { buildGoalPayload } from "../operations";
 
@@ -8,7 +7,7 @@ const AddHabitScreen = () => {
   const router = useRouter();
 
   const onSubmit = async (values: HabitFormData) => {
-    await processCommand(db, {
+    await dispatch({
       type: "CreateHabit",
       title: values.title,
       description: values.description || undefined,

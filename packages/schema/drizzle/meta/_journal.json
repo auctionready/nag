@@ -57,6 +57,13 @@
       "when": 1743724800000,
       "tag": "0007_add_reminder_to_schedule",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1777014479990,
+      "tag": "0008_clean_changeling",
+      "breakpoints": true
     }
   ]
 }

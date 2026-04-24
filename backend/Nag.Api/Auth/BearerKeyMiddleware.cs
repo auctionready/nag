@@ -12,10 +12,10 @@ public sealed class BearerKeyMiddleware
     public BearerKeyMiddleware(RequestDelegate next, IConfiguration config)
     {
         _next = next;
-        var key =
-            config["Nag:ApiKey"]
-            ?? throw new InvalidOperationException(
-                "Nag:ApiKey is not configured. Set NAG__APIKEY environment variable."
+        var key = config["Nag:ApiKey"];
+        if (string.IsNullOrEmpty(key))
+            throw new InvalidOperationException(
+                "Nag:ApiKey is not configured. Set Nag__ApiKey environment variable."
             );
         _expected = Encoding.UTF8.GetBytes(key);
     }

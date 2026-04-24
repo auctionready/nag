@@ -516,9 +516,9 @@ describe("DeleteCheckIn", () => {
 });
 
 describe("audit logging", () => {
-  it("records an audit entry for each command", async () => {
+  it("records a server-shaped audit entry for each command", async () => {
     const db = getDb();
-    await processCommand(db, {
+    const { externalId } = await processCommand(db, {
       type: "CreateHabit",
       title: "Audit test",
       goal: { regularity: "week", frequency: 2 },
@@ -528,15 +528,26 @@ describe("audit logging", () => {
     expect(logs).toHaveLength(1);
     expect(logs[0].commandType).toBe("CreateHabit");
     expect(logs[0].timestamp).toBeInstanceOf(Date);
+    expect(logs[0].status).toBe("pending");
+    expect(logs[0].envelopeId).toMatch(
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/,
+    );
 
     const payload = JSON.parse(logs[0].payload!);
+    expect(payload.habitId).toBe(externalId);
     expect(payload.title).toBe("Audit test");
-    expect(payload.goal).toEqual({ regularity: "week", frequency: 2 });
+    expect(payload.description).toBeNull();
+    expect(payload.icon).toBeNull();
+    expect(payload.goal).toEqual({
+      regularity: "week",
+      frequency: 2,
+      schedules: null,
+    });
   });
 
-  it("records payload for commands with fields beyond type", async () => {
+  it("emits the habit's externalId for DeleteHabit", async () => {
     const db = getDb();
-    const { habitId } = await processCommand(db, {
+    const { habitId, externalId } = await processCommand(db, {
       type: "CreateHabit",
       title: "Setup",
     });
@@ -548,7 +559,7 @@ describe("audit logging", () => {
     expect(deleteLog).toBeDefined();
     expect(deleteLog!.payload).not.toBeNull();
     const payload = JSON.parse(deleteLog!.payload!);
-    expect(payload.habitId).toBe(habitId);
+    expect(payload.habitId).toBe(externalId);
   });
 
   it("does not audit on validation failure", async () => {
