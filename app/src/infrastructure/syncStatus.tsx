@@ -22,7 +22,10 @@ import {
 } from "@nag/core";
 import { db } from "../db";
 import { postCommitBus } from "./postCommitBus";
-import { isApiConfigured, postCommands } from "./apiClient";
+import { isApiConfigured, logApiConfig, postCommands } from "./apiClient";
+import { log } from "./log";
+
+const logger = log("sync");
 
 export type SyncUiStatus =
   | "disabled"
@@ -68,17 +71,24 @@ export const SyncStatusProvider = ({ children }: PropsWithChildren) => {
         countFailed(db),
         isHalted(db),
       ]);
+      logger.debug(`counts pending=${p} failed=${f} halted=${h}`);
       setPendingCount(p);
       setFailedCount(f);
       if (h) {
         setStatus("halted");
       }
     } catch (e) {
+      logger.error("refreshCounts failed", e);
       Sentry.captureException(e);
     }
   }, []);
 
-  const enabled = useMemo(() => isApiConfigured(), []);
+  const enabled = useMemo(() => {
+    logApiConfig();
+    const e = isApiConfigured();
+    logger.info(`provider init enabled=${e}`);
+    return e;
+  }, []);
 
   const runWithSingleflight = useMemo(() => {
     if (!enabled) return async () => {};
@@ -87,23 +97,28 @@ export const SyncStatusProvider = ({ children }: PropsWithChildren) => {
       post: postCommands,
       onError: (err) => {
         const message = err instanceof Error ? err.message : String(err);
+        logger.error("dispatcher onError", message);
         setLastError(message);
         Sentry.captureException(err);
       },
     });
     const inner = async () => {
       if (!onlineRef.current) {
+        logger.debug("run skipped — offline");
         setStatus("offline");
         await refreshCounts();
         return;
       }
+      logger.debug("run start");
       setStatus("syncing");
       try {
         const result: DispatchStatus = await dispatcher.run();
+        logger.info(`run complete result=${result}`);
         if (result === "halted") setStatus("halted");
         else if (result === "offline") setStatus("offline");
         else setStatus("idle");
       } catch (e) {
+        logger.error("run threw", e);
         Sentry.captureException(e);
         setStatus("offline");
       } finally {
@@ -113,32 +128,57 @@ export const SyncStatusProvider = ({ children }: PropsWithChildren) => {
     return makeSingleflight(inner);
   }, [enabled, refreshCounts]);
 
-  const kick = useCallback(() => {
-    if (!enabled) return;
-    void runWithSingleflight();
-  }, [enabled, runWithSingleflight]);
+  const kick = useCallback(
+    (source: string) => {
+      if (!enabled) {
+        logger.debug(`kick(${source}) ignored — disabled`);
+        return;
+      }
+      logger.debug(`kick(${source})`);
+      void runWithSingleflight();
+    },
+    [enabled, runWithSingleflight],
+  );
 
   // NetInfo subscription: kick when we come online; reflect offline state.
   useEffect(() => {
     if (!enabled) return;
-    const unsubscribe = NetInfo.addEventListener((state: NetInfoState) => {
-      const online =
-        state.isConnected === true && state.isInternetReachable !== false;
-      const wasOffline = !onlineRef.current;
-      onlineRef.current = online;
-      if (online && wasOffline) {
-        kick();
-      } else if (!online) {
-        setStatus("offline");
-      }
-    });
+    let unsubscribe = () => {};
+    try {
+      unsubscribe = NetInfo.addEventListener((state: NetInfoState) => {
+        const online =
+          state.isConnected === true && state.isInternetReachable !== false;
+        logger.debug(
+          `netinfo event isConnected=${state.isConnected} isInternetReachable=${state.isInternetReachable} → online=${online}`,
+        );
+        const wasOffline = !onlineRef.current;
+        onlineRef.current = online;
+        if (online && wasOffline) {
+          kick("netinfo-online");
+        } else if (!online) {
+          setStatus("offline");
+        }
+      });
+    } catch (e) {
+      logger.error("NetInfo.addEventListener failed", e);
+    }
     // Also fetch the initial state so we don't wait for the first change.
-    NetInfo.fetch().then((state) => {
-      onlineRef.current =
-        state.isConnected === true && state.isInternetReachable !== false;
-      if (onlineRef.current) kick();
-      else setStatus("offline");
-    });
+    NetInfo.fetch()
+      .then((state) => {
+        const online =
+          state.isConnected === true && state.isInternetReachable !== false;
+        logger.debug(
+          `netinfo initial isConnected=${state.isConnected} isInternetReachable=${state.isInternetReachable} → online=${online}`,
+        );
+        onlineRef.current = online;
+        if (online) kick("netinfo-initial");
+        else setStatus("offline");
+      })
+      .catch((e) => {
+        logger.error("NetInfo.fetch failed — assuming online", e);
+        onlineRef.current = true;
+        kick("netinfo-fallback");
+      });
     return unsubscribe;
   }, [enabled, kick]);
 
@@ -146,7 +186,8 @@ export const SyncStatusProvider = ({ children }: PropsWithChildren) => {
   useEffect(() => {
     if (!enabled) return;
     const sub = AppState.addEventListener("change", (state) => {
-      if (state === "active") kick();
+      logger.debug(`appstate change → ${state}`);
+      if (state === "active") kick("appstate-active");
     });
     return () => sub.remove();
   }, [enabled, kick]);
@@ -154,14 +195,14 @@ export const SyncStatusProvider = ({ children }: PropsWithChildren) => {
   // Post-commit subscription.
   useEffect(() => {
     if (!enabled) return;
-    return postCommitBus.subscribe(() => kick());
+    return postCommitBus.subscribe(() => kick("post-commit"));
   }, [enabled, kick]);
 
   // Periodic safety-net timer while foregrounded.
   useEffect(() => {
     if (!enabled) return;
     const timer = setInterval(() => {
-      if (AppState.currentState === "active") kick();
+      if (AppState.currentState === "active") kick("safety-timer");
     }, SAFETY_TIMER_MS);
     return () => clearInterval(timer);
   }, [enabled, kick]);
@@ -173,12 +214,14 @@ export const SyncStatusProvider = ({ children }: PropsWithChildren) => {
   }, [refreshCounts]);
 
   const resume = useCallback(async () => {
+    logger.info("resume requested");
     try {
       await resumeDispatch(db);
       setLastError(null);
       await refreshCounts();
-      kick();
+      kick("resume");
     } catch (e) {
+      logger.error("resume failed", e);
       Sentry.captureException(e);
     }
   }, [kick, refreshCounts]);

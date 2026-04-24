@@ -2,6 +2,7 @@ import Constants from "expo-constants";
 import { isAxiosError } from "axios";
 import { createNagApiClient, type NagApiClient } from "@nag/api-client";
 import type { CommandEnvelope, PostCommandsFn, PostResult } from "@nag/core";
+import { log } from "./log";
 
 type Extra = {
   apiBaseUrl?: string;
@@ -9,8 +10,15 @@ type Extra = {
 };
 
 let singleton: NagApiClient | null = null;
+const logger = log("api");
 
 const extra = (): Extra => (Constants.expoConfig?.extra as Extra) ?? {};
+
+const maskKey = (key: string | undefined): string => {
+  if (!key) return "<missing>";
+  if (key.length <= 8) return "***";
+  return `${key.slice(0, 4)}…${key.slice(-4)}`;
+};
 
 export const getApiClient = (): NagApiClient => {
   if (singleton) return singleton;
@@ -21,6 +29,9 @@ export const getApiClient = (): NagApiClient => {
         "(see app.config.ts → extra).",
     );
   }
+  logger.info(
+    `creating client baseUrl=${apiBaseUrl} apiKey=${maskKey(apiKey)}`,
+  );
   singleton = createNagApiClient({ baseUrl: apiBaseUrl, apiKey });
   return singleton;
 };
@@ -28,6 +39,14 @@ export const getApiClient = (): NagApiClient => {
 export const isApiConfigured = (): boolean => {
   const { apiBaseUrl, apiKey } = extra();
   return Boolean(apiBaseUrl) && Boolean(apiKey);
+};
+
+/** One-time startup announcement of the API configuration state. */
+export const logApiConfig = (): void => {
+  const { apiBaseUrl, apiKey } = extra();
+  logger.info(
+    `config apiBaseUrl=${apiBaseUrl || "<missing>"} apiKey=${maskKey(apiKey)} configured=${isApiConfigured()}`,
+  );
 };
 
 /** HTTP status codes that indicate a transient failure we should retry. */
@@ -46,9 +65,15 @@ export const postCommands: PostCommandsFn = async (
   envelope: CommandEnvelope,
 ): Promise<PostResult> => {
   const client = getApiClient();
+  logger.debug(
+    `POST /commands id=${envelope.id} type=${envelope.type} timestamp=${envelope.timestamp}`,
+  );
   try {
     const response = await client.postCommands(
       envelope as Parameters<typeof client.postCommands>[0],
+    );
+    logger.debug(
+      `POST /commands ok sequence=${response.sequence} accepted=${(response as { accepted?: boolean }).accepted}`,
     );
     return { ok: true, sequence: response.sequence ?? 0 };
   } catch (error: unknown) {
@@ -57,16 +82,19 @@ export const postCommands: PostCommandsFn = async (
       const data = error.response.data as { message?: string } | undefined;
       const message = data?.message ?? error.message;
       if (status >= 500 || TRANSIENT_STATUSES.has(status)) {
+        logger.warn(`POST /commands transient status=${status}`, message);
         return {
           ok: false,
           kind: "transient",
           message: `${status}: ${message}`,
         };
       }
+      logger.error(`POST /commands non-retriable status=${status}`, message);
       return { ok: false, kind: "non-retriable", status, message };
     }
     // Network error, timeout, or thrown before a response — let the
     // dispatcher treat it as transient.
+    logger.warn("POST /commands network error (rethrowing)", error);
     throw error;
   }
 };

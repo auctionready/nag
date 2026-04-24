@@ -1,6 +1,9 @@
 import { processCommand, type Command, type CommandResult } from "@nag/core";
 import { db } from "../db";
 import { postCommitBus } from "./postCommitBus";
+import { log } from "./log";
+
+const logger = log("dispatch");
 
 /**
  * App-level wrapper around `processCommand` that fires the post-commit bus
@@ -13,7 +16,14 @@ import { postCommitBus } from "./postCommitBus";
 export const dispatch = async <T extends Command>(
   command: T,
 ): Promise<CommandResult<T>> => {
-  const result = await processCommand(db, command);
-  postCommitBus.emit();
-  return result;
+  logger.debug(`start ${command.type}`, command);
+  try {
+    const result = await processCommand(db, command);
+    logger.debug(`committed ${command.type}`, result);
+    postCommitBus.emit();
+    return result;
+  } catch (error) {
+    logger.error(`failed ${command.type}`, error);
+    throw error;
+  }
 };
