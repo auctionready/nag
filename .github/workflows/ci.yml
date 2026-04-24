@@ -24,6 +24,8 @@ jobs:
 
       - run: pnpm run lint
 
+      - run: pnpm prettier --check .
+
   build-app:
     runs-on: ubuntu-latest
     steps:
