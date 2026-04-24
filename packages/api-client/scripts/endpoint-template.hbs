@@ -1,0 +1,39 @@
+/**
+ * GENERATED — do not edit by hand.
+ *
+ * Regenerate with:
+ *   pnpm --filter @nag/api-client generate
+ */
+import { makeApi } from "@zodios/core";
+import { z } from "zod";
+
+const IsoDatetime = z.iso.datetime({ offset: true }).transform((s) => new Date(s));
+
+{{#each schemas}}
+export const {{@key}} = {{{this}}};
+export type {{@key}} = z.infer<typeof {{@key}}>;
+
+{{/each}}
+
+export const endpoints = makeApi([
+{{#each endpoints}}
+  {
+    method: "{{method}}",
+    path: "{{path}}",
+    alias: "{{alias}}",
+    parameters: [
+{{#each parameters}}
+      { name: "{{name}}", type: "{{type}}", schema: {{{schema}}} },
+{{/each}}
+    ],
+    response: {{{response}}},
+    errors: [
+{{#each errors}}
+      { status: {{status}}, schema: {{{schema}}} },
+{{/each}}
+    ],
+  },
+{{/each}}
+]);
+
+export type Endpoints = typeof endpoints;

@@ -8,7 +8,7 @@ public static class HomeBoardEndpoints
 {
     public static void MapHomeBoardEndpoints(this IEndpointRouteBuilder app)
     {
-        app.MapGet("/home-board", GetHomeBoard).WithTags("Read Models");
+        app.MapGet("/home-board", GetHomeBoard).WithTags("Read Models").Produces<HomeBoard>();
     }
 
     public static async Task<IResult> GetHomeBoard(IQuerySession session, CancellationToken ct)

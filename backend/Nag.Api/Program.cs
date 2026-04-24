@@ -8,6 +8,7 @@ using Nag.Core.Handlers;
 using Nag.Core.Projections;
 using Nag.Core.Validation;
 using Serilog;
+using static Microsoft.AspNetCore.Http.Results;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -64,7 +65,12 @@ builder.Services.AddValidatorsFromAssemblyContaining<CreateHabitValidator>(filte
 
 #if DEBUG
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
+builder.Services.AddSwaggerGen(c =>
+{
+    c.UseAllOfToExtendReferenceSchemas();
+    c.SchemaFilter<EnumSchemaFilter>();
+    c.DocumentFilter<CommandSchemasFilter>();
+});
 #endif
 
 var app = builder.Build();
@@ -73,7 +79,7 @@ app.UseSerilogRequestLogging();
 
 app.UseMiddleware<BearerKeyMiddleware>();
 
-app.MapGet("/health", () => Results.Ok(new { status = "ok" })).WithTags("Health");
+app.MapGet("/health", NoContent).WithTags("Health").Produces(StatusCodes.Status204NoContent);
 app.MapCommandsEndpoints();
 app.MapHomeBoardEndpoints();
 

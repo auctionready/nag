@@ -56,6 +56,6 @@ public class AuthTests : IClassFixture<AuthTests.Factory>
     {
         var client = _factory.CreateClient();
         var response = await client.GetAsync("/health");
-        response.StatusCode.ShouldBe(HttpStatusCode.OK);
+        response.StatusCode.ShouldBe(HttpStatusCode.NoContent);
     }
 }

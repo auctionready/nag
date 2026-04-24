@@ -1,4 +1,5 @@
 pnpm-lock.yaml
 packages/schema/drizzle/
+packages/api-client/scripts/*.hbs
 .beads/
 .claude/
