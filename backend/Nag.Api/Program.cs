@@ -11,13 +11,13 @@ using Nag.Core.Validation;
 using Serilog;
 using static Microsoft.AspNetCore.Http.Results;
 
-var builder = WebApplication.CreateBuilder(args);
-
 #if DEBUG
 dotenv.net.DotEnv.Load(
     new dotenv.net.DotEnvOptions(envFilePaths: [".env", ".env.local"], ignoreExceptions: true)
 );
 #endif
+
+var builder = WebApplication.CreateBuilder(args);
 
 LambdaSecrets.HydrateFromEnvironment(builder.Configuration);
 
