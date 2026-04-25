@@ -1251,8 +1251,19 @@
         },
         "additionalProperties": false
       }
+    },
+    "securitySchemes": {
+      "Bearer": {
+        "type": "http",
+        "description": "Bearer API key. Send as header: `Authorization: Bearer <key>`. Dev key: `swagger-cli-throwaway`",
+        "scheme": "bearer",
+        "bearerFormat": "API key"
+      }
     }
   },
+  "security": [
+    { }
+  ],
   "tags": [
     {
       "name": "Accounts"

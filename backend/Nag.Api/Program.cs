@@ -1,9 +1,6 @@
 using FluentValidation;
 using JasperFx.Events.Projections;
 using Marten;
-#if DEBUG
-using Microsoft.OpenApi;
-#endif
 using Nag.Api.Auth;
 using Nag.Api.Endpoints;
 using Nag.Api.Infrastructure;
@@ -15,6 +12,7 @@ using Serilog;
 using Wolverine;
 using static Microsoft.AspNetCore.Http.Results;
 #if DEBUG
+using Microsoft.OpenApi;
 using Nag.Api.OpenApi;
 
 dotenv.net.DotEnv.Load(
@@ -127,12 +125,10 @@ builder.Services.AddSwaggerGen(c =>
         }
     );
 
-    c.AddSecurityRequirement(
-        new OpenApiSecurityRequirement
-        {
-            { new OpenApiSecuritySchemeReference("Bearer"), new List<string>() },
-        }
-    );
+    c.AddSecurityRequirement(_ => new OpenApiSecurityRequirement
+    {
+        { new OpenApiSecuritySchemeReference("Bearer"), new List<string>() },
+    });
 });
 #endif
 
