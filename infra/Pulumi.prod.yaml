@@ -23,3 +23,4 @@ config:
     secure: AAABABHObgMRRA+CSbpLYaYK6wAJ4WYRBLy2kFELytWNIBZPC3KkcoDLGd7Vl65VZi5HmA==
   nag:hostedZoneName: auctionready.co.nz
   nag:apiDomainName: nagapi.auctionready.co.nz
+  nag:clerkIssuer: https://feasible-lynx-68.clerk.accounts.dev
