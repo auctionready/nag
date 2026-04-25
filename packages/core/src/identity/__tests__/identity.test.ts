@@ -7,7 +7,7 @@ import {
   refreshDeviceToken,
   loadIdentity,
   getAccountId,
-  getDeviceToken,
+  type TokenStore,
 } from "../identity";
 import type { RegisterDeviceResult } from "../types";
 
@@ -15,11 +15,25 @@ const getDb = setupTestDb("identity-test.db");
 
 const newDeviceId = () => "11111111-2222-4333-8444-555555555555";
 
+class InMemoryTokenStore implements TokenStore {
+  constructor(private value: string | null = null) {}
+  async get(): Promise<string | null> {
+    return this.value;
+  }
+  async set(token: string): Promise<void> {
+    this.value = token;
+  }
+  async clear(): Promise<void> {
+    this.value = null;
+  }
+}
+
 describe("ensureDeviceRegistered", () => {
-  it("on first launch: generates a deviceId, registers, persists accountId and deviceToken", async () => {
+  it("on first launch: generates a deviceId, registers, persists accountId in SQLite and token in tokenStore", async () => {
     const db = getDb();
     await db.delete(identity); // simulate fresh install
 
+    const tokenStore = new InMemoryTokenStore();
     const register = vi.fn(
       async (): Promise<RegisterDeviceResult> => ({
         ok: true,
@@ -31,6 +45,7 @@ describe("ensureDeviceRegistered", () => {
 
     const result = await ensureDeviceRegistered({
       db,
+      tokenStore,
       register,
       newDeviceId,
     });
@@ -45,20 +60,14 @@ describe("ensureDeviceRegistered", () => {
       deviceId: newDeviceId(),
       accountId: "acc-from-server",
       registeredAt: new Date("2026-04-25T00:00:00.000Z"),
-      deviceToken: "tok-from-server",
     });
+    expect(await tokenStore.get()).toBe("tok-from-server");
   });
 
   describe("when already registered", () => {
-    it("does not call the register function and returns the cached accountId + deviceToken", async () => {
+    it("does not call register and returns the cached accountId + token", async () => {
       const db = getDb();
-      // testDb already seeds an identity row; force a token onto it so
-      // the short-circuit path engages (legacy rows from before phase
-      // 2c had no token; covered separately below).
-      await db
-        .update(identity)
-        .set({ deviceToken: "cached-tok" })
-        .where(eq(identity.id, 1));
+      const tokenStore = new InMemoryTokenStore("cached-tok");
 
       const register = vi.fn(async (): Promise<RegisterDeviceResult> => {
         throw new Error(
@@ -68,6 +77,7 @@ describe("ensureDeviceRegistered", () => {
 
       const result = await ensureDeviceRegistered({
         db,
+        tokenStore,
         register,
         newDeviceId,
       });
@@ -87,6 +97,7 @@ describe("ensureDeviceRegistered", () => {
         id: 1,
         deviceId: persistedDeviceId,
       });
+      const tokenStore = new InMemoryTokenStore();
 
       const register = vi.fn(
         async (): Promise<RegisterDeviceResult> => ({
@@ -99,6 +110,7 @@ describe("ensureDeviceRegistered", () => {
 
       const result = await ensureDeviceRegistered({
         db,
+        tokenStore,
         register,
         newDeviceId,
       });
@@ -107,11 +119,13 @@ describe("ensureDeviceRegistered", () => {
       expect(result.deviceId).toBe(persistedDeviceId);
       expect(result.accountId).toBe("acc-on-retry");
       expect(result.deviceToken).toBe("tok-on-retry");
+      expect(await tokenStore.get()).toBe("tok-on-retry");
     });
 
-    it("on a transient failure: leaves accountId null and returns the failure", async () => {
+    it("on a transient failure: leaves accountId null and the tokenStore empty", async () => {
       const db = getDb();
       await db.delete(identity);
+      const tokenStore = new InMemoryTokenStore();
 
       const register = vi.fn(
         async (): Promise<RegisterDeviceResult> => ({
@@ -123,6 +137,7 @@ describe("ensureDeviceRegistered", () => {
 
       const result = await ensureDeviceRegistered({
         db,
+        tokenStore,
         register,
         newDeviceId,
       });
@@ -135,16 +150,18 @@ describe("ensureDeviceRegistered", () => {
         message: "network down",
       });
 
-      // deviceId is persisted so the next boot can retry.
+      // deviceId is persisted so the next boot can retry; the token
+      // store is untouched.
       const [row] = await db.select().from(identity).where(eq(identity.id, 1));
       expect(row.deviceId).toBe(newDeviceId());
       expect(row.accountId).toBeNull();
-      expect(row.deviceToken).toBeNull();
+      expect(await tokenStore.get()).toBeNull();
     });
 
     it("on a non-retriable failure: still leaves accountId null (next boot retries)", async () => {
       const db = getDb();
       await db.delete(identity);
+      const tokenStore = new InMemoryTokenStore();
 
       const register = vi.fn(
         async (): Promise<RegisterDeviceResult> => ({
@@ -157,28 +174,30 @@ describe("ensureDeviceRegistered", () => {
 
       const result = await ensureDeviceRegistered({
         db,
+        tokenStore,
         register,
         newDeviceId,
       });
 
       expect(result.accountId).toBeNull();
       expect(result.deviceToken).toBeNull();
+      expect(await tokenStore.get()).toBeNull();
     });
   });
 
   describe("when migrating from a pre-token install", () => {
-    it("re-registers to fetch a deviceToken even though accountId is set", async () => {
-      // Simulate an upgraded install: identity row has a deviceId +
-      // accountId from before phase 2c, but no deviceToken column value.
+    it("re-registers to fetch a deviceToken even though SQLite already has an accountId", async () => {
+      // SQLite row carries deviceId + accountId from before phase 2c,
+      // but the SecureStore has no token (or was wiped).
       const db = getDb();
       await db
         .update(identity)
         .set({
           accountId: "legacy-acc",
           registeredAt: new Date("2026-01-01T00:00:00.000Z"),
-          deviceToken: null,
         })
         .where(eq(identity.id, 1));
+      const tokenStore = new InMemoryTokenStore();
 
       const register = vi.fn(
         async (): Promise<RegisterDeviceResult> => ({
@@ -191,22 +210,25 @@ describe("ensureDeviceRegistered", () => {
 
       const result = await ensureDeviceRegistered({
         db,
+        tokenStore,
         register,
         newDeviceId,
       });
 
       expect(register).toHaveBeenCalled();
       expect(result.deviceToken).toBe("newly-issued-tok");
+      expect(await tokenStore.get()).toBe("newly-issued-tok");
     });
   });
 });
 
 describe("refreshDeviceToken", () => {
-  it("re-registers using the persisted deviceId and updates the row", async () => {
+  it("re-registers using the persisted deviceId and updates the tokenStore", async () => {
     const db = getDb();
     const seeded = await loadIdentity(db);
     expect(seeded).not.toBeNull();
     const persistedDeviceId = seeded!.deviceId;
+    const tokenStore = new InMemoryTokenStore("stale-tok");
 
     const register = vi.fn(
       async (): Promise<RegisterDeviceResult> => ({
@@ -217,19 +239,19 @@ describe("refreshDeviceToken", () => {
       }),
     );
 
-    const newToken = await refreshDeviceToken({ db, register });
+    const newToken = await refreshDeviceToken({ db, tokenStore, register });
 
     expect(register).toHaveBeenCalledWith({ deviceId: persistedDeviceId });
     expect(newToken).toBe("rotated-tok");
+    expect(await tokenStore.get()).toBe("rotated-tok");
 
     const after = await loadIdentity(db);
-    expect(after?.deviceToken).toBe("rotated-tok");
     expect(after?.registeredAt?.toISOString()).toBe("2026-04-26T00:00:00.000Z");
   });
 
-  it("returns null without touching the row when register fails", async () => {
+  it("returns null without touching the tokenStore when register fails", async () => {
     const db = getDb();
-    const before = await loadIdentity(db);
+    const tokenStore = new InMemoryTokenStore("stale-tok");
 
     const register = vi.fn(
       async (): Promise<RegisterDeviceResult> => ({
@@ -239,20 +261,20 @@ describe("refreshDeviceToken", () => {
       }),
     );
 
-    const newToken = await refreshDeviceToken({ db, register });
+    const newToken = await refreshDeviceToken({ db, tokenStore, register });
 
     expect(newToken).toBeNull();
-    const after = await loadIdentity(db);
-    expect(after?.deviceToken).toBe(before?.deviceToken ?? null);
+    expect(await tokenStore.get()).toBe("stale-tok");
   });
 
   it("returns null when no identity row exists", async () => {
     const db = getDb();
     await db.delete(identity);
+    const tokenStore = new InMemoryTokenStore();
 
     const register = vi.fn();
 
-    const newToken = await refreshDeviceToken({ db, register });
+    const newToken = await refreshDeviceToken({ db, tokenStore, register });
 
     expect(newToken).toBeNull();
     expect(register).not.toHaveBeenCalled();
@@ -276,29 +298,5 @@ describe("getAccountId", () => {
   it("returns the accountId once registered", async () => {
     const db = getDb();
     expect(await getAccountId(db)).toBe("00000000-0000-4000-8000-0000000000aa");
-  });
-});
-
-describe("getDeviceToken", () => {
-  it("returns null when no identity row exists", async () => {
-    const db = getDb();
-    await db.delete(identity);
-    expect(await getDeviceToken(db)).toBeNull();
-  });
-
-  it("returns null when identity row exists but deviceToken is unset", async () => {
-    const db = getDb();
-    await db.delete(identity);
-    await db.insert(identity).values({ id: 1, deviceId: "d" });
-    expect(await getDeviceToken(db)).toBeNull();
-  });
-
-  it("returns the deviceToken once persisted", async () => {
-    const db = getDb();
-    await db
-      .update(identity)
-      .set({ deviceToken: "tok-123" })
-      .where(eq(identity.id, 1));
-    expect(await getDeviceToken(db)).toBe("tok-123");
   });
 });

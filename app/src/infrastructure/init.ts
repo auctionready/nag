@@ -10,6 +10,7 @@ import { expoConsolidatedScheduler } from "./expoConsolidatedScheduler";
 import { installCryptoPolyfill } from "./cryptoPolyfill";
 import { installGlobalErrorHandlers } from "./globalErrorHandlers";
 import { registerDevice } from "./apiClient";
+import { deviceTokenStore } from "./tokenStore";
 import { log } from "./log";
 
 const logger = log("init");
@@ -32,6 +33,7 @@ export const init = () => {
   // holds up sync but never blocks app startup or the UI.
   void ensureDeviceRegistered({
     db,
+    tokenStore: deviceTokenStore,
     register: registerDevice,
     log: identityLogger,
   }).catch((error) => {
