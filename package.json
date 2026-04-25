@@ -16,7 +16,9 @@
     "test": "concurrently -g \"pnpm test:app\" \"pnpm test:backend\"",
     "test:app": "pnpm -r --filter !@nag/backend run test",
     "test:backend": "pnpm --filter @nag/backend test",
-    "check": "concurrently -g \"pnpm typecheck\" \"pnpm lint\" \"pnpm test\" \"pnpm format:check\"",
+    "check:app": "concurrently -g \"pnpm typecheck\" \"pnpm lint\" \"pnpm test:app\" \"pnpm format:check:app\"",
+    "check:backend": "concurrently -g \"pnpm test:backend\" \"pnpm format:check:backend\"",
+    "check": "pnpm check:backend && pnpm check:app",
     "typecheck": "tsc -b",
     "typecheck:watch": "tsc -b --watch",
     "prepare": "lefthook install"
