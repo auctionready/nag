@@ -54,18 +54,29 @@ const SignedInOrOut = () => {
   const { startSSOFlow } = useSSO();
   const [status, setStatus] = React.useState<UpgradeStatus>({ kind: "idle" });
 
-  // Reset upgrade state on sign-out so a subsequent sign-in re-runs upgrade.
-  React.useEffect(() => {
-    if (isLoaded && !isSignedIn && status.kind !== "idle") {
-      setStatus({ kind: "idle" });
-    }
-  }, [isLoaded, isSignedIn, status.kind]);
+  // Tracks whether we've already kicked off an upgrade for the current
+  // signed-in session. Reset when the user signs out. Using a ref instead
+  // of `status.kind` as the guard avoids feedback loops: any `setStatus`
+  // call inside the effect would otherwise change a dep, fire cleanup,
+  // and silently cancel the pending API call.
+  const upgradeStarted = React.useRef(false);
 
-  // After a fresh sign-in, post the Clerk JWT to /accounts/upgrade exactly
-  // once. The server is idempotent if the user re-signs-in to the same
-  // identity, so retries on transient failure are safe.
   React.useEffect(() => {
-    if (!isLoaded || !isSignedIn || status.kind !== "idle") return;
+    if (!isLoaded) return;
+
+    // On sign-out, reset both the run-once flag and any visible status so a
+    // subsequent sign-in starts fresh.
+    if (!isSignedIn) {
+      upgradeStarted.current = false;
+      setStatus((current) =>
+        current.kind === "idle" ? current : { kind: "idle" },
+      );
+      return;
+    }
+
+    if (upgradeStarted.current) return;
+    upgradeStarted.current = true;
+
     let cancelled = false;
     (async () => {
       setStatus({ kind: "in-progress" });
@@ -108,7 +119,7 @@ const SignedInOrOut = () => {
     return () => {
       cancelled = true;
     };
-  }, [isLoaded, isSignedIn, getToken, status.kind]);
+  }, [isLoaded, isSignedIn, getToken]);
 
   const onSignIn = React.useCallback(async () => {
     try {
