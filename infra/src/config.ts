@@ -15,6 +15,10 @@ export const stackConfig = {
   lambdaMemoryMb: cfg.getNumber("lambdaMemoryMb") ?? 1536,
   lambdaPackagePath: cfg.get("lambdaPackagePath") ?? "./artifacts/nag-api.zip",
   logRetentionDays: cfg.getNumber("logRetentionDays") ?? 14,
+  // EC2 instance type for the cost-minimized NAT instance. t4g.nano is
+  // sufficient for the current Clerk-only egress workload (~few KB,
+  // cached). Bump if outbound traffic ever grows.
+  natInstanceType: cfg.get("natInstanceType") ?? "t4g.nano",
   apiDomainName: cfg.get("apiDomainName"),
   hostedZoneName: cfg.get("hostedZoneName"),
   // Clerk Frontend API URL — e.g. https://your-instance.clerk.accounts.dev.

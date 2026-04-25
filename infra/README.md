@@ -1,6 +1,6 @@
 # Nag infrastructure (Pulumi, TypeScript)
 
-AWS deployment for the Nag backend: API Gateway HTTP API → Lambda (`dotnet10`, arm64) → Aurora PostgreSQL Serverless v2 (engine 17). The DB password and the device-token signing secret are injected into the Lambda as KMS-encrypted environment variables — no NAT Gateway or AWS Secrets Manager.
+AWS deployment for the Nag backend: API Gateway HTTP API → Lambda (`dotnet10`, arm64) → Aurora PostgreSQL Serverless v2 (engine 17). The DB password and the device-token signing secret are injected into the Lambda as KMS-encrypted environment variables — no managed NAT Gateway, no AWS Secrets Manager.
 
 State backend: **Pulumi Cloud**.
 Region: **ap-southeast-2**.
@@ -9,12 +9,16 @@ Region: **ap-southeast-2**.
 
 ```
 Internet → API Gateway HTTP API ($default)
-        → Lambda nag-api (VPC, private subnets, no internet egress)
+        → Lambda nag-api (VPC, private subnets)
         → Aurora PostgreSQL Serverless v2 (private subnets, auto-pauses when idle)
         → CloudWatch Logs /aws/lambda/nag-api (14-day retention, via Lambda-internal path)
+
+Lambda outbound (Clerk JWKS only) → NAT instance (t4g.nano, fck-nat AMI, single AZ) → Internet
 ```
 
-The Lambda has no NAT Gateway and no VPC endpoints — it reaches Aurora over its Hyperplane ENI inside the private subnet, and log delivery is handled by the Lambda runtime (not the function's VPC networking). The DB password and the device-token signing secret are passed as Lambda environment variables (`DB_PASSWORD`, `DEVICE_TOKEN_SECRET`), encrypted at rest with the AWS-managed KMS key — see `backend/Nag.Api/Infrastructure/LambdaSecrets.cs`.
+The Lambda reaches Aurora over its Hyperplane ENI inside the private subnet, and log delivery is handled by the Lambda runtime (not the function's VPC networking). The DB password and the device-token signing secret are passed as Lambda environment variables (`DB_PASSWORD`, `DEVICE_TOKEN_SECRET`), encrypted at rest with the AWS-managed KMS key — see `backend/Nag.Api/Infrastructure/LambdaSecrets.cs`.
+
+Outbound internet (a few KB to Clerk's `/.well-known/openid-configuration` + JWKS, cached in-process) is served by a single `t4g.nano` NAT instance running the [fck-nat](https://fck-nat.dev/) community AMI, in one public subnet. This costs ~US$3/mo vs ~US$33/mo for a managed NAT Gateway. Tradeoff: if the NAT instance or its AZ goes down, Clerk-protected endpoints (`/accounts/upgrade`, `/devices/pair`) fail until it's replaced; everything else (health checks, anonymous registration, device-token endpoints) keeps working. See [`src/nat.ts`](./src/nat.ts) for the full caveats list and the recipe for switching back to a managed NAT Gateway.
 
 Aurora is configured with `minCapacity: 0` and `secondsUntilAutoPause` (default 3000 s / 50 min) so the cluster scales to zero when idle. The first query after a long idle period pays a ~10–15 s warm-up.
 
@@ -159,7 +163,8 @@ infra/
   index.ts                # wires the modules
   src/
     config.ts             # typed stack-config accessor
-    network.ts            # VPC, subnets (no NAT), SGs
+    network.ts            # VPC, public + private subnets, SGs
+    nat.ts                # NAT instance (t4g.nano, fck-nat) — cost-minimized egress
     database.ts           # Aurora Serverless v2 cluster + writer (auto-pause)
     api.ts                # Lambda + API Gateway + log group + IAM
     domain.ts             # ACM cert + API Gateway custom domain + Route 53 alias (optional)

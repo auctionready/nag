@@ -167,12 +167,21 @@ are passed as KMS-encrypted Lambda environment variables (`API_KEY`,
 reads them and writes the connection string + API key into
 `IConfiguration`.
 
-The VPC has no NAT Gateway and no VPC endpoints — the Lambda only needs
-to reach Aurora (over its Hyperplane ENI inside the private subnet) and
+The VPC has no managed NAT Gateway and no VPC endpoints — the Lambda
+reaches Aurora over its Hyperplane ENI inside the private subnet, and
 the runtime delivers logs to CloudWatch via a Lambda-internal path.
-Aurora auto-pauses after 50 minutes of inactivity (`minCapacity: 0`,
-`secondsUntilAutoPause: 3000`); the first query after a long idle period
-pays a ~10–15 s warm-up.
+Outbound internet (Clerk OIDC discovery + JWKS, only when
+`Nag:ClerkIssuer` is configured) goes via a single `t4g.nano` NAT
+instance (fck-nat AMI) in one public subnet — ~US$3/mo vs ~US$33/mo
+for a managed NAT Gateway. Clerk's JWKS is cached in-process by
+`IConfigurationManager<OpenIdConnectConfiguration>`, so brief NAT
+outages (shorter than the JWKS refresh interval) are invisible to
+callers; longer outages fail Clerk-protected endpoints closed while
+anonymous registration and device-token endpoints keep working. See
+[`infra/src/nat.ts`](../infra/src/nat.ts) for the full caveats and the
+"switch back to NAT Gateway" recipe. Aurora auto-pauses after 50
+minutes of inactivity (`minCapacity: 0`, `secondsUntilAutoPause: 3000`);
+the first query after a long idle period pays a ~10–15 s warm-up.
 
 Deploys run via
 [`.github/workflows/deploy-backend.yml`](../.github/workflows/deploy-backend.yml),
