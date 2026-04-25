@@ -8,22 +8,27 @@ namespace Nag.Api.OpenApi;
 
 /// <summary>
 /// DEBUG-only glue that lets Swagger UI authenticate without going through
-/// the real /devices/register flow:
-/// <list type="bullet">
-///   <item><c>GET /dev/token</c> mints an HMAC device token bound to a
-///   stable dev account/device pair (overridable via
-///   <c>Nag:DeviceToken:DevAccountId</c> / <c>:DevDeviceId</c>).</item>
-///   <item><c>GET /swagger-dev-auth.js</c> is injected into Swagger UI
-///   (<see cref="Microsoft.AspNetCore.Builder.SwaggerUIOptions.InjectJavascript"/>);
-///   on load it fetches <c>/dev/token</c> and calls
-///   <c>ui.preauthorizeApiKey("Bearer", …)</c>.</item>
-/// </list>
-/// Both routes are <c>.ExcludeFromDescription()</c> so they don't leak
-/// into the generated OpenAPI spec used by the mobile API client.
+/// the real /devices/register flow.
+///
+/// <para>
+/// <c>GET /dev/token</c> mints an HMAC device token bound to a stable dev
+/// account/device pair (overridable via <c>Nag:DeviceToken:DevAccountId</c>
+/// / <c>:DevDeviceId</c>). The route is <c>ExcludeFromDescription</c> so it
+/// doesn't leak into the OpenAPI spec used by the mobile API client.
+/// </para>
+///
+/// <para>
+/// <see cref="RequestInterceptorScript"/> is wired into Swagger UI via
+/// <c>UseRequestInterceptor</c>. It fetches <c>/dev/token</c> on the first
+/// outgoing request, caches the bearer on <c>window</c>, and stamps
+/// <c>Authorization: Bearer …</c> onto every subsequent request. This is
+/// more reliable than <c>preauthorizeApiKey</c>, which registers the auth
+/// as <c>apiKey</c>-shaped and is then skipped by swagger-ui's HTTP-bearer
+/// applier.
+/// </para>
 /// </summary>
 public static class SwaggerDevAuth
 {
-    public const string ScriptPath = "/swagger-dev-auth.js";
     public const string TokenPath = "/dev/token";
 
     private static readonly Guid DefaultAccountId = new("11111111-1111-1111-1111-111111111111");
@@ -31,41 +36,29 @@ public static class SwaggerDevAuth
 
     public sealed record DevTokenResponse(Guid AccountId, Guid DeviceId, string Token);
 
-    private const string Script = """
-        (function () {
-          function attempt(retries) {
-            if (!window.ui || typeof window.ui.preauthorizeApiKey !== 'function') {
-              if (retries > 0) {
-                setTimeout(function () { attempt(retries - 1); }, 50);
-              } else {
-                console.warn('[swagger-dev-auth] swagger UI never became ready');
+    public const string RequestInterceptorScript = """
+        async (req) => {
+          try {
+            if (!req.url.endsWith('/dev/token') && !window.__nagDevToken) {
+              const r = await fetch('/dev/token');
+              if (r.ok) {
+                const data = await r.json();
+                window.__nagDevToken = data.token;
+                console.log('[swagger-dev-auth] cached bearer for account', data.accountId);
               }
-              return;
             }
-            fetch('/dev/token')
-              .then(function (r) {
-                if (!r.ok) throw new Error('GET /dev/token -> ' + r.status);
-                return r.json();
-              })
-              .then(function (data) {
-                window.ui.preauthorizeApiKey('Bearer', data.token);
-                console.log('[swagger-dev-auth] preauthorized as account', data.accountId);
-              })
-              .catch(function (err) {
-                console.warn('[swagger-dev-auth] failed:', err);
-              });
+            if (window.__nagDevToken && !req.headers['Authorization']) {
+              req.headers['Authorization'] = 'Bearer ' + window.__nagDevToken;
+            }
+          } catch (err) {
+            console.warn('[swagger-dev-auth] interceptor failed:', err);
           }
-          attempt(50);
-        })();
+          return req;
+        }
         """;
 
     public static IEndpointRouteBuilder MapSwaggerDevAuth(this IEndpointRouteBuilder routes)
     {
-        routes
-            .MapGet(ScriptPath, () => Results.Content(Script, "application/javascript"))
-            .AllowAnonymous()
-            .ExcludeFromDescription();
-
         routes
             .MapGet(
                 TokenPath,
