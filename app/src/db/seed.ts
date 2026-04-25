@@ -1,6 +1,6 @@
-import { type InferInsertModel } from "drizzle-orm";
+import { eq, type InferInsertModel } from "drizzle-orm";
 import { subDays } from "date-fns";
-import { habit, goal, checkIn, schedule, outbox } from "@nag/schema";
+import { habit, goal, checkIn, schedule, outbox, syncState } from "@nag/schema";
 import { Day, AllDays } from "@nag/core";
 import { db } from "./index";
 
@@ -116,11 +116,23 @@ const sampleData: SeedEntry[] = [
 
 // ── Functions ────────────────────────────────────────────────────────
 
+/**
+ * Wipes all replicated data + the outbox and resets sync bookkeeping,
+ * leaving the `identity` row (device + account ID) intact. After this
+ * runs, the next pull-sync sees `since=0` and so exercises the snapshot
+ * install path — useful for end-to-end testing the "fresh install with
+ * the same device" flow without re-registering.
+ */
 export const clearAll = async () => {
   await db.delete(checkIn);
+  await db.delete(schedule);
   await db.delete(goal);
   await db.delete(habit);
   await db.delete(outbox);
+  await db
+    .update(syncState)
+    .set({ halted: false, highestServerSequence: 0 })
+    .where(eq(syncState.id, 1));
 };
 
 export const seedSampleData = async () => {
