@@ -19,13 +19,11 @@ public sealed class SyncCoordinator(IQuerySession session, CommandsReader reader
 
     public async Task<SyncResponse> SyncAsync(long since, CancellationToken ct)
     {
-        var head = await session
+        var headSequence = await session
             .Events.QueryAllRawEvents()
             .OrderByDescending(e => e.Sequence)
-            .Select(e => (long?)e.Sequence)
+            .Select(e => e.Sequence)
             .FirstOrDefaultAsync(ct);
-
-        var headSequence = head ?? 0L;
 
         if (since < 0)
             since = 0;

@@ -2,7 +2,6 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
 using Nag.Core.Contracts;
-using Nag.Core.ReadModels;
 using Nag.Tests.Infrastructure;
 using Shouldly;
 using Xunit;
@@ -10,25 +9,21 @@ using Xunit;
 namespace Nag.Tests.Api;
 
 [Collection(PostgresCollection.Name)]
-public class SyncEndpointsTests : IClassFixture<SyncEndpointsTests.Factory>
+public class SyncEndpointsTests
 {
-    private readonly Factory _factory;
+    protected readonly PostgresFixture Pg;
 
-    public SyncEndpointsTests(PostgresFixture pg, Factory factory)
+    public SyncEndpointsTests(PostgresFixture pg)
     {
-        _factory = factory;
-        _factory.ConnectionString = pg.ConnectionString;
-        _factory.SchemaName = "api_sync";
+        Pg = pg;
     }
 
-    public sealed class Factory : NagApiFactory;
-
-    private HttpClient AuthedClient()
+    private HttpClient AuthedClient(NagApiFactory factory)
     {
-        var c = _factory.CreateClient();
+        var c = factory.CreateClient();
         c.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
             "Bearer",
-            _factory.ApiKey
+            factory.ApiKey
         );
         return c;
     }
@@ -48,85 +43,190 @@ public class SyncEndpointsTests : IClassFixture<SyncEndpointsTests.Factory>
         return body!.Sequence;
     }
 
-    [Fact]
-    public async Task since_zero_returns_snapshot()
+    public class SinceZeroReturnsSnapshot
+        : SyncEndpointsTests,
+            IClassFixture<SinceZeroReturnsSnapshot.Factory>
     {
-        var client = AuthedClient();
-        await PostHabit(client, "Read");
-        await PostHabit(client, "Run");
+        public sealed class Factory : NagApiFactory;
 
-        var raw = await client.GetStringAsync("/sync?since=0");
-        using var doc = JsonDocument.Parse(raw);
-        doc.RootElement.GetProperty("mode").GetString().ShouldBe("snapshot");
-        doc.RootElement.GetProperty("sequenceAtSnapshot").GetInt64().ShouldBeGreaterThan(0);
-        var snapshot = doc.RootElement.GetProperty("snapshot");
-        snapshot.GetProperty("habits").GetArrayLength().ShouldBe(2);
-    }
-
-    [Fact]
-    public async Task small_gap_returns_replay()
-    {
-        var client = AuthedClient();
-        var first = await PostHabit(client, "Read");
-        await PostHabit(client, "Run");
-
-        var raw = await client.GetStringAsync($"/sync?since={first}");
-        using var doc = JsonDocument.Parse(raw);
-        doc.RootElement.GetProperty("mode").GetString().ShouldBe("replay");
-        var commands = doc.RootElement.GetProperty("commands");
-        commands.GetArrayLength().ShouldBe(1);
-        commands[0].GetProperty("type").GetString().ShouldBe("CreateHabit");
-        commands[0].GetProperty("sequence").GetInt64().ShouldBeGreaterThan(first);
-        doc.RootElement.GetProperty("headSequence").GetInt64().ShouldBeGreaterThan(first);
-    }
-
-    [Fact]
-    public async Task large_gap_falls_back_to_snapshot()
-    {
-        var client = AuthedClient();
-        // SnapshotThreshold = 50; post 60 commands then ask for since=1.
-        for (int i = 0; i < 60; i++)
+        public SinceZeroReturnsSnapshot(PostgresFixture pg, Factory factory)
+            : base(pg)
         {
-            await PostHabit(client, $"H{i}");
+            factory.ConnectionString = pg.ConnectionString;
+            factory.SchemaName = "api_sync_since0";
+            _factory = factory;
         }
 
-        var raw = await client.GetStringAsync("/sync?since=1");
-        using var doc = JsonDocument.Parse(raw);
-        doc.RootElement.GetProperty("mode").GetString().ShouldBe("snapshot");
+        private readonly Factory _factory;
+
+        [Fact]
+        public async Task ok()
+        {
+            var client = AuthedClient(_factory);
+            await PostHabit(client, "Read");
+            await PostHabit(client, "Run");
+
+            var raw = await client.GetStringAsync("/sync?since=0");
+            using var doc = JsonDocument.Parse(raw);
+            doc.RootElement.GetProperty("mode").GetString().ShouldBe("snapshot");
+            doc.RootElement.GetProperty("sequenceAtSnapshot").GetInt64().ShouldBeGreaterThan(0);
+            var snapshot = doc.RootElement.GetProperty("snapshot");
+            snapshot.GetProperty("habits").GetArrayLength().ShouldBe(2);
+        }
     }
 
-    [Fact]
-    public async Task snapshot_carries_last_sequence()
+    public class SmallGapReturnsReplay
+        : SyncEndpointsTests,
+            IClassFixture<SmallGapReturnsReplay.Factory>
     {
-        var client = AuthedClient();
-        await PostHabit(client, "Read");
-        var lastSeq = await PostHabit(client, "Run");
+        public sealed class Factory : NagApiFactory;
 
-        var raw = await client.GetStringAsync("/sync?since=0");
-        using var doc = JsonDocument.Parse(raw);
-        doc.RootElement.GetProperty("sequenceAtSnapshot").GetInt64().ShouldBe(lastSeq);
+        public SmallGapReturnsReplay(PostgresFixture pg, Factory factory)
+            : base(pg)
+        {
+            factory.ConnectionString = pg.ConnectionString;
+            factory.SchemaName = "api_sync_smallgap";
+            _factory = factory;
+        }
+
+        private readonly Factory _factory;
+
+        [Fact]
+        public async Task ok()
+        {
+            var client = AuthedClient(_factory);
+            var first = await PostHabit(client, "Read");
+            await PostHabit(client, "Run");
+
+            var raw = await client.GetStringAsync($"/sync?since={first}");
+            using var doc = JsonDocument.Parse(raw);
+            doc.RootElement.GetProperty("mode").GetString().ShouldBe("replay");
+            var commands = doc.RootElement.GetProperty("commands");
+            commands.GetArrayLength().ShouldBe(1);
+            commands[0].GetProperty("type").GetString().ShouldBe("CreateHabit");
+            commands[0].GetProperty("sequence").GetInt64().ShouldBeGreaterThan(first);
+            doc.RootElement.GetProperty("headSequence").GetInt64().ShouldBeGreaterThan(first);
+        }
     }
 
-    [Fact]
-    public async Task at_head_returns_empty_replay()
+    public class LargeGapFallsBackToSnapshot
+        : SyncEndpointsTests,
+            IClassFixture<LargeGapFallsBackToSnapshot.Factory>
     {
-        var client = AuthedClient();
-        var lastSeq = await PostHabit(client, "Read");
+        public sealed class Factory : NagApiFactory;
 
-        var raw = await client.GetStringAsync($"/sync?since={lastSeq}");
-        using var doc = JsonDocument.Parse(raw);
-        doc.RootElement.GetProperty("mode").GetString().ShouldBe("replay");
-        doc.RootElement.GetProperty("commands").GetArrayLength().ShouldBe(0);
+        public LargeGapFallsBackToSnapshot(PostgresFixture pg, Factory factory)
+            : base(pg)
+        {
+            factory.ConnectionString = pg.ConnectionString;
+            factory.SchemaName = "api_sync_largegap";
+            _factory = factory;
+        }
+
+        private readonly Factory _factory;
+
+        [Fact]
+        public async Task ok()
+        {
+            var client = AuthedClient(_factory);
+            // SnapshotThreshold = 50; post 60 commands then ask for since=1.
+            for (int i = 0; i < 60; i++)
+            {
+                await PostHabit(client, $"H{i}");
+            }
+
+            var raw = await client.GetStringAsync("/sync?since=1");
+            using var doc = JsonDocument.Parse(raw);
+            doc.RootElement.GetProperty("mode").GetString().ShouldBe("snapshot");
+        }
     }
 
-    [Fact]
-    public async Task empty_store_returns_snapshot_with_zero_sequence()
+    public class SnapshotCarriesLastSequence
+        : SyncEndpointsTests,
+            IClassFixture<SnapshotCarriesLastSequence.Factory>
     {
-        var client = AuthedClient();
-        var raw = await client.GetStringAsync("/sync?since=0");
-        using var doc = JsonDocument.Parse(raw);
-        doc.RootElement.GetProperty("mode").GetString().ShouldBe("snapshot");
-        doc.RootElement.GetProperty("sequenceAtSnapshot").GetInt64().ShouldBe(0);
-        doc.RootElement.GetProperty("snapshot").GetProperty("habits").GetArrayLength().ShouldBe(0);
+        public sealed class Factory : NagApiFactory;
+
+        public SnapshotCarriesLastSequence(PostgresFixture pg, Factory factory)
+            : base(pg)
+        {
+            factory.ConnectionString = pg.ConnectionString;
+            factory.SchemaName = "api_sync_lastseq";
+            _factory = factory;
+        }
+
+        private readonly Factory _factory;
+
+        [Fact]
+        public async Task ok()
+        {
+            var client = AuthedClient(_factory);
+            await PostHabit(client, "Read");
+            var lastSeq = await PostHabit(client, "Run");
+
+            var raw = await client.GetStringAsync("/sync?since=0");
+            using var doc = JsonDocument.Parse(raw);
+            doc.RootElement.GetProperty("sequenceAtSnapshot").GetInt64().ShouldBe(lastSeq);
+        }
+    }
+
+    public class AtHeadReturnsEmptyReplay
+        : SyncEndpointsTests,
+            IClassFixture<AtHeadReturnsEmptyReplay.Factory>
+    {
+        public sealed class Factory : NagApiFactory;
+
+        public AtHeadReturnsEmptyReplay(PostgresFixture pg, Factory factory)
+            : base(pg)
+        {
+            factory.ConnectionString = pg.ConnectionString;
+            factory.SchemaName = "api_sync_athead";
+            _factory = factory;
+        }
+
+        private readonly Factory _factory;
+
+        [Fact]
+        public async Task ok()
+        {
+            var client = AuthedClient(_factory);
+            var lastSeq = await PostHabit(client, "Read");
+
+            var raw = await client.GetStringAsync($"/sync?since={lastSeq}");
+            using var doc = JsonDocument.Parse(raw);
+            doc.RootElement.GetProperty("mode").GetString().ShouldBe("replay");
+            doc.RootElement.GetProperty("commands").GetArrayLength().ShouldBe(0);
+        }
+    }
+
+    public class EmptyStoreReturnsSnapshotWithZeroSequence
+        : SyncEndpointsTests,
+            IClassFixture<EmptyStoreReturnsSnapshotWithZeroSequence.Factory>
+    {
+        public sealed class Factory : NagApiFactory;
+
+        public EmptyStoreReturnsSnapshotWithZeroSequence(PostgresFixture pg, Factory factory)
+            : base(pg)
+        {
+            factory.ConnectionString = pg.ConnectionString;
+            factory.SchemaName = "api_sync_empty";
+            _factory = factory;
+        }
+
+        private readonly Factory _factory;
+
+        [Fact]
+        public async Task ok()
+        {
+            var client = AuthedClient(_factory);
+            var raw = await client.GetStringAsync("/sync?since=0");
+            using var doc = JsonDocument.Parse(raw);
+            doc.RootElement.GetProperty("mode").GetString().ShouldBe("snapshot");
+            doc.RootElement.GetProperty("sequenceAtSnapshot").GetInt64().ShouldBe(0);
+            doc.RootElement.GetProperty("snapshot")
+                .GetProperty("habits")
+                .GetArrayLength()
+                .ShouldBe(0);
+        }
     }
 }
