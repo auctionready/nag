@@ -1,5 +1,4 @@
 using System.Net;
-using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using Nag.Api.Auth;
 using Nag.Core.Contracts;
@@ -21,16 +20,6 @@ public class DevicesPairTests : IClassFixture<DevicesPairTests.Factory>
     }
 
     public sealed class Factory : NagApiFactory;
-
-    private HttpClient AuthedClient()
-    {
-        var c = _factory.CreateClient();
-        c.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
-            "Bearer",
-            _factory.ApiKey
-        );
-        return c;
-    }
 
     /// <summary>
     /// Registers an anonymous device, then upgrades that account to be bound
@@ -65,7 +54,7 @@ public class DevicesPairTests : IClassFixture<DevicesPairTests.Factory>
     [Fact]
     public async Task pairs_a_new_device_with_an_existing_upgraded_account()
     {
-        var client = AuthedClient();
+        var client = _factory.CreateClient();
         var (accountId, _) = await SeedUpgradedAccountAsync(client);
         var newDeviceId = Guid.NewGuid();
 
@@ -78,12 +67,13 @@ public class DevicesPairTests : IClassFixture<DevicesPairTests.Factory>
         var body = await response.Content.ReadFromJsonAsync<PairDeviceResponse>();
         body!.AccountId.ShouldBe(accountId);
         body.DeviceId.ShouldBe(newDeviceId);
+        body.DeviceToken.ShouldNotBeNullOrWhiteSpace();
     }
 
     [Fact]
     public async Task re_pairing_the_same_device_id_is_idempotent()
     {
-        var client = AuthedClient();
+        var client = _factory.CreateClient();
         var (accountId, _) = await SeedUpgradedAccountAsync(client);
         var newDeviceId = Guid.NewGuid();
 
@@ -104,12 +94,13 @@ public class DevicesPairTests : IClassFixture<DevicesPairTests.Factory>
         secondBody!.AccountId.ShouldBe(accountId);
         secondBody.DeviceId.ShouldBe(newDeviceId);
         secondBody.RegisteredAt.ShouldBe(firstBody!.RegisteredAt);
+        secondBody.DeviceToken.ShouldNotBeNullOrWhiteSpace();
     }
 
     [Fact]
     public async Task pairing_against_a_subject_with_no_upgraded_account_returns_404()
     {
-        var client = AuthedClient();
+        var client = _factory.CreateClient();
         _factory.ClerkVerifier.Behavior = _ =>
             ClerkTokenVerificationResult.Success("user_with_no_upgrade");
 
@@ -124,7 +115,7 @@ public class DevicesPairTests : IClassFixture<DevicesPairTests.Factory>
     [Fact]
     public async Task pairing_a_device_id_already_owned_by_another_account_returns_409()
     {
-        var client = AuthedClient();
+        var client = _factory.CreateClient();
         var subA = $"user_{Guid.NewGuid():N}";
 
         // Account A owns deviceX (registered, anonymous, then upgraded).
@@ -152,7 +143,7 @@ public class DevicesPairTests : IClassFixture<DevicesPairTests.Factory>
     [Fact]
     public async Task an_invalid_idp_token_returns_401()
     {
-        var client = AuthedClient();
+        var client = _factory.CreateClient();
         _factory.ClerkVerifier.Behavior = _ =>
             ClerkTokenVerificationResult.Failure("signature mismatch");
 
@@ -167,7 +158,7 @@ public class DevicesPairTests : IClassFixture<DevicesPairTests.Factory>
     [Fact]
     public async Task missing_device_id_returns_400()
     {
-        var client = AuthedClient();
+        var client = _factory.CreateClient();
         var response = await client.PostAsJsonAsync(
             "/devices/pair",
             new PairDeviceRequest(Guid.Empty, "any-token", null)
@@ -178,22 +169,11 @@ public class DevicesPairTests : IClassFixture<DevicesPairTests.Factory>
     [Fact]
     public async Task missing_idp_token_returns_400()
     {
-        var client = AuthedClient();
+        var client = _factory.CreateClient();
         var response = await client.PostAsJsonAsync(
             "/devices/pair",
             new PairDeviceRequest(Guid.NewGuid(), "", null)
         );
         response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
-    }
-
-    [Fact]
-    public async Task requires_authentication()
-    {
-        var client = _factory.CreateClient();
-        var response = await client.PostAsJsonAsync(
-            "/devices/pair",
-            new PairDeviceRequest(Guid.NewGuid(), "any-token", null)
-        );
-        response.StatusCode.ShouldBe(HttpStatusCode.Unauthorized);
     }
 }

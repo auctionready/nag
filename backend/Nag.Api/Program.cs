@@ -1,8 +1,8 @@
 using FluentValidation;
 using JasperFx.Events.Projections;
 using Marten;
+using Microsoft.AspNetCore.Authentication;
 using Nag.Api.Auth;
-using Nag.Api.Endpoints;
 using Nag.Api.Infrastructure;
 using Nag.Core.Contracts;
 using Nag.Core.Handlers;
@@ -10,7 +10,7 @@ using Nag.Core.Projections;
 using Nag.Core.Validation;
 using Serilog;
 using Wolverine;
-using static Microsoft.AspNetCore.Http.Results;
+using Wolverine.Http;
 #if DEBUG
 using Microsoft.OpenApi;
 using Nag.Api.OpenApi;
@@ -71,10 +71,15 @@ builder.Host.UseWolverine(opts =>
     opts.Discovery.IncludeAssembly(typeof(CommandDispatcher).Assembly);
 });
 
+builder.Services.AddWolverineHttp();
+
 builder.Services.AddScoped<CommandDispatcher>();
 builder.Services.AddScoped<CommandsReader>();
 builder.Services.AddScoped<SyncCoordinator>();
 
+// Clerk verifier — registered in both modes. When Nag:ClerkIssuer is unset
+// (mobile-only deployments) we register a no-op that always 401s, so the
+// auth handler can still construct without a missing dependency.
 var clerkIssuer = builder.Configuration["Nag:ClerkIssuer"];
 if (!string.IsNullOrWhiteSpace(clerkIssuer))
 {
@@ -94,6 +99,36 @@ if (!string.IsNullOrWhiteSpace(clerkIssuer))
     );
     builder.Services.AddSingleton<IClerkTokenVerifier, ClerkTokenVerifier>();
 }
+else
+{
+    builder.Services.AddSingleton<IClerkTokenVerifier, NullClerkTokenVerifier>();
+}
+
+// Device-token issuance + validation (HMAC-signed envelope).
+builder.Services.Configure<DeviceTokenOptions>(builder.Configuration.GetSection("Nag:DeviceToken"));
+builder.Services.AddSingleton<DeviceTokenService>();
+builder.Services.AddSingleton<IDeviceTokenIssuer>(sp =>
+    sp.GetRequiredService<DeviceTokenService>()
+);
+builder.Services.AddSingleton<IDeviceTokenValidator>(sp =>
+    sp.GetRequiredService<DeviceTokenService>()
+);
+builder.Services.AddMemoryCache();
+builder.Services.AddSingleton<IDeviceAccountResolver, DeviceAccountResolver>();
+
+// ASP.NET Core authentication: a single "Nag" scheme whose handler
+// branches on the bearer token shape (HMAC device token vs. Clerk JWT).
+builder
+    .Services.AddAuthentication(NagAuthenticationOptions.SchemeName)
+    .AddScheme<NagAuthenticationOptions, NagAuthenticationHandler>(
+        NagAuthenticationOptions.SchemeName,
+        _ => { }
+    );
+builder.Services.AddAuthorization(opts =>
+{
+    // Every endpoint requires authentication unless explicitly [AllowAnonymous].
+    opts.FallbackPolicy = opts.DefaultPolicy;
+});
 
 builder.Services.AddValidatorsFromAssemblyContaining<CreateHabitValidator>(filter: result =>
     result.ValidatorType != typeof(ScheduleEntryValidator)
@@ -106,29 +141,21 @@ builder.Services.AddSwaggerGen(c =>
     c.UseAllOfToExtendReferenceSchemas();
     c.SchemaFilter<EnumSchemaFilter>();
     c.DocumentFilter<CommandSchemasFilter>();
-
-    var devApiKey = builder.Configuration["Nag:ApiKey"];
-    var description =
-        "Bearer API key. Send as header: `Authorization: Bearer <key>`."
-        + (string.IsNullOrEmpty(devApiKey) ? "" : $" Dev key: `{devApiKey}`");
-
+    c.OperationFilter<AllowAnonymousSecurityFilter>();
     c.AddSecurityDefinition(
         "Bearer",
         new OpenApiSecurityScheme
         {
             Type = SecuritySchemeType.Http,
             Scheme = "bearer",
-            BearerFormat = "API key",
+            BearerFormat = "Token",
             In = ParameterLocation.Header,
             Name = "Authorization",
-            Description = description,
+            Description =
+                "Either a per-device HMAC token (issued at /devices/register, "
+                + "/devices/pair, or /accounts/upgrade) or a Clerk JWT.",
         }
     );
-
-    c.AddSecurityRequirement(_ => new OpenApiSecurityRequirement
-    {
-        { new OpenApiSecuritySchemeReference("Bearer"), new List<string>() },
-    });
 });
 #endif
 
@@ -136,14 +163,14 @@ var app = builder.Build();
 
 app.UseSerilogRequestLogging();
 
-app.UseMiddleware<BearerKeyMiddleware>();
+app.UseAuthentication();
+app.UseAuthorization();
 
-app.MapGet("/health", NoContent).WithTags("Health").Produces(StatusCodes.Status204NoContent);
-app.MapCommandsEndpoints();
-app.MapHomeBoardEndpoints();
-app.MapDevicesEndpoints();
-app.MapAccountsEndpoints();
-app.MapSyncEndpoints();
+app.MapWolverineEndpoints(opts =>
+{
+    opts.TenantId.IsClaimTypeNamed(NagClaimTypes.AccountId);
+    opts.TenantId.AssertExists();
+});
 
 #if DEBUG
 app.UseSwagger();

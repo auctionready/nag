@@ -1,5 +1,4 @@
 using System.Net;
-using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using Nag.Core.Contracts;
 using Nag.Tests.Infrastructure;
@@ -21,15 +20,7 @@ public class CommandsEndpointsTests : IClassFixture<CommandsEndpointsTests.Facto
 
     public sealed class Factory : NagApiFactory;
 
-    private HttpClient AuthedClient()
-    {
-        var c = _factory.CreateClient();
-        c.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
-            "Bearer",
-            _factory.ApiKey
-        );
-        return c;
-    }
+    private HttpClient AuthedClient() => _factory.CreateAuthedClient();
 
     public class Posting_a_create_habit_command : CommandsEndpointsTests
     {
