@@ -80,6 +80,12 @@ pnpm typecheck
 pnpm test
 ```
 
+After changing backend endpoints or contracts, regenerate the OpenAPI spec
+and typed client with `pnpm --filter @nag/api-client generate` (commit both
+`packages/api-client/openapi.json` and `src/endpoint-definition.ts`). If
+running in a sandbox without `dotnet`, install it via
+`sudo apt-get install -y dotnet-sdk-10.0`.
+
 ## Architecture Overview
 
 _Add a brief overview of your project architecture_
