@@ -303,6 +303,36 @@
           }
         }
       }
+    },
+    "/sync": {
+      "get": {
+        "tags": [
+          "Sync"
+        ],
+        "parameters": [
+          {
+            "name": "since",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SyncResponse"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -861,10 +891,6 @@
       "HomeBoard": {
         "type": "object",
         "properties": {
-          "id": {
-            "type": "string",
-            "format": "uuid"
-          },
           "lastSequence": {
             "type": "integer",
             "format": "int64"
@@ -1096,6 +1122,46 @@
         },
         "additionalProperties": false
       },
+      "SyncResponse": {
+        "type": "object",
+        "properties": {
+          "mode": {
+            "type": "string",
+            "nullable": true
+          },
+          "commands": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CommandEnvelopeOut"
+            },
+            "nullable": true
+          },
+          "headSequence": {
+            "type": "integer",
+            "format": "int64",
+            "nullable": true
+          },
+          "nextSince": {
+            "type": "integer",
+            "format": "int64",
+            "nullable": true
+          },
+          "sequenceAtSnapshot": {
+            "type": "integer",
+            "format": "int64",
+            "nullable": true
+          },
+          "snapshot": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/HomeBoard"
+              }
+            ],
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
       "UpdateCheckIn": {
         "type": "object",
         "properties": {
@@ -1202,6 +1268,9 @@
     },
     {
       "name": "Read Models"
+    },
+    {
+      "name": "Sync"
     }
   ]
 }
