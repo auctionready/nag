@@ -3,6 +3,7 @@ using Marten;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.DependencyInjection;
+using Nag.Api;
 using Nag.Api.Auth;
 
 namespace Nag.Tests.Infrastructure;

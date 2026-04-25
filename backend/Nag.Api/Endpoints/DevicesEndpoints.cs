@@ -1,6 +1,5 @@
 using Marten;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Nag.Api.Auth;
 using Nag.Core.Contracts;

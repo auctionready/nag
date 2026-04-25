@@ -1,7 +1,6 @@
 using FluentValidation;
 using JasperFx.Events.Projections;
 using Marten;
-using Microsoft.AspNetCore.Authentication;
 using Nag.Api.Auth;
 using Nag.Api.Infrastructure;
 using Nag.Core.Contracts;
@@ -183,4 +182,7 @@ app.UseSwaggerUI();
 
 app.Run();
 
-public partial class Program;
+namespace Nag.Api
+{
+    public partial class Program;
+}

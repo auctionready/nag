@@ -1,7 +1,6 @@
 using JasperFx.Events.Projections;
 using Marten;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging.Abstractions;
 using Nag.Core.Contracts;
 using Nag.Core.Projections;
 using Testcontainers.PostgreSql;
