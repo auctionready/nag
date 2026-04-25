@@ -24,6 +24,7 @@ const api = createApi({
   dbUsername: database.masterUsername,
   dbPassword: stackConfig.dbPassword,
   apiKey: stackConfig.apiKey,
+  clerkIssuer: stackConfig.clerkIssuer,
   lambdaPackagePath: stackConfig.lambdaPackagePath,
   memoryMb: stackConfig.lambdaMemoryMb,
   logRetentionDays: stackConfig.logRetentionDays,
