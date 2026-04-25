@@ -60,7 +60,22 @@ public class DeviceTokenServiceTests
     {
         var svc = NewService();
         var token = svc.Issue(Guid.NewGuid(), Guid.NewGuid());
-        var tampered = token[..^1] + (token[^1] == 'A' ? 'B' : 'A');
+        // Flip a character in the middle of the signature, not the last one.
+        // The HMAC is 32 bytes → 43 base64url chars (1 padding char stripped),
+        // so the final char only carries 2 significant bits. Swapping 'A' (0)
+        // for 'B' (1) there can decode to the same bytes, making the test
+        // flaky. A mid-signature flip always changes a fully-significant char.
+        var dot = token.IndexOf('.');
+        var mid = dot + (token.Length - dot) / 2;
+        var tampered = string.Create(
+            token.Length,
+            (token, mid),
+            static (span, state) =>
+            {
+                state.token.CopyTo(span);
+                span[state.mid] = span[state.mid] == 'A' ? 'B' : 'A';
+            }
+        );
 
         var result = svc.Validate(tampered);
 
