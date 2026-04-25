@@ -72,6 +72,26 @@ builder.Host.UseWolverine(opts =>
 builder.Services.AddScoped<CommandDispatcher>();
 builder.Services.AddScoped<CommandsReader>();
 
+var clerkIssuer = builder.Configuration["Nag:ClerkIssuer"];
+if (!string.IsNullOrWhiteSpace(clerkIssuer))
+{
+    builder.Services.Configure<ClerkOptions>(opts => opts.Issuer = clerkIssuer);
+    builder.Services.AddHttpClient("clerk-jwks");
+    builder.Services.AddSingleton<Microsoft.IdentityModel.Protocols.IConfigurationManager<Microsoft.IdentityModel.Protocols.OpenIdConnect.OpenIdConnectConfiguration>>(
+        sp =>
+        {
+            var http = sp.GetRequiredService<IHttpClientFactory>().CreateClient("clerk-jwks");
+            var metadataAddress = $"{clerkIssuer.TrimEnd('/')}/.well-known/openid-configuration";
+            return new Microsoft.IdentityModel.Protocols.ConfigurationManager<Microsoft.IdentityModel.Protocols.OpenIdConnect.OpenIdConnectConfiguration>(
+                metadataAddress,
+                new Microsoft.IdentityModel.Protocols.OpenIdConnect.OpenIdConnectConfigurationRetriever(),
+                new Microsoft.IdentityModel.Protocols.HttpDocumentRetriever(http)
+            );
+        }
+    );
+    builder.Services.AddSingleton<IClerkTokenVerifier, ClerkTokenVerifier>();
+}
+
 builder.Services.AddValidatorsFromAssemblyContaining<CreateHabitValidator>(filter: result =>
     result.ValidatorType != typeof(ScheduleEntryValidator)
 );
