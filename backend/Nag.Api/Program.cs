@@ -166,6 +166,14 @@ var app = builder.Build();
 
 app.UseSerilogRequestLogging();
 
+#if DEBUG
+// Swagger middleware must run before UseAuthentication / UseAuthorization
+// so the docs UI is reachable without a bearer. The Authorize button in
+// the UI then lets you paste a token and exercise protected endpoints.
+app.UseSwagger();
+app.UseSwaggerUI();
+#endif
+
 app.UseAuthentication();
 app.UseAuthorization();
 
@@ -174,11 +182,6 @@ app.MapWolverineEndpoints(opts =>
     opts.TenantId.IsClaimTypeNamed(NagClaimTypes.AccountId);
     opts.TenantId.AssertExists();
 });
-
-#if DEBUG
-app.UseSwagger();
-app.UseSwaggerUI();
-#endif
 
 app.Run();
 
