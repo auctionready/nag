@@ -4,7 +4,6 @@ using Marten;
 using Nag.Api.Auth;
 using Nag.Api.Endpoints;
 using Nag.Api.Infrastructure;
-using Nag.Api.OpenApi;
 using Nag.Core.Contracts;
 using Nag.Core.Handlers;
 using Nag.Core.Projections;
@@ -12,8 +11,9 @@ using Nag.Core.Validation;
 using Serilog;
 using Wolverine;
 using static Microsoft.AspNetCore.Http.Results;
-
 #if DEBUG
+using Nag.Api.OpenApi;
+
 dotenv.net.DotEnv.Load(
     new dotenv.net.DotEnvOptions(envFilePaths: [".env", ".env.local"], ignoreExceptions: true)
 );
