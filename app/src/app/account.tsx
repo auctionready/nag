@@ -8,7 +8,7 @@ import {
 } from "react-native";
 import * as Linking from "expo-linking";
 import * as WebBrowser from "expo-web-browser";
-import { useAuth, useOAuth, useUser } from "@clerk/clerk-expo";
+import { useAuth, useSSO, useUser } from "@clerk/clerk-expo";
 import { loadIdentity } from "@nag/core";
 import { db } from "../db";
 import { upgradeAccount } from "../infrastructure/apiClient";
@@ -51,7 +51,7 @@ export default AccountScreen;
 const SignedInOrOut = () => {
   const { isLoaded, isSignedIn, signOut, getToken } = useAuth();
   const { user } = useUser();
-  const { startOAuthFlow } = useOAuth({ strategy: "oauth_google" });
+  const { startSSOFlow } = useSSO();
   const [status, setStatus] = React.useState<UpgradeStatus>({ kind: "idle" });
 
   // Reset upgrade state on sign-out so a subsequent sign-in re-runs upgrade.
@@ -112,20 +112,41 @@ const SignedInOrOut = () => {
 
   const onSignIn = React.useCallback(async () => {
     try {
-      const result = await startOAuthFlow({
+      const result = await startSSOFlow({
+        strategy: "oauth_google",
         redirectUrl: Linking.createURL("/oauth-redirect"),
       });
-      if (result.createdSessionId && result.setActive) {
-        await result.setActive({ session: result.createdSessionId });
+
+      // Two paths produce a session: an existing user signs in (top-level
+      // `createdSessionId`) or a new user signs up via the OAuth flow
+      // (`signUp.createdSessionId`). The deprecated `useOAuth` only
+      // surfaced the first; new Google users were silently dropped.
+      const sessionId =
+        result.createdSessionId ??
+        result.signIn?.createdSessionId ??
+        result.signUp?.createdSessionId ??
+        null;
+
+      if (sessionId && result.setActive) {
+        await result.setActive({ session: sessionId });
+        return;
       }
+
+      logger.warn(
+        `SSO completed without a session — signIn.status=${result.signIn?.status} signUp.status=${result.signUp?.status}`,
+      );
+      setStatus({
+        kind: "fail",
+        message: "sign-in completed but no session was created",
+      });
     } catch (err) {
-      logger.error("OAuth flow threw", err);
+      logger.error("SSO flow threw", err);
       setStatus({
         kind: "fail",
         message: err instanceof Error ? err.message : "sign-in failed",
       });
     }
-  }, [startOAuthFlow]);
+  }, [startSSOFlow]);
 
   if (!isLoaded) {
     return (
