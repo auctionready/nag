@@ -38,7 +38,7 @@ export interface NagApiClientOptions {
 export const createNagApiClient = ({
   baseUrl,
   apiKey,
-  timeoutMs = 20_000,
+  timeoutMs = 30_000,
   validate,
 }: NagApiClientOptions) => {
   const axiosInstance = axios.create({ timeout: timeoutMs });

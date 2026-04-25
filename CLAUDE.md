@@ -59,7 +59,7 @@ you need to track within the current session.
 
 **Backlog items go in GitHub Issues, not `bd`.** If you uncover follow-up
 work, tech debt, or a proposal that isn't part of the current task, file
-it as a GitHub issue in `christensena/nag` instead of a `bd` issue. `bd`
+it as a GitHub issue in `auctionready/nag` instead of a `bd` issue. `bd`
 is for the work you're holding in your hands right now; GitHub Issues is
 for the queue of things somebody might pick up later.
 

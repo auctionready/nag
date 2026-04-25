@@ -33,7 +33,10 @@ const InnerLayout = () => {
       >
         <Stack.Screen name="(tabs)" options={{ title: "Nag HQ" }} />
         <Stack.Screen name="admin" options={{ title: "Admin" }} />
-        <Stack.Screen name="account" options={{ title: "Account" }} />
+        <Stack.Screen
+          name="account"
+          options={{ title: "Account", headerRight: () => null }}
+        />
         <Stack.Screen name="add-habit" options={{ title: "Add Habit" }} />
         <Stack.Screen name="habit/[id]" options={{ title: "Habit" }} />
         <Stack.Screen
@@ -54,6 +57,8 @@ const InnerLayout = () => {
 // key isn't configured — keeps local dev / preview builds usable without
 // requiring Clerk credentials. Hooks like `useAuth` will report
 // `isLoaded: true, isSignedIn: false` in that case.
+// `ClerkProvider` is a no-op (just renders children) when the publishable
+// key isn't configured — keeps dev / preview builds usable without Clerk.
 const ClerkOrPassthrough = ({ children }: { children: React.ReactNode }) => {
   const publishableKey = getClerkPublishableKey();
   if (!publishableKey) return <>{children}</>;

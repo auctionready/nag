@@ -8,7 +8,7 @@ import {
 } from "react-native";
 import * as Linking from "expo-linking";
 import * as WebBrowser from "expo-web-browser";
-import { useAuth, useOAuth, useUser } from "@clerk/clerk-expo";
+import { useAuth, useSSO, useUser } from "@clerk/clerk-expo";
 import { loadIdentity } from "@nag/core";
 import { db } from "../db";
 import { upgradeAccount } from "../infrastructure/apiClient";
@@ -51,45 +51,58 @@ export default AccountScreen;
 const SignedInOrOut = () => {
   const { isLoaded, isSignedIn, signOut, getToken } = useAuth();
   const { user } = useUser();
-  const { startOAuthFlow } = useOAuth({ strategy: "oauth_google" });
+  const { startSSOFlow } = useSSO();
   const [status, setStatus] = React.useState<UpgradeStatus>({ kind: "idle" });
 
-  // Reset upgrade state on sign-out so a subsequent sign-in re-runs upgrade.
-  React.useEffect(() => {
-    if (isLoaded && !isSignedIn && status.kind !== "idle") {
-      setStatus({ kind: "idle" });
-    }
-  }, [isLoaded, isSignedIn, status.kind]);
+  // Tracks whether we've already kicked off an upgrade for the current
+  // signed-in session. Reset when the user signs out. Using a ref instead
+  // of `status.kind` as the guard avoids feedback loops: any `setStatus`
+  // call inside the effect would otherwise change a dep, fire cleanup,
+  // and silently cancel the pending API call.
+  const upgradeStarted = React.useRef(false);
 
-  // After a fresh sign-in, post the Clerk JWT to /accounts/upgrade exactly
-  // once. The server is idempotent if the user re-signs-in to the same
-  // identity, so retries on transient failure are safe.
   React.useEffect(() => {
-    if (!isLoaded || !isSignedIn || status.kind !== "idle") return;
-    let cancelled = false;
-    (async () => {
+    if (!isLoaded) return;
+
+    // On sign-out, reset both the run-once flag and any visible status so a
+    // subsequent sign-in starts fresh.
+    if (!isSignedIn) {
+      upgradeStarted.current = false;
+      setStatus((current) =>
+        current.kind === "idle" ? current : { kind: "idle" },
+      );
+      return;
+    }
+
+    if (upgradeStarted.current) return;
+    upgradeStarted.current = true;
+
+    // Deliberately no `cancelled` flag: the previous version blocked
+    // setStatus on cleanup, but effect cleanup runs whenever any dep
+    // changes (including Clerk re-creating `getToken`). The API result
+    // would land after cleanup and the success-state update would be
+    // silently swallowed, leaving the UI stuck on "linking your account…"
+    // even though the server logged 200.
+    void (async () => {
       setStatus({ kind: "in-progress" });
       try {
         const identity = await loadIdentity(db);
         if (!identity) {
-          if (!cancelled)
-            setStatus({
-              kind: "fail",
-              message: "no local device identity — restart the app",
-            });
+          setStatus({
+            kind: "fail",
+            message: "no local device identity — restart the app",
+          });
           return;
         }
         const idpToken = await getToken();
         if (!idpToken) {
-          if (!cancelled)
-            setStatus({ kind: "fail", message: "no IdP token from Clerk" });
+          setStatus({ kind: "fail", message: "no IdP token from Clerk" });
           return;
         }
         const result = await upgradeAccount({
           deviceId: identity.deviceId,
           idpToken,
         });
-        if (cancelled) return;
         if (result.ok) {
           logger.info(
             `account upgraded accountId=${result.accountId} sub=${result.idpSubject}`,
@@ -99,33 +112,53 @@ const SignedInOrOut = () => {
           setStatus({ kind: "fail", message: result.message });
         }
       } catch (err) {
-        if (cancelled) return;
         const message = err instanceof Error ? err.message : String(err);
         logger.error("upgrade flow threw", err);
         setStatus({ kind: "fail", message });
       }
     })();
-    return () => {
-      cancelled = true;
-    };
-  }, [isLoaded, isSignedIn, getToken, status.kind]);
+  }, [isLoaded, isSignedIn, getToken]);
 
   const onSignIn = React.useCallback(async () => {
     try {
-      const result = await startOAuthFlow({
+      const result = await startSSOFlow({
+        strategy: "oauth_google",
         redirectUrl: Linking.createURL("/oauth-redirect"),
       });
-      if (result.createdSessionId && result.setActive) {
-        await result.setActive({ session: result.createdSessionId });
+
+      // Two paths produce a session: an existing user signs in (top-level
+      // `createdSessionId`) or a new user signs up via the OAuth flow
+      // (`signUp.createdSessionId`). The deprecated `useOAuth` only
+      // surfaced the first; new Google users were silently dropped.
+      const sessionId =
+        result.createdSessionId ??
+        result.signIn?.createdSessionId ??
+        result.signUp?.createdSessionId ??
+        null;
+
+      if (sessionId && result.setActive) {
+        await result.setActive({ session: sessionId });
+        return;
       }
+
+      const missing = result.signUp?.missingFields ?? [];
+      const unverified = result.signUp?.unverifiedFields ?? [];
+      logger.warn(
+        `SSO completed without a session — signIn.status=${result.signIn?.status} signUp.status=${result.signUp?.status} missing=${JSON.stringify(missing)} unverified=${JSON.stringify(unverified)}`,
+      );
+      const reason =
+        missing.length > 0
+          ? `Clerk requires ${missing.join(", ")} — relax sign-up requirements in the Clerk dashboard`
+          : "sign-in completed but no session was created";
+      setStatus({ kind: "fail", message: reason });
     } catch (err) {
-      logger.error("OAuth flow threw", err);
+      logger.error("SSO flow threw", err);
       setStatus({
         kind: "fail",
         message: err instanceof Error ? err.message : "sign-in failed",
       });
     }
-  }, [startOAuthFlow]);
+  }, [startSSOFlow]);
 
   if (!isLoaded) {
     return (

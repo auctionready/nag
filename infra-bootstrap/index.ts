@@ -2,7 +2,7 @@ import * as aws from "@pulumi/aws";
 import * as pulumi from "@pulumi/pulumi";
 
 const cfg = new pulumi.Config("nag-bootstrap");
-const githubOrg = cfg.get("githubOrg") ?? "christensena";
+const githubOrg = cfg.get("githubOrg") ?? "auctionready";
 const githubRepo = cfg.get("githubRepo") ?? "nag";
 
 const splitCsv = (s: string | undefined): string[] =>
@@ -58,7 +58,7 @@ const role = new aws.iam.Role("nag-github-deploy", {
     }),
   ),
   description:
-    "Assumed by GitHub Actions in christensena/nag to deploy the Nag backend via Pulumi.",
+    "Assumed by GitHub Actions in auctionready/nag to deploy the Nag backend via Pulumi.",
 });
 
 new aws.iam.RolePolicyAttachment("nag-github-deploy-power", {
