@@ -309,6 +309,27 @@ export const RegisterDeviceResponse = z
   .partial();
 export type RegisterDeviceResponse = z.infer<typeof RegisterDeviceResponse>;
 
+export const PairDeviceRequest = z
+  .object({
+    deviceId: z.uuid(),
+    idpToken: z.string().nullable(),
+    label: z.string().nullable(),
+  })
+  .partial();
+export type PairDeviceRequest = z.infer<typeof PairDeviceRequest>;
+
+export const postDevicespair_Body = PairDeviceRequest;
+export type postDevicespair_Body = z.infer<typeof postDevicespair_Body>;
+
+export const PairDeviceResponse = z
+  .object({
+    accountId: z.uuid(),
+    deviceId: z.uuid(),
+    registeredAt: IsoDatetime,
+  })
+  .partial();
+export type PairDeviceResponse = z.infer<typeof PairDeviceResponse>;
+
 export const HomeGoal = z
   .object({ regularity: Regularity, frequency: z.int().nullable() })
   .partial();
@@ -390,6 +411,19 @@ export const endpoints = makeApi([
     ],
     response: CommandsPage,
     errors: [],
+  },
+  {
+    method: "post",
+    path: "/devices/pair",
+    alias: "postDevicespair",
+    parameters: [{ name: "body", type: "Body", schema: postDevicespair_Body }],
+    response: PairDeviceResponse,
+    errors: [
+      { status: 400, schema: ErrorResponse },
+      { status: 401, schema: ErrorResponse },
+      { status: 404, schema: ErrorResponse },
+      { status: 409, schema: ErrorResponse },
+    ],
   },
   {
     method: "post",
