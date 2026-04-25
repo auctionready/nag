@@ -31,8 +31,12 @@ dotnet build Nag.Api/Nag.Api.csproj -c Debug --nologo -v quiet
 # the DSN format but doesn't open a connection during host build, and the
 # Swashbuckle CLI never reaches a request, so no real database is needed.
 export ConnectionStrings__Nag="Host=localhost;Database=nag;Username=nag;Password=nag"
+export Nag__ApiKey="swagger-cli-throwaway"  # BearerKeyMiddleware throws if empty
+# Dummy issuer registers IClerkTokenVerifier so AccountsEndpoints / DevicesEndpoints
+# can resolve their `verifier` parameter. The OpenID metadata fetch is lazy
+# (only happens on a real request), so no network call is made during spec generation.
+export Nag__ClerkIssuer="https://example.invalid"
 export ASPNETCORE_ENVIRONMENT=Development
-unset Nag__ClerkIssuer  # keep the Clerk/JWT branch in Program.cs disabled
 
 mkdir -p "$(dirname "$OUTPUT")"
 

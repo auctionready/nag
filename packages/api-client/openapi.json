@@ -1,0 +1,1121 @@
+{
+  "openapi": "3.0.4",
+  "info": {
+    "title": "Nag.Api, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null",
+    "version": "1.0"
+  },
+  "paths": {
+    "/accounts/upgrade": {
+      "post": {
+        "tags": ["Accounts"],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/UpgradeAccountRequest"
+                  }
+                ]
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UpgradeAccountResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/commands": {
+      "post": {
+        "tags": ["Commands"],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/CommandEnvelope"
+                  }
+                ]
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CommandAccepted"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": ["Commands"],
+        "parameters": [
+          {
+            "name": "since",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CommandsPage"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/devices/register": {
+      "post": {
+        "tags": ["Devices"],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/RegisterDeviceRequest"
+                  }
+                ]
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RegisterDeviceResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/devices/pair": {
+      "post": {
+        "tags": ["Devices"],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/PairDeviceRequest"
+                  }
+                ]
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PairDeviceResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/health": {
+      "get": {
+        "tags": ["Health"],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          }
+        }
+      }
+    },
+    "/home-board": {
+      "get": {
+        "tags": ["Read Models"],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HomeBoard"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "CommandAccepted": {
+        "type": "object",
+        "properties": {
+          "accepted": {
+            "type": "boolean"
+          },
+          "sequence": {
+            "type": "integer",
+            "format": "int64"
+          }
+        },
+        "additionalProperties": false
+      },
+      "CommandEnvelope": {
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/CommandEnvelope_CreateHabit"
+          },
+          {
+            "$ref": "#/components/schemas/CommandEnvelope_UpdateHabit"
+          },
+          {
+            "$ref": "#/components/schemas/CommandEnvelope_DeleteHabit"
+          },
+          {
+            "$ref": "#/components/schemas/CommandEnvelope_CreateCheckIn"
+          },
+          {
+            "$ref": "#/components/schemas/CommandEnvelope_UpdateCheckIn"
+          },
+          {
+            "$ref": "#/components/schemas/CommandEnvelope_DeleteCheckIn"
+          }
+        ],
+        "additionalProperties": false,
+        "discriminator": {
+          "propertyName": "type",
+          "mapping": {
+            "CreateHabit": "#/components/schemas/CommandEnvelope_CreateHabit",
+            "UpdateHabit": "#/components/schemas/CommandEnvelope_UpdateHabit",
+            "DeleteHabit": "#/components/schemas/CommandEnvelope_DeleteHabit",
+            "CreateCheckIn": "#/components/schemas/CommandEnvelope_CreateCheckIn",
+            "UpdateCheckIn": "#/components/schemas/CommandEnvelope_UpdateCheckIn",
+            "DeleteCheckIn": "#/components/schemas/CommandEnvelope_DeleteCheckIn"
+          }
+        }
+      },
+      "CommandEnvelopeOut": {
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/CommandEnvelopeOut_CreateHabit"
+          },
+          {
+            "$ref": "#/components/schemas/CommandEnvelopeOut_UpdateHabit"
+          },
+          {
+            "$ref": "#/components/schemas/CommandEnvelopeOut_DeleteHabit"
+          },
+          {
+            "$ref": "#/components/schemas/CommandEnvelopeOut_CreateCheckIn"
+          },
+          {
+            "$ref": "#/components/schemas/CommandEnvelopeOut_UpdateCheckIn"
+          },
+          {
+            "$ref": "#/components/schemas/CommandEnvelopeOut_DeleteCheckIn"
+          }
+        ],
+        "additionalProperties": false,
+        "discriminator": {
+          "propertyName": "type",
+          "mapping": {
+            "CreateHabit": "#/components/schemas/CommandEnvelopeOut_CreateHabit",
+            "UpdateHabit": "#/components/schemas/CommandEnvelopeOut_UpdateHabit",
+            "DeleteHabit": "#/components/schemas/CommandEnvelopeOut_DeleteHabit",
+            "CreateCheckIn": "#/components/schemas/CommandEnvelopeOut_CreateCheckIn",
+            "UpdateCheckIn": "#/components/schemas/CommandEnvelopeOut_UpdateCheckIn",
+            "DeleteCheckIn": "#/components/schemas/CommandEnvelopeOut_DeleteCheckIn"
+          }
+        }
+      },
+      "CommandEnvelopeOut_CreateCheckIn": {
+        "required": ["type", "payload"],
+        "type": "object",
+        "properties": {
+          "sequence": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "type": {
+            "enum": ["CreateCheckIn"],
+            "type": "string"
+          },
+          "payload": {
+            "$ref": "#/components/schemas/CreateCheckIn"
+          }
+        }
+      },
+      "CommandEnvelopeOut_CreateHabit": {
+        "required": ["type", "payload"],
+        "type": "object",
+        "properties": {
+          "sequence": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "type": {
+            "enum": ["CreateHabit"],
+            "type": "string"
+          },
+          "payload": {
+            "$ref": "#/components/schemas/CreateHabit"
+          }
+        }
+      },
+      "CommandEnvelopeOut_DeleteCheckIn": {
+        "required": ["type", "payload"],
+        "type": "object",
+        "properties": {
+          "sequence": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "type": {
+            "enum": ["DeleteCheckIn"],
+            "type": "string"
+          },
+          "payload": {
+            "$ref": "#/components/schemas/DeleteCheckIn"
+          }
+        }
+      },
+      "CommandEnvelopeOut_DeleteHabit": {
+        "required": ["type", "payload"],
+        "type": "object",
+        "properties": {
+          "sequence": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "type": {
+            "enum": ["DeleteHabit"],
+            "type": "string"
+          },
+          "payload": {
+            "$ref": "#/components/schemas/DeleteHabit"
+          }
+        }
+      },
+      "CommandEnvelopeOut_UpdateCheckIn": {
+        "required": ["type", "payload"],
+        "type": "object",
+        "properties": {
+          "sequence": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "type": {
+            "enum": ["UpdateCheckIn"],
+            "type": "string"
+          },
+          "payload": {
+            "$ref": "#/components/schemas/UpdateCheckIn"
+          }
+        }
+      },
+      "CommandEnvelopeOut_UpdateHabit": {
+        "required": ["type", "payload"],
+        "type": "object",
+        "properties": {
+          "sequence": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "type": {
+            "enum": ["UpdateHabit"],
+            "type": "string"
+          },
+          "payload": {
+            "$ref": "#/components/schemas/UpdateHabit"
+          }
+        }
+      },
+      "CommandEnvelope_CreateCheckIn": {
+        "required": ["type", "payload"],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "type": {
+            "enum": ["CreateCheckIn"],
+            "type": "string"
+          },
+          "payload": {
+            "$ref": "#/components/schemas/CreateCheckIn"
+          }
+        }
+      },
+      "CommandEnvelope_CreateHabit": {
+        "required": ["type", "payload"],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "type": {
+            "enum": ["CreateHabit"],
+            "type": "string"
+          },
+          "payload": {
+            "$ref": "#/components/schemas/CreateHabit"
+          }
+        }
+      },
+      "CommandEnvelope_DeleteCheckIn": {
+        "required": ["type", "payload"],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "type": {
+            "enum": ["DeleteCheckIn"],
+            "type": "string"
+          },
+          "payload": {
+            "$ref": "#/components/schemas/DeleteCheckIn"
+          }
+        }
+      },
+      "CommandEnvelope_DeleteHabit": {
+        "required": ["type", "payload"],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "type": {
+            "enum": ["DeleteHabit"],
+            "type": "string"
+          },
+          "payload": {
+            "$ref": "#/components/schemas/DeleteHabit"
+          }
+        }
+      },
+      "CommandEnvelope_UpdateCheckIn": {
+        "required": ["type", "payload"],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "type": {
+            "enum": ["UpdateCheckIn"],
+            "type": "string"
+          },
+          "payload": {
+            "$ref": "#/components/schemas/UpdateCheckIn"
+          }
+        }
+      },
+      "CommandEnvelope_UpdateHabit": {
+        "required": ["type", "payload"],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "type": {
+            "enum": ["UpdateHabit"],
+            "type": "string"
+          },
+          "payload": {
+            "$ref": "#/components/schemas/UpdateHabit"
+          }
+        }
+      },
+      "CommandsPage": {
+        "type": "object",
+        "properties": {
+          "commands": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CommandEnvelopeOut"
+            },
+            "nullable": true
+          },
+          "nextSince": {
+            "type": "integer",
+            "format": "int64",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "CreateCheckIn": {
+        "type": "object",
+        "properties": {
+          "checkInId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "habitId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "skipped": {
+            "type": "boolean",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "CreateHabit": {
+        "type": "object",
+        "properties": {
+          "habitId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "title": {
+            "type": "string",
+            "nullable": true
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          },
+          "icon": {
+            "type": "string",
+            "nullable": true
+          },
+          "goal": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/GoalPayload"
+              }
+            ],
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "DeleteCheckIn": {
+        "type": "object",
+        "properties": {
+          "checkInId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "additionalProperties": false
+      },
+      "DeleteHabit": {
+        "type": "object",
+        "properties": {
+          "habitId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "additionalProperties": false
+      },
+      "ErrorResponse": {
+        "type": "object",
+        "properties": {
+          "errors": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "GoalPayload": {
+        "type": "object",
+        "properties": {
+          "regularity": {
+            "enum": ["day", "week", "month"],
+            "type": "string",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/Regularity"
+              }
+            ]
+          },
+          "frequency": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "schedules": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ScheduleEntry"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "HomeBoard": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "lastSequence": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "habits": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/HomeHabit"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "HomeCheckIn": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "skipped": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
+      "HomeGoal": {
+        "type": "object",
+        "properties": {
+          "regularity": {
+            "enum": ["day", "week", "month"],
+            "type": "string",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/Regularity"
+              }
+            ]
+          },
+          "frequency": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "HomeHabit": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "title": {
+            "type": "string",
+            "nullable": true
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          },
+          "icon": {
+            "type": "string",
+            "nullable": true
+          },
+          "goal": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/HomeGoal"
+              }
+            ],
+            "nullable": true
+          },
+          "schedules": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/HomeSchedule"
+            },
+            "nullable": true
+          },
+          "periodCheckIns": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/HomeCheckIn"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "HomeSchedule": {
+        "type": "object",
+        "properties": {
+          "hour": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "minute": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "days": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "dayOfMonth": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "reminder": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
+      "PairDeviceRequest": {
+        "type": "object",
+        "properties": {
+          "deviceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "idpToken": {
+            "type": "string",
+            "nullable": true
+          },
+          "label": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "PairDeviceResponse": {
+        "type": "object",
+        "properties": {
+          "accountId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "deviceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "registeredAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "additionalProperties": false
+      },
+      "RegisterDeviceRequest": {
+        "type": "object",
+        "properties": {
+          "deviceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "label": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "RegisterDeviceResponse": {
+        "type": "object",
+        "properties": {
+          "accountId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "deviceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "registeredAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "additionalProperties": false
+      },
+      "Regularity": {
+        "enum": ["day", "week", "month"],
+        "type": "string",
+        "format": "int32"
+      },
+      "ScheduleEntry": {
+        "type": "object",
+        "properties": {
+          "hour": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "minute": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "days": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "dayOfMonth": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "reminder": {
+            "type": "boolean",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "UpdateCheckIn": {
+        "type": "object",
+        "properties": {
+          "checkInId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "skipped": {
+            "type": "boolean",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "UpdateHabit": {
+        "type": "object",
+        "properties": {
+          "habitId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "title": {
+            "type": "string",
+            "nullable": true
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          },
+          "icon": {
+            "type": "string",
+            "nullable": true
+          },
+          "goal": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/GoalPayload"
+              }
+            ],
+            "nullable": true
+          },
+          "clearDescription": {
+            "type": "boolean"
+          },
+          "clearIcon": {
+            "type": "boolean"
+          },
+          "clearGoal": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
+      "UpgradeAccountRequest": {
+        "type": "object",
+        "properties": {
+          "deviceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "idpToken": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "UpgradeAccountResponse": {
+        "type": "object",
+        "properties": {
+          "accountId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "idpSubject": {
+            "type": "string",
+            "nullable": true
+          },
+          "upgradedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "tags": [
+    {
+      "name": "Accounts"
+    },
+    {
+      "name": "Commands"
+    },
+    {
+      "name": "Devices"
+    },
+    {
+      "name": "Health"
+    },
+    {
+      "name": "Read Models"
+    }
+  ]
+}
