@@ -9,6 +9,7 @@ export interface ApiArgs {
   dbUsername: pulumi.Output<string>;
   dbPassword: pulumi.Output<string>;
   apiKey: pulumi.Output<string>;
+  clerkIssuer?: string;
   lambdaPackagePath: string;
   memoryMb: number;
   logRetentionDays: number;
@@ -79,6 +80,9 @@ export const createApi = (args: ApiArgs): Api => {
         DB_PASSWORD: args.dbPassword,
         API_KEY: args.apiKey,
         Nag__SchemaName: "public",
+        // Only set when configured — Program.cs registers the Clerk
+        // verifier conditionally on Nag:ClerkIssuer being present.
+        ...(args.clerkIssuer ? { Nag__ClerkIssuer: args.clerkIssuer } : {}),
       },
     },
   });
