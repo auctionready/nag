@@ -8,7 +8,7 @@
   "scripts": {
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
-    "generate": "./scripts/generate-endpoints.sh"
+    "generate": "pnpm --filter @nag/backend openapi && ./scripts/generate-endpoints.sh"
   },
   "dependencies": {
     "@zodios/core": "^10.9.6",

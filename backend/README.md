@@ -66,6 +66,26 @@ dotnet csharpier format .
 `dotnet csharpier check .` runs in CI; the lefthook `pre-commit` hook
 runs the same on staged `*.cs` files.
 
+## OpenAPI
+
+In Debug builds the host serves Swagger UI and the OpenAPI document at
+`http://localhost:5266/swagger`. To regenerate the spec on disk without
+running the server (used by the `@nag/api-client` codegen):
+
+```bash
+pnpm openapi          # writes ../packages/api-client/openapi.json
+pnpm openapi:check    # regenerates and fails if the committed file drifts
+```
+
+Under the hood this is `dotnet swagger tofile` from
+[Swashbuckle.AspNetCore.Cli](https://github.com/domaindrivendev/Swashbuckle.AspNetCore),
+pinned in `.config/dotnet-tools.json`. It loads the built
+`Nag.Api.dll`, asks the in-process Swagger provider for the document,
+and exits — no Postgres, no Kestrel bind. Custom filters in
+`Nag.Api/OpenApi/` (the command discriminated union, enum casing) are
+preserved as-is because the CLI runs the same Swashbuckle pipeline as
+the live `/swagger` endpoint.
+
 ## Deployment (planned)
 
 The host is wired for AWS Lambda via
