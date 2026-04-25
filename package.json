@@ -13,11 +13,11 @@
     "format:check:app": "prettier --check .",
     "format:check:backend": "pnpm --filter @nag/backend check:format",
     "format:backend": "pnpm --filter @nag/backend format",
-    "test": "concurrently -g \"pnpm test:app\" \"pnpm test:backend\"",
-    "test:app": "pnpm -r --filter !@nag/backend run test",
+    "test": "pnpm test:app && pnpm test:backend",
+    "test:app": "pnpm -r --filter !@nag/backend --filter !nag run test",
     "test:backend": "pnpm --filter @nag/backend test",
     "check:app": "concurrently -g \"pnpm typecheck\" \"pnpm lint\" \"pnpm test:app\" \"pnpm format:check:app\"",
-    "check:backend": "concurrently -g \"pnpm test:backend\" \"pnpm format:check:backend\" && \"pnpm --filter @nag/backend run check:openapi\"",
+    "check:backend": "pnpm --filter @nag/backend check",
     "check": "pnpm check:backend && pnpm check:app",
     "typecheck": "tsc -b",
     "typecheck:watch": "tsc -b --watch",
@@ -39,7 +39,7 @@
     "pnpm": "10.33.2"
   },
   "devDependencies": {
-    "concurrently": "^9.2.1",
+    "concurrently": "catalog:",
     "eslint": "^9.39.4",
     "eslint-config-expo": "^55.0.0",
     "eslint-config-prettier": "^10.1.8",
