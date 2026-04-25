@@ -132,13 +132,16 @@ const SignedInOrOut = () => {
         return;
       }
 
+      const missing = result.signUp?.missingFields ?? [];
+      const unverified = result.signUp?.unverifiedFields ?? [];
       logger.warn(
-        `SSO completed without a session — signIn.status=${result.signIn?.status} signUp.status=${result.signUp?.status}`,
+        `SSO completed without a session — signIn.status=${result.signIn?.status} signUp.status=${result.signUp?.status} missing=${JSON.stringify(missing)} unverified=${JSON.stringify(unverified)}`,
       );
-      setStatus({
-        kind: "fail",
-        message: "sign-in completed but no session was created",
-      });
+      const reason =
+        missing.length > 0
+          ? `Clerk requires ${missing.join(", ")} — relax sign-up requirements in the Clerk dashboard`
+          : "sign-in completed but no session was created";
+      setStatus({ kind: "fail", message: reason });
     } catch (err) {
       logger.error("SSO flow threw", err);
       setStatus({
