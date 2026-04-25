@@ -18,6 +18,7 @@ public static class AccountsEndpoints
     /// JWT's <c>sub</c> as <c>IdpSubject</c> and stamps <c>UpgradedAt</c>.
     /// </summary>
     [AllowAnonymous]
+    [NotTenanted]
     [Tags("Accounts")]
     [ProducesResponseType(typeof(UpgradeAccountResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]

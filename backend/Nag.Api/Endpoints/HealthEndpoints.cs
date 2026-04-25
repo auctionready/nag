@@ -8,6 +8,7 @@ namespace Nag.Api.Endpoints;
 public static class HealthEndpoints
 {
     [AllowAnonymous]
+    [NotTenanted]
     [Tags("Health")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [WolverineGet("/health")]

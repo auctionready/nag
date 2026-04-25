@@ -18,8 +18,7 @@ public class NagApiFactory : WebApplicationFactory<Program>
     /// stable across the factory's lifetime so tokens issued via
     /// <see cref="DeviceTokens"/> validate against the running app.
     /// </summary>
-    public string DeviceTokenSecret { get; set; } =
-        "test-device-token-secret-0123456789abcdef";
+    public string DeviceTokenSecret { get; set; } = "test-device-token-secret-0123456789abcdef";
 
     /// <summary>
     /// Tests configure this to control what `IClerkTokenVerifier` returns.
@@ -29,8 +28,7 @@ public class NagApiFactory : WebApplicationFactory<Program>
     /// </summary>
     public StubClerkTokenVerifier ClerkVerifier { get; } = new();
 
-    public IDeviceTokenIssuer DeviceTokens =>
-        Services.GetRequiredService<IDeviceTokenIssuer>();
+    public IDeviceTokenIssuer DeviceTokens => Services.GetRequiredService<IDeviceTokenIssuer>();
 
     /// <summary>
     /// Mints an HMAC device token without going through

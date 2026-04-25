@@ -12,6 +12,7 @@ namespace Nag.Api.Endpoints;
 public static class DevicesEndpoints
 {
     [AllowAnonymous]
+    [NotTenanted]
     [Tags("Devices")]
     [ProducesResponseType(typeof(RegisterDeviceResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
@@ -71,6 +72,7 @@ public static class DevicesEndpoints
     /// upgrade an existing device first via <c>/accounts/upgrade</c>.
     /// </summary>
     [AllowAnonymous]
+    [NotTenanted]
     [Tags("Devices")]
     [ProducesResponseType(typeof(PairDeviceResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
@@ -109,9 +111,9 @@ public static class DevicesEndpoints
         if (account is null)
         {
             return Results.NotFound(
-                new ErrorResponse(
-                    ["no account found for this identity — upgrade your first device first"]
-                )
+                new ErrorResponse([
+                    "no account found for this identity — upgrade your first device first",
+                ])
             );
         }
 
