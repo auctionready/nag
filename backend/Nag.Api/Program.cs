@@ -202,10 +202,12 @@ app.UseSerilogRequestLogging();
 
 #if DEBUG
 // Swagger middleware must run before UseAuthentication / UseAuthorization
-// so the docs UI is reachable without a bearer. The Authorize button in
-// the UI then lets you paste a token and exercise protected endpoints.
+// so the docs UI is reachable without a bearer. The injected script
+// pre-authorizes the UI against /dev/token, so every "Try it out" runs
+// with a real HMAC-signed dev bearer.
 app.UseSwagger();
-app.UseSwaggerUI();
+app.UseSwaggerUI(c => c.InjectJavascript(SwaggerDevAuth.ScriptPath));
+app.MapSwaggerDevAuth();
 #endif
 
 app.UseResponseCompression();
