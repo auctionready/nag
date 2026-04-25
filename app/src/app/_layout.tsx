@@ -33,7 +33,10 @@ const InnerLayout = () => {
       >
         <Stack.Screen name="(tabs)" options={{ title: "Nag HQ" }} />
         <Stack.Screen name="admin" options={{ title: "Admin" }} />
-        <Stack.Screen name="account" options={{ title: "Account" }} />
+        <Stack.Screen
+          name="account"
+          options={{ title: "Account", headerRight: () => null }}
+        />
         <Stack.Screen name="add-habit" options={{ title: "Add Habit" }} />
         <Stack.Screen name="habit/[id]" options={{ title: "Habit" }} />
         <Stack.Screen
