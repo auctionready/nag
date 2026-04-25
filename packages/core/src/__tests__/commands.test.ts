@@ -524,7 +524,7 @@ describe("audit logging", () => {
       goal: { regularity: "week", frequency: 2 },
     });
 
-    const logs = await db.select().from(schema.auditLog);
+    const logs = await db.select().from(schema.outbox);
     expect(logs).toHaveLength(1);
     expect(logs[0].commandType).toBe("CreateHabit");
     expect(logs[0].timestamp).toBeInstanceOf(Date);
@@ -554,7 +554,7 @@ describe("audit logging", () => {
 
     await processCommand(db, { type: "DeleteHabit", habitId });
 
-    const logs = await db.select().from(schema.auditLog);
+    const logs = await db.select().from(schema.outbox);
     const deleteLog = logs.find((l) => l.commandType === "DeleteHabit");
     expect(deleteLog).toBeDefined();
     expect(deleteLog!.payload).not.toBeNull();
@@ -568,7 +568,7 @@ describe("audit logging", () => {
       processCommand(db, { type: "CreateHabit", title: "" }),
     ).rejects.toThrow();
 
-    const logs = await db.select().from(schema.auditLog);
+    const logs = await db.select().from(schema.outbox);
     expect(logs).toHaveLength(0);
   });
 
@@ -586,7 +586,7 @@ describe("audit logging", () => {
       title: "Updated",
     });
 
-    const logs = await db.select().from(schema.auditLog);
+    const logs = await db.select().from(schema.outbox);
     expect(logs).toHaveLength(3);
     expect(logs.map((l) => l.commandType)).toEqual([
       "CreateHabit",
@@ -604,7 +604,7 @@ describe("processCommand validation", () => {
       processCommand(db, { type: "DoSomething" }),
     ).rejects.toThrow(ZodError);
 
-    const logs = await db.select().from(schema.auditLog);
+    const logs = await db.select().from(schema.outbox);
     expect(logs).toHaveLength(0);
   });
 
@@ -615,7 +615,7 @@ describe("processCommand validation", () => {
       processCommand(db, { type: "CreateHabit" }),
     ).rejects.toThrow(ZodError);
 
-    const logs = await db.select().from(schema.auditLog);
+    const logs = await db.select().from(schema.outbox);
     expect(logs).toHaveLength(0);
   });
 
@@ -626,7 +626,7 @@ describe("processCommand validation", () => {
       processCommand(db, { type: "DeleteHabit", habitId: "abc" }),
     ).rejects.toThrow(ZodError);
 
-    const logs = await db.select().from(schema.auditLog);
+    const logs = await db.select().from(schema.outbox);
     expect(logs).toHaveLength(0);
   });
 
@@ -640,7 +640,7 @@ describe("processCommand validation", () => {
       }),
     ).rejects.toThrow(ZodError);
 
-    const logs = await db.select().from(schema.auditLog);
+    const logs = await db.select().from(schema.outbox);
     expect(logs).toHaveLength(0);
   });
 
@@ -655,7 +655,7 @@ describe("processCommand validation", () => {
       }),
     ).rejects.toThrow(ZodError);
 
-    const logs = await db.select().from(schema.auditLog);
+    const logs = await db.select().from(schema.outbox);
     expect(logs).toHaveLength(0);
   });
 
@@ -737,7 +737,7 @@ describe("processCommand validation", () => {
       }),
     ).rejects.toThrow(ZodError);
 
-    const logs = await db.select().from(schema.auditLog);
+    const logs = await db.select().from(schema.outbox);
     expect(logs).toHaveLength(0);
   });
 
@@ -746,7 +746,7 @@ describe("processCommand validation", () => {
     // @ts-expect-error testing empty object input
     await expect(processCommand(db, {})).rejects.toThrow(ZodError);
 
-    const logs = await db.select().from(schema.auditLog);
+    const logs = await db.select().from(schema.outbox);
     expect(logs).toHaveLength(0);
   });
 
@@ -755,7 +755,7 @@ describe("processCommand validation", () => {
     // @ts-expect-error testing non-object input
     await expect(processCommand(db, "hello")).rejects.toThrow(ZodError);
 
-    const logs = await db.select().from(schema.auditLog);
+    const logs = await db.select().from(schema.outbox);
     expect(logs).toHaveLength(0);
   });
 });
@@ -771,7 +771,7 @@ describe("processCommand handler errors", () => {
       }),
     ).rejects.toThrow();
 
-    const logs = await db.select().from(schema.auditLog);
+    const logs = await db.select().from(schema.outbox);
     expect(logs).toHaveLength(0);
   });
 
@@ -801,7 +801,7 @@ describe("processCommand handler errors", () => {
       title: "Valid",
     });
 
-    await db.delete(schema.auditLog);
+    await db.delete(schema.outbox);
 
     await expect(
       processCommand(db, {
@@ -811,7 +811,7 @@ describe("processCommand handler errors", () => {
       }),
     ).rejects.toThrow();
 
-    const logs = await db.select().from(schema.auditLog);
+    const logs = await db.select().from(schema.outbox);
     expect(logs).toHaveLength(0);
 
     const habits = await db

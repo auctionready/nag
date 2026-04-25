@@ -72,6 +72,7 @@ builder.Host.UseWolverine(opts =>
 
 builder.Services.AddScoped<CommandDispatcher>();
 builder.Services.AddScoped<CommandsReader>();
+builder.Services.AddScoped<SyncCoordinator>();
 
 var clerkIssuer = builder.Configuration["Nag:ClerkIssuer"];
 if (!string.IsNullOrWhiteSpace(clerkIssuer))
@@ -118,6 +119,7 @@ app.MapCommandsEndpoints();
 app.MapHomeBoardEndpoints();
 app.MapDevicesEndpoints();
 app.MapAccountsEndpoints();
+app.MapSyncEndpoints();
 
 #if DEBUG
 app.UseSwagger();

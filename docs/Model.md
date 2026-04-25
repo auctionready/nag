@@ -144,14 +144,16 @@ Constraints:
 - `goal_id` references `goal.id` with `ON DELETE CASCADE`.
 - Index on `goal_id`.
 
-### `audit_log`
+### `outbox`
 
-Source: [`auditLog.ts`](../packages/schema/src/auditLog.ts)
+Source: [`outbox.ts`](../packages/schema/src/outbox.ts)
 
-An append-only log of commands processed by `@nag/core`. `command_type` is a
-string identifier (e.g. `CreateHabit`), and `payload` is an optional JSON
-string with the command's arguments. Useful for debugging and replaying
-user actions.
+Outbox queue for commands committed locally but not yet acknowledged by
+the server. Each `processCommand()` call appends one row with
+`status='pending'`; the dispatcher in `@nag/core` ships pending rows to
+`POST /commands` and transitions them to `sent` (with the assigned
+`server_sequence`) or `failed` (with `last_error`). `envelope_id` is the
+idempotency key the server uses to dedupe retries.
 
 ## Relations
 

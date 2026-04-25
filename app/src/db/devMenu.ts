@@ -8,6 +8,13 @@ if (__DEV__) {
     {
       name: "Clear database",
       callback: async () => {
+        await clearAll({ keepDeviceInfo: true });
+        DevSettings.reload();
+      },
+    },
+    {
+      name: "Clear database (no refetch from server)",
+      callback: async () => {
         await clearAll();
         DevSettings.reload();
       },

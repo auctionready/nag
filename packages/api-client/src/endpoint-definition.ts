@@ -370,12 +370,23 @@ export type HomeHabit = z.infer<typeof HomeHabit>;
 
 export const HomeBoard = z
   .object({
-    id: z.uuid(),
     lastSequence: z.int(),
     habits: z.array(HomeHabit).nullable(),
   })
   .partial();
 export type HomeBoard = z.infer<typeof HomeBoard>;
+
+export const SyncResponse = z
+  .object({
+    mode: z.string().nullable(),
+    commands: z.array(CommandEnvelopeOut).nullable(),
+    headSequence: z.int().nullable(),
+    nextSince: z.int().nullable(),
+    sequenceAtSnapshot: z.int().nullable(),
+    snapshot: HomeBoard.nullable(),
+  })
+  .partial();
+export type SyncResponse = z.infer<typeof SyncResponse>;
 
 export const endpoints = makeApi([
   {
@@ -449,6 +460,14 @@ export const endpoints = makeApi([
     alias: "getHomeBoard",
     parameters: [],
     response: HomeBoard,
+    errors: [],
+  },
+  {
+    method: "get",
+    path: "/sync",
+    alias: "getSync",
+    parameters: [{ name: "since", type: "Query", schema: z.int() }],
+    response: SyncResponse,
     errors: [],
   },
 ]);

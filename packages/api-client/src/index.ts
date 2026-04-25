@@ -10,10 +10,12 @@ export {
   postCommands,
   registerDevice,
   upgradeAccount,
+  getSync,
   type CommandEnvelope,
   type PostResult,
   type RegisterDeviceResult,
   type UpgradeAccountResult,
+  type GetSyncResult,
   type WrapperLog,
   type Endpoints,
 } from "./operations";

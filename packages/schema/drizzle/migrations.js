@@ -11,6 +11,7 @@ import m0006 from './0006_replace_day_of_week_with_days.sql';
 import m0007 from './0007_add_reminder_to_schedule.sql';
 import m0008 from './0008_clean_changeling.sql';
 import m0009 from './0009_early_mantis.sql';
+import m0010 from './0010_sync_outbox_rename.sql';
 
   export default {
     journal,
@@ -24,7 +25,8 @@ m0005,
 m0006,
 m0007,
 m0008,
-m0009
+m0009,
+m0010
     }
   }
   

@@ -229,13 +229,13 @@ describe("schema", () => {
     });
   });
 
-  describe("audit log table", () => {
+  describe("outbox table", () => {
     describe("with payload", () => {
-      let log: typeof schema.auditLog.$inferSelect;
+      let log: typeof schema.outbox.$inferSelect;
 
       beforeEach(async () => {
         [log] = await db
-          .insert(schema.auditLog)
+          .insert(schema.outbox)
           .values({
             commandType: "CreateHabit",
             payload: JSON.stringify({ title: "Test" }),
@@ -257,11 +257,11 @@ describe("schema", () => {
     });
 
     describe("without payload", () => {
-      let log: typeof schema.auditLog.$inferSelect;
+      let log: typeof schema.outbox.$inferSelect;
 
       beforeEach(async () => {
         [log] = await db
-          .insert(schema.auditLog)
+          .insert(schema.outbox)
           .values({ commandType: "DeleteHabit" })
           .returning();
       });

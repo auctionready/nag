@@ -11,7 +11,7 @@ const getDb = setupTestDb("dispatcher-test.db");
 
 /**
  * Produces three queued commands by running them through processCommand,
- * so the audit_log rows look exactly like production rows. Returns the
+ * so the outbox rows look exactly like production rows. Returns the
  * habit id created first so tests can reference it if needed.
  */
 const seedThreeCommands = async (db: ReturnType<typeof getDb>) => {
@@ -53,8 +53,8 @@ describe("dispatcher happy path", () => {
 
     const rows = await db
       .select()
-      .from(schema.auditLog)
-      .orderBy(asc(schema.auditLog.id));
+      .from(schema.outbox)
+      .orderBy(asc(schema.outbox.id));
     expect(rows.map((r) => r.status)).toEqual(["sent", "sent", "sent"]);
     expect(rows.map((r) => r.serverSequence)).toEqual([100, 101, 102]);
     for (const r of rows) {
@@ -76,7 +76,7 @@ describe("dispatcher happy path", () => {
     const status = await createDispatcher({ db, post }).run();
 
     expect(status).toBe("idle");
-    const [row] = await db.select().from(schema.auditLog);
+    const [row] = await db.select().from(schema.outbox);
     expect(row.status).toBe("sent");
     expect(row.serverSequence).toBe(42);
   });
@@ -119,8 +119,8 @@ describe("dispatcher non-retriable (4xx)", () => {
 
     const rows = await db
       .select()
-      .from(schema.auditLog)
-      .orderBy(asc(schema.auditLog.id));
+      .from(schema.outbox)
+      .orderBy(asc(schema.outbox.id));
     expect(rows[0].status).toBe("sent");
     expect(rows[1].status).toBe("failed");
     expect(rows[1].lastError).toContain("400");
@@ -170,8 +170,8 @@ describe("dispatcher transient errors", () => {
 
     const rows = await db
       .select()
-      .from(schema.auditLog)
-      .orderBy(asc(schema.auditLog.id));
+      .from(schema.outbox)
+      .orderBy(asc(schema.outbox.id));
     expect(rows[0].status).toBe("sent");
     expect(rows[1].status).toBe("pending");
     expect(rows[1].lastError).toBe("ECONNREFUSED");
@@ -231,7 +231,7 @@ describe("dispatcher idempotent replay (crash between POST and markSent)", () =>
     expect(postedEnvelopeIds).toHaveLength(2);
     expect(postedEnvelopeIds[0]).toBe(postedEnvelopeIds[1]);
 
-    const [row] = await db.select().from(schema.auditLog);
+    const [row] = await db.select().from(schema.outbox);
     expect(row.status).toBe("sent");
     expect(row.serverSequence).toBe(7);
   });
@@ -258,9 +258,9 @@ describe("resumeDispatch", () => {
 
     const envelopeIdsBefore = (
       await db
-        .select({ envelopeId: schema.auditLog.envelopeId })
-        .from(schema.auditLog)
-        .orderBy(asc(schema.auditLog.id))
+        .select({ envelopeId: schema.outbox.envelopeId })
+        .from(schema.outbox)
+        .orderBy(asc(schema.outbox.id))
     ).map((r) => r.envelopeId);
 
     // User fixes the issue and presses Resume.
@@ -272,9 +272,9 @@ describe("resumeDispatch", () => {
     // Envelope IDs unchanged — idempotency preserved for retry.
     const envelopeIdsAfter = (
       await db
-        .select({ envelopeId: schema.auditLog.envelopeId })
-        .from(schema.auditLog)
-        .orderBy(asc(schema.auditLog.id))
+        .select({ envelopeId: schema.outbox.envelopeId })
+        .from(schema.outbox)
+        .orderBy(asc(schema.outbox.id))
     ).map((r) => r.envelopeId);
     expect(envelopeIdsAfter).toEqual(envelopeIdsBefore);
 
@@ -290,8 +290,8 @@ describe("resumeDispatch", () => {
     expect(status).toBe("idle");
     const rows = await db
       .select()
-      .from(schema.auditLog)
-      .orderBy(asc(schema.auditLog.id));
+      .from(schema.outbox)
+      .orderBy(asc(schema.outbox.id));
     expect(rows.map((r) => r.status)).toEqual(["sent", "sent"]);
   });
 });
@@ -328,7 +328,7 @@ describe("batchSize", () => {
 });
 
 describe("envelope shape", () => {
-  it("sends { id, timestamp (ISO), type, payload } from the audit_log row", async () => {
+  it("sends { id, timestamp (ISO), type, payload } from the outbox row", async () => {
     const db = getDb();
     const { externalId } = await processCommand(db, {
       type: "CreateHabit",
@@ -395,7 +395,7 @@ describe("dispatcher + previously-sent rows", () => {
   it("does not reprocess rows with status='sent' (e.g. migrated pre-sync history)", async () => {
     const db = getDb();
     // Simulate a historical row the migration marked as sent.
-    await db.insert(schema.auditLog).values({
+    await db.insert(schema.outbox).values({
       commandType: "CreateHabit",
       payload: JSON.stringify({
         habitId: "00000000-0000-0000-0000-000000000000",

@@ -19,5 +19,16 @@ export {
   markSent,
   markPendingWithError,
   markFailedAndHalt,
+  getHighestServerSequence,
   type PendingRow,
 } from "./outbox";
+export { applyServerCommand, type ServerCommand } from "./applyServerCommand";
+export { installSnapshot, type ServerSnapshot } from "./installSnapshot";
+export {
+  createPullSync,
+  type PullSync,
+  type PullSyncOptions,
+  type PullStatus,
+  type SyncResult,
+  type GetSyncFn,
+} from "./pullSync";
