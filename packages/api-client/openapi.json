@@ -78,6 +78,48 @@
         "security": [ ]
       }
     },
+    "/accounts/unbind": {
+      "post": {
+        "tags": [
+          "Accounts"
+        ],
+        "summary": "POST_accounts_unbind",
+        "description": "POST_accounts_unbind",
+        "operationId": "postAccountsUnbind",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UnbindAccountResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/commands": {
       "post": {
         "tags": [
@@ -1209,6 +1251,16 @@
               }
             ],
             "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "UnbindAccountResponse": {
+        "type": "object",
+        "properties": {
+          "accountId": {
+            "type": "string",
+            "format": "uuid"
           }
         },
         "additionalProperties": false

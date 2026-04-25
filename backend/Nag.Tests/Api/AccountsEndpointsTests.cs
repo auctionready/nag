@@ -1,4 +1,5 @@
 using System.Net;
+using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using Marten;
 using Microsoft.Extensions.DependencyInjection;
@@ -190,5 +191,115 @@ public class AccountsEndpointsTests : IClassFixture<AccountsEndpointsTests.Facto
         );
 
         response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+    }
+
+    /// <summary>
+    /// Bootstraps a registered+upgraded account and returns an HTTP client
+    /// authenticated with that account's device token, ready to call
+    /// <c>/accounts/unbind</c>.
+    /// </summary>
+    private async Task<(Guid AccountId, Guid DeviceId, HttpClient Client)> RegisterAndUpgradeAsync(
+        string sub
+    )
+    {
+        var bootstrap = _factory.CreateClient();
+        var (accountId, deviceId) = await RegisterDeviceAsync(bootstrap);
+        _factory.ClerkVerifier.Behavior = _ => ClerkTokenVerificationResult.Success(sub);
+        var upgrade = await bootstrap.PostAsJsonAsync(
+            "/accounts/upgrade",
+            new UpgradeAccountRequest(deviceId, "any-token")
+        );
+        upgrade.StatusCode.ShouldBe(HttpStatusCode.OK);
+        var body = await upgrade.Content.ReadFromJsonAsync<UpgradeAccountResponse>();
+
+        var authed = _factory.CreateClient();
+        authed.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
+            "Bearer",
+            body!.DeviceToken
+        );
+        return (accountId, deviceId, authed);
+    }
+
+    [Fact]
+    public async Task unbind_clears_idp_subject_and_returns_200()
+    {
+        var (accountId, _, client) = await RegisterAndUpgradeAsync("user_unbind_clear");
+
+        var response = await client.PostAsync("/accounts/unbind", content: null);
+
+        response.StatusCode.ShouldBe(HttpStatusCode.OK);
+        var body = await response.Content.ReadFromJsonAsync<UnbindAccountResponse>();
+        body!.AccountId.ShouldBe(accountId);
+
+        using var scope = _factory.Services.CreateScope();
+        var session = scope.ServiceProvider.GetRequiredService<IDocumentSession>();
+        var account = await session.LoadAsync<Account>(accountId);
+        account!.IdpSubject.ShouldBeNull();
+        account.UpgradedAt.ShouldBeNull();
+    }
+
+    [Fact]
+    public async Task unbind_lets_the_account_be_rebound_to_a_different_subject()
+    {
+        var (accountId, deviceId, client) = await RegisterAndUpgradeAsync("user_unbind_rebind_a");
+
+        (await client.PostAsync("/accounts/unbind", content: null)).StatusCode.ShouldBe(
+            HttpStatusCode.OK
+        );
+
+        // Re-bind via /accounts/upgrade — previously this would have hit
+        // "account is already bound to a different identity"; after unbind
+        // it succeeds.
+        _factory.ClerkVerifier.Behavior = _ =>
+            ClerkTokenVerificationResult.Success("user_unbind_rebind_b");
+        var rebind = await client.PostAsJsonAsync(
+            "/accounts/upgrade",
+            new UpgradeAccountRequest(deviceId, "second-token")
+        );
+        rebind.StatusCode.ShouldBe(HttpStatusCode.OK);
+        var body = await rebind.Content.ReadFromJsonAsync<UpgradeAccountResponse>();
+        body!.AccountId.ShouldBe(accountId);
+        body.IdpSubject.ShouldBe("user_unbind_rebind_b");
+    }
+
+    [Fact]
+    public async Task unbind_is_idempotent_on_an_already_anonymous_account()
+    {
+        // Register but never upgrade — IdpSubject is null from the start.
+        var bootstrap = _factory.CreateClient();
+        var (accountId, deviceId) = await RegisterDeviceAsync(bootstrap);
+        var token = _factory.IssueDeviceToken(accountId, deviceId);
+        var authed = _factory.CreateClient();
+        authed.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        var response = await authed.PostAsync("/accounts/unbind", content: null);
+
+        response.StatusCode.ShouldBe(HttpStatusCode.OK);
+        var body = await response.Content.ReadFromJsonAsync<UnbindAccountResponse>();
+        body!.AccountId.ShouldBe(accountId);
+    }
+
+    [Fact]
+    public async Task unbind_without_a_token_returns_401()
+    {
+        var client = _factory.CreateClient();
+
+        var response = await client.PostAsync("/accounts/unbind", content: null);
+
+        response.StatusCode.ShouldBe(HttpStatusCode.Unauthorized);
+    }
+
+    [Fact]
+    public async Task unbind_with_an_unknown_account_returns_404()
+    {
+        // Forge a device token whose account_id claim points at an account
+        // that was never persisted.
+        var token = _factory.IssueDeviceToken(Guid.NewGuid(), Guid.NewGuid());
+        var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        var response = await client.PostAsync("/accounts/unbind", content: null);
+
+        response.StatusCode.ShouldBe(HttpStatusCode.NotFound);
     }
 }

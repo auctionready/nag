@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using Marten;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -106,5 +107,66 @@ public static class AccountsEndpoints
         return Results.Ok(
             new UpgradeAccountResponse(account.Id, sub, now, tokens.Issue(account.Id, device.Id))
         );
+    }
+
+    /// <summary>
+    /// Detaches the calling device's account from its bound Clerk identity.
+    /// The caller must be authenticated with a device token (HMAC) — the
+    /// account ID is read from the principal's <c>account_id</c> claim, not
+    /// the request body, so a stolen Clerk JWT alone can't unbind. Habit
+    /// data hangs off the Account row and is untouched; existing device
+    /// tokens stay valid because they sign <c>(accountId, deviceId)</c>
+    /// directly and don't depend on <c>IdpSubject</c>.
+    ///
+    /// Edge case worth knowing: any second device that was paired via
+    /// <c>/devices/pair</c> before this unbind keeps working (it has its
+    /// own device token). But a *new* device that hasn't paired yet will
+    /// see <c>/devices/pair</c> return 404 ("no account found for this
+    /// identity") until some device re-runs <c>/accounts/upgrade</c> to
+    /// rebind. Idempotent — unbinding an already-anonymous account is a
+    /// no-op 200.
+    /// </summary>
+    [Tags("Accounts")]
+    [NotTenanted]
+    [EndpointName("postAccountsUnbind")]
+    [ProducesResponseType(typeof(UnbindAccountResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status404NotFound)]
+    [WolverinePost("/accounts/unbind")]
+    public static async Task<IResult> UnbindAccount(
+        ClaimsPrincipal user,
+        IDocumentSession session,
+        IDeviceAccountResolver resolver,
+        CancellationToken ct
+    )
+    {
+        var accountIdClaim = user.FindFirstValue(NagClaimTypes.AccountId);
+        if (!Guid.TryParse(accountIdClaim, out var accountId))
+        {
+            return Results.Json(
+                new ErrorResponse(["unauthenticated"]),
+                statusCode: StatusCodes.Status401Unauthorized
+            );
+        }
+
+        var account = await session.LoadAsync<Account>(accountId, ct);
+        if (account is null)
+            return Results.NotFound(new ErrorResponse(["account not found"]));
+
+        var oldSub = account.IdpSubject;
+        if (string.IsNullOrEmpty(oldSub))
+        {
+            // Already anonymous — idempotent 200 so the client can retry
+            // safely after a transient network failure.
+            return Results.Ok(new UnbindAccountResponse(account.Id));
+        }
+
+        account.IdpSubject = null;
+        account.UpgradedAt = null;
+        session.Store(account);
+        await session.SaveChangesAsync(ct);
+        resolver.Invalidate(oldSub);
+
+        return Results.Ok(new UnbindAccountResponse(account.Id));
     }
 }

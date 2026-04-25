@@ -18,7 +18,7 @@ import {
 } from "@clerk/clerk-expo";
 import { loadIdentity } from "@nag/core";
 import { db } from "../db";
-import { upgradeAccount } from "../infrastructure/apiClient";
+import { unbindAccount, upgradeAccount } from "../infrastructure/apiClient";
 import { isClerkConfigured } from "../infrastructure/clerk";
 import { log } from "../infrastructure/log";
 
@@ -166,27 +166,113 @@ const SignedInOrOut = () => {
   }
 
   return (
+    <SignedInView
+      identifier={
+        user?.primaryEmailAddress?.emailAddress ??
+        user?.primaryPhoneNumber?.phoneNumber ??
+        user?.id ??
+        "unknown"
+      }
+      status={status}
+      setStatus={setStatus}
+      signOut={signOut}
+      onUnlinked={() => {
+        // Reset the run-once latch so the next sign-in (potentially a
+        // different connector) re-runs the upgrade flow against the now-
+        // anonymous account.
+        upgradeStarted.current = false;
+      }}
+    />
+  );
+};
+
+type UnlinkStatus =
+  | { kind: "idle" }
+  | { kind: "in-progress" }
+  | { kind: "fail"; message: string };
+
+const SignedInView = ({
+  identifier,
+  status,
+  setStatus,
+  signOut,
+  onUnlinked,
+}: {
+  identifier: string;
+  status: UpgradeStatus;
+  setStatus: React.Dispatch<React.SetStateAction<UpgradeStatus>>;
+  signOut: () => Promise<void>;
+  onUnlinked: () => void;
+}) => {
+  const [unlink, setUnlink] = React.useState<UnlinkStatus>({ kind: "idle" });
+
+  const onUnlink = React.useCallback(async () => {
+    // Edge case worth knowing: any second device that has NOT yet paired
+    // (`/devices/pair`) will see "no account found for this identity"
+    // until some device re-binds via `/accounts/upgrade`. Devices already
+    // paired hold their own HMAC device token and keep working.
+    setUnlink({ kind: "in-progress" });
+    try {
+      const result = await unbindAccount();
+      if (!result.ok) {
+        setUnlink({ kind: "fail", message: result.message });
+        return;
+      }
+      logger.info(`account unbound accountId=${result.accountId}`);
+      onUnlinked();
+      setStatus({ kind: "idle" });
+      setUnlink({ kind: "idle" });
+      // Sign out of Clerk so the next attempt starts from the connector
+      // picker rather than silently re-using the stale Clerk session.
+      await signOut();
+    } catch (err) {
+      logger.error("unlink flow threw", err);
+      setUnlink({
+        kind: "fail",
+        message: err instanceof Error ? err.message : "unlink failed",
+      });
+    }
+  }, [onUnlinked, setStatus, signOut]);
+
+  const busy = unlink.kind === "in-progress";
+
+  return (
     <View style={styles.container}>
       <Text style={styles.title}>Account</Text>
       <Text style={styles.body}>
-        Signed in as{" "}
-        <Text style={styles.bold}>
-          {user?.primaryEmailAddress?.emailAddress ??
-            user?.primaryPhoneNumber?.phoneNumber ??
-            user?.id ??
-            "unknown"}
-        </Text>
-        .
+        Signed in as <Text style={styles.bold}>{identifier}</Text>.
       </Text>
       <UpgradeStatusLine status={status} />
+      {unlink.kind === "fail" ? (
+        <Text style={styles.statusError} numberOfLines={4}>
+          Could not unlink: {unlink.message}
+        </Text>
+      ) : null}
       <Pressable
-        style={styles.secondaryButton}
+        style={[styles.secondaryButton, busy && styles.buttonDisabled]}
         onPress={() => {
           void signOut();
         }}
+        disabled={busy}
         accessibilityRole="button"
       >
         <Text style={styles.secondaryButtonText}>Sign out</Text>
+      </Pressable>
+      <Pressable
+        style={[styles.secondaryButton, busy && styles.buttonDisabled]}
+        onPress={() => {
+          void onUnlink();
+        }}
+        disabled={busy}
+        accessibilityRole="button"
+      >
+        {busy ? (
+          <ActivityIndicator />
+        ) : (
+          <Text style={styles.secondaryButtonText}>
+            Unlink identity (keeps your data)
+          </Text>
+        )}
       </Pressable>
     </View>
   );

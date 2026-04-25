@@ -31,6 +31,11 @@ export const ErrorResponse = z
   .partial();
 export type ErrorResponse = z.infer<typeof ErrorResponse>;
 
+export const UnbindAccountResponse = z
+  .object({ accountId: z.uuid() })
+  .partial();
+export type UnbindAccountResponse = z.infer<typeof UnbindAccountResponse>;
+
 export const Regularity = z.enum(["day", "week", "month"]);
 export type Regularity = z.infer<typeof Regularity>;
 
@@ -383,6 +388,17 @@ export const SyncResponse = z
 export type SyncResponse = z.infer<typeof SyncResponse>;
 
 export const endpoints = makeApi([
+  {
+    method: "post",
+    path: "/accounts/unbind",
+    alias: "postAccountsUnbind",
+    parameters: [],
+    response: z.object({ accountId: z.uuid() }).partial(),
+    errors: [
+      { status: 401, schema: ErrorResponse },
+      { status: 404, schema: ErrorResponse },
+    ],
+  },
   {
     method: "post",
     path: "/accounts/upgrade",
