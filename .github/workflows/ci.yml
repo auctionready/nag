@@ -104,21 +104,8 @@ jobs:
           path: backend/**/TestResults/results.trx
           reporter: dotnet-trx
 
-      # openapi.json is regenerated from the Debug build and committed; this
-      # gate fails if a backend change drifts the spec without regenerating.
-      # Runs last because it pulls in the JS toolchain (pnpm exec prettier
-      # normalises the output to match what lefthook commits locally).
-      - uses: volta-cli/action@v4
-
-      - uses: pnpm/action-setup@v5
-
-      - uses: actions/setup-node@v6
-        with:
-          node-version-file: package.json
-          cache: pnpm
-
-      - run: pnpm install --frozen-lockfile
-        working-directory: .
-
+      # Fails if a backend change drifts packages/api-client/openapi.json
+      # from what's committed. The file is exempt from Prettier (see
+      # .prettierignore) so raw `dotnet swagger tofile` output is canonical.
       - name: openapi.json is up to date
         run: ./scripts/generate-openapi.sh && git diff --exit-code ../packages/api-client/openapi.json
