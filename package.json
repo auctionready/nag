@@ -29,10 +29,6 @@
     ],
     "patchedDependencies": {
       "@expo/dom-webview@55.0.3": "patches/@expo__dom-webview@55.0.3.patch"
-    },
-    "overrides": {
-      "react": "19.2.0",
-      "react-dom": "19.2.0"
     }
   },
   "packageManager": "pnpm@10.33.2",
