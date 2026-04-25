@@ -4,7 +4,7 @@ using System.Text.Json.Nodes;
 using Microsoft.OpenApi;
 using Swashbuckle.AspNetCore.SwaggerGen;
 
-namespace Nag.Api.Endpoints;
+namespace Nag.Api.OpenApi;
 
 /// <summary>
 /// Converts C# enums to camelCase string enums in the OpenAPI schema,
@@ -22,11 +22,11 @@ public sealed class EnumSchemaFilter : ISchemaFilter
             return;
 
         openApiSchema.Type = JsonSchemaType.String;
-        openApiSchema.Enum = Enum.GetNames(context.Type)
-            .Select(name =>
-                (JsonNode)JsonValue.Create(JsonNamingPolicy.CamelCase.ConvertName(name))!
-            )
+        var list = Enum.GetNames(context.Type)
+            .Select(name => JsonValue.Create(JsonNamingPolicy.CamelCase.ConvertName(name)))
+            .Cast<JsonNode>()
             .ToList();
+        openApiSchema.Enum = list;
     }
 }
 #endif

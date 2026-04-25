@@ -4,7 +4,7 @@ using Microsoft.OpenApi;
 using Nag.Core.Contracts;
 using Swashbuckle.AspNetCore.SwaggerGen;
 
-namespace Nag.Api.Endpoints;
+namespace Nag.Api.OpenApi;
 
 /// <summary>
 /// Builds a discriminated union for command envelopes: each variant fixes
@@ -56,7 +56,7 @@ public sealed class CommandSchemasFilter : IDocumentFilter
             {
                 foreach (var (propName, propSchema) in envelope.Properties)
                 {
-                    if (propName == "type" || propName == "payload")
+                    if (propName is "type" or "payload")
                         continue;
                     variantProps[propName] = propSchema;
                 }
