@@ -7,7 +7,9 @@
   "paths": {
     "/accounts/upgrade": {
       "post": {
-        "tags": ["Accounts"],
+        "tags": [
+          "Accounts"
+        ],
         "requestBody": {
           "content": {
             "application/json": {
@@ -78,7 +80,9 @@
     },
     "/commands": {
       "post": {
-        "tags": ["Commands"],
+        "tags": [
+          "Commands"
+        ],
         "requestBody": {
           "content": {
             "application/json": {
@@ -117,7 +121,9 @@
         }
       },
       "get": {
-        "tags": ["Commands"],
+        "tags": [
+          "Commands"
+        ],
         "parameters": [
           {
             "name": "since",
@@ -153,7 +159,9 @@
     },
     "/devices/register": {
       "post": {
-        "tags": ["Devices"],
+        "tags": [
+          "Devices"
+        ],
         "requestBody": {
           "content": {
             "application/json": {
@@ -194,7 +202,9 @@
     },
     "/devices/pair": {
       "post": {
-        "tags": ["Devices"],
+        "tags": [
+          "Devices"
+        ],
         "requestBody": {
           "content": {
             "application/json": {
@@ -265,7 +275,9 @@
     },
     "/health": {
       "get": {
-        "tags": ["Health"],
+        "tags": [
+          "Health"
+        ],
         "responses": {
           "204": {
             "description": "No Content"
@@ -275,7 +287,9 @@
     },
     "/home-board": {
       "get": {
-        "tags": ["Read Models"],
+        "tags": [
+          "Read Models"
+        ],
         "responses": {
           "200": {
             "description": "OK",
@@ -375,7 +389,10 @@
         }
       },
       "CommandEnvelopeOut_CreateCheckIn": {
-        "required": ["type", "payload"],
+        "required": [
+          "type",
+          "payload"
+        ],
         "type": "object",
         "properties": {
           "sequence": {
@@ -391,7 +408,9 @@
             "format": "date-time"
           },
           "type": {
-            "enum": ["CreateCheckIn"],
+            "enum": [
+              "CreateCheckIn"
+            ],
             "type": "string"
           },
           "payload": {
@@ -400,7 +419,10 @@
         }
       },
       "CommandEnvelopeOut_CreateHabit": {
-        "required": ["type", "payload"],
+        "required": [
+          "type",
+          "payload"
+        ],
         "type": "object",
         "properties": {
           "sequence": {
@@ -416,7 +438,9 @@
             "format": "date-time"
           },
           "type": {
-            "enum": ["CreateHabit"],
+            "enum": [
+              "CreateHabit"
+            ],
             "type": "string"
           },
           "payload": {
@@ -425,7 +449,10 @@
         }
       },
       "CommandEnvelopeOut_DeleteCheckIn": {
-        "required": ["type", "payload"],
+        "required": [
+          "type",
+          "payload"
+        ],
         "type": "object",
         "properties": {
           "sequence": {
@@ -441,7 +468,9 @@
             "format": "date-time"
           },
           "type": {
-            "enum": ["DeleteCheckIn"],
+            "enum": [
+              "DeleteCheckIn"
+            ],
             "type": "string"
           },
           "payload": {
@@ -450,7 +479,10 @@
         }
       },
       "CommandEnvelopeOut_DeleteHabit": {
-        "required": ["type", "payload"],
+        "required": [
+          "type",
+          "payload"
+        ],
         "type": "object",
         "properties": {
           "sequence": {
@@ -466,7 +498,9 @@
             "format": "date-time"
           },
           "type": {
-            "enum": ["DeleteHabit"],
+            "enum": [
+              "DeleteHabit"
+            ],
             "type": "string"
           },
           "payload": {
@@ -475,7 +509,10 @@
         }
       },
       "CommandEnvelopeOut_UpdateCheckIn": {
-        "required": ["type", "payload"],
+        "required": [
+          "type",
+          "payload"
+        ],
         "type": "object",
         "properties": {
           "sequence": {
@@ -491,7 +528,9 @@
             "format": "date-time"
           },
           "type": {
-            "enum": ["UpdateCheckIn"],
+            "enum": [
+              "UpdateCheckIn"
+            ],
             "type": "string"
           },
           "payload": {
@@ -500,7 +539,10 @@
         }
       },
       "CommandEnvelopeOut_UpdateHabit": {
-        "required": ["type", "payload"],
+        "required": [
+          "type",
+          "payload"
+        ],
         "type": "object",
         "properties": {
           "sequence": {
@@ -516,7 +558,9 @@
             "format": "date-time"
           },
           "type": {
-            "enum": ["UpdateHabit"],
+            "enum": [
+              "UpdateHabit"
+            ],
             "type": "string"
           },
           "payload": {
@@ -525,7 +569,10 @@
         }
       },
       "CommandEnvelope_CreateCheckIn": {
-        "required": ["type", "payload"],
+        "required": [
+          "type",
+          "payload"
+        ],
         "type": "object",
         "properties": {
           "id": {
@@ -537,7 +584,9 @@
             "format": "date-time"
           },
           "type": {
-            "enum": ["CreateCheckIn"],
+            "enum": [
+              "CreateCheckIn"
+            ],
             "type": "string"
           },
           "payload": {
@@ -546,7 +595,10 @@
         }
       },
       "CommandEnvelope_CreateHabit": {
-        "required": ["type", "payload"],
+        "required": [
+          "type",
+          "payload"
+        ],
         "type": "object",
         "properties": {
           "id": {
@@ -558,7 +610,9 @@
             "format": "date-time"
           },
           "type": {
-            "enum": ["CreateHabit"],
+            "enum": [
+              "CreateHabit"
+            ],
             "type": "string"
           },
           "payload": {
@@ -567,7 +621,10 @@
         }
       },
       "CommandEnvelope_DeleteCheckIn": {
-        "required": ["type", "payload"],
+        "required": [
+          "type",
+          "payload"
+        ],
         "type": "object",
         "properties": {
           "id": {
@@ -579,7 +636,9 @@
             "format": "date-time"
           },
           "type": {
-            "enum": ["DeleteCheckIn"],
+            "enum": [
+              "DeleteCheckIn"
+            ],
             "type": "string"
           },
           "payload": {
@@ -588,7 +647,10 @@
         }
       },
       "CommandEnvelope_DeleteHabit": {
-        "required": ["type", "payload"],
+        "required": [
+          "type",
+          "payload"
+        ],
         "type": "object",
         "properties": {
           "id": {
@@ -600,7 +662,9 @@
             "format": "date-time"
           },
           "type": {
-            "enum": ["DeleteHabit"],
+            "enum": [
+              "DeleteHabit"
+            ],
             "type": "string"
           },
           "payload": {
@@ -609,7 +673,10 @@
         }
       },
       "CommandEnvelope_UpdateCheckIn": {
-        "required": ["type", "payload"],
+        "required": [
+          "type",
+          "payload"
+        ],
         "type": "object",
         "properties": {
           "id": {
@@ -621,7 +688,9 @@
             "format": "date-time"
           },
           "type": {
-            "enum": ["UpdateCheckIn"],
+            "enum": [
+              "UpdateCheckIn"
+            ],
             "type": "string"
           },
           "payload": {
@@ -630,7 +699,10 @@
         }
       },
       "CommandEnvelope_UpdateHabit": {
-        "required": ["type", "payload"],
+        "required": [
+          "type",
+          "payload"
+        ],
         "type": "object",
         "properties": {
           "id": {
@@ -642,7 +714,9 @@
             "format": "date-time"
           },
           "type": {
-            "enum": ["UpdateHabit"],
+            "enum": [
+              "UpdateHabit"
+            ],
             "type": "string"
           },
           "payload": {
@@ -757,7 +831,11 @@
         "type": "object",
         "properties": {
           "regularity": {
-            "enum": ["day", "week", "month"],
+            "enum": [
+              "day",
+              "week",
+              "month"
+            ],
             "type": "string",
             "allOf": [
               {
@@ -822,7 +900,11 @@
         "type": "object",
         "properties": {
           "regularity": {
-            "enum": ["day", "week", "month"],
+            "enum": [
+              "day",
+              "week",
+              "month"
+            ],
             "type": "string",
             "allOf": [
               {
@@ -978,7 +1060,11 @@
         "additionalProperties": false
       },
       "Regularity": {
-        "enum": ["day", "week", "month"],
+        "enum": [
+          "day",
+          "week",
+          "month"
+        ],
         "type": "string",
         "format": "int32"
       },

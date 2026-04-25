@@ -1,6 +1,7 @@
 pnpm-lock.yaml
 packages/schema/drizzle/
 packages/api-client/scripts/*.hbs
+packages/api-client/openapi.json
 .beads/
 .claude/
 bin/
