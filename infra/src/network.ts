@@ -12,7 +12,12 @@ export interface Network {
 export const createNetwork = (): Network => {
   const vpc = new awsx.ec2.Vpc("nag", {
     numberOfAvailabilityZones: 2,
-    natGateways: { strategy: awsx.ec2.NatGatewayStrategy.None },
+    // Single NAT Gateway gives the Lambda outbound internet egress so it
+    // can reach Clerk's JWKS endpoint (and any other external HTTPS we
+    // pick up later — push notifications, payment APIs, etc). Single
+    // (not OnePerAz) is the cheap path: ~$33/month vs ~$66; not HA but
+    // fine until traffic warrants it.
+    natGateways: { strategy: awsx.ec2.NatGatewayStrategy.Single },
     subnetStrategy: "Auto",
     enableDnsHostnames: true,
     enableDnsSupport: true,
