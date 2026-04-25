@@ -8,3 +8,5 @@ public sealed record UpgradeAccountResponse(
     DateTimeOffset UpgradedAt,
     string DeviceToken
 );
+
+public sealed record UnbindAccountResponse(Guid AccountId);

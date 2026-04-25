@@ -16,6 +16,17 @@ public sealed class PostgresFixture : IAsyncLifetime
 
     public async Task InitializeAsync()
     {
+        // Local-Postgres escape hatch for environments without Docker
+        // (CI sandboxes, devcontainers without DinD). When set, skip
+        // Testcontainers and target the supplied connection directly;
+        // each test class still picks its own schema, so the database
+        // is shared but isolated.
+        var local = Environment.GetEnvironmentVariable("NAG_TEST_PG_CONNECTION");
+        if (!string.IsNullOrWhiteSpace(local))
+        {
+            ConnectionString = local;
+            return;
+        }
         _container = new PostgreSqlBuilder("postgres:17").Build();
         await _container.StartAsync();
         ConnectionString = _container.GetConnectionString();
