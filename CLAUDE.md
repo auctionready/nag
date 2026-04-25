@@ -8,7 +8,16 @@ This file provides instructions and context for AI coding agents working on this
 - Use pnpm to run Expo, e.g. `pnpm expo start` from `app`.
 - Use dotnet for backend (install with apt if needed)
 
-Validation (run from the repo root):
+## Deployment
+
+- Backend deployment is Pulumi and in two folders `infra` and `infra-bootstrap` both isolated from pnpm workspaces and npm projects.
+
+## Integration backend with app
+
+- OpenAPI from backend is used to generate zodios definitions.
+- Generate `endpoint-definition.ts` using `pnpm --filter @nag/api-client generate` from the repo root.
+
+## Validation (run from the repo root):
 
 For backend:
 
