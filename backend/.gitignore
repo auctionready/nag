@@ -3,3 +3,7 @@
 **/TestResults/
 **/.vs/
 *.user
+
+# Wolverine pre-generated handler code (emitted by `dotnet run -- codegen write`).
+# Re-generated on each build/deploy; not checked in.
+Nag.Api/Internal/Generated/

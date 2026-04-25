@@ -6,6 +6,7 @@
     "test": "dotnet test",
     "build": "dotnet build",
     "openapi": "./scripts/generate-openapi.sh",
+    "package:lambda": "./scripts/package-lambda.sh",
     "check": "concurrently -g \"pnpm check:format\" \"pnpm check:openapi\"",
     "check:format": "dotnet csharpier check .",
     "check:openapi": "./scripts/generate-openapi.sh && git diff --exit-code ../packages/api-client/openapi.json"
