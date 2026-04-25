@@ -3,10 +3,10 @@
   "private": true,
   "scripts": {
     "format": "dotnet csharpier format .",
-    "format:check": "dotnet csharpier check .",
     "test": "dotnet test",
     "build": "dotnet build",
     "openapi": "./scripts/generate-openapi.sh",
-    "openapi:check": "./scripts/generate-openapi.sh && git diff --exit-code ../packages/api-client/openapi.json"
+    "check:format": "dotnet csharpier check .",
+    "check:openapi": "./scripts/generate-openapi.sh && git diff --exit-code ../packages/api-client/openapi.json"
   }
 }
