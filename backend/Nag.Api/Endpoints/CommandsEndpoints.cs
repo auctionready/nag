@@ -1,35 +1,26 @@
 using System.Text.Json;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Nag.Core.Contracts;
 using Nag.Core.Handlers;
+using Wolverine.Http;
 
 namespace Nag.Api.Endpoints;
 
 public static class CommandsEndpoints
 {
-    public static void MapCommandsEndpoints(this IEndpointRouteBuilder app)
-    {
-        var group = app.MapGroup("/commands").WithTags("Commands");
-
-        group
-            .MapPost("/", PostCommand)
-            .Produces<CommandAccepted>()
-            .Produces<ErrorResponse>(400, "application/json");
-
-        group.MapGet("/", GetCommands).Produces<CommandsPage>();
-    }
-
+    [Tags("Commands")]
+    [ProducesResponseType(typeof(CommandAccepted), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
+    [WolverinePost("/commands")]
     public static async Task<IResult> PostCommand(
         CommandEnvelope envelope,
         CommandDispatcher dispatcher,
-        IConfiguration _,
         CancellationToken ct
     )
     {
         if (envelope.Id == Guid.Empty)
-        {
             return Results.BadRequest(new ErrorResponse(["envelope.id is required"]));
-        }
 
         object? command;
         try
@@ -70,6 +61,9 @@ public static class CommandsEndpoints
         };
     }
 
+    [Tags("Commands")]
+    [ProducesResponseType(typeof(CommandsPage), StatusCodes.Status200OK)]
+    [WolverineGet("/commands")]
     public static async Task<IResult> GetCommands(
         [FromQuery] long since,
         [FromQuery] int? limit,

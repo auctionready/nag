@@ -1,16 +1,16 @@
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Nag.Core.Contracts;
 using Nag.Core.Handlers;
+using Wolverine.Http;
 
 namespace Nag.Api.Endpoints;
 
 public static class SyncEndpoints
 {
-    public static void MapSyncEndpoints(this IEndpointRouteBuilder app)
-    {
-        app.MapGet("/sync", GetSync).WithTags("Sync").Produces<SyncResponse>();
-    }
-
+    [Tags("Sync")]
+    [ProducesResponseType(typeof(SyncResponse), StatusCodes.Status200OK)]
+    [WolverineGet("/sync")]
     public static async Task<IResult> GetSync(
         [FromQuery] long since,
         SyncCoordinator coordinator,

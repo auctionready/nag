@@ -1,4 +1,3 @@
-using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
 using Nag.Core.Contracts;
@@ -18,15 +17,7 @@ public class SyncEndpointsTests
         Pg = pg;
     }
 
-    private HttpClient AuthedClient(NagApiFactory factory)
-    {
-        var c = factory.CreateClient();
-        c.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
-            "Bearer",
-            factory.ApiKey
-        );
-        return c;
-    }
+    private static HttpClient AuthedClient(NagApiFactory factory) => factory.CreateAuthedClient();
 
     private static async Task<long> PostHabit(HttpClient client, string title)
     {

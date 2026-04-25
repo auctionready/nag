@@ -1,5 +1,4 @@
 using System.Net;
-using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text;
 using Nag.Core.Contracts;
@@ -35,15 +34,7 @@ public class ClientWireShapeTests : IClassFixture<ClientWireShapeTests.Factory>
 
     public sealed class Factory : NagApiFactory;
 
-    private HttpClient AuthedClient()
-    {
-        var c = _factory.CreateClient();
-        c.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
-            "Bearer",
-            _factory.ApiKey
-        );
-        return c;
-    }
+    private HttpClient AuthedClient() => _factory.CreateAuthedClient();
 
     private static StringContent Json(string body) => new(body, Encoding.UTF8, "application/json");
 

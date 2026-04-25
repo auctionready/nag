@@ -1,5 +1,4 @@
 using System.Net;
-using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using Marten;
 using Microsoft.Extensions.DependencyInjection;
@@ -25,16 +24,6 @@ public class AccountsEndpointsTests : IClassFixture<AccountsEndpointsTests.Facto
 
     public sealed class Factory : NagApiFactory;
 
-    private HttpClient AuthedClient()
-    {
-        var c = _factory.CreateClient();
-        c.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
-            "Bearer",
-            _factory.ApiKey
-        );
-        return c;
-    }
-
     /// <summary>
     /// Bootstraps an account+device pair the way `POST /devices/register`
     /// would in production, so the upgrade endpoint has something to bind to.
@@ -54,7 +43,7 @@ public class AccountsEndpointsTests : IClassFixture<AccountsEndpointsTests.Facto
     [Fact]
     public async Task upgrades_an_anonymous_account_with_a_valid_idp_token()
     {
-        var client = AuthedClient();
+        var client = _factory.CreateClient();
         var (accountId, deviceId) = await RegisterDeviceAsync(client);
         _factory.ClerkVerifier.Behavior = _ => ClerkTokenVerificationResult.Success("user_abc");
 
@@ -67,6 +56,7 @@ public class AccountsEndpointsTests : IClassFixture<AccountsEndpointsTests.Facto
         var body = await response.Content.ReadFromJsonAsync<UpgradeAccountResponse>();
         body!.AccountId.ShouldBe(accountId);
         body.IdpSubject.ShouldBe("user_abc");
+        body.DeviceToken.ShouldNotBeNullOrWhiteSpace();
 
         // The Account document is now persisted with the IdpSubject.
         using var scope = _factory.Services.CreateScope();
@@ -79,7 +69,7 @@ public class AccountsEndpointsTests : IClassFixture<AccountsEndpointsTests.Facto
     [Fact]
     public async Task upgrading_twice_with_the_same_subject_is_idempotent()
     {
-        var client = AuthedClient();
+        var client = _factory.CreateClient();
         var (accountId, deviceId) = await RegisterDeviceAsync(client);
         _factory.ClerkVerifier.Behavior = _ => ClerkTokenVerificationResult.Success("user_xyz");
 
@@ -104,7 +94,7 @@ public class AccountsEndpointsTests : IClassFixture<AccountsEndpointsTests.Facto
     [Fact]
     public async Task rebinding_an_already_upgraded_account_to_a_different_subject_returns_409()
     {
-        var client = AuthedClient();
+        var client = _factory.CreateClient();
         var (_, deviceId) = await RegisterDeviceAsync(client);
 
         _factory.ClerkVerifier.Behavior = _ => ClerkTokenVerificationResult.Success("user_first");
@@ -125,7 +115,7 @@ public class AccountsEndpointsTests : IClassFixture<AccountsEndpointsTests.Facto
     [Fact]
     public async Task rejects_an_idp_subject_already_bound_to_a_different_account()
     {
-        var client = AuthedClient();
+        var client = _factory.CreateClient();
         var (_, firstDeviceId) = await RegisterDeviceAsync(client);
         var (_, secondDeviceId) = await RegisterDeviceAsync(client);
 
@@ -148,7 +138,7 @@ public class AccountsEndpointsTests : IClassFixture<AccountsEndpointsTests.Facto
     [Fact]
     public async Task an_invalid_idp_token_returns_401()
     {
-        var client = AuthedClient();
+        var client = _factory.CreateClient();
         var (_, deviceId) = await RegisterDeviceAsync(client);
         _factory.ClerkVerifier.Behavior = _ =>
             ClerkTokenVerificationResult.Failure("signature mismatch");
@@ -164,7 +154,7 @@ public class AccountsEndpointsTests : IClassFixture<AccountsEndpointsTests.Facto
     [Fact]
     public async Task an_unknown_device_returns_404()
     {
-        var client = AuthedClient();
+        var client = _factory.CreateClient();
         _factory.ClerkVerifier.Behavior = _ => ClerkTokenVerificationResult.Success("user_abc");
 
         var response = await client.PostAsJsonAsync(
@@ -178,7 +168,7 @@ public class AccountsEndpointsTests : IClassFixture<AccountsEndpointsTests.Facto
     [Fact]
     public async Task missing_device_id_returns_400()
     {
-        var client = AuthedClient();
+        var client = _factory.CreateClient();
 
         var response = await client.PostAsJsonAsync(
             "/accounts/upgrade",
@@ -191,7 +181,7 @@ public class AccountsEndpointsTests : IClassFixture<AccountsEndpointsTests.Facto
     [Fact]
     public async Task missing_idp_token_returns_400()
     {
-        var client = AuthedClient();
+        var client = _factory.CreateClient();
         var (_, deviceId) = await RegisterDeviceAsync(client);
 
         var response = await client.PostAsJsonAsync(
@@ -200,16 +190,5 @@ public class AccountsEndpointsTests : IClassFixture<AccountsEndpointsTests.Facto
         );
 
         response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
-    }
-
-    [Fact]
-    public async Task requires_authentication()
-    {
-        var client = _factory.CreateClient();
-        var response = await client.PostAsJsonAsync(
-            "/accounts/upgrade",
-            new UpgradeAccountRequest(Guid.NewGuid(), "any-token")
-        );
-        response.StatusCode.ShouldBe(HttpStatusCode.Unauthorized);
     }
 }

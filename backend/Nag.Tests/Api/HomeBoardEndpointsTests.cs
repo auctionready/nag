@@ -1,4 +1,3 @@
-using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using Nag.Core.Contracts;
 using Nag.Core.ReadModels;
@@ -22,15 +21,7 @@ public class HomeBoardEndpointsTests : IClassFixture<HomeBoardEndpointsTests.Fac
 
     public sealed class Factory : NagApiFactory;
 
-    private HttpClient AuthedClient()
-    {
-        var c = _factory.CreateClient();
-        c.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
-            "Bearer",
-            _factory.ApiKey
-        );
-        return c;
-    }
+    private HttpClient AuthedClient() => _factory.CreateAuthedClient();
 
     [Fact]
     public async Task posted_habit_appears_on_board()

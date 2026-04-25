@@ -1,5 +1,4 @@
 using System.Net;
-using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using Nag.Core.Contracts;
 using Nag.Tests.Infrastructure;
@@ -21,20 +20,10 @@ public class DevicesEndpointsTests : IClassFixture<DevicesEndpointsTests.Factory
 
     public sealed class Factory : NagApiFactory;
 
-    private HttpClient AuthedClient()
-    {
-        var c = _factory.CreateClient();
-        c.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
-            "Bearer",
-            _factory.ApiKey
-        );
-        return c;
-    }
-
     [Fact]
     public async Task registers_a_new_device_and_creates_an_anonymous_account()
     {
-        var client = AuthedClient();
+        var client = _factory.CreateClient();
         var deviceId = Guid.NewGuid();
 
         var response = await client.PostAsJsonAsync(
@@ -47,12 +36,13 @@ public class DevicesEndpointsTests : IClassFixture<DevicesEndpointsTests.Factory
         result.ShouldNotBeNull();
         result!.DeviceId.ShouldBe(deviceId);
         result.AccountId.ShouldNotBe(Guid.Empty);
+        result.DeviceToken.ShouldNotBeNullOrWhiteSpace();
     }
 
     [Fact]
     public async Task re_registering_the_same_device_id_returns_the_existing_account()
     {
-        var client = AuthedClient();
+        var client = _factory.CreateClient();
         var deviceId = Guid.NewGuid();
 
         var firstResponse = await client.PostAsJsonAsync(
@@ -72,12 +62,13 @@ public class DevicesEndpointsTests : IClassFixture<DevicesEndpointsTests.Factory
         second!.AccountId.ShouldBe(first!.AccountId);
         second.DeviceId.ShouldBe(first.DeviceId);
         second.RegisteredAt.ShouldBe(first.RegisteredAt);
+        second.DeviceToken.ShouldNotBeNullOrWhiteSpace();
     }
 
     [Fact]
     public async Task two_distinct_devices_get_distinct_accounts()
     {
-        var client = AuthedClient();
+        var client = _factory.CreateClient();
 
         var a = await (
             await client.PostAsJsonAsync(
@@ -96,12 +87,13 @@ public class DevicesEndpointsTests : IClassFixture<DevicesEndpointsTests.Factory
         a.ShouldNotBeNull();
         b.ShouldNotBeNull();
         a!.AccountId.ShouldNotBe(b!.AccountId);
+        a.DeviceToken.ShouldNotBe(b.DeviceToken);
     }
 
     [Fact]
     public async Task missing_device_id_returns_400()
     {
-        var client = AuthedClient();
+        var client = _factory.CreateClient();
 
         var response = await client.PostAsJsonAsync(
             "/devices/register",
@@ -109,18 +101,5 @@ public class DevicesEndpointsTests : IClassFixture<DevicesEndpointsTests.Factory
         );
 
         response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
-    }
-
-    [Fact]
-    public async Task requires_authentication()
-    {
-        var client = _factory.CreateClient();
-
-        var response = await client.PostAsJsonAsync(
-            "/devices/register",
-            new RegisterDeviceRequest(Guid.NewGuid(), null)
-        );
-
-        response.StatusCode.ShouldBe(HttpStatusCode.Unauthorized);
     }
 }
