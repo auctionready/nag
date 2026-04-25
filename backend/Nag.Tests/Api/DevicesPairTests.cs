@@ -34,11 +34,16 @@ public class DevicesPairTests : IClassFixture<DevicesPairTests.Factory>
 
     /// <summary>
     /// Registers an anonymous device, then upgrades that account to be bound
-    /// to the given Clerk subject. Returns the account id so tests can
-    /// assert that pair flows attach to the same account.
+    /// to a freshly-generated Clerk subject. Each call uses a unique sub so
+    /// tests in this class — which share a Marten schema via the
+    /// `IClassFixture` lifecycle — don't collide on the
+    /// "sub already bound to a different account" guard. Returns both the
+    /// accountId and the sub so the test can configure the verifier
+    /// behavior for the subsequent pair call.
     /// </summary>
-    private async Task<Guid> SeedUpgradedAccountAsync(HttpClient client, string sub)
+    private async Task<(Guid AccountId, string Sub)> SeedUpgradedAccountAsync(HttpClient client)
     {
+        var sub = $"user_{Guid.NewGuid():N}";
         var deviceId = Guid.NewGuid();
         var registerResp = await client.PostAsJsonAsync(
             "/devices/register",
@@ -54,14 +59,14 @@ public class DevicesPairTests : IClassFixture<DevicesPairTests.Factory>
         );
         upgradeResp.StatusCode.ShouldBe(HttpStatusCode.OK);
 
-        return registered!.AccountId;
+        return (registered!.AccountId, sub);
     }
 
     [Fact]
     public async Task pairs_a_new_device_with_an_existing_upgraded_account()
     {
         var client = AuthedClient();
-        var accountId = await SeedUpgradedAccountAsync(client, "user_abc");
+        var (accountId, _) = await SeedUpgradedAccountAsync(client);
         var newDeviceId = Guid.NewGuid();
 
         var response = await client.PostAsJsonAsync(
@@ -79,7 +84,7 @@ public class DevicesPairTests : IClassFixture<DevicesPairTests.Factory>
     public async Task re_pairing_the_same_device_id_is_idempotent()
     {
         var client = AuthedClient();
-        var accountId = await SeedUpgradedAccountAsync(client, "user_abc");
+        var (accountId, _) = await SeedUpgradedAccountAsync(client);
         var newDeviceId = Guid.NewGuid();
 
         var first = await client.PostAsJsonAsync(
@@ -120,21 +125,22 @@ public class DevicesPairTests : IClassFixture<DevicesPairTests.Factory>
     public async Task pairing_a_device_id_already_owned_by_another_account_returns_409()
     {
         var client = AuthedClient();
+        var subA = $"user_{Guid.NewGuid():N}";
 
         // Account A owns deviceX (registered, anonymous, then upgraded).
         var deviceX = Guid.NewGuid();
         await client.PostAsJsonAsync("/devices/register", new RegisterDeviceRequest(deviceX, null));
-        _factory.ClerkVerifier.Behavior = _ => ClerkTokenVerificationResult.Success("user_a");
+        _factory.ClerkVerifier.Behavior = _ => ClerkTokenVerificationResult.Success(subA);
         await client.PostAsJsonAsync(
             "/accounts/upgrade",
             new UpgradeAccountRequest(deviceX, "token-a")
         );
 
         // Account B exists, upgraded to a different identity.
-        await SeedUpgradedAccountAsync(client, "user_b");
+        var (_, subB) = await SeedUpgradedAccountAsync(client);
 
-        // Trying to pair deviceX into account B (verified as user_b) must conflict.
-        _factory.ClerkVerifier.Behavior = _ => ClerkTokenVerificationResult.Success("user_b");
+        // Trying to pair deviceX into account B (verified as subB) must conflict.
+        _factory.ClerkVerifier.Behavior = _ => ClerkTokenVerificationResult.Success(subB);
         var response = await client.PostAsJsonAsync(
             "/devices/pair",
             new PairDeviceRequest(deviceX, "token-b", null)
