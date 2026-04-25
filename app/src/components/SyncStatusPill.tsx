@@ -1,5 +1,5 @@
 import { Pressable, StyleSheet, Text, View } from "react-native";
-import { useRouter } from "expo-router";
+import { useRouter, usePathname } from "expo-router";
 import { useSyncStatus } from "../infrastructure/syncStatus";
 import { isApiConfigured } from "../infrastructure/apiClient";
 import { isClerkConfigured } from "../infrastructure/clerk";
@@ -20,11 +20,16 @@ const COLORS: Record<string, { bg: string; fg: string }> = {
 
 export const SyncStatusPill = () => {
   const router = useRouter();
+  const pathname = usePathname();
   const { status, pendingCount } = useSyncStatus();
 
   // Hide entirely when sync isn't wired in this build (no API config),
   // even if the upstream context drifts from the "disabled" status.
   if (!isApiConfigured() || status === "disabled") return null;
+
+  // Already on the Account screen — pressing the pill there would push
+  // another /account entry onto the stack. Hide instead.
+  if (pathname === "/account") return null;
 
   const palette = COLORS[status] ?? COLORS.idle;
   const label =
