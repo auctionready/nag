@@ -1,5 +1,8 @@
-import { StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
+import { useRouter } from "expo-router";
 import { useSyncStatus } from "../infrastructure/syncStatus";
+import { isApiConfigured } from "../infrastructure/apiClient";
+import { isClerkConfigured } from "../infrastructure/clerk";
 
 const TEXT: Record<string, string> = {
   idle: "Synced",
@@ -16,8 +19,12 @@ const COLORS: Record<string, { bg: string; fg: string }> = {
 };
 
 export const SyncStatusPill = () => {
+  const router = useRouter();
   const { status, pendingCount } = useSyncStatus();
-  if (status === "disabled") return null;
+
+  // Hide entirely when sync isn't wired in this build (no API config),
+  // even if the upstream context drifts from the "disabled" status.
+  if (!isApiConfigured() || status === "disabled") return null;
 
   const palette = COLORS[status] ?? COLORS.idle;
   const label =
@@ -25,8 +32,19 @@ export const SyncStatusPill = () => {
       ? `${pendingCount} pending`
       : (TEXT[status] ?? "");
 
+  // Tapping the pill takes you to the Account screen — the visible entry
+  // point for sign-in (no admin route is exposed in the navigation tree).
+  // When Clerk isn't configured the screen shows a setup hint instead.
+  const onPress = () => {
+    if (isClerkConfigured()) router.push("/account");
+  };
+
   return (
-    <View style={[styles.pill, { backgroundColor: palette.bg }]}>
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      style={[styles.pill, { backgroundColor: palette.bg }]}
+    >
       <View
         style={[
           styles.dot,
@@ -37,7 +55,7 @@ export const SyncStatusPill = () => {
         ]}
       />
       <Text style={[styles.label, { color: palette.fg }]}>{label}</Text>
-    </View>
+    </Pressable>
   );
 };
 
