@@ -4,6 +4,7 @@ import { createNagApiClient } from "../client";
 import {
   postCommands,
   registerDevice,
+  upgradeAccount,
   type CommandEnvelope,
 } from "../operations";
 
@@ -153,6 +154,84 @@ describe("operations", () => {
 
       expect(result.ok).toBe(false);
       if (!result.ok) expect(result.kind).toBe("transient");
+    });
+  });
+
+  describe("upgradeAccount", () => {
+    const deviceId = "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee";
+    const idpToken = "eyJ.fake.token";
+
+    it("returns ok with the bound IdP subject on 200", async () => {
+      nock(BASE_URL)
+        .post("/accounts/upgrade", (body) => {
+          expect(body).toEqual({ deviceId, idpToken });
+          return true;
+        })
+        .reply(200, {
+          accountId: "ffffffff-1111-4222-8333-444444444444",
+          idpSubject: "user_abc",
+          upgradedAt: "2026-04-25T10:00:00.000Z",
+        });
+
+      const result = await upgradeAccount(makeClient(), { deviceId, idpToken });
+
+      expect(result.ok).toBe(true);
+      if (result.ok) {
+        expect(result.accountId).toBe("ffffffff-1111-4222-8333-444444444444");
+        expect(result.idpSubject).toBe("user_abc");
+        expect(result.upgradedAt).toBeInstanceOf(Date);
+        expect(result.upgradedAt.toISOString()).toBe(
+          "2026-04-25T10:00:00.000Z",
+        );
+      }
+    });
+
+    it("classifies 401 (invalid token) as non-retriable", async () => {
+      nock(BASE_URL).post("/accounts/upgrade").reply(401);
+
+      const result = await upgradeAccount(makeClient(), { deviceId, idpToken });
+
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.kind).toBe("non-retriable");
+        if (result.kind === "non-retriable") {
+          expect(result.status).toBe(401);
+        }
+      }
+    });
+
+    it("classifies 409 (identity collision) as non-retriable", async () => {
+      nock(BASE_URL).post("/accounts/upgrade").reply(409);
+
+      const result = await upgradeAccount(makeClient(), { deviceId, idpToken });
+
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.kind).toBe("non-retriable");
+        if (result.kind === "non-retriable") {
+          expect(result.status).toBe(409);
+        }
+      }
+    });
+
+    it("classifies 5xx as transient", async () => {
+      nock(BASE_URL).post("/accounts/upgrade").reply(503);
+
+      const result = await upgradeAccount(makeClient(), { deviceId, idpToken });
+
+      expect(result.ok).toBe(false);
+      if (!result.ok) expect(result.kind).toBe("transient");
+    });
+
+    it("treats a 200 with missing fields as non-retriable", async () => {
+      nock(BASE_URL)
+        .post("/accounts/upgrade")
+        .reply(200, { accountId: "ffffffff-1111-4222-8333-444444444444" });
+
+      const result = await upgradeAccount(makeClient(), { deviceId, idpToken });
+
+      expect(result.ok).toBe(false);
+      if (!result.ok) expect(result.kind).toBe("non-retriable");
     });
   });
 });

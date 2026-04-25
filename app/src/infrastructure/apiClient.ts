@@ -3,7 +3,9 @@ import {
   createNagApiClient,
   postCommands as apiPostCommands,
   registerDevice as apiRegisterDevice,
+  upgradeAccount as apiUpgradeAccount,
   type NagApiClient,
+  type UpgradeAccountResult,
 } from "@nag/api-client";
 import type {
   CommandEnvelope,
@@ -74,3 +76,9 @@ export const registerDevice: RegisterDeviceFn = (
   request,
 ): Promise<RegisterDeviceResult> =>
   apiRegisterDevice(getApiClient(), request, logger);
+
+export const upgradeAccount = (request: {
+  deviceId: string;
+  idpToken: string;
+}): Promise<UpgradeAccountResult> =>
+  apiUpgradeAccount(getApiClient(), request, logger);
