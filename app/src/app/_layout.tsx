@@ -8,6 +8,8 @@ import { useForegroundNotificationSync } from "../infrastructure/foregroundSync"
 import { SyncStatusProvider } from "../infrastructure/syncStatus";
 import { SyncHaltedBanner } from "../components/SyncHaltedBanner";
 import { SyncStatusPill } from "../components/SyncStatusPill";
+import { getClerkPublishableKey, tokenCache } from "../infrastructure/clerk";
+import { ClerkProvider } from "@clerk/clerk-expo";
 import React from "react";
 import { View } from "react-native";
 import { useNavigationContainerRef, Stack } from "expo-router";
@@ -47,6 +49,20 @@ const InnerLayout = () => {
   );
 };
 
+// `ClerkProvider` is a no-op (just renders children) when the publishable
+// key isn't configured — keeps local dev / preview builds usable without
+// requiring Clerk credentials. Hooks like `useAuth` will report
+// `isLoaded: true, isSignedIn: false` in that case.
+const ClerkOrPassthrough = ({ children }: { children: React.ReactNode }) => {
+  const publishableKey = getClerkPublishableKey();
+  if (!publishableKey) return <>{children}</>;
+  return (
+    <ClerkProvider publishableKey={publishableKey} tokenCache={tokenCache}>
+      {children}
+    </ClerkProvider>
+  );
+};
+
 const RootLayout = () => {
   const ref = useNavigationContainerRef();
 
@@ -58,11 +74,13 @@ const RootLayout = () => {
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-      <DatabaseProvider>
-        <SyncStatusProvider>
-          <InnerLayout />
-        </SyncStatusProvider>
-      </DatabaseProvider>
+      <ClerkOrPassthrough>
+        <DatabaseProvider>
+          <SyncStatusProvider>
+            <InnerLayout />
+          </SyncStatusProvider>
+        </DatabaseProvider>
+      </ClerkOrPassthrough>
     </GestureHandlerRootView>
   );
 };

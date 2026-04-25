@@ -64,6 +64,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     },
     apiBaseUrl: process.env.NAG_API_BASE_URL ?? "",
     apiKey: process.env.NAG_API_KEY ?? "",
+    clerkPublishableKey: process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY ?? "",
   },
   owner: "nag-stable",
 });
