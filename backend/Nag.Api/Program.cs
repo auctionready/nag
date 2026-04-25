@@ -116,6 +116,7 @@ app.MapGet("/health", NoContent).WithTags("Health").Produces(StatusCodes.Status2
 app.MapCommandsEndpoints();
 app.MapHomeBoardEndpoints();
 app.MapDevicesEndpoints();
+app.MapAccountsEndpoints();
 
 #if DEBUG
 app.UseSwagger();
