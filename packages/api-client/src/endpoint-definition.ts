@@ -377,29 +377,7 @@ export const HomeBoard = z
   .partial();
 export type HomeBoard = z.infer<typeof HomeBoard>;
 
-export const SyncReplayResponse = z
-  .object({
-    mode: z.literal("replay"),
-    commands: z.array(CommandEnvelopeOut),
-    headSequence: z.int(),
-    nextSince: z.int().nullable(),
-  })
-  .passthrough();
-export type SyncReplayResponse = z.infer<typeof SyncReplayResponse>;
-
-export const SyncSnapshotResponse = z
-  .object({
-    mode: z.literal("snapshot"),
-    sequenceAtSnapshot: z.int(),
-    snapshot: HomeBoard,
-  })
-  .passthrough();
-export type SyncSnapshotResponse = z.infer<typeof SyncSnapshotResponse>;
-
-export const SyncResponse = z.discriminatedUnion("mode", [
-  SyncReplayResponse,
-  SyncSnapshotResponse,
-]);
+export const SyncResponse = z.object({}).partial();
 export type SyncResponse = z.infer<typeof SyncResponse>;
 
 export const endpoints = makeApi([
@@ -481,7 +459,7 @@ export const endpoints = makeApi([
     path: "/sync",
     alias: "getSync",
     parameters: [{ name: "since", type: "Query", schema: z.int() }],
-    response: SyncResponse,
+    response: z.object({}).partial(),
     errors: [],
   },
 ]);
