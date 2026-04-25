@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeAll, afterAll, afterEach } from "vitest";
 import nock from "nock";
-import { createNagApiClient } from "../client";
+import { createNagApiClient, type GetToken } from "../client";
 
 const BASE_URL = "https://api.example.test";
 const API_KEY = "test-api-key";
@@ -26,8 +26,8 @@ const commandEnvelopeOut = {
   },
 };
 
-const makeClient = () =>
-  createNagApiClient({ baseUrl: BASE_URL, apiKey: API_KEY });
+const makeClient = (getToken: GetToken = () => API_KEY) =>
+  createNagApiClient({ baseUrl: BASE_URL, getToken });
 
 describe("nagApiClient", () => {
   beforeAll(() => {
@@ -166,6 +166,125 @@ describe("nagApiClient", () => {
       const ts = board.habits![0]!.periodCheckIns![0]!.timestamp;
       expect(ts).toBeInstanceOf(Date);
       expect((ts as Date).toISOString()).toBe("2024-05-01T10:00:00.000Z");
+    });
+  });
+
+  describe("authentication", () => {
+    it("omits Authorization when getToken returns null", async () => {
+      // No `reqheaders.authorization` constraint — a nock matcher that
+      // includes the header would fail if it's present, and absent here
+      // accepts either, so pin it via badheaders instead.
+      const deviceId = "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee";
+      const accountId = "ffffffff-1111-4222-8333-444444444444";
+      const scope = nock(BASE_URL, {
+        badheaders: ["authorization"],
+      })
+        .post("/devices/register", { deviceId })
+        .reply(200, {
+          accountId,
+          deviceId,
+          registeredAt: "2026-04-25T10:00:00.000Z",
+          deviceToken: "tok",
+        });
+
+      const client = createNagApiClient({
+        baseUrl: BASE_URL,
+        getToken: () => null,
+      });
+
+      await client.postDevicesRegister({ deviceId });
+
+      expect(scope.isDone()).toBe(true);
+    });
+
+    it("calls getToken per request, picking up rotated values", async () => {
+      let token = "first";
+      const scope = nock(BASE_URL)
+        .get("/home-board")
+        .matchHeader("authorization", `Bearer first`)
+        .reply(200, { id: "x", lastSequence: 0, habits: [] })
+        .get("/home-board")
+        .matchHeader("authorization", `Bearer second`)
+        .reply(200, { id: "x", lastSequence: 0, habits: [] });
+
+      const client = createNagApiClient({
+        baseUrl: BASE_URL,
+        getToken: () => token,
+      });
+      await client.getHomeBoard();
+      token = "second";
+      await client.getHomeBoard();
+
+      expect(scope.isDone()).toBe(true);
+    });
+
+    it("supports an async getToken", async () => {
+      const scope = nock(BASE_URL)
+        .get("/home-board")
+        .matchHeader("authorization", `Bearer async-tok`)
+        .reply(200, { id: "x", lastSequence: 0, habits: [] });
+
+      const client = createNagApiClient({
+        baseUrl: BASE_URL,
+        getToken: async () => "async-tok",
+      });
+      await client.getHomeBoard();
+
+      expect(scope.isDone()).toBe(true);
+    });
+
+    it("retries once on 401 after onUnauthorized resolves true", async () => {
+      let token = "stale";
+      const scope = nock(BASE_URL)
+        .get("/home-board")
+        .matchHeader("authorization", `Bearer stale`)
+        .reply(401)
+        .get("/home-board")
+        .matchHeader("authorization", `Bearer fresh`)
+        .reply(200, { id: "x", lastSequence: 0, habits: [] });
+
+      const client = createNagApiClient({
+        baseUrl: BASE_URL,
+        getToken: () => token,
+        onUnauthorized: async () => {
+          token = "fresh";
+          return true;
+        },
+      });
+
+      const board = await client.getHomeBoard();
+      expect(board.lastSequence).toBe(0);
+      expect(scope.isDone()).toBe(true);
+    });
+
+    it("does not retry when onUnauthorized resolves false", async () => {
+      const scope = nock(BASE_URL).get("/home-board").reply(401);
+
+      const client = createNagApiClient({
+        baseUrl: BASE_URL,
+        getToken: () => "stale",
+        onUnauthorized: async () => false,
+      });
+
+      await expect(client.getHomeBoard()).rejects.toThrow();
+      expect(scope.isDone()).toBe(true);
+    });
+
+    it("does not retry more than once even if the retry also 401s", async () => {
+      const scope = nock(BASE_URL)
+        .get("/home-board")
+        .reply(401)
+        .get("/home-board")
+        .reply(401);
+
+      const client = createNagApiClient({
+        baseUrl: BASE_URL,
+        getToken: () => "tok",
+        onUnauthorized: async () => true,
+      });
+
+      await expect(client.getHomeBoard()).rejects.toThrow();
+      expect(scope.isDone()).toBe(true);
     });
   });
 });

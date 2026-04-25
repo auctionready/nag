@@ -78,6 +78,13 @@
       "when": 1777670400000,
       "tag": "0010_sync_outbox_rename",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "6",
+      "when": 1777108233625,
+      "tag": "0011_freezing_celestials",
+      "breakpoints": true
     }
   ]
 }

@@ -1,6 +1,7 @@
 using Marten;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Routing;
 using Nag.Api.Auth;
 using Nag.Core.Contracts;
 using Nag.Core.Domain;
@@ -19,6 +20,7 @@ public static class AccountsEndpoints
     [AllowAnonymous]
     [NotTenanted]
     [Tags("Accounts")]
+    [EndpointName("postAccountsUpgrade")]
     [ProducesResponseType(typeof(UpgradeAccountResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status401Unauthorized)]

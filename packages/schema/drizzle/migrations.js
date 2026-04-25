@@ -12,6 +12,7 @@ import m0007 from './0007_add_reminder_to_schedule.sql';
 import m0008 from './0008_clean_changeling.sql';
 import m0009 from './0009_early_mantis.sql';
 import m0010 from './0010_sync_outbox_rename.sql';
+import m0011 from './0011_freezing_celestials.sql';
 
   export default {
     journal,
@@ -26,7 +27,8 @@ m0006,
 m0007,
 m0008,
 m0009,
-m0010
+m0010,
+m0011
     }
   }
   

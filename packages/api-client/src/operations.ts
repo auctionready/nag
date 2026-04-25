@@ -41,7 +41,12 @@ export type PostResult =
   | { ok: false; kind: "transient"; message: string };
 
 export type RegisterDeviceResult =
-  | { ok: true; accountId: string; registeredAt: Date }
+  | {
+      ok: true;
+      accountId: string;
+      registeredAt: Date;
+      deviceToken: string;
+    }
   | { ok: false; kind: "non-retriable"; status: number; message: string }
   | { ok: false; kind: "transient"; message: string };
 
@@ -147,10 +152,14 @@ export const postCommands = async (
       error,
       () => {
         if (isErrorFromAlias(endpoints, "postCommands", error)) {
-          // error.response.data is narrowed to the documented union
-          // (currently just ErrorResponse for 400).
-          const data: PostCommandsError400 = error.response.data;
-          return data.errors?.[0];
+          // The endpoint documents both a 400 (ErrorResponse) and a 404
+          // (void; the latter comes from Wolverine HTTP's tenant-not-found
+          // path). Narrow to the ErrorResponse-shaped variant for the
+          // documented-message extraction.
+          const data = error.response.data as PostCommandsError400 | void;
+          return data && typeof data === "object" && "errors" in data
+            ? (data as { errors?: string[] }).errors?.[0]
+            : undefined;
         }
         return undefined;
       },
@@ -158,14 +167,14 @@ export const postCommands = async (
   }
 };
 
-type RegisterDeviceBody = ZodiosBodyByAlias<Endpoints, "postDevicesregister">;
+type RegisterDeviceBody = ZodiosBodyByAlias<Endpoints, "postDevicesRegister">;
 type RegisterDeviceResponse = ZodiosResponseByAlias<
   Endpoints,
-  "postDevicesregister"
+  "postDevicesRegister"
 >;
 type RegisterDeviceError400 = ZodiosErrorByAlias<
   Endpoints,
-  "postDevicesregister",
+  "postDevicesRegister",
   400
 >;
 
@@ -182,11 +191,15 @@ export const registerDevice = async (
   log?.debug?.(`POST /devices/register deviceId=${request.deviceId}`);
   const start = Date.now();
   try {
-    const response: RegisterDeviceResponse = await client.postDevicesregister(
+    const response: RegisterDeviceResponse = await client.postDevicesRegister(
       request as RegisterDeviceBody,
     );
     const elapsed = Date.now() - start;
-    if (!response.accountId || !response.registeredAt) {
+    if (
+      !response.accountId ||
+      !response.registeredAt ||
+      !response.deviceToken
+    ) {
       log?.error?.(
         `POST /devices/register ok (${elapsed}ms) but response missing fields`,
         response,
@@ -205,6 +218,7 @@ export const registerDevice = async (
       ok: true,
       accountId: response.accountId,
       registeredAt: response.registeredAt,
+      deviceToken: response.deviceToken,
     };
   } catch (error: unknown) {
     return failureFromError(
@@ -213,9 +227,11 @@ export const registerDevice = async (
       Date.now() - start,
       error,
       () => {
-        if (isErrorFromAlias(endpoints, "postDevicesregister", error)) {
-          const data: RegisterDeviceError400 = error.response.data;
-          return data.errors?.[0];
+        if (isErrorFromAlias(endpoints, "postDevicesRegister", error)) {
+          const data = error.response.data as RegisterDeviceError400 | void;
+          return data && typeof data === "object" && "errors" in data
+            ? (data as { errors?: string[] }).errors?.[0]
+            : undefined;
         }
         return undefined;
       },
@@ -229,18 +245,19 @@ export type UpgradeAccountResult =
       accountId: string;
       idpSubject: string;
       upgradedAt: Date;
+      deviceToken: string;
     }
   | { ok: false; kind: "non-retriable"; status: number; message: string }
   | { ok: false; kind: "transient"; message: string };
 
-type UpgradeAccountBody = ZodiosBodyByAlias<Endpoints, "postAccountsupgrade">;
+type UpgradeAccountBody = ZodiosBodyByAlias<Endpoints, "postAccountsUpgrade">;
 type UpgradeAccountResponse = ZodiosResponseByAlias<
   Endpoints,
-  "postAccountsupgrade"
+  "postAccountsUpgrade"
 >;
 type UpgradeAccountError400 = ZodiosErrorByAlias<
   Endpoints,
-  "postAccountsupgrade",
+  "postAccountsUpgrade",
   400
 >;
 
@@ -251,11 +268,16 @@ const upgradeAccountOnce = async (
 ): Promise<UpgradeAccountResult> => {
   const start = Date.now();
   try {
-    const response: UpgradeAccountResponse = await client.postAccountsupgrade(
+    const response: UpgradeAccountResponse = await client.postAccountsUpgrade(
       request as UpgradeAccountBody,
     );
     const elapsed = Date.now() - start;
-    if (!response.accountId || !response.idpSubject || !response.upgradedAt) {
+    if (
+      !response.accountId ||
+      !response.idpSubject ||
+      !response.upgradedAt ||
+      !response.deviceToken
+    ) {
       log?.error?.(
         `POST /accounts/upgrade ok (${elapsed}ms) but response missing fields`,
         response,
@@ -275,6 +297,7 @@ const upgradeAccountOnce = async (
       accountId: response.accountId,
       idpSubject: response.idpSubject,
       upgradedAt: response.upgradedAt,
+      deviceToken: response.deviceToken,
     };
   } catch (error: unknown) {
     return failureFromError(
@@ -283,7 +306,7 @@ const upgradeAccountOnce = async (
       Date.now() - start,
       error,
       () => {
-        if (isErrorFromAlias(endpoints, "postAccountsupgrade", error)) {
+        if (isErrorFromAlias(endpoints, "postAccountsUpgrade", error)) {
           const data: UpgradeAccountError400 = error.response.data;
           return data.errors?.[0];
         }

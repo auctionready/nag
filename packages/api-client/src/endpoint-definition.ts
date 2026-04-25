@@ -16,14 +16,12 @@ export const UpgradeAccountRequest = z
   .partial();
 export type UpgradeAccountRequest = z.infer<typeof UpgradeAccountRequest>;
 
-export const postAccountsupgrade_Body = UpgradeAccountRequest;
-export type postAccountsupgrade_Body = z.infer<typeof postAccountsupgrade_Body>;
-
 export const UpgradeAccountResponse = z
   .object({
     accountId: z.uuid(),
     idpSubject: z.string().nullable(),
     upgradedAt: IsoDatetime,
+    deviceToken: z.string().nullable(),
   })
   .partial();
 export type UpgradeAccountResponse = z.infer<typeof UpgradeAccountResponse>;
@@ -188,9 +186,6 @@ export const CommandEnvelope = z.discriminatedUnion("type", [
 ]);
 export type CommandEnvelope = z.infer<typeof CommandEnvelope>;
 
-export const postCommands_Body = CommandEnvelope;
-export type postCommands_Body = z.infer<typeof postCommands_Body>;
-
 export const CommandAccepted = z
   .object({ accepted: z.boolean(), sequence: z.int() })
   .partial();
@@ -297,14 +292,12 @@ export const RegisterDeviceRequest = z
   .partial();
 export type RegisterDeviceRequest = z.infer<typeof RegisterDeviceRequest>;
 
-export const postDevicesregister_Body = RegisterDeviceRequest;
-export type postDevicesregister_Body = z.infer<typeof postDevicesregister_Body>;
-
 export const RegisterDeviceResponse = z
   .object({
     accountId: z.uuid(),
     deviceId: z.uuid(),
     registeredAt: IsoDatetime,
+    deviceToken: z.string().nullable(),
   })
   .partial();
 export type RegisterDeviceResponse = z.infer<typeof RegisterDeviceResponse>;
@@ -318,17 +311,18 @@ export const PairDeviceRequest = z
   .partial();
 export type PairDeviceRequest = z.infer<typeof PairDeviceRequest>;
 
-export const postDevicespair_Body = PairDeviceRequest;
-export type postDevicespair_Body = z.infer<typeof postDevicespair_Body>;
-
 export const PairDeviceResponse = z
   .object({
     accountId: z.uuid(),
     deviceId: z.uuid(),
     registeredAt: IsoDatetime,
+    deviceToken: z.string().nullable(),
   })
   .partial();
 export type PairDeviceResponse = z.infer<typeof PairDeviceResponse>;
+
+export const IResult = z.object({}).partial();
+export type IResult = z.infer<typeof IResult>;
 
 export const HomeGoal = z
   .object({ regularity: Regularity, frequency: z.int().nullable() })
@@ -392,10 +386,8 @@ export const endpoints = makeApi([
   {
     method: "post",
     path: "/accounts/upgrade",
-    alias: "postAccountsupgrade",
-    parameters: [
-      { name: "body", type: "Body", schema: postAccountsupgrade_Body },
-    ],
+    alias: "postAccountsUpgrade",
+    parameters: [{ name: "body", type: "Body", schema: UpgradeAccountRequest }],
     response: UpgradeAccountResponse,
     errors: [
       { status: 400, schema: ErrorResponse },
@@ -408,26 +400,29 @@ export const endpoints = makeApi([
     method: "post",
     path: "/commands",
     alias: "postCommands",
-    parameters: [{ name: "body", type: "Body", schema: postCommands_Body }],
+    parameters: [{ name: "body", type: "Body", schema: CommandEnvelope }],
     response: CommandAccepted,
-    errors: [{ status: 400, schema: ErrorResponse }],
+    errors: [
+      { status: 400, schema: ErrorResponse },
+      { status: 404, schema: z.void() },
+    ],
   },
   {
     method: "get",
     path: "/commands",
     alias: "getCommands",
     parameters: [
-      { name: "since", type: "Query", schema: z.int() },
-      { name: "limit", type: "Query", schema: z.int().optional() },
+      { name: "since", type: "Query", schema: z.int().optional() },
+      { name: "limit", type: "Query", schema: z.int().nullish() },
     ],
     response: CommandsPage,
-    errors: [],
+    errors: [{ status: 404, schema: z.void() }],
   },
   {
     method: "post",
     path: "/devices/pair",
-    alias: "postDevicespair",
-    parameters: [{ name: "body", type: "Body", schema: postDevicespair_Body }],
+    alias: "postDevicesPair",
+    parameters: [{ name: "body", type: "Body", schema: PairDeviceRequest }],
     response: PairDeviceResponse,
     errors: [
       { status: 400, schema: ErrorResponse },
@@ -439,20 +434,21 @@ export const endpoints = makeApi([
   {
     method: "post",
     path: "/devices/register",
-    alias: "postDevicesregister",
-    parameters: [
-      { name: "body", type: "Body", schema: postDevicesregister_Body },
-    ],
+    alias: "postDevicesRegister",
+    parameters: [{ name: "body", type: "Body", schema: RegisterDeviceRequest }],
     response: RegisterDeviceResponse,
-    errors: [{ status: 400, schema: ErrorResponse }],
+    errors: [
+      { status: 400, schema: ErrorResponse },
+      { status: 404, schema: z.void() },
+    ],
   },
   {
     method: "get",
     path: "/health",
     alias: "getHealth",
     parameters: [],
-    response: z.void(),
-    errors: [],
+    response: z.object({}).partial(),
+    errors: [{ status: 404, schema: z.void() }],
   },
   {
     method: "get",
@@ -460,15 +456,15 @@ export const endpoints = makeApi([
     alias: "getHomeBoard",
     parameters: [],
     response: HomeBoard,
-    errors: [],
+    errors: [{ status: 404, schema: z.void() }],
   },
   {
     method: "get",
     path: "/sync",
     alias: "getSync",
-    parameters: [{ name: "since", type: "Query", schema: z.int() }],
+    parameters: [{ name: "since", type: "Query", schema: z.int().optional() }],
     response: SyncResponse,
-    errors: [],
+    errors: [{ status: 404, schema: z.void() }],
   },
 ]);
 

@@ -12,7 +12,7 @@
         ],
         "summary": "POST_accounts_upgrade",
         "description": "POST_accounts_upgrade",
-        "operationId": "POST_accounts_upgrade",
+        "operationId": "postAccountsUpgrade",
         "requestBody": {
           "content": {
             "application/json": {
@@ -85,7 +85,7 @@
         ],
         "summary": "POST_commands",
         "description": "POST_commands",
-        "operationId": "POST_commands",
+        "operationId": "postCommands",
         "requestBody": {
           "content": {
             "application/json": {
@@ -128,7 +128,7 @@
         ],
         "summary": "GET_commands",
         "description": "GET_commands",
-        "operationId": "GET_commands",
+        "operationId": "getCommands",
         "parameters": [
           {
             "name": "since",
@@ -172,7 +172,7 @@
         ],
         "summary": "POST_devices_register",
         "description": "POST_devices_register",
-        "operationId": "POST_devices_register",
+        "operationId": "postDevicesRegister",
         "requestBody": {
           "content": {
             "application/json": {
@@ -218,7 +218,7 @@
         ],
         "summary": "POST_devices_pair",
         "description": "POST_devices_pair",
-        "operationId": "POST_devices_pair",
+        "operationId": "postDevicesPair",
         "requestBody": {
           "content": {
             "application/json": {
@@ -291,7 +291,7 @@
         ],
         "summary": "GET_health",
         "description": "GET_health",
-        "operationId": "GET_health",
+        "operationId": "getHealth",
         "responses": {
           "204": {
             "description": "No Content"
@@ -320,7 +320,7 @@
         ],
         "summary": "GET_home_board",
         "description": "GET_home_board",
-        "operationId": "GET_home_board",
+        "operationId": "getHomeBoard",
         "responses": {
           "200": {
             "description": "OK",
@@ -345,7 +345,7 @@
         ],
         "summary": "GET_sync",
         "description": "GET_sync",
-        "operationId": "GET_sync",
+        "operationId": "getSync",
         "parameters": [
           {
             "name": "since",
