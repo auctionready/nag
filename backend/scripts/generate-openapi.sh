@@ -45,4 +45,8 @@ dotnet swagger tofile \
   Nag.Api/bin/Debug/net10.0/Nag.Api.dll \
   v1
 
+# Match the formatting lefthook's pre-commit Prettier hook would apply, so
+# the committed file is stable and `openapi:check` doesn't false-positive.
+(cd "$REPO_ROOT" && pnpm exec prettier --write --log-level warn "$OUTPUT")
+
 echo "Wrote $OUTPUT"
