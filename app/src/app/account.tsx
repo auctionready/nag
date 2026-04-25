@@ -77,30 +77,32 @@ const SignedInOrOut = () => {
     if (upgradeStarted.current) return;
     upgradeStarted.current = true;
 
-    let cancelled = false;
-    (async () => {
+    // Deliberately no `cancelled` flag: the previous version blocked
+    // setStatus on cleanup, but effect cleanup runs whenever any dep
+    // changes (including Clerk re-creating `getToken`). The API result
+    // would land after cleanup and the success-state update would be
+    // silently swallowed, leaving the UI stuck on "linking your account…"
+    // even though the server logged 200.
+    void (async () => {
       setStatus({ kind: "in-progress" });
       try {
         const identity = await loadIdentity(db);
         if (!identity) {
-          if (!cancelled)
-            setStatus({
-              kind: "fail",
-              message: "no local device identity — restart the app",
-            });
+          setStatus({
+            kind: "fail",
+            message: "no local device identity — restart the app",
+          });
           return;
         }
         const idpToken = await getToken();
         if (!idpToken) {
-          if (!cancelled)
-            setStatus({ kind: "fail", message: "no IdP token from Clerk" });
+          setStatus({ kind: "fail", message: "no IdP token from Clerk" });
           return;
         }
         const result = await upgradeAccount({
           deviceId: identity.deviceId,
           idpToken,
         });
-        if (cancelled) return;
         if (result.ok) {
           logger.info(
             `account upgraded accountId=${result.accountId} sub=${result.idpSubject}`,
@@ -110,15 +112,11 @@ const SignedInOrOut = () => {
           setStatus({ kind: "fail", message: result.message });
         }
       } catch (err) {
-        if (cancelled) return;
         const message = err instanceof Error ? err.message : String(err);
         logger.error("upgrade flow threw", err);
         setStatus({ kind: "fail", message });
       }
     })();
-    return () => {
-      cancelled = true;
-    };
   }, [isLoaded, isSignedIn, getToken]);
 
   const onSignIn = React.useCallback(async () => {
