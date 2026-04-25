@@ -192,6 +192,8 @@ importers:
         specifier: 'catalog:'
         version: 5.9.3
 
+  backend: {}
+
   packages/api-client:
     dependencies:
       '@zodios/core':
