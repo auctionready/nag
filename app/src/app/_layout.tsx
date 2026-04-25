@@ -8,7 +8,7 @@ import { useForegroundNotificationSync } from "../infrastructure/foregroundSync"
 import { SyncStatusProvider } from "../infrastructure/syncStatus";
 import { SyncHaltedBanner } from "../components/SyncHaltedBanner";
 import { SyncStatusPill } from "../components/SyncStatusPill";
-import { getClerkPublishableKey, tokenCache } from "../infrastructure/clerk";
+import { getClerkPublishableKey } from "../infrastructure/clerk";
 import { ClerkProvider } from "@clerk/clerk-expo";
 import React from "react";
 import { View } from "react-native";
@@ -54,13 +54,21 @@ const InnerLayout = () => {
 // key isn't configured — keeps local dev / preview builds usable without
 // requiring Clerk credentials. Hooks like `useAuth` will report
 // `isLoaded: true, isSignedIn: false` in that case.
+// `ClerkProvider` is a no-op (just renders children) when the publishable
+// key isn't configured — keeps dev / preview builds usable without Clerk.
+//
+// We deliberately *don't* pass `tokenCache` for now: SecureStore on the
+// iOS simulator can hang on first install, which leaves Clerk stuck in
+// `isLoaded: false` and the Account screen on a permanent spinner.
+// Without `tokenCache` Clerk falls back to an in-memory cache — sessions
+// don't persist across cold starts, but the screen actually loads. We
+// can re-introduce a SecureStore-backed cache (with a defensive timeout)
+// in a follow-up.
 const ClerkOrPassthrough = ({ children }: { children: React.ReactNode }) => {
   const publishableKey = getClerkPublishableKey();
   if (!publishableKey) return <>{children}</>;
   return (
-    <ClerkProvider publishableKey={publishableKey} tokenCache={tokenCache}>
-      {children}
-    </ClerkProvider>
+    <ClerkProvider publishableKey={publishableKey}>{children}</ClerkProvider>
   );
 };
 
