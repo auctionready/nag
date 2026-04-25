@@ -9,9 +9,11 @@ export { endpoints } from "./endpoint-definition";
 export {
   postCommands,
   registerDevice,
+  upgradeAccount,
   type CommandEnvelope,
   type PostResult,
   type RegisterDeviceResult,
+  type UpgradeAccountResult,
   type WrapperLog,
   type Endpoints,
 } from "./operations";

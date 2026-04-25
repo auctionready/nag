@@ -222,3 +222,79 @@ export const registerDevice = async (
     );
   }
 };
+
+export type UpgradeAccountResult =
+  | {
+      ok: true;
+      accountId: string;
+      idpSubject: string;
+      upgradedAt: Date;
+    }
+  | { ok: false; kind: "non-retriable"; status: number; message: string }
+  | { ok: false; kind: "transient"; message: string };
+
+type UpgradeAccountBody = ZodiosBodyByAlias<Endpoints, "postAccountsupgrade">;
+type UpgradeAccountResponse = ZodiosResponseByAlias<
+  Endpoints,
+  "postAccountsupgrade"
+>;
+type UpgradeAccountError400 = ZodiosErrorByAlias<
+  Endpoints,
+  "postAccountsupgrade",
+  400
+>;
+
+/**
+ * POSTs an account-upgrade request — binds the calling device's anonymous
+ * account to a Clerk-issued identity. Idempotent server-side on
+ * `(account, sub)`. Never throws on HTTP or network errors.
+ */
+export const upgradeAccount = async (
+  client: NagApiClient,
+  request: { deviceId: string; idpToken: string },
+  log?: WrapperLog,
+): Promise<UpgradeAccountResult> => {
+  log?.debug?.(`POST /accounts/upgrade deviceId=${request.deviceId}`);
+  const start = Date.now();
+  try {
+    const response: UpgradeAccountResponse = await client.postAccountsupgrade(
+      request as UpgradeAccountBody,
+    );
+    const elapsed = Date.now() - start;
+    if (!response.accountId || !response.idpSubject || !response.upgradedAt) {
+      log?.error?.(
+        `POST /accounts/upgrade ok (${elapsed}ms) but response missing fields`,
+        response,
+      );
+      return {
+        ok: false,
+        kind: "non-retriable",
+        status: 200,
+        message: "server returned an incomplete UpgradeAccountResponse",
+      };
+    }
+    log?.info?.(
+      `POST /accounts/upgrade ok (${elapsed}ms) accountId=${response.accountId} sub=${response.idpSubject}`,
+    );
+    return {
+      ok: true,
+      accountId: response.accountId,
+      idpSubject: response.idpSubject,
+      upgradedAt: response.upgradedAt,
+    };
+  } catch (error: unknown) {
+    return failureFromError(
+      "POST /accounts/upgrade",
+      log,
+      Date.now() - start,
+      error,
+      () => {
+        if (isErrorFromAlias(endpoints, "postAccountsupgrade", error)) {
+          const data: UpgradeAccountError400 = error.response.data;
+          return data.errors?.[0];
+        }
+        return undefined;
+      },
+    );
+  }
+};
