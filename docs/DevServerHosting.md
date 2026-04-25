@@ -135,13 +135,13 @@ Copy the printed public key into
 (read-only is fine). Smoke-test:
 
 ```bash
-ssh -T git@github.com   # expect: "Hi christensena/nag! You've successfully authenticated..."
+ssh -T git@github.com   # expect: "Hi auctionready/nag! You've successfully authenticated..."
 ```
 
 ### 6. Clone the repo
 
 ```bash
-git clone git@github.com:christensena/nag.git ~/nag
+git clone git@github.com:auctionready/nag.git ~/nag
 cd ~/nag
 pnpm install --frozen-lockfile
 ```
