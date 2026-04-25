@@ -11,6 +11,28 @@ const IsoDatetime = z.iso
   .datetime({ offset: true })
   .transform((s) => new Date(s));
 
+export const UpgradeAccountRequest = z
+  .object({ deviceId: z.uuid(), idpToken: z.string().nullable() })
+  .partial();
+export type UpgradeAccountRequest = z.infer<typeof UpgradeAccountRequest>;
+
+export const postAccountsupgrade_Body = UpgradeAccountRequest;
+export type postAccountsupgrade_Body = z.infer<typeof postAccountsupgrade_Body>;
+
+export const UpgradeAccountResponse = z
+  .object({
+    accountId: z.uuid(),
+    idpSubject: z.string().nullable(),
+    upgradedAt: IsoDatetime,
+  })
+  .partial();
+export type UpgradeAccountResponse = z.infer<typeof UpgradeAccountResponse>;
+
+export const ErrorResponse = z
+  .object({ errors: z.array(z.string()).nullable() })
+  .partial();
+export type ErrorResponse = z.infer<typeof ErrorResponse>;
+
 export const Regularity = z.enum(["day", "week", "month"]);
 export type Regularity = z.infer<typeof Regularity>;
 
@@ -174,11 +196,6 @@ export const CommandAccepted = z
   .partial();
 export type CommandAccepted = z.infer<typeof CommandAccepted>;
 
-export const ErrorResponse = z
-  .object({ errors: z.array(z.string()).nullable() })
-  .partial();
-export type ErrorResponse = z.infer<typeof ErrorResponse>;
-
 export const CommandEnvelopeOut_CreateHabit = z
   .object({
     sequence: z.int().optional(),
@@ -340,6 +357,21 @@ export const HomeBoard = z
 export type HomeBoard = z.infer<typeof HomeBoard>;
 
 export const endpoints = makeApi([
+  {
+    method: "post",
+    path: "/accounts/upgrade",
+    alias: "postAccountsupgrade",
+    parameters: [
+      { name: "body", type: "Body", schema: postAccountsupgrade_Body },
+    ],
+    response: UpgradeAccountResponse,
+    errors: [
+      { status: 400, schema: ErrorResponse },
+      { status: 401, schema: ErrorResponse },
+      { status: 404, schema: ErrorResponse },
+      { status: 409, schema: ErrorResponse },
+    ],
+  },
   {
     method: "post",
     path: "/commands",
