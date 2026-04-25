@@ -370,7 +370,6 @@ export type HomeHabit = z.infer<typeof HomeHabit>;
 
 export const HomeBoard = z
   .object({
-    id: z.uuid(),
     lastSequence: z.int(),
     habits: z.array(HomeHabit).nullable(),
   })

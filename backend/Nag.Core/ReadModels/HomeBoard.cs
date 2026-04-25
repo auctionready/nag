@@ -1,9 +1,17 @@
+using System.Text.Json.Serialization;
 using Nag.Core.Domain;
 
 namespace Nag.Core.ReadModels;
 
 public sealed class HomeBoard
 {
+    /// <summary>
+    /// Marten document key — always <see cref="NagStreams.Root"/>. Hidden from
+    /// the wire because (a) it's a backend implementation detail and (b) the
+    /// fixed sentinel <c>11111111-1111-1111-1111-111111111111</c> isn't a
+    /// valid RFC 4122 UUID, so client-side Zod validators reject it.
+    /// </summary>
+    [JsonIgnore]
     public Guid Id { get; init; } = NagStreams.Root;
     public long LastSequence { get; set; }
     public List<HomeHabit> Habits { get; init; } = [];
