@@ -1,1 +1,0 @@
-ALTER TABLE `identity` ADD `device_token` text;

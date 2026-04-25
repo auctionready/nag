@@ -7,7 +7,6 @@ export type IdentityRow = {
   deviceId: string;
   accountId: string | null;
   registeredAt: Date | null;
-  deviceToken: string | null;
 };
 
 export const loadIdentity = async (db: AnyDb): Promise<IdentityRow | null> => {
@@ -16,7 +15,6 @@ export const loadIdentity = async (db: AnyDb): Promise<IdentityRow | null> => {
       deviceId: identity.deviceId,
       accountId: identity.accountId,
       registeredAt: identity.registeredAt,
-      deviceToken: identity.deviceToken,
     })
     .from(identity)
     .where(eq(identity.id, 1));
@@ -29,18 +27,21 @@ export const getAccountId = async (db: AnyDb): Promise<string | null> => {
 };
 
 /**
- * Reads the persisted device token without going through the full
- * identity row. Used as the per-request bearer source by the API
- * client; returns `null` until `ensureDeviceRegistered` has run
- * successfully at least once.
+ * Platform-secure persistent storage for the per-device bearer token —
+ * iOS Keychain via `expo-secure-store` on the mobile client, an
+ * in-memory implementation in tests. Never store the token in SQLite:
+ * the token is a credential and belongs in hardware-backed storage,
+ * out of regular app-data backups.
  */
-export const getDeviceToken = async (db: AnyDb): Promise<string | null> => {
-  const row = await loadIdentity(db);
-  return row?.deviceToken ?? null;
-};
+export interface TokenStore {
+  get(): Promise<string | null>;
+  set(token: string): Promise<void>;
+  clear(): Promise<void>;
+}
 
 export type EnsureDeviceRegisteredOptions = {
   db: AnyDb;
+  tokenStore: TokenStore;
   register: RegisterDeviceFn;
   /**
    * Source of the device id used on first launch. Pulled out so tests can
@@ -67,12 +68,13 @@ export type EnsureDeviceRegisteredResult = {
  * then asks the server for an `accountId` if we don't already have one.
  *
  *   - First launch: generates a `deviceId`, persists it, calls
- *     `POST /devices/register`, stores the returned `accountId` and
- *     `deviceToken`.
- *   - Subsequent launches with `accountId` and `deviceToken` set: no-op
- *     (returns immediately).
- *   - Subsequent launches missing either field (previous attempt failed,
- *     or upgrading from a pre-token install): reuses the persisted
+ *     `POST /devices/register`, stores the returned `accountId` in
+ *     SQLite and the `deviceToken` in `tokenStore`.
+ *   - Subsequent launches with `accountId` set and `tokenStore.get()`
+ *     yielding a value: no-op (returns immediately).
+ *   - Subsequent launches missing either piece (previous attempt failed,
+ *     or upgrading from a pre-token install where SQLite has an
+ *     accountId but the secure store is empty): reuses the persisted
  *     `deviceId` and retries — the server is idempotent on `deviceId`,
  *     so retries are safe and produce a fresh token.
  *
@@ -82,6 +84,7 @@ export type EnsureDeviceRegisteredResult = {
  */
 export const ensureDeviceRegistered = async ({
   db,
+  tokenStore,
   register,
   newDeviceId = () => crypto.randomUUID(),
   log,
@@ -95,20 +98,16 @@ export const ensureDeviceRegistered = async ({
     const deviceId = newDeviceId();
     debug(`identity: first launch — generated deviceId=${deviceId}`);
     await db.insert(identity).values({ id: 1, deviceId });
-    row = {
-      deviceId,
-      accountId: null,
-      registeredAt: null,
-      deviceToken: null,
-    };
+    row = { deviceId, accountId: null, registeredAt: null };
   }
 
-  if (row.accountId && row.deviceToken) {
+  const cachedToken = row.accountId ? await tokenStore.get() : null;
+  if (row.accountId && cachedToken) {
     debug(`identity: already registered accountId=${row.accountId}`);
     return {
       deviceId: row.deviceId,
       accountId: row.accountId,
-      deviceToken: row.deviceToken,
+      deviceToken: cachedToken,
       registration: { ok: true, cached: true },
     };
   }
@@ -123,9 +122,9 @@ export const ensureDeviceRegistered = async ({
       .set({
         accountId: result.accountId,
         registeredAt: result.registeredAt,
-        deviceToken: result.deviceToken,
       })
       .where(eq(identity.id, 1));
+    await tokenStore.set(result.deviceToken);
     return {
       deviceId: row.deviceId,
       accountId: result.accountId,
@@ -149,6 +148,7 @@ export const ensureDeviceRegistered = async ({
 
 export type RefreshDeviceTokenOptions = {
   db: AnyDb;
+  tokenStore: TokenStore;
   register: RegisterDeviceFn;
   log?: EnsureDeviceRegisteredOptions["log"];
 };
@@ -165,6 +165,7 @@ export type RefreshDeviceTokenOptions = {
  */
 export const refreshDeviceToken = async ({
   db,
+  tokenStore,
   register,
   log,
 }: RefreshDeviceTokenOptions): Promise<string | null> => {
@@ -190,9 +191,9 @@ export const refreshDeviceToken = async ({
     .set({
       accountId: result.accountId,
       registeredAt: result.registeredAt,
-      deviceToken: result.deviceToken,
     })
     .where(eq(identity.id, 1));
+  await tokenStore.set(result.deviceToken);
 
   info(`identity: token refreshed accountId=${result.accountId}`);
   return result.deviceToken;

@@ -10,7 +10,6 @@ import {
   type GetSyncResult,
 } from "@nag/api-client";
 import {
-  getDeviceToken,
   refreshDeviceToken,
   type CommandEnvelope,
   type GetSyncFn,
@@ -22,6 +21,7 @@ import {
 } from "@nag/core";
 import { db } from "../db";
 import { log } from "./log";
+import { deviceTokenStore } from "./tokenStore";
 
 type Extra = {
   apiBaseUrl?: string;
@@ -32,24 +32,19 @@ const identityLogger = log("identity");
 
 const extra = (): Extra => (Constants.expoConfig?.extra as Extra) ?? {};
 
-const maskToken = (token: string | null | undefined): string => {
-  if (!token) return "<missing>";
-  if (token.length <= 8) return "***";
-  return `${token.slice(0, 4)}…${token.slice(-4)}`;
-};
-
 let singleton: NagApiClient | null = null;
 
 /**
  * Lazily-built Zodios client (axios + zod request/response validation).
  *
  * Auth is per-request: `getToken` reads the persisted device token from
- * the SQLite `identity` row (populated by `ensureDeviceRegistered` on
- * first launch). `onUnauthorized` re-registers and updates the row when
- * the server rejects the current token, then the original request is
- * retried once. Bootstrap calls (`/devices/register` etc.) work without
- * a token because the request interceptor omits the header when
- * `getToken` returns `null`.
+ * the platform-secure store (Keychain on iOS, EncryptedSharedPreferences
+ * on Android, populated by `ensureDeviceRegistered` on first launch).
+ * `onUnauthorized` re-registers and updates the store when the server
+ * rejects the current token, then the original request is retried once.
+ * Bootstrap calls (`/devices/register` etc.) work without a token
+ * because the request interceptor omits the header when `getToken`
+ * returns `null`.
  *
  * `@nag/api-client` picks axios's default adapter — XHR on RN — which
  * is stable against HTTP+localhost; an earlier `adapter: "fetch"`
@@ -67,20 +62,19 @@ export const getApiClient = (): NagApiClient => {
   logger.debug(`creating client baseUrl=${apiBaseUrl}`);
   singleton = createNagApiClient({
     baseUrl: apiBaseUrl,
-    getToken: () => getDeviceToken(db),
+    getToken: () => deviceTokenStore.get(),
     onUnauthorized: async () => {
       identityLogger.warn(
         "received 401 on protected request — refreshing device token",
       );
       const newToken = await refreshDeviceToken({
         db,
+        tokenStore: deviceTokenStore,
         register: registerDeviceRaw,
         log: identityLogger,
       });
       if (newToken) {
-        identityLogger.info(
-          `device token refreshed (token=${maskToken(newToken)})`,
-        );
+        identityLogger.info("device token refreshed");
         return true;
       }
       identityLogger.error("device token refresh failed — giving up");
