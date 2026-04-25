@@ -70,25 +70,25 @@ Rule of thumb:
 
 ## Build & Test
 
-- Use [pnpm](https://pnpm.io/) for package management.
-- Use pnpm to run Expo, e.g. `pnpm expo start`.
+- Use [pnpm](https://pnpm.io/) for monorepo package management.
+- Use pnpm to run Expo, e.g. `pnpm expo start` from `app`.
+- Use dotnet for backend (install with apt if needed)
 
 Validation (run from the repo root):
 
+For backend:
+
 ```bash
-pnpm typecheck
-pnpm test
+pnpm check:backend
 ```
 
-After changing backend endpoints or contracts, regenerate the OpenAPI spec
-and typed client with `pnpm --filter @nag/api-client generate` (commit both
-`packages/api-client/openapi.json` and `src/endpoint-definition.ts`). If
-running in a sandbox without `dotnet`, install it via
-`sudo apt-get install -y dotnet-sdk-10.0`.
+For mobile app:
+
+```bash
+pnpm check:app
+```
 
 ## Architecture Overview
-
-_Add a brief overview of your project architecture_
 
 ## Documentation
 
@@ -101,8 +101,10 @@ should get their own page under `docs/` and be linked from
 
 ## Conventions & Patterns
 
-- Use [drizzle-kit](https://orm.drizzle.team/docs/kit-overview) for database
+- Use [drizzle-kit](https://orm.drizzle.team/docs/kit-overview) for mobile app database
   management.
+- Use [drizzle-orm](https://orm.drizzle.team/docs/overview) for database access in mobile app.
+- Use Wolverine and Marten for backend database access, messaging etc.
 
 ### Coding Style
 
