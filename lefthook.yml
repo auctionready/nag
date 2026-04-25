@@ -1,5 +1,3 @@
-hooksDir: .beads/hooks
-
 pre-commit:
   parallel: true
   jobs:
