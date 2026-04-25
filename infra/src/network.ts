@@ -4,21 +4,28 @@ import * as pulumi from "@pulumi/pulumi";
 
 export interface Network {
   vpcId: pulumi.Output<string>;
+  vpcCidr: pulumi.Output<string>;
+  publicSubnetIds: pulumi.Output<string[]>;
   privateSubnetIds: pulumi.Output<string[]>;
   lambdaSgId: pulumi.Output<string>;
   dbSgId: pulumi.Output<string>;
 }
 
 export const createNetwork = (): Network => {
+  // No managed NAT Gateway — outbound egress for the Lambda (Clerk JWKS,
+  // and any future external HTTPS) is served by a t4g.nano NAT instance
+  // wired up in `nat.ts`. ~US$3/mo vs ~US$33/mo for a managed NAT
+  // Gateway. Explicit subnetSpecs (Public + Private) so awsx still
+  // creates an Internet Gateway and a public route table we can host
+  // the NAT instance in. Private route tables get no default route from
+  // awsx — `nat.ts` adds one pointing at the NAT instance ENI.
   const vpc = new awsx.ec2.Vpc("nag", {
     numberOfAvailabilityZones: 2,
-    // Single NAT Gateway gives the Lambda outbound internet egress so it
-    // can reach Clerk's JWKS endpoint (and any other external HTTPS we
-    // pick up later — push notifications, payment APIs, etc). Single
-    // (not OnePerAz) is the cheap path: ~$33/month vs ~$66; not HA but
-    // fine until traffic warrants it.
-    natGateways: { strategy: awsx.ec2.NatGatewayStrategy.Single },
-    subnetStrategy: "Auto",
+    natGateways: { strategy: awsx.ec2.NatGatewayStrategy.None },
+    subnetSpecs: [
+      { type: "Public", cidrMask: 24 },
+      { type: "Private", cidrMask: 24 },
+    ],
     enableDnsHostnames: true,
     enableDnsSupport: true,
   });
@@ -52,6 +59,8 @@ export const createNetwork = (): Network => {
 
   return {
     vpcId: vpc.vpcId,
+    vpcCidr: vpc.vpc.cidrBlock,
+    publicSubnetIds: vpc.publicSubnetIds,
     privateSubnetIds: vpc.privateSubnetIds,
     lambdaSgId: lambdaSg.id,
     dbSgId: dbSg.id,
