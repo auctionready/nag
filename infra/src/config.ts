@@ -3,7 +3,11 @@ import * as pulumi from "@pulumi/pulumi";
 const cfg = new pulumi.Config("nag");
 
 export const stackConfig = {
-  apiKey: cfg.requireSecret("apiKey"),
+  // HMAC-SHA256 signing key for per-device bearer tokens. Rotate by
+  // setting a new value and redeploying — every previously-issued
+  // token becomes invalid (clients re-register on next 401). Generate
+  // a fresh value with `openssl rand -base64 48`.
+  deviceTokenSecret: cfg.requireSecret("deviceTokenSecret"),
   dbPassword: cfg.requireSecret("dbPassword"),
   dbMinAcu: cfg.getNumber("dbMinAcu") ?? 0,
   dbMaxAcu: cfg.getNumber("dbMaxAcu") ?? 2,

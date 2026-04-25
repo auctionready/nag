@@ -1,6 +1,6 @@
 # Nag infrastructure (Pulumi, TypeScript)
 
-AWS deployment for the Nag backend: API Gateway HTTP API → Lambda (`dotnet10`, arm64) → Aurora PostgreSQL Serverless v2 (engine 17). DB password and API key are injected into the Lambda as KMS-encrypted environment variables — no NAT Gateway or AWS Secrets Manager.
+AWS deployment for the Nag backend: API Gateway HTTP API → Lambda (`dotnet10`, arm64) → Aurora PostgreSQL Serverless v2 (engine 17). The DB password and the device-token signing secret are injected into the Lambda as KMS-encrypted environment variables — no NAT Gateway or AWS Secrets Manager.
 
 State backend: **Pulumi Cloud**.
 Region: **ap-southeast-2**.
@@ -14,7 +14,7 @@ Internet → API Gateway HTTP API ($default)
         → CloudWatch Logs /aws/lambda/nag-api (14-day retention, via Lambda-internal path)
 ```
 
-The Lambda has no NAT Gateway and no VPC endpoints — it reaches Aurora over its Hyperplane ENI inside the private subnet, and log delivery is handled by the Lambda runtime (not the function's VPC networking). The DB password and API key are passed as Lambda environment variables (`DB_PASSWORD`, `API_KEY`), encrypted at rest with the AWS-managed KMS key — see `backend/Nag.Api/Infrastructure/LambdaSecrets.cs`.
+The Lambda has no NAT Gateway and no VPC endpoints — it reaches Aurora over its Hyperplane ENI inside the private subnet, and log delivery is handled by the Lambda runtime (not the function's VPC networking). The DB password and the device-token signing secret are passed as Lambda environment variables (`DB_PASSWORD`, `DEVICE_TOKEN_SECRET`), encrypted at rest with the AWS-managed KMS key — see `backend/Nag.Api/Infrastructure/LambdaSecrets.cs`.
 
 Aurora is configured with `minCapacity: 0` and `secondsUntilAutoPause` (default 3000 s / 50 min) so the cluster scales to zero when idle. The first query after a long idle period pays a ~10–15 s warm-up.
 
@@ -33,14 +33,41 @@ cd infra
 npm ci
 pulumi stack init prod
 pulumi config set aws:region ap-southeast-2
-pulumi config set --secret nag:apiKey <real-api-key>
+pulumi config set --secret nag:deviceTokenSecret "$(openssl rand -base64 48)"
 pulumi config set --secret nag:dbPassword <strong-db-password>
 # optional: pulumi config set nag:dbMinAcu 0.5     # keep a warm floor instead of auto-pause
 # optional: pulumi config set nag:dbMaxAcu 2
 # optional: pulumi config set nag:dbAutoPauseSeconds 3000
+# optional: pulumi config set nag:clerkIssuer https://your-instance.clerk.accounts.dev
 # optional: custom domain (set both, or neither)
 # pulumi config set nag:hostedZoneName example.com
 # pulumi config set nag:apiDomainName  api.example.com
+```
+
+### Rotating the device-token secret
+
+The signing secret is the trust root for every issued device token. To
+rotate (e.g. on suspected compromise, or as periodic hygiene):
+
+```bash
+cd infra
+pulumi config set --secret nag:deviceTokenSecret "$(openssl rand -base64 48)" --stack prod
+pulumi up --stack prod
+```
+
+After the new Lambda environment is live, every previously-issued
+device token fails HMAC verification → mobile clients get 401 → they
+hit `/devices/register` (anonymous) and receive a fresh token signed
+by the new secret. There is no separate revocation list.
+
+### Migrating from the legacy `nag:apiKey`
+
+Stacks deployed before phase 2c carry a `nag:apiKey` entry that is no
+longer read by the backend. Drop it after the stack is on the new
+auth model:
+
+```bash
+pulumi config rm nag:apiKey --stack prod
 ```
 
 ## Custom domain (optional)
@@ -56,8 +83,8 @@ The stack output `apiUrl` always exists: it's the friendly `https://<subdomain>/
 
 ## Bind an EAS build to this backend
 
-After `pulumi up` succeeds, push `apiUrl` and `nag:apiKey` into the EAS
-environment that an `eas.json` build profile reads from:
+After `pulumi up` succeeds, push `apiUrl` into the EAS environment that
+an `eas.json` build profile reads from:
 
 ```bash
 ops/sync-eas-env.sh <pulumi-stack> <eas-environment>
@@ -65,10 +92,12 @@ ops/sync-eas-env.sh <pulumi-stack> <eas-environment>
 # e.g. ops/sync-eas-env.sh prod production  # prod build    → prod backend
 ```
 
-The script sets `NAG_API_BASE_URL` (plaintext) and `NAG_API_KEY` (secret)
-in the named EAS environment, replacing any existing values. Re-run
-after rotating the API key or moving the backend behind a custom
-domain.
+The script sets `NAG_API_BASE_URL` (plaintext) in the named EAS
+environment. Mobile clients no longer ship a build-time API key —
+each device registers anonymously on first launch via
+`POST /devices/register` and stores the returned `deviceToken` in
+SecureStore. Re-run the script if the backend moves to a different
+URL (e.g. behind a new custom domain).
 
 ## Build the Lambda package
 
@@ -101,11 +130,19 @@ pulumi stack output invokeUrl
 
 ```bash
 URL=$(pulumi stack output invokeUrl)
-KEY=$(pulumi config get nag:apiKey --show-secrets)
+DEVICE_ID=$(uuidgen | tr 'A-Z' 'a-z')
 
-curl -i "$URL/health"                                     # → 200 {"status":"ok"}
-curl -i -H "Authorization: Bearer $KEY" "$URL/home-board" # → 200 JSON
-curl -i -H "Authorization: Bearer wrong" "$URL/home-board" # → 401
+curl -i "$URL/health"                                       # → 204
+
+# Anonymous registration → response includes a fresh deviceToken.
+TOKEN=$(curl -s -X POST "$URL/devices/register" \
+  -H 'Content-Type: application/json' \
+  -d "{\"deviceId\":\"$DEVICE_ID\",\"label\":\"smoke\"}" \
+  | jq -r .deviceToken)
+
+curl -i -H "Authorization: Bearer $TOKEN"  "$URL/home-board" # → 200
+curl -i -H "Authorization: Bearer wrong"   "$URL/home-board" # → 401
+curl -i                                    "$URL/home-board" # → 401
 ```
 
 ## CI

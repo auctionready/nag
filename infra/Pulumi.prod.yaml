@@ -5,7 +5,14 @@ config:
   nag:dbAutoPauseSeconds: "300"
   nag:lambdaMemoryMb: "1536"
   nag:logRetentionDays: "14"
-  # nag:apiKey is set via: pulumi config set --secret nag:apiKey <value>
+  # nag:deviceTokenSecret is the HMAC-SHA256 signing key for per-device
+  # bearer tokens. Generate + set via:
+  #   pulumi config set --secret nag:deviceTokenSecret "$(openssl rand -base64 48)"
+  # Rotating invalidates every previously-issued token (clients hit 401
+  # and re-register). The legacy `nag:apiKey` entry below is dead;
+  # delete it after this stack is on the new auth model:
+  #   pulumi config rm nag:apiKey
+  #
   # nag:dbPassword is set via: pulumi config set --secret nag:dbPassword <value>
   #
   # Custom domain (optional — both must be set or neither). When set, Pulumi

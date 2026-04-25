@@ -26,19 +26,41 @@ docker compose up -d
 # 2. Restore the local CSharpier tool
 dotnet tool restore
 
-# 3. Run
+# 3. Set the device-token signing secret. Either copy the example
+#    dotenv file once and edit it, or export inline.
+cp .env.example .env.local
+# then edit .env.local — generate a value with:
+#   openssl rand -base64 48
+
+# 4. Run
 dotnet run --project Nag.Api
 # → http://localhost:5266/swagger (Debug builds only)
 ```
 
-The default API key in `appsettings.json` is `dev-only-replace-me`.
-Override via the `NAG__APIKEY` environment variable (note the double
-underscore separating section from key).
+`appsettings.Development.json` ships a placeholder secret so the host
+boots without any extra config; override it with your own value via
+`.env.local` or `Nag__DeviceToken__Secret` in the environment (note the
+`__` double underscore that .NET config uses to separate JSON sections).
+
+There is **no shared API key** anymore — protected endpoints require
+either a per-device HMAC token or a Clerk JWT. The simplest way to
+exercise a protected endpoint is to register a device first:
 
 ```bash
-export NAG__APIKEY="your-key"
-curl -H "Authorization: Bearer $NAG__APIKEY" http://localhost:5266/home-board
+DEVICE_ID=$(uuidgen | tr 'A-Z' 'a-z')
+
+# Anonymous registration → response includes a fresh deviceToken.
+TOKEN=$(curl -s -X POST http://localhost:5266/devices/register \
+  -H 'Content-Type: application/json' \
+  -d "{\"deviceId\":\"$DEVICE_ID\",\"label\":\"local\"}" \
+  | jq -r .deviceToken)
+
+curl -H "Authorization: Bearer $TOKEN" http://localhost:5266/home-board
 ```
+
+In Swagger UI, paste that `deviceToken` value into the **Authorize**
+dialog (the lock icon at the top of the page) to send it on every
+"Try it out" request automatically.
 
 ## Tests
 
@@ -101,6 +123,6 @@ Production assumes:
 
 - AWS Lambda with the managed `dotnet10` runtime (GA Jan 2026)
 - Amazon RDS for PostgreSQL Serverless v2 (Postgres 17), auto-pause on
-- DB password and API key passed as KMS-encrypted Lambda environment
-  variables (`DB_PASSWORD`, `API_KEY`) — see
-  `Nag.Api/Infrastructure/LambdaSecrets.cs`
+- DB password and device-token signing secret passed as KMS-encrypted
+  Lambda environment variables (`DB_PASSWORD`, `DEVICE_TOKEN_SECRET`)
+  — see `Nag.Api/Infrastructure/LambdaSecrets.cs`
