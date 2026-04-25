@@ -4,6 +4,7 @@ using Marten;
 using Nag.Api.Auth;
 using Nag.Api.Endpoints;
 using Nag.Api.Infrastructure;
+using Nag.Api.OpenApi;
 using Nag.Core.Contracts;
 using Nag.Core.Handlers;
 using Nag.Core.Projections;
