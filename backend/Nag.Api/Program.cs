@@ -1,6 +1,8 @@
+using System.IO.Compression;
 using FluentValidation;
 using JasperFx.Events.Projections;
 using Marten;
+using Microsoft.AspNetCore.ResponseCompression;
 using Nag.Api.Auth;
 using Nag.Api.Infrastructure;
 using Nag.Core.Contracts;
@@ -37,6 +39,18 @@ builder.Services.ConfigureHttpJsonOptions(opts =>
         opts.SerializerOptions.Converters.Add(c);
     opts.SerializerOptions.DefaultIgnoreCondition = NagJsonOptions.Default.DefaultIgnoreCondition;
 });
+
+builder.Services.AddResponseCompression(opts =>
+{
+    opts.EnableForHttps = true;
+    opts.Providers.Add<BrotliCompressionProvider>();
+    opts.Providers.Add<GzipCompressionProvider>();
+    opts.MimeTypes = ResponseCompressionDefaults.MimeTypes.Concat(["application/json"]);
+});
+builder.Services.Configure<BrotliCompressionProviderOptions>(o =>
+    o.Level = CompressionLevel.Fastest
+);
+builder.Services.Configure<GzipCompressionProviderOptions>(o => o.Level = CompressionLevel.Fastest);
 
 builder.Services.AddSingleton(TimeProvider.System);
 
@@ -173,6 +187,8 @@ app.UseSerilogRequestLogging();
 app.UseSwagger();
 app.UseSwaggerUI();
 #endif
+
+app.UseResponseCompression();
 
 app.UseAuthentication();
 app.UseAuthorization();
