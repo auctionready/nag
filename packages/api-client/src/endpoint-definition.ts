@@ -377,7 +377,16 @@ export const HomeBoard = z
   .partial();
 export type HomeBoard = z.infer<typeof HomeBoard>;
 
-export const SyncResponse = z.object({}).partial();
+export const SyncResponse = z
+  .object({
+    mode: z.string().nullable(),
+    commands: z.array(CommandEnvelopeOut).nullable(),
+    headSequence: z.int().nullable(),
+    nextSince: z.int().nullable(),
+    sequenceAtSnapshot: z.int().nullable(),
+    snapshot: HomeBoard.nullable(),
+  })
+  .partial();
 export type SyncResponse = z.infer<typeof SyncResponse>;
 
 export const endpoints = makeApi([
@@ -459,7 +468,7 @@ export const endpoints = makeApi([
     path: "/sync",
     alias: "getSync",
     parameters: [{ name: "since", type: "Query", schema: z.int() }],
-    response: z.object({}).partial(),
+    response: SyncResponse,
     errors: [],
   },
 ]);

@@ -26,6 +26,16 @@ describe("createPullSync", () => {
     expect(getSync).toHaveBeenCalledWith(0);
   });
 
+  it("treats omitted commands array as empty", async () => {
+    const db = getDb();
+    // Server omits null fields under JsonIgnoreCondition.WhenWritingNull,
+    // so `commands` may arrive as undefined when empty.
+    const getSync = okSync({ mode: "replay", headSequence: 0 });
+
+    const status = await createPullSync({ db, getSync }).run();
+    expect(status).toBe("idle");
+  });
+
   it("applies replay commands in order, advancing the high-water mark", async () => {
     const db = getDb();
     const getSync = okSync({
@@ -91,7 +101,7 @@ describe("createPullSync", () => {
     expect(s.value).toBe(99);
   });
 
-  it("pages: follows nextSince across multiple replay calls", async () => {
+  it("pages: follows nextSince across multiple replay calls (and stops on omitted nextSince)", async () => {
     const db = getDb();
     const getSync = vi
       .fn<GetSyncFn>()
@@ -122,7 +132,8 @@ describe("createPullSync", () => {
             },
           ],
           headSequence: 5,
-          nextSince: null,
+          // nextSince intentionally omitted — last page; server drops
+          // null fields under WhenWritingNull.
         },
       });
 

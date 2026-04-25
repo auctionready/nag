@@ -30,7 +30,5 @@ export {
   type PullSyncOptions,
   type PullStatus,
   type SyncResult,
-  type SyncReplay,
-  type SyncSnapshot,
   type GetSyncFn,
 } from "./pullSync";

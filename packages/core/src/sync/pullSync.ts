@@ -6,21 +6,20 @@ import { syncAllNotifications } from "../notificationConsolidator";
 
 export type PullStatus = "idle" | "halted" | "offline";
 
-/** Discriminated server response — mirrors `@nag/api-client.SyncResponse`. */
-export type SyncReplay = {
-  mode: "replay";
-  commands: ServerCommand[];
-  headSequence: number;
-  nextSince: number | null;
+/**
+ * Server response from `GET /sync?since=N` — flat shape so it survives
+ * `JsonIgnoreCondition.WhenWritingNull` + Swashbuckle + openapi-zod-client
+ * cleanly. `mode` is the discriminator; the rest of the fields are
+ * populated according to the mode and arrive as `undefined` when omitted.
+ */
+export type SyncResult = {
+  mode: "replay" | "snapshot" | string;
+  commands?: ServerCommand[] | null;
+  headSequence?: number | null;
+  nextSince?: number | null;
+  sequenceAtSnapshot?: number | null;
+  snapshot?: ServerSnapshot | null;
 };
-
-export type SyncSnapshot = {
-  mode: "snapshot";
-  sequenceAtSnapshot: number;
-  snapshot: ServerSnapshot;
-};
-
-export type SyncResult = SyncReplay | SyncSnapshot;
 
 export type GetSyncFn = (
   since: number,
@@ -93,29 +92,32 @@ export const createPullSync = ({
 
       const response = result.response;
       if (response.mode === "snapshot") {
-        debug(
-          `pullSync.run: snapshot mode sequenceAtSnapshot=${response.sequenceAtSnapshot}`,
-        );
-        await installSnapshot(
-          db,
-          response.sequenceAtSnapshot,
-          response.snapshot,
-        );
+        const seq = response.sequenceAtSnapshot ?? 0;
+        const snapshot = response.snapshot ?? { habits: [] };
+        debug(`pullSync.run: snapshot mode sequenceAtSnapshot=${seq}`);
+        await installSnapshot(db, seq, snapshot);
         mutated = true;
         // Snapshot is terminal — server wouldn't have sent it if there
         // was anything more after `sequenceAtSnapshot`.
         break;
       }
 
-      // replay
+      if (response.mode !== "replay") {
+        error(`pullSync.run: unknown mode "${response.mode}"`);
+        return "offline";
+      }
+
+      const commands = response.commands ?? [];
       debug(
-        `pullSync.run: replay mode commands=${response.commands.length} headSequence=${response.headSequence} nextSince=${response.nextSince}`,
+        `pullSync.run: replay mode commands=${commands.length} headSequence=${response.headSequence ?? "(none)"} nextSince=${response.nextSince ?? "(none)"}`,
       );
-      for (const cmd of response.commands) {
+      for (const cmd of commands) {
         await applyServerCommand(db, cmd);
         mutated = true;
       }
-      if (response.nextSince === null || response.commands.length === 0) {
+      // `nextSince` arrives as `undefined` (server omits null fields) when
+      // there are no more pages.
+      if (response.nextSince == null || commands.length === 0) {
         break;
       }
     }

@@ -33,10 +33,19 @@ public sealed class SyncCoordinator(IQuerySession session, CommandsReader reader
             var board =
                 await session.LoadAsync<HomeBoard>(NagStreams.Root, ct)
                 ?? new HomeBoard { Id = NagStreams.Root };
-            return new SyncSnapshotResponse(board.LastSequence, board);
+            return new SyncResponse(
+                Mode: "snapshot",
+                SequenceAtSnapshot: board.LastSequence,
+                Snapshot: board
+            );
         }
 
         var page = await reader.ReadSinceAsync(since, limit: null, ct);
-        return new SyncReplayResponse(page.Commands, headSequence, page.NextSince);
+        return new SyncResponse(
+            Mode: "replay",
+            Commands: page.Commands,
+            HeadSequence: headSequence,
+            NextSince: page.NextSince
+        );
     }
 }
