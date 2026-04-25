@@ -6,10 +6,13 @@ using Swashbuckle.AspNetCore.SwaggerGen;
 namespace Nag.Api.OpenApi;
 
 /// <summary>
-/// Applies the global <c>Bearer</c> security requirement to every
-/// operation that does not carry <c>[AllowAnonymous]</c> metadata. The
-/// security scheme itself is registered in <c>AddSwaggerGen</c> via
-/// <c>AddSecurityDefinition("Bearer", ...)</c>.
+/// Clears the global Bearer security requirement on operations marked
+/// <c>[AllowAnonymous]</c>. The global requirement itself is added in
+/// <c>Program.cs</c> via <c>c.AddSecurityRequirement(...)</c> — that
+/// path resolves the security-scheme reference against the document,
+/// which an operation filter can't do (no host-document access).
+/// Setting <see cref="OpenApiOperation.Security"/> to an empty list
+/// here overrides the global per-operation per the OpenAPI spec.
 /// </summary>
 public sealed class AllowAnonymousSecurityFilter : IOperationFilter
 {
@@ -19,15 +22,9 @@ public sealed class AllowAnonymousSecurityFilter : IOperationFilter
             .ApiDescription.ActionDescriptor.EndpointMetadata.OfType<IAllowAnonymous>()
             .Any();
         if (anonymous)
-            return;
-
-        operation.Security =
-        [
-            new OpenApiSecurityRequirement
-            {
-                [new OpenApiSecuritySchemeReference("Bearer")] = new List<string>(),
-            },
-        ];
+        {
+            operation.Security = new List<OpenApiSecurityRequirement>();
+        }
     }
 }
 #endif

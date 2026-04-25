@@ -156,6 +156,10 @@ builder.Services.AddSwaggerGen(c =>
                 + "/devices/pair, or /accounts/upgrade) or a Clerk JWT.",
         }
     );
+    c.AddSecurityRequirement(doc => new OpenApiSecurityRequirement
+    {
+        { new OpenApiSecuritySchemeReference("Bearer", doc), new List<string>() },
+    });
 });
 #endif
 
