@@ -1,6 +1,6 @@
 import { type InferInsertModel } from "drizzle-orm";
 import { subDays } from "date-fns";
-import { habit, goal, checkIn, schedule, auditLog } from "@nag/schema";
+import { habit, goal, checkIn, schedule, outbox } from "@nag/schema";
 import { Day, AllDays } from "@nag/core";
 import { db } from "./index";
 
@@ -120,7 +120,7 @@ export const clearAll = async () => {
   await db.delete(checkIn);
   await db.delete(goal);
   await db.delete(habit);
-  await db.delete(auditLog);
+  await db.delete(outbox);
 };
 
 export const seedSampleData = async () => {

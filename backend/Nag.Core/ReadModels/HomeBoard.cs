@@ -5,7 +5,7 @@ namespace Nag.Core.ReadModels;
 public sealed class HomeBoard
 {
     public Guid Id { get; init; } = NagStreams.Root;
-    public long LastSequence { get; init; }
+    public long LastSequence { get; set; }
     public List<HomeHabit> Habits { get; init; } = [];
 }
 

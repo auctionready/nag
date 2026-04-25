@@ -4,8 +4,10 @@ import {
   postCommands as apiPostCommands,
   registerDevice as apiRegisterDevice,
   upgradeAccount as apiUpgradeAccount,
+  getSync as apiGetSync,
   type NagApiClient,
   type UpgradeAccountResult,
+  type GetSyncResult,
 } from "@nag/api-client";
 import type {
   CommandEnvelope,
@@ -13,6 +15,8 @@ import type {
   PostResult,
   RegisterDeviceFn,
   RegisterDeviceResult,
+  GetSyncFn,
+  SyncResult,
 } from "@nag/core";
 import { log } from "./log";
 
@@ -82,3 +86,17 @@ export const upgradeAccount = (request: {
   idpToken: string;
 }): Promise<UpgradeAccountResult> =>
   apiUpgradeAccount(getApiClient(), request, logger);
+
+/**
+ * Adapter from `@nag/api-client.getSync` (returns a Zodios-typed body)
+ * to `@nag/core.GetSyncFn` (the loose `SyncResult` shape the pull-sync
+ * orchestrator works with). The cast is safe because the Zodios schema
+ * mirrors `SyncResult` field-for-field.
+ */
+export const getSync: GetSyncFn = async (since) => {
+  const result: GetSyncResult = await apiGetSync(getApiClient(), since, logger);
+  if (result.ok) {
+    return { ok: true, response: result.response as SyncResult };
+  }
+  return result;
+};

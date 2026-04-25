@@ -1,3 +1,4 @@
+using JasperFx.Events;
 using Marten.Events.Aggregation;
 using Nag.Core.Commands;
 using Nag.Core.Domain;
@@ -12,31 +13,34 @@ public sealed class HomeBoardProjection : SingleStreamProjection<HomeBoard, Guid
         // Single document keyed by NagStreams.Root.
     }
 
-    public static HomeBoard Create(CreateHabit @event) =>
+    public static HomeBoard Create(IEvent<CreateHabit> e) =>
         new()
         {
             Id = NagStreams.Root,
+            LastSequence = e.Sequence,
             Habits =
             [
                 new HomeHabit
                 {
-                    Id = @event.HabitId,
-                    Title = @event.Title,
-                    Description = @event.Description,
-                    Icon = @event.Icon,
-                    Goal = @event.Goal is null
+                    Id = e.Data.HabitId,
+                    Title = e.Data.Title,
+                    Description = e.Data.Description,
+                    Icon = e.Data.Icon,
+                    Goal = e.Data.Goal is null
                         ? null
-                        : new HomeGoal(@event.Goal.Regularity, @event.Goal.Frequency),
-                    Schedules = @event.Goal?.Schedules is null
+                        : new HomeGoal(e.Data.Goal.Regularity, e.Data.Goal.Frequency),
+                    Schedules = e.Data.Goal?.Schedules is null
                         ? []
-                        : [.. @event.Goal.Schedules.Select(MapSchedule)],
+                        : [.. e.Data.Goal.Schedules.Select(MapSchedule)],
                     PeriodCheckIns = [],
                 },
             ],
         };
 
-    public void Apply(CreateHabit cmd, HomeBoard board)
+    public void Apply(IEvent<CreateHabit> e, HomeBoard board)
     {
+        board.LastSequence = e.Sequence;
+        var cmd = e.Data;
         board.Habits.RemoveAll(h => h.Id == cmd.HabitId);
         board.Habits.Add(
             new HomeHabit
@@ -56,8 +60,10 @@ public sealed class HomeBoardProjection : SingleStreamProjection<HomeBoard, Guid
         );
     }
 
-    public void Apply(UpdateHabit cmd, HomeBoard board)
+    public void Apply(IEvent<UpdateHabit> e, HomeBoard board)
     {
+        board.LastSequence = e.Sequence;
+        var cmd = e.Data;
         var habit = board.Habits.FirstOrDefault(h => h.Id == cmd.HabitId);
         if (habit is null)
             return;
@@ -84,13 +90,16 @@ public sealed class HomeBoardProjection : SingleStreamProjection<HomeBoard, Guid
         };
     }
 
-    public void Apply(DeleteHabit cmd, HomeBoard board)
+    public void Apply(IEvent<DeleteHabit> e, HomeBoard board)
     {
-        board.Habits.RemoveAll(h => h.Id == cmd.HabitId);
+        board.LastSequence = e.Sequence;
+        board.Habits.RemoveAll(h => h.Id == e.Data.HabitId);
     }
 
-    public void Apply(CreateCheckIn cmd, HomeBoard board)
+    public void Apply(IEvent<CreateCheckIn> e, HomeBoard board)
     {
+        board.LastSequence = e.Sequence;
+        var cmd = e.Data;
         var habit = board.Habits.FirstOrDefault(h => h.Id == cmd.HabitId);
         if (habit is null)
             return;
@@ -103,8 +112,10 @@ public sealed class HomeBoardProjection : SingleStreamProjection<HomeBoard, Guid
         PrunePeriodCheckIns(habit, cmd.Timestamp);
     }
 
-    public void Apply(UpdateCheckIn cmd, HomeBoard board)
+    public void Apply(IEvent<UpdateCheckIn> e, HomeBoard board)
     {
+        board.LastSequence = e.Sequence;
+        var cmd = e.Data;
         foreach (var habit in board.Habits)
         {
             var idx = habit.PeriodCheckIns.FindIndex(c => c.Id == cmd.CheckInId);
@@ -121,8 +132,10 @@ public sealed class HomeBoardProjection : SingleStreamProjection<HomeBoard, Guid
         }
     }
 
-    public void Apply(DeleteCheckIn cmd, HomeBoard board)
+    public void Apply(IEvent<DeleteCheckIn> e, HomeBoard board)
     {
+        board.LastSequence = e.Sequence;
+        var cmd = e.Data;
         foreach (var habit in board.Habits)
         {
             habit.PeriodCheckIns.RemoveAll(c => c.Id == cmd.CheckInId);

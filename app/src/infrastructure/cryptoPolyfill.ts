@@ -6,7 +6,7 @@ const logger = log("crypto-polyfill");
 /**
  * Hermes on RN does not currently expose `crypto.randomUUID`. The schema's
  * drizzle `$defaultFn`s for `habit.externalId`, `check_in.externalId`, and
- * `audit_log.envelope_id` rely on it, so an unpolyfilled runtime silently
+ * `outbox.envelope_id` rely on it, so an unpolyfilled runtime silently
  * rejects every insert. Install an `expo-crypto`-backed shim at app startup.
  *
  * Must run before the first DB insert. Called from `init()` which fires at

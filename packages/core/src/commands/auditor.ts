@@ -1,5 +1,5 @@
 import { eq } from "drizzle-orm";
-import { auditLog, habit, checkIn } from "@nag/schema";
+import { outbox, habit, checkIn } from "@nag/schema";
 import type { AnyDb } from "../db";
 import type {
   Command,
@@ -142,7 +142,7 @@ async function buildPayload(
 
 /**
  * Translates a locally-committed command into the server-shaped envelope
- * payload and appends it to `audit_log` with `status='pending'`. The
+ * payload and appends it to the `outbox` with `status='pending'`. The
  * dispatcher reads pending rows and POSTs them verbatim. `envelope_id` and
  * `timestamp` are set by the table's `$defaultFn`s.
  */
@@ -152,7 +152,7 @@ export async function audit(
   result: HandlerAuditContext,
 ): Promise<void> {
   const payload = await buildPayload(db, command, result);
-  await db.insert(auditLog).values({
+  await db.insert(outbox).values({
     commandType: command.type,
     payload: JSON.stringify(payload),
   });

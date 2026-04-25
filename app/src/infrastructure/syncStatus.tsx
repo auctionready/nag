@@ -13,6 +13,7 @@ import NetInfo, { type NetInfoState } from "@react-native-community/netinfo";
 import * as Sentry from "@sentry/react-native";
 import {
   createDispatcher,
+  createPullSync,
   makeSingleflight,
   resumeDispatch,
   countPending,
@@ -22,7 +23,12 @@ import {
 } from "@nag/core";
 import { db } from "../db";
 import { postCommitBus } from "./postCommitBus";
-import { isApiConfigured, logApiConfig, postCommands } from "./apiClient";
+import {
+  isApiConfigured,
+  logApiConfig,
+  postCommands,
+  getSync,
+} from "./apiClient";
 import { log } from "./log";
 
 const logger = log("sync");
@@ -112,6 +118,15 @@ export const SyncStatusProvider = ({ children }: PropsWithChildren) => {
         error: (m, ...a) => logger.error(m, ...a),
       },
     });
+    const pullSync = createPullSync({
+      db,
+      getSync,
+      log: {
+        debug: (m, ...a) => logger.debug(m, ...a),
+        info: (m, ...a) => logger.info(m, ...a),
+        error: (m, ...a) => logger.error(m, ...a),
+      },
+    });
     const inner = async () => {
       const runId = ++runIdRef.current;
       activeRunRef.current = runId;
@@ -142,13 +157,25 @@ export const SyncStatusProvider = ({ children }: PropsWithChildren) => {
         30_000,
       );
       try {
-        const result: DispatchStatus = await dispatcher.run();
+        const pushResult: DispatchStatus = await dispatcher.run();
         logger.info(
-          `run[${runId}] complete (${Date.now() - started}ms) result=${result}`,
+          `run[${runId}] push complete (${Date.now() - started}ms) result=${pushResult}`,
         );
-        if (result === "halted") setStatus("halted");
-        else if (result === "offline") setStatus("offline");
-        else setStatus("idle");
+        if (pushResult === "halted") {
+          setStatus("halted");
+        } else if (pushResult === "offline") {
+          setStatus("offline");
+        } else {
+          // Push succeeded — try the pull side. Order matters: drain
+          // first so a snapshot doesn't wipe a pending local command.
+          const pullResult = await pullSync.run();
+          logger.info(
+            `run[${runId}] pull complete (${Date.now() - started}ms) result=${pullResult}`,
+          );
+          if (pullResult === "halted") setStatus("halted");
+          else if (pullResult === "offline") setStatus("offline");
+          else setStatus("idle");
+        }
       } catch (e) {
         logger.error(`run[${runId}] threw (${Date.now() - started}ms)`, e);
         Sentry.captureException(e);
