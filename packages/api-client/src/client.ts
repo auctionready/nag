@@ -1,5 +1,9 @@
-import axios from "axios";
-import { Zodios, headerPlugin } from "@zodios/core";
+import axios, {
+  isAxiosError,
+  type InternalAxiosRequestConfig,
+  AxiosHeaders,
+} from "axios";
+import { Zodios } from "@zodios/core";
 import { endpoints } from "./endpoint-definition";
 
 /**
@@ -15,9 +19,32 @@ import { endpoints } from "./endpoint-definition";
  */
 export type NagApiValidate = boolean | "request" | "response" | "all" | "none";
 
+export type GetToken = () => string | null | Promise<string | null>;
+
+/**
+ * Called when a request returns 401. The implementation is expected to
+ * refresh the token (e.g. by re-registering the device) and return
+ * <c>true</c> if a fresh token is now available; the failed request
+ * will then be retried once.
+ */
+export type OnUnauthorized = () => Promise<boolean>;
+
 export interface NagApiClientOptions {
   baseUrl: string;
-  apiKey: string;
+  /**
+   * Per-request bearer source. Returning `null` omits the
+   * `Authorization` header entirely — appropriate for the bootstrap
+   * flow before any device token has been issued, where anonymous
+   * endpoints (`/devices/register`, `/devices/pair`,
+   * `/accounts/upgrade`, `/health`) still work.
+   */
+  getToken: GetToken;
+  /**
+   * Optional 401 hook. When provided, every request that comes back
+   * with a 401 status is retried exactly once after this callback
+   * resolves to `true`. Re-entry is suppressed via a per-config flag.
+   */
+  onUnauthorized?: OnUnauthorized;
   /** Per-request timeout in ms (applied to the underlying axios instance). */
   timeoutMs?: number;
   /**
@@ -28,6 +55,8 @@ export interface NagApiClientOptions {
   validate?: NagApiValidate;
 }
 
+type RetriedConfig = InternalAxiosRequestConfig & { __nagRetried?: boolean };
+
 /**
  * Zodios-backed client over the generated `endpoints` array.
  *
@@ -37,16 +66,50 @@ export interface NagApiClientOptions {
  */
 export const createNagApiClient = ({
   baseUrl,
-  apiKey,
+  getToken,
+  onUnauthorized,
   timeoutMs = 30_000,
   validate,
 }: NagApiClientOptions) => {
   const axiosInstance = axios.create({ timeout: timeoutMs });
+
+  axiosInstance.interceptors.request.use(async (config) => {
+    const token = await getToken();
+    const headers = AxiosHeaders.from(config.headers);
+    if (token) {
+      headers.set("Authorization", `Bearer ${token}`);
+    } else {
+      headers.delete("Authorization");
+    }
+    config.headers = headers;
+    return config;
+  });
+
+  if (onUnauthorized) {
+    axiosInstance.interceptors.response.use(
+      (response) => response,
+      async (error: unknown) => {
+        if (!isAxiosError(error) || error.response?.status !== 401) {
+          throw error;
+        }
+        const config = error.config as RetriedConfig | undefined;
+        if (!config || config.__nagRetried) {
+          throw error;
+        }
+        const refreshed = await onUnauthorized();
+        if (!refreshed) {
+          throw error;
+        }
+        config.__nagRetried = true;
+        return axiosInstance.request(config);
+      },
+    );
+  }
+
   const api = new Zodios(baseUrl, endpoints, {
     axiosInstance,
     ...(validate !== undefined ? { validate } : {}),
   });
-  api.use(headerPlugin("Authorization", `Bearer ${apiKey}`));
   return api;
 };
 

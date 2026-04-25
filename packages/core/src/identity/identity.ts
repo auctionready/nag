@@ -7,6 +7,7 @@ export type IdentityRow = {
   deviceId: string;
   accountId: string | null;
   registeredAt: Date | null;
+  deviceToken: string | null;
 };
 
 export const loadIdentity = async (db: AnyDb): Promise<IdentityRow | null> => {
@@ -15,6 +16,7 @@ export const loadIdentity = async (db: AnyDb): Promise<IdentityRow | null> => {
       deviceId: identity.deviceId,
       accountId: identity.accountId,
       registeredAt: identity.registeredAt,
+      deviceToken: identity.deviceToken,
     })
     .from(identity)
     .where(eq(identity.id, 1));
@@ -24,6 +26,17 @@ export const loadIdentity = async (db: AnyDb): Promise<IdentityRow | null> => {
 export const getAccountId = async (db: AnyDb): Promise<string | null> => {
   const row = await loadIdentity(db);
   return row?.accountId ?? null;
+};
+
+/**
+ * Reads the persisted device token without going through the full
+ * identity row. Used as the per-request bearer source by the API
+ * client; returns `null` until `ensureDeviceRegistered` has run
+ * successfully at least once.
+ */
+export const getDeviceToken = async (db: AnyDb): Promise<string | null> => {
+  const row = await loadIdentity(db);
+  return row?.deviceToken ?? null;
 };
 
 export type EnsureDeviceRegisteredOptions = {
@@ -45,6 +58,7 @@ export type EnsureDeviceRegisteredOptions = {
 export type EnsureDeviceRegisteredResult = {
   deviceId: string;
   accountId: string | null;
+  deviceToken: string | null;
   registration: RegisterDeviceResult | { ok: true; cached: true } | null;
 };
 
@@ -53,11 +67,14 @@ export type EnsureDeviceRegisteredResult = {
  * then asks the server for an `accountId` if we don't already have one.
  *
  *   - First launch: generates a `deviceId`, persists it, calls
- *     `POST /devices/register`, stores the returned `accountId`.
- *   - Subsequent launches with `accountId` set: no-op (returns immediately).
- *   - Subsequent launches without `accountId` (previous attempt failed):
- *     reuses the persisted `deviceId` and retries — the server is idempotent
- *     on `deviceId`, so retries are safe.
+ *     `POST /devices/register`, stores the returned `accountId` and
+ *     `deviceToken`.
+ *   - Subsequent launches with `accountId` and `deviceToken` set: no-op
+ *     (returns immediately).
+ *   - Subsequent launches missing either field (previous attempt failed,
+ *     or upgrading from a pre-token install): reuses the persisted
+ *     `deviceId` and retries — the server is idempotent on `deviceId`,
+ *     so retries are safe and produce a fresh token.
  *
  * Failures don't throw — the function returns with `accountId: null` and a
  * `registration` object describing what happened. The outbox dispatcher
@@ -78,14 +95,20 @@ export const ensureDeviceRegistered = async ({
     const deviceId = newDeviceId();
     debug(`identity: first launch — generated deviceId=${deviceId}`);
     await db.insert(identity).values({ id: 1, deviceId });
-    row = { deviceId, accountId: null, registeredAt: null };
+    row = {
+      deviceId,
+      accountId: null,
+      registeredAt: null,
+      deviceToken: null,
+    };
   }
 
-  if (row.accountId) {
+  if (row.accountId && row.deviceToken) {
     debug(`identity: already registered accountId=${row.accountId}`);
     return {
       deviceId: row.deviceId,
       accountId: row.accountId,
+      deviceToken: row.deviceToken,
       registration: { ok: true, cached: true },
     };
   }
@@ -100,11 +123,13 @@ export const ensureDeviceRegistered = async ({
       .set({
         accountId: result.accountId,
         registeredAt: result.registeredAt,
+        deviceToken: result.deviceToken,
       })
       .where(eq(identity.id, 1));
     return {
       deviceId: row.deviceId,
       accountId: result.accountId,
+      deviceToken: result.deviceToken,
       registration: result,
     };
   }
@@ -117,6 +142,58 @@ export const ensureDeviceRegistered = async ({
   return {
     deviceId: row.deviceId,
     accountId: null,
+    deviceToken: null,
     registration: result,
   };
+};
+
+export type RefreshDeviceTokenOptions = {
+  db: AnyDb;
+  register: RegisterDeviceFn;
+  log?: EnsureDeviceRegisteredOptions["log"];
+};
+
+/**
+ * Forces a re-registration to refresh the persisted `deviceToken` after
+ * the server rejects the current one (typically a 401 caused by the
+ * server-side HMAC secret rotating). The persisted `deviceId` is reused
+ * — `POST /devices/register` is idempotent on it — so the same account
+ * keeps the same id, just with fresh credentials.
+ *
+ * Returns the new token on success, or `null` if registration failed
+ * (caller should give up on the in-flight request).
+ */
+export const refreshDeviceToken = async ({
+  db,
+  register,
+  log,
+}: RefreshDeviceTokenOptions): Promise<string | null> => {
+  const debug = log?.debug ?? (() => {});
+  const info = log?.info ?? (() => {});
+  const warn = log?.warn ?? (() => {});
+
+  const row = await loadIdentity(db);
+  if (!row) {
+    warn(`identity: refresh requested but no identity row exists`);
+    return null;
+  }
+
+  debug(`identity: refreshing token for deviceId=${row.deviceId}`);
+  const result = await register({ deviceId: row.deviceId });
+  if (!result.ok) {
+    warn(`identity: token refresh failed (${result.kind})`);
+    return null;
+  }
+
+  await db
+    .update(identity)
+    .set({
+      accountId: result.accountId,
+      registeredAt: result.registeredAt,
+      deviceToken: result.deviceToken,
+    })
+    .where(eq(identity.id, 1));
+
+  info(`identity: token refreshed accountId=${result.accountId}`);
+  return result.deviceToken;
 };

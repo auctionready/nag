@@ -20,7 +20,7 @@ const BASE_URL = "https://api.example.test";
 const API_KEY = "test-api-key";
 
 const makeClient = () =>
-  createNagApiClient({ baseUrl: BASE_URL, apiKey: API_KEY });
+  createNagApiClient({ baseUrl: BASE_URL, getToken: () => API_KEY });
 
 const envelope: CommandEnvelope = {
   id: "11111111-1111-4111-8111-111111111111",
@@ -106,7 +106,7 @@ describe("operations", () => {
 
       const fastClient = createNagApiClient({
         baseUrl: BASE_URL,
-        apiKey: API_KEY,
+        getToken: () => API_KEY,
         timeoutMs: 50,
       });
 
@@ -120,7 +120,7 @@ describe("operations", () => {
   describe("registerDevice", () => {
     const deviceId = "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee";
 
-    it("returns ok with the server-issued accountId on 200", async () => {
+    it("returns ok with the server-issued accountId and deviceToken on 200", async () => {
       nock(BASE_URL)
         .post("/devices/register", (body) => {
           expect(body).toEqual({ deviceId });
@@ -130,6 +130,7 @@ describe("operations", () => {
           accountId: "ffffffff-1111-4222-8333-444444444444",
           deviceId,
           registeredAt: "2026-04-25T10:00:00.000Z",
+          deviceToken: "device.tok",
         });
 
       const result = await registerDevice(makeClient(), { deviceId });
@@ -137,11 +138,25 @@ describe("operations", () => {
       expect(result.ok).toBe(true);
       if (result.ok) {
         expect(result.accountId).toBe("ffffffff-1111-4222-8333-444444444444");
+        expect(result.deviceToken).toBe("device.tok");
         expect(result.registeredAt).toBeInstanceOf(Date);
         expect(result.registeredAt.toISOString()).toBe(
           "2026-04-25T10:00:00.000Z",
         );
       }
+    });
+
+    it("treats a 200 with missing deviceToken as non-retriable", async () => {
+      nock(BASE_URL).post("/devices/register").reply(200, {
+        accountId: "ffffffff-1111-4222-8333-444444444444",
+        deviceId,
+        registeredAt: "2026-04-25T10:00:00.000Z",
+      });
+
+      const result = await registerDevice(makeClient(), { deviceId });
+
+      expect(result.ok).toBe(false);
+      if (!result.ok) expect(result.kind).toBe("non-retriable");
     });
 
     it("treats a 200 with missing fields as non-retriable", async () => {
@@ -169,7 +184,7 @@ describe("operations", () => {
     const deviceId = "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee";
     const idpToken = "eyJ.fake.token";
 
-    it("returns ok with the bound IdP subject on 200", async () => {
+    it("returns ok with the bound IdP subject and refreshed deviceToken on 200", async () => {
       nock(BASE_URL)
         .post("/accounts/upgrade", (body) => {
           expect(body).toEqual({ deviceId, idpToken });
@@ -179,6 +194,7 @@ describe("operations", () => {
           accountId: "ffffffff-1111-4222-8333-444444444444",
           idpSubject: "user_abc",
           upgradedAt: "2026-04-25T10:00:00.000Z",
+          deviceToken: "fresh.tok",
         });
 
       const result = await upgradeAccount(makeClient(), { deviceId, idpToken });
@@ -187,6 +203,7 @@ describe("operations", () => {
       if (result.ok) {
         expect(result.accountId).toBe("ffffffff-1111-4222-8333-444444444444");
         expect(result.idpSubject).toBe("user_abc");
+        expect(result.deviceToken).toBe("fresh.tok");
         expect(result.upgradedAt).toBeInstanceOf(Date);
         expect(result.upgradedAt.toISOString()).toBe(
           "2026-04-25T10:00:00.000Z",
@@ -243,6 +260,7 @@ describe("operations", () => {
         accountId: "ffffffff-1111-4222-8333-444444444444",
         idpSubject: "user_abc",
         upgradedAt: "2026-04-25T10:00:00.000Z",
+        deviceToken: "fresh.tok",
       });
 
       const result = await upgradeAccount(makeClient(), { deviceId, idpToken });

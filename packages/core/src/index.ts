@@ -84,11 +84,14 @@ export {
 } from "./sync";
 export {
   ensureDeviceRegistered,
+  refreshDeviceToken,
   loadIdentity,
   getAccountId,
+  getDeviceToken,
   type IdentityRow,
   type EnsureDeviceRegisteredOptions,
   type EnsureDeviceRegisteredResult,
+  type RefreshDeviceTokenOptions,
   type RegisterDeviceFn,
   type RegisterDeviceResult,
 } from "./identity";

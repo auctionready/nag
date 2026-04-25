@@ -2,6 +2,8 @@ export {
   createNagApiClient,
   type NagApiClient,
   type NagApiClientOptions,
+  type GetToken,
+  type OnUnauthorized,
 } from "./client";
 export { isErrorFromAlias, isErrorFromPath, ZodiosError } from "@zodios/core";
 export * as schemas from "./endpoint-definition";

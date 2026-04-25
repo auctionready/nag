@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Routing;
 using Nag.Core.Contracts;
 using Nag.Core.Handlers;
 using Wolverine.Http;
@@ -9,6 +10,7 @@ namespace Nag.Api.Endpoints;
 public static class CommandsEndpoints
 {
     [Tags("Commands")]
+    [EndpointName("postCommands")]
     [ProducesResponseType(typeof(CommandAccepted), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
     [WolverinePost("/commands")]
@@ -61,6 +63,7 @@ public static class CommandsEndpoints
     }
 
     [Tags("Commands")]
+    [EndpointName("getCommands")]
     [ProducesResponseType(typeof(CommandsPage), StatusCodes.Status200OK)]
     [WolverineGet("/commands")]
     public static async Task<IResult> GetCommands(
