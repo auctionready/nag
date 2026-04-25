@@ -13,11 +13,7 @@ public class DeviceTokenServiceTests
     )
     {
         var options = Options.Create(
-            new DeviceTokenOptions
-            {
-                Secret = secret,
-                Lifetime = lifetime ?? TimeSpan.FromHours(1),
-            }
+            new DeviceTokenOptions { Secret = secret, Lifetime = lifetime ?? TimeSpan.FromHours(1) }
         );
         return new DeviceTokenService(options, clock ?? TimeProvider.System);
     }
@@ -56,7 +52,7 @@ public class DeviceTokenServiceTests
         var result = svc.Validate(token);
 
         result.Ok.ShouldBeFalse();
-        result.FailureReason.ShouldContain("expired");
+        result.FailureReason!.ShouldContain("expired");
     }
 
     [Fact]

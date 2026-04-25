@@ -16,7 +16,7 @@ namespace Nag.Api.Auth;
 /// </summary>
 public sealed class NagAuthenticationHandler : AuthenticationHandler<NagAuthenticationOptions>
 {
-    private const string Scheme = "Bearer ";
+    private const string BearerPrefix = "Bearer ";
 
     private readonly IDeviceTokenValidator _deviceTokens;
     private readonly IClerkTokenVerifier _clerk;
@@ -40,10 +40,13 @@ public sealed class NagAuthenticationHandler : AuthenticationHandler<NagAuthenti
     protected override async Task<AuthenticateResult> HandleAuthenticateAsync()
     {
         var header = Request.Headers.Authorization.ToString();
-        if (string.IsNullOrEmpty(header) || !header.StartsWith(Scheme, StringComparison.Ordinal))
+        if (
+            string.IsNullOrEmpty(header)
+            || !header.StartsWith(BearerPrefix, StringComparison.Ordinal)
+        )
             return AuthenticateResult.NoResult();
 
-        var token = header[Scheme.Length..].Trim();
+        var token = header[BearerPrefix.Length..].Trim();
         if (string.IsNullOrEmpty(token))
             return AuthenticateResult.NoResult();
 
