@@ -1,5 +1,4 @@
 using Marten;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Nag.Core;
 using Nag.Core.ReadModels;
