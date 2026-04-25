@@ -1,8 +1,12 @@
 using System.IO.Compression;
 using FluentValidation;
+using JasperFx;
+using JasperFx.CodeGeneration;
 using JasperFx.Events.Projections;
 using Marten;
 using Microsoft.AspNetCore.ResponseCompression;
+using Microsoft.IdentityModel.Protocols;
+using Microsoft.IdentityModel.Protocols.OpenIdConnect;
 using Nag.Api.Auth;
 using Nag.Api.Infrastructure;
 using Nag.Core.Contracts;
@@ -70,6 +74,14 @@ builder.Services.AddMarten(opts =>
     }
     opts.Events.StreamIdentity = JasperFx.Events.StreamIdentity.AsGuid;
 
+    // Skip per-cold-start pg_catalog introspection in production. Schema
+    // changes are applied out-of-band (one-shot migration), so the Lambda
+    // can assume the schema already matches.
+    if (builder.Environment.IsProduction())
+    {
+        opts.AutoCreateSchemaObjects = AutoCreate.None;
+    }
+
     foreach (var t in CommandRegistry.All)
     {
         opts.Events.AddEventType(t);
@@ -82,6 +94,15 @@ builder.Host.UseWolverine(opts =>
 {
     opts.Durability.Mode = DurabilityMode.Serverless;
     opts.Discovery.IncludeAssembly(typeof(CommandDispatcher).Assembly);
+
+    // In production, load handler types pre-generated at build time
+    // (via `codegen write`) rather than compiling them on first invocation.
+    // Cuts several seconds off Lambda cold start. Dev/test still use the
+    // default dynamic mode so unit tests don't need the pre-built assembly.
+    if (builder.Environment.IsProduction())
+    {
+        opts.CodeGeneration.TypeLoadMode = TypeLoadMode.Static;
+    }
 });
 
 builder.Services.AddWolverineHttp();
@@ -98,19 +119,18 @@ if (!string.IsNullOrWhiteSpace(clerkIssuer))
 {
     builder.Services.Configure<ClerkOptions>(opts => opts.Issuer = clerkIssuer);
     builder.Services.AddHttpClient("clerk-jwks");
-    builder.Services.AddSingleton<Microsoft.IdentityModel.Protocols.IConfigurationManager<Microsoft.IdentityModel.Protocols.OpenIdConnect.OpenIdConnectConfiguration>>(
-        sp =>
-        {
-            var http = sp.GetRequiredService<IHttpClientFactory>().CreateClient("clerk-jwks");
-            var metadataAddress = $"{clerkIssuer.TrimEnd('/')}/.well-known/openid-configuration";
-            return new Microsoft.IdentityModel.Protocols.ConfigurationManager<Microsoft.IdentityModel.Protocols.OpenIdConnect.OpenIdConnectConfiguration>(
-                metadataAddress,
-                new Microsoft.IdentityModel.Protocols.OpenIdConnect.OpenIdConnectConfigurationRetriever(),
-                new Microsoft.IdentityModel.Protocols.HttpDocumentRetriever(http)
-            );
-        }
-    );
+    builder.Services.AddSingleton<IConfigurationManager<OpenIdConnectConfiguration>>(sp =>
+    {
+        var http = sp.GetRequiredService<IHttpClientFactory>().CreateClient("clerk-jwks");
+        var metadataAddress = $"{clerkIssuer.TrimEnd('/')}/.well-known/openid-configuration";
+        return new ConfigurationManager<OpenIdConnectConfiguration>(
+            metadataAddress,
+            new OpenIdConnectConfigurationRetriever(),
+            new HttpDocumentRetriever(http)
+        );
+    });
     builder.Services.AddSingleton<IClerkTokenVerifier, ClerkTokenVerifier>();
+    builder.Services.AddHostedService<JwksWarmupService>();
 }
 else
 {
@@ -198,6 +218,17 @@ app.MapWolverineEndpoints(opts =>
     opts.TenantId.IsClaimTypeNamed(NagClaimTypes.AccountId);
     opts.TenantId.AssertExists();
 });
+
+// JasperFx command pipeline only when explicitly opted into via env var
+// (set by scripts/package-lambda.sh for `codegen write` during deploy).
+// We can't gate on `args.Length > 0` because Swashbuckle's `dotnet swagger
+// tofile` passes its own CLI args to Main, which would route the OpenAPI
+// snapshot generation through RunJasperFxCommands and short-circuit before
+// the host's endpoints are introspectable.
+if (Environment.GetEnvironmentVariable("NAG_RUN_JASPERFX_COMMANDS") == "1")
+{
+    Environment.Exit(app.RunJasperFxCommands(args).GetAwaiter().GetResult());
+}
 
 app.Run();
 

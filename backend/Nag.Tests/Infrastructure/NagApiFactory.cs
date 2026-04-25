@@ -1,15 +1,23 @@
 using System.Net.Http.Headers;
+using Alba;
 using Marten;
 using Microsoft.AspNetCore.Hosting;
-using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.DependencyInjection;
-using Nag.Api;
 using Nag.Api.Auth;
 
 namespace Nag.Tests.Infrastructure;
 
-public class NagApiFactory : WebApplicationFactory<Program>
+/// <summary>
+/// Test fixture that boots <see cref="Nag.Api.Program"/> via Alba. Alba is
+/// the JasperFx-aware sibling of Microsoft's WebApplicationFactory: it knows
+/// how to compose with `RunJasperFxCommands` so the host actually starts
+/// during tests (which WAF can't — it leaves TestServer.Application null).
+/// </summary>
+public class NagApiFactory : IAsyncLifetime
 {
+    private IAlbaHost? _host;
+    private readonly SemaphoreSlim _initLock = new(1, 1);
+
     public string ConnectionString { get; set; } = "";
     public string SchemaName { get; set; } = "nag_api_test";
 
@@ -29,6 +37,24 @@ public class NagApiFactory : WebApplicationFactory<Program>
     /// </summary>
     public StubClerkTokenVerifier ClerkVerifier { get; } = new();
 
+    /// <summary>
+    /// Per-class fixtures want to mutate <see cref="ConnectionString"/> in
+    /// the test class constructor (which runs *after* the fixture's
+    /// constructor). Defer the Alba host build until the first
+    /// <see cref="CreateClient"/> call so those mutations are picked up.
+    /// </summary>
+    public Task InitializeAsync() => Task.CompletedTask;
+
+    public async Task DisposeAsync()
+    {
+        if (_host is not null)
+        {
+            await _host.DisposeAsync();
+        }
+    }
+
+    public IServiceProvider Services => GetHost().Services;
+
     public IDeviceTokenIssuer DeviceTokens => Services.GetRequiredService<IDeviceTokenIssuer>();
 
     /// <summary>
@@ -41,6 +67,8 @@ public class NagApiFactory : WebApplicationFactory<Program>
     public string IssueDeviceToken(Guid? accountId = null, Guid? deviceId = null) =>
         DeviceTokens.Issue(accountId ?? Guid.NewGuid(), deviceId ?? Guid.NewGuid());
 
+    public HttpClient CreateClient() => GetHost().Server.CreateClient();
+
     public HttpClient CreateAuthedClient(string? bearerToken = null)
     {
         var token = bearerToken ?? IssueDeviceToken();
@@ -49,30 +77,56 @@ public class NagApiFactory : WebApplicationFactory<Program>
         return client;
     }
 
-    protected override void ConfigureWebHost(IWebHostBuilder builder)
+    private IAlbaHost GetHost()
     {
-        builder.UseEnvironment("Development");
-        builder.UseSetting("Nag:DeviceToken:Secret", DeviceTokenSecret);
-        builder.UseSetting("Nag:SchemaName", SchemaName);
-        builder.UseSetting("ConnectionStrings:Nag", ConnectionString);
-
-        builder.ConfigureServices(services =>
+        if (_host is not null)
         {
-            services.PostConfigure<StoreOptions>(opts =>
-            {
-                opts.Connection(ConnectionString);
-                if (!string.IsNullOrWhiteSpace(SchemaName))
-                {
-                    opts.DatabaseSchemaName = SchemaName;
-                    opts.Events.DatabaseSchemaName = SchemaName;
-                }
-            });
+            return _host;
+        }
 
-            // Override the production registration (or register if Program.cs
-            // skipped because Nag:ClerkIssuer wasn't set). Last registration
-            // wins on `GetRequiredService<IClerkTokenVerifier>()`.
-            services.AddSingleton<IClerkTokenVerifier>(ClerkVerifier);
-        });
+        _initLock.Wait();
+        try
+        {
+            if (_host is not null)
+            {
+                return _host;
+            }
+
+            _host = AlbaHost
+                .For<Nag.Api.Program>(builder =>
+                {
+                    builder.UseEnvironment("Development");
+                    builder.UseSetting("Nag:DeviceToken:Secret", DeviceTokenSecret);
+                    builder.UseSetting("Nag:SchemaName", SchemaName);
+                    builder.UseSetting("ConnectionStrings:Nag", ConnectionString);
+
+                    builder.ConfigureServices(services =>
+                    {
+                        services.PostConfigure<StoreOptions>(opts =>
+                        {
+                            opts.Connection(ConnectionString);
+                            if (!string.IsNullOrWhiteSpace(SchemaName))
+                            {
+                                opts.DatabaseSchemaName = SchemaName;
+                                opts.Events.DatabaseSchemaName = SchemaName;
+                            }
+                        });
+
+                        // Override the production registration (or register if Program.cs
+                        // skipped because Nag:ClerkIssuer wasn't set). Last registration
+                        // wins on `GetRequiredService<IClerkTokenVerifier>()`.
+                        services.AddSingleton<IClerkTokenVerifier>(ClerkVerifier);
+                    });
+                })
+                .GetAwaiter()
+                .GetResult();
+
+            return _host;
+        }
+        finally
+        {
+            _initLock.Release();
+        }
     }
 }
 
