@@ -206,7 +206,7 @@ app.UseSerilogRequestLogging();
 // pre-authorizes the UI against /dev/token, so every "Try it out" runs
 // with a real HMAC-signed dev bearer.
 app.UseSwagger();
-app.UseSwaggerUI(c => c.InjectJavascript(SwaggerDevAuth.ScriptPath));
+app.UseSwaggerUI(c => c.UseRequestInterceptor(SwaggerDevAuth.RequestInterceptorScript));
 app.MapSwaggerDevAuth();
 #endif
 
