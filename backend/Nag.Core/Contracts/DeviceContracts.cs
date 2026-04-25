@@ -7,3 +7,7 @@ public sealed record RegisterDeviceResponse(
     Guid DeviceId,
     DateTimeOffset RegisteredAt
 );
+
+public sealed record PairDeviceRequest(Guid DeviceId, string IdpToken, string? Label);
+
+public sealed record PairDeviceResponse(Guid AccountId, Guid DeviceId, DateTimeOffset RegisteredAt);
