@@ -10,15 +10,14 @@
         "tags": [
           "Accounts"
         ],
+        "summary": "POST_accounts_upgrade",
+        "description": "POST_accounts_upgrade",
+        "operationId": "POST_accounts_upgrade",
         "requestBody": {
           "content": {
             "application/json": {
               "schema": {
-                "allOf": [
-                  {
-                    "$ref": "#/components/schemas/UpgradeAccountRequest"
-                  }
-                ]
+                "$ref": "#/components/schemas/UpgradeAccountRequest"
               }
             }
           },
@@ -75,7 +74,8 @@
               }
             }
           }
-        }
+        },
+        "security": [ ]
       }
     },
     "/commands": {
@@ -83,15 +83,14 @@
         "tags": [
           "Commands"
         ],
+        "summary": "POST_commands",
+        "description": "POST_commands",
+        "operationId": "POST_commands",
         "requestBody": {
           "content": {
             "application/json": {
               "schema": {
-                "allOf": [
-                  {
-                    "$ref": "#/components/schemas/CommandEnvelope"
-                  }
-                ]
+                "$ref": "#/components/schemas/CommandEnvelope"
               }
             }
           },
@@ -117,6 +116,9 @@
                 }
               }
             }
+          },
+          "404": {
+            "description": "Not Found"
           }
         }
       },
@@ -124,11 +126,13 @@
         "tags": [
           "Commands"
         ],
+        "summary": "GET_commands",
+        "description": "GET_commands",
+        "operationId": "GET_commands",
         "parameters": [
           {
             "name": "since",
             "in": "query",
-            "required": true,
             "schema": {
               "type": "integer",
               "format": "int64"
@@ -139,7 +143,8 @@
             "in": "query",
             "schema": {
               "type": "integer",
-              "format": "int32"
+              "format": "int32",
+              "nullable": true
             }
           }
         ],
@@ -153,6 +158,9 @@
                 }
               }
             }
+          },
+          "404": {
+            "description": "Not Found"
           }
         }
       }
@@ -162,15 +170,14 @@
         "tags": [
           "Devices"
         ],
+        "summary": "POST_devices_register",
+        "description": "POST_devices_register",
+        "operationId": "POST_devices_register",
         "requestBody": {
           "content": {
             "application/json": {
               "schema": {
-                "allOf": [
-                  {
-                    "$ref": "#/components/schemas/RegisterDeviceRequest"
-                  }
-                ]
+                "$ref": "#/components/schemas/RegisterDeviceRequest"
               }
             }
           },
@@ -196,8 +203,12 @@
                 }
               }
             }
+          },
+          "404": {
+            "description": "Not Found"
           }
-        }
+        },
+        "security": [ ]
       }
     },
     "/devices/pair": {
@@ -205,15 +216,14 @@
         "tags": [
           "Devices"
         ],
+        "summary": "POST_devices_pair",
+        "description": "POST_devices_pair",
+        "operationId": "POST_devices_pair",
         "requestBody": {
           "content": {
             "application/json": {
               "schema": {
-                "allOf": [
-                  {
-                    "$ref": "#/components/schemas/PairDeviceRequest"
-                  }
-                ]
+                "$ref": "#/components/schemas/PairDeviceRequest"
               }
             }
           },
@@ -270,7 +280,8 @@
               }
             }
           }
-        }
+        },
+        "security": [ ]
       }
     },
     "/health": {
@@ -278,11 +289,28 @@
         "tags": [
           "Health"
         ],
+        "summary": "GET_health",
+        "description": "GET_health",
+        "operationId": "GET_health",
         "responses": {
           "204": {
             "description": "No Content"
+          },
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IResult"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found"
           }
-        }
+        },
+        "security": [ ]
       }
     },
     "/home-board": {
@@ -290,6 +318,9 @@
         "tags": [
           "Read Models"
         ],
+        "summary": "GET_home_board",
+        "description": "GET_home_board",
+        "operationId": "GET_home_board",
         "responses": {
           "200": {
             "description": "OK",
@@ -300,6 +331,9 @@
                 }
               }
             }
+          },
+          "404": {
+            "description": "Not Found"
           }
         }
       }
@@ -309,11 +343,13 @@
         "tags": [
           "Sync"
         ],
+        "summary": "GET_sync",
+        "description": "GET_sync",
+        "operationId": "GET_sync",
         "parameters": [
           {
             "name": "since",
             "in": "query",
-            "required": true,
             "schema": {
               "type": "integer",
               "format": "int64"
@@ -330,6 +366,9 @@
                 }
               }
             }
+          },
+          "404": {
+            "description": "Not Found"
           }
         }
       }
@@ -1017,6 +1056,10 @@
         },
         "additionalProperties": false
       },
+      "IResult": {
+        "type": "object",
+        "additionalProperties": false
+      },
       "PairDeviceRequest": {
         "type": "object",
         "properties": {
@@ -1049,6 +1092,10 @@
           "registeredAt": {
             "type": "string",
             "format": "date-time"
+          },
+          "deviceToken": {
+            "type": "string",
+            "nullable": true
           }
         },
         "additionalProperties": false
@@ -1081,6 +1128,10 @@
           "registeredAt": {
             "type": "string",
             "format": "date-time"
+          },
+          "deviceToken": {
+            "type": "string",
+            "nullable": true
           }
         },
         "additionalProperties": false
@@ -1247,6 +1298,10 @@
           "upgradedAt": {
             "type": "string",
             "format": "date-time"
+          },
+          "deviceToken": {
+            "type": "string",
+            "nullable": true
           }
         },
         "additionalProperties": false
@@ -1255,14 +1310,16 @@
     "securitySchemes": {
       "Bearer": {
         "type": "http",
-        "description": "Bearer API key. Send as header: `Authorization: Bearer <key>`. Dev key: `swagger-cli-throwaway`",
+        "description": "Either a per-device HMAC token (issued at /devices/register, /devices/pair, or /accounts/upgrade) or a Clerk JWT.",
         "scheme": "bearer",
-        "bearerFormat": "API key"
+        "bearerFormat": "Token"
       }
     }
   },
   "security": [
-    { }
+    {
+      "Bearer": [ ]
+    }
   ],
   "tags": [
     {
