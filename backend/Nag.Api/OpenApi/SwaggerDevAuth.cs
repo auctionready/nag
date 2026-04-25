@@ -26,6 +26,21 @@ namespace Nag.Api.OpenApi;
 /// as <c>apiKey</c>-shaped and is then skipped by swagger-ui's HTTP-bearer
 /// applier.
 /// </para>
+///
+/// <para>
+/// The script is intentionally:
+/// (a) without <c>async</c>/<c>await</c> — swagger-ui's <c>parseFunction</c>
+///     rebuilds it with <c>new Function(...)</c>, which is always synchronous;
+///     <c>await</c> would be a SyntaxError. Returning a Promise is fine and
+///     swagger-ui awaits it internally.
+/// (b) on a single line — Swashbuckle wraps the serialized JSON in a JS
+///     single-quoted string (<c>JSON.parse('…')</c>). Its serializer escapes
+///     <c>&gt;</c>/<c>'</c>/<c>&amp;</c> as <c>\uXXXX</c> but encodes newlines
+///     as the JSON 2-char escape <c>\n</c>. JS unescapes that to a real newline
+///     before JSON.parse runs, and JSON forbids raw control chars inside string
+///     literals — surfacing as "Bad control character in string literal in JSON
+///     at position …".
+/// </para>
 /// </summary>
 public static class SwaggerDevAuth
 {
@@ -36,26 +51,14 @@ public static class SwaggerDevAuth
 
     public sealed record DevTokenResponse(Guid AccountId, Guid DeviceId, string Token);
 
-    public const string RequestInterceptorScript = """
-        async (req) => {
-          try {
-            if (!req.url.endsWith('/dev/token') && !window.__nagDevToken) {
-              const r = await fetch('/dev/token');
-              if (r.ok) {
-                const data = await r.json();
-                window.__nagDevToken = data.token;
-                console.log('[swagger-dev-auth] cached bearer for account', data.accountId);
-              }
-            }
-            if (window.__nagDevToken && !req.headers['Authorization']) {
-              req.headers['Authorization'] = 'Bearer ' + window.__nagDevToken;
-            }
-          } catch (err) {
-            console.warn('[swagger-dev-auth] interceptor failed:', err);
-          }
-          return req;
-        }
-        """;
+    public const string RequestInterceptorScript =
+        "(req) => { if (req.url.endsWith('/dev/token')) return req; "
+        + "const stamp = (t) => { if (t && !req.headers['Authorization']) req.headers['Authorization'] = 'Bearer ' + t; return req; }; "
+        + "if (window.__nagDevToken) return stamp(window.__nagDevToken); "
+        + "return fetch('/dev/token').then((r) => r.ok ? r.json() : null).then((d) => { "
+        + "if (d) { window.__nagDevToken = d.token; console.log('[swagger-dev-auth] cached bearer for account', d.accountId); } "
+        + "return stamp(window.__nagDevToken); "
+        + "}).catch((err) => { console.warn('[swagger-dev-auth] interceptor failed:', err); return req; }); }";
 
     public static IEndpointRouteBuilder MapSwaggerDevAuth(this IEndpointRouteBuilder routes)
     {
