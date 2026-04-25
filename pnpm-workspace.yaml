@@ -1,6 +1,7 @@
 packages:
   - "packages/*"
   - "app"
+  - "backend"
 approveBuilds: better-sqlite3
 
 catalog:
