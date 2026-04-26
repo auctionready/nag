@@ -3,6 +3,12 @@
     <TargetFramework>net10.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
+    <!-- Drop the foreign-language satellite resource DLLs that
+         Microsoft.CodeAnalysis.* (transitively pulled in by Wolverine's
+         runtime compiler) bundles for compiler diagnostics. We use
+         TypeLoadMode.Static in production so Roslyn never runs in the
+         Lambda anyway. -->
+    <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
   </PropertyGroup>
 
   <ItemGroup>
