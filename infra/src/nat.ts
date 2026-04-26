@@ -53,13 +53,13 @@ export interface Nat {
 
 export const createNat = (args: NatArgs): Nat => {
   // fck-nat AMI lookup. Owner ID is the published fck-nat account; the name
-  // pattern matches their ARM64 / Amazon Linux 2 release line.
+  // pattern matches their ARM64 / Amazon Linux 2023 release line.
   // See https://fck-nat.dev/ — verify the owner + name pattern before edits.
   const ami = aws.ec2.getAmiOutput({
     owners: ["568608671756"],
     mostRecent: true,
     filters: [
-      { name: "name", values: ["fck-nat-amzn2-*-arm64-ebs"] },
+      { name: "name", values: ["fck-nat-al2023-hvm-*-arm64-ebs"] },
       { name: "state", values: ["available"] },
     ],
   });

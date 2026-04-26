@@ -15,17 +15,19 @@ export const createNetwork = (): Network => {
   // No managed NAT Gateway — outbound egress for the Lambda (Clerk JWKS,
   // and any future external HTTPS) is served by a t4g.nano NAT instance
   // wired up in `nat.ts`. ~US$3/mo vs ~US$33/mo for a managed NAT
-  // Gateway. Explicit subnetSpecs (Public + Private) so awsx still
-  // creates an Internet Gateway and a public route table we can host
-  // the NAT instance in. Private route tables get no default route from
-  // awsx — `nat.ts` adds one pointing at the NAT instance ENI.
+  // Gateway. awsx still creates an Internet Gateway and a public route
+  // table (NatGatewayStrategy.None just skips the NAT Gateway resource).
+  // Private route tables get no default route from awsx — `nat.ts` adds
+  // one pointing at the NAT instance ENI.
+  //
+  // No subnetSpecs: lets awsx use its default Public+Private layout,
+  // which matches the existing /18+/19 subnets in the live VPC. Adding
+  // explicit cidrMask values would force-replace the subnets (and break
+  // RDS/Lambda ENIs attached to them).
   const vpc = new awsx.ec2.Vpc("nag", {
     numberOfAvailabilityZones: 2,
     natGateways: { strategy: awsx.ec2.NatGatewayStrategy.None },
-    subnetSpecs: [
-      { type: "Public", cidrMask: 24 },
-      { type: "Private", cidrMask: 24 },
-    ],
+    subnetStrategy: "Auto",
     enableDnsHostnames: true,
     enableDnsSupport: true,
   });
