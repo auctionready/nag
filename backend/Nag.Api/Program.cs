@@ -150,6 +150,8 @@ builder
         opts.Schema.For<HomeBoard>().MultiTenanted();
 
         opts.Projections.Add<HomeBoardProjection>(ProjectionLifecycle.Inline);
+        opts.Projections.Add<MonthlyCheckInSummaryProjection>(ProjectionLifecycle.Inline);
+        opts.Projections.Add<WeeklyCheckInSummaryProjection>(ProjectionLifecycle.Inline);
     })
     .UseLightweightSessions();
 

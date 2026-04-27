@@ -329,6 +329,41 @@ export type PairDeviceResponse = z.infer<typeof PairDeviceResponse>;
 export const IResult = z.object({}).partial();
 export type IResult = z.infer<typeof IResult>;
 
+export const HomeCheckIn = z
+  .object({
+    id: z.uuid(),
+    timestamp: IsoDatetime,
+    skipped: z.boolean(),
+  })
+  .partial();
+export type HomeCheckIn = z.infer<typeof HomeCheckIn>;
+
+export const HabitPeriodCheckIns = z
+  .object({
+    habitId: z.uuid(),
+    checkIns: z.array(HomeCheckIn).nullable(),
+  })
+  .partial();
+export type HabitPeriodCheckIns = z.infer<typeof HabitPeriodCheckIns>;
+
+export const MonthlyCheckInSummary = z
+  .object({
+    id: z.string().nullable(),
+    monthStart: IsoDatetime,
+    habits: z.array(HabitPeriodCheckIns).nullable(),
+  })
+  .partial();
+export type MonthlyCheckInSummary = z.infer<typeof MonthlyCheckInSummary>;
+
+export const WeeklyCheckInSummary = z
+  .object({
+    id: z.string().nullable(),
+    weekStart: IsoDatetime,
+    habits: z.array(HabitPeriodCheckIns).nullable(),
+  })
+  .partial();
+export type WeeklyCheckInSummary = z.infer<typeof WeeklyCheckInSummary>;
+
 export const HomeGoal = z
   .object({ regularity: Regularity, frequency: z.int().nullable() })
   .partial();
@@ -344,15 +379,6 @@ export const HomeSchedule = z
   })
   .partial();
 export type HomeSchedule = z.infer<typeof HomeSchedule>;
-
-export const HomeCheckIn = z
-  .object({
-    id: z.uuid(),
-    timestamp: IsoDatetime,
-    skipped: z.boolean(),
-  })
-  .partial();
-export type HomeCheckIn = z.infer<typeof HomeCheckIn>;
 
 export const HomeHabit = z
   .object({
@@ -410,6 +436,35 @@ export const endpoints = makeApi([
       { status: 401, schema: ErrorResponse },
       { status: 404, schema: ErrorResponse },
       { status: 409, schema: ErrorResponse },
+    ],
+  },
+  {
+    method: "get",
+    path: "/check-ins/monthly/:year/:month",
+    alias: "getMonthlyCheckInSummary",
+    parameters: [
+      { name: "year", type: "Path", schema: z.int() },
+      { name: "month", type: "Path", schema: z.int() },
+    ],
+    response: MonthlyCheckInSummary,
+    errors: [
+      { status: 400, schema: z.void() },
+      { status: 404, schema: z.void() },
+    ],
+  },
+  {
+    method: "get",
+    path: "/check-ins/weekly/:year/:month/:day",
+    alias: "getWeeklyCheckInSummary",
+    parameters: [
+      { name: "year", type: "Path", schema: z.int() },
+      { name: "month", type: "Path", schema: z.int() },
+      { name: "day", type: "Path", schema: z.int() },
+    ],
+    response: WeeklyCheckInSummary,
+    errors: [
+      { status: 400, schema: z.void() },
+      { status: 404, schema: z.void() },
     ],
   },
   {

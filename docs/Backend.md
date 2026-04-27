@@ -41,12 +41,14 @@ The source lives in [`backend/`](../backend) and has its own
 
 ## Endpoints
 
-| Method | Path                                  | Auth | Notes                                    |
-| ------ | ------------------------------------- | ---- | ---------------------------------------- |
-| `POST` | `/commands`                           | yes  | Append a command. Idempotent on `id`.    |
-| `GET`  | `/commands?since=<long>&limit=<int?>` | yes  | Page of commands; `limit` capped at 500. |
-| `GET`  | `/home-board`                         | yes  | The materialized view.                   |
-| `GET`  | `/health`                             | no   | Liveness.                                |
+| Method | Path                                     | Auth | Notes                                                                |
+| ------ | ---------------------------------------- | ---- | -------------------------------------------------------------------- |
+| `POST` | `/commands`                              | yes  | Append a command. Idempotent on `id`.                                |
+| `GET`  | `/commands?since=<long>&limit=<int?>`    | yes  | Page of commands; `limit` capped at 500.                             |
+| `GET`  | `/home-board`                            | yes  | Materialized current-period view.                                    |
+| `GET`  | `/check-ins/monthly/{year}/{month}`      | yes  | Materialized check-ins for one calendar month (UTC).                 |
+| `GET`  | `/check-ins/weekly/{year}/{month}/{day}` | yes  | Materialized check-ins for one Sunday-anchored week. `day` = Sunday. |
+| `GET`  | `/health`                                | no   | Liveness.                                                            |
 
 In Debug builds, `/swagger` serves OpenAPI UI. In Release builds the
 Swashbuckle package is conditionally excluded from the binary.
@@ -108,6 +110,38 @@ HomeBoard {
 
 Period scoping (which check-ins to include) is delegated to
 `PeriodCalculator` so it can be unit-tested without Marten.
+
+### Per-period check-in summaries
+
+`MonthlyCheckInSummaryProjection` and `WeeklyCheckInSummaryProjection`
+are `MultiStreamProjection<…, string>` projections, fan-out from the
+same global event stream into one document per period. Doc ids are:
+
+- Monthly: `"yyyy-MM"` (UTC, e.g. `"2026-04"`)
+- Weekly: `"yyyy-MM-dd"` of the Sunday starting the week (UTC)
+
+Each summary mirrors the `PeriodCheckIns` shape used in `HomeBoard`,
+grouped by habit, so the mobile app can render historical periods
+with the same UI it uses for the live board:
+
+```csharp
+MonthlyCheckInSummary { Id: "2026-04", MonthStart, Habits: [{ HabitId, CheckIns: [...] }] }
+WeeklyCheckInSummary  { Id: "2026-04-26", WeekStart, Habits: [{ HabitId, CheckIns: [...] }] }
+```
+
+The mobile app holds only current + previous month's check-ins
+locally (older rows are pruned after every successful pull-sync).
+When the user browses history, the app calls
+`GET /check-ins/{monthly|weekly}/…` to fill in the missing periods.
+
+Limitations (intentional, MVP):
+
+- `UpdateCheckIn` that moves a check-in across a period boundary
+  patches the new period but leaves a stale copy in the old period.
+- `DeleteCheckIn` is not applied to summaries; deleted rows linger.
+
+Both are tolerable for the "browse settled history" use case where
+the period is no longer mutating.
 
 ## Idempotency
 

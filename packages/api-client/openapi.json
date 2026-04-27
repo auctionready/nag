@@ -355,6 +355,111 @@
         "security": [ ]
       }
     },
+    "/check-ins/monthly/{year}/{month}": {
+      "get": {
+        "tags": [
+          "Read Models"
+        ],
+        "summary": "GET_check_ins_monthly_year_month",
+        "description": "GET_check_ins_monthly_year_month",
+        "operationId": "getMonthlyCheckInSummary",
+        "parameters": [
+          {
+            "name": "year",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "month",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MonthlyCheckInSummary"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "404": {
+            "description": "Not Found"
+          }
+        }
+      }
+    },
+    "/check-ins/weekly/{year}/{month}/{day}": {
+      "get": {
+        "tags": [
+          "Read Models"
+        ],
+        "summary": "GET_check_ins_weekly_year_month_day",
+        "description": "GET_check_ins_weekly_year_month_day",
+        "operationId": "getWeeklyCheckInSummary",
+        "parameters": [
+          {
+            "name": "year",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "month",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "day",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WeeklyCheckInSummary"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "404": {
+            "description": "Not Found"
+          }
+        }
+      }
+    },
     "/home-board": {
       "get": {
         "tags": [
@@ -969,6 +1074,23 @@
         },
         "additionalProperties": false
       },
+      "HabitPeriodCheckIns": {
+        "type": "object",
+        "properties": {
+          "habitId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "checkIns": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/HomeCheckIn"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
       "HomeBoard": {
         "type": "object",
         "properties": {
@@ -1100,6 +1222,27 @@
       },
       "IResult": {
         "type": "object",
+        "additionalProperties": false
+      },
+      "MonthlyCheckInSummary": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "nullable": true
+          },
+          "monthStart": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "habits": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/HabitPeriodCheckIns"
+            },
+            "nullable": true
+          }
+        },
         "additionalProperties": false
       },
       "PairDeviceRequest": {
@@ -1353,6 +1496,27 @@
           },
           "deviceToken": {
             "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "WeeklyCheckInSummary": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "nullable": true
+          },
+          "weekStart": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "habits": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/HabitPeriodCheckIns"
+            },
             "nullable": true
           }
         },
