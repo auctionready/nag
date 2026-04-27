@@ -53,6 +53,8 @@ public sealed class PostgresFixture : IAsyncLifetime
                 opts.Events.AddEventType(t);
 
             opts.Projections.Add<HomeBoardProjection>(ProjectionLifecycle.Inline);
+            opts.Projections.Add<MonthlyCheckInSummaryProjection>(ProjectionLifecycle.Inline);
+            opts.Projections.Add<WeeklyCheckInSummaryProjection>(ProjectionLifecycle.Inline);
         });
     }
 }
