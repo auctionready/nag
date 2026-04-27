@@ -118,6 +118,15 @@ Constraints:
 - `habit_id` references `habit.id` with `ON DELETE CASCADE`.
 - Indexes on `habit_id` and `timestamp`.
 
+**Local retention.** Pull-sync prunes check-ins whose `timestamp` is
+older than the start of the previous month (UTC) — but only when the
+outbox is fully drained, so a check-in whose `CreateCheckIn` hasn't
+been acknowledged is never dropped. Pruned periods are still queryable
+on demand via the backend's per-period summary endpoints
+(`/check-ins/monthly/{year}/{month}`,
+`/check-ins/weekly/{year}/{month}/{day}`); see
+[`Backend.md`](./Backend.md) for the projection details.
+
 ### `schedule`
 
 Source: [`schedule.ts`](../packages/schema/src/schedule.ts)
@@ -154,6 +163,14 @@ the server. Each `processCommand()` call appends one row with
 `POST /commands` and transitions them to `sent` (with the assigned
 `server_sequence`) or `failed` (with `last_error`). `envelope_id` is the
 idempotency key the server uses to dedupe retries.
+
+**Sent-row retention.** Every successful `markSent` also deletes all
+but the most recent `SENT_OUTBOX_RETAIN_DEFAULT` (10) sent rows in the
+same transaction, so the outbox can't grow unbounded on long-lived
+devices. Retained rows are useful only for debugging — the
+high-water mark needed by pull-sync is mirrored into
+`sync_state.highest_server_sequence`, and pending replays use
+`envelope_id`.
 
 ## Relations
 

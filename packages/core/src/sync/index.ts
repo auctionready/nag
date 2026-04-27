@@ -15,11 +15,13 @@ export {
   resumeDispatch,
   countPending,
   countFailed,
+  countSent,
   loadPendingBatch,
   markSent,
   markPendingWithError,
   markFailedAndHalt,
   getHighestServerSequence,
+  SENT_OUTBOX_RETAIN_DEFAULT,
   type PendingRow,
 } from "./outbox";
 export { applyServerCommand, type ServerCommand } from "./applyServerCommand";

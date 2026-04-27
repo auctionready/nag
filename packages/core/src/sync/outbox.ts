@@ -10,6 +10,15 @@ export type PendingRow = {
   timestamp: Date;
 };
 
+/**
+ * How many sent rows we keep in the outbox after each successful send.
+ * Older sent rows are deleted in the same transaction as `markSent` so the
+ * table can't grow unboundedly on long-lived devices. The retained rows are
+ * useful only for debugging — `serverSequence` is already mirrored into
+ * `sync_state.highest_server_sequence`, and pending replays use envelope IDs.
+ */
+export const SENT_OUTBOX_RETAIN_DEFAULT = 10;
+
 export const loadPendingBatch = (
   db: AnyDb,
   limit: number,
@@ -28,16 +37,22 @@ export const loadPendingBatch = (
     .limit(limit);
 
 /**
- * Marks the outbox row sent and bumps `sync_state.highest_server_sequence`
- * so the next pull-sync `since` value reflects the just-acknowledged write.
- * Both updates run in one `BEGIN`/`COMMIT` so a crash between them either
- * sees both or neither — preventing the high-water mark from advancing
- * past a row that's still pending.
+ * Marks the outbox row sent, bumps `sync_state.highest_server_sequence`
+ * so the next pull-sync `since` value reflects the just-acknowledged write,
+ * and prunes older sent rows so the outbox can't grow unbounded. All three
+ * updates run in one `BEGIN`/`COMMIT` so a crash between them either sees
+ * all or none — preventing the high-water mark from advancing past a row
+ * that's still pending, and keeping the prune transactional with the
+ * write that triggered it.
+ *
+ * `retainSentRows` keeps the most recent N sent rows (newest by id) for
+ * debugging visibility; everything older is dropped.
  */
 export const markSent = async (
   db: AnyDb,
   id: number,
   serverSequence: number,
+  retainSentRows: number = SENT_OUTBOX_RETAIN_DEFAULT,
 ): Promise<void> => {
   await db.run(sql`BEGIN`);
   try {
@@ -56,6 +71,19 @@ export const markSent = async (
         highestServerSequence: sql`MAX(${syncState.highestServerSequence}, ${serverSequence})`,
       })
       .where(eq(syncState.id, 1));
+    // Drop sent rows older than the most recent `retainSentRows`. Using the
+    // subquery form ensures we keep the newest N regardless of how many
+    // sends happened since the last prune.
+    await db.run(sql`
+      DELETE FROM outbox
+      WHERE status = 'sent'
+        AND id NOT IN (
+          SELECT id FROM outbox
+          WHERE status = 'sent'
+          ORDER BY id DESC
+          LIMIT ${retainSentRows}
+        )
+    `);
     await db.run(sql`COMMIT`);
   } catch (e) {
     await db.run(sql`ROLLBACK`);
@@ -139,6 +167,14 @@ export const countFailed = async (db: AnyDb): Promise<number> => {
     .select({ count: sql<number>`count(*)` })
     .from(outbox)
     .where(eq(outbox.status, "failed"));
+  return Number(row?.count ?? 0);
+};
+
+export const countSent = async (db: AnyDb): Promise<number> => {
+  const [row] = await db
+    .select({ count: sql<number>`count(*)` })
+    .from(outbox)
+    .where(eq(outbox.status, "sent"));
   return Number(row?.count ?? 0);
 };
 

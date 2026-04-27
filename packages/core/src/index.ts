@@ -56,6 +56,11 @@ export {
 } from "./queries";
 export { processCommand, type CommandResult } from "./commands/processor";
 export {
+  previousMonthStart,
+  pruneOldCheckIns,
+  pruneOldCheckInsIfSafe,
+} from "./retention";
+export {
   createDispatcher,
   makeSingleflight,
   isHalted,
