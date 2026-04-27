@@ -24,14 +24,30 @@ BACKEND_DIR="$(dirname "$SCRIPT_DIR")"
 
 cd "$BACKEND_DIR/Nag.Api"
 
+# Load env files so Production mode has the same config that Debug gets
+# via dotenv.net. .env.local overrides .env.
+# Uses a while-read loop instead of `source` because values can contain
+# semicolons (e.g. Postgres connection strings) that bash would interpret.
+load_env() {
+  local file="$1"
+  while IFS= read -r line || [ -n "$line" ]; do
+    # Skip blanks and comments.
+    [[ -z "$line" || "$line" == \#* ]] && continue
+    export "$line"
+  done < "$file"
+}
+[ -f .env ] && load_env .env
+[ -f .env.local ] && load_env .env.local
+
 # 1. Pre-generate Wolverine handler types (same step as package-lambda.sh).
-NAG_RUN_JASPERFX_COMMANDS=1 dotnet run --configuration Release -- codegen write
+NAG_RUN_JASPERFX_COMMANDS=1 dotnet run --configuration Release --no-launch-profile -- codegen write
 
 if [ "${APPLY_SCHEMA:-}" = "1" ]; then
   # 2. Apply Marten schema up-front. Production has AutoCreate.None, so the
   # host won't migrate on its own.
-  NAG_RUN_JASPERFX_COMMANDS=1 dotnet run --configuration Release --no-build -- resources setup
+  NAG_RUN_JASPERFX_COMMANDS=1 dotnet run --configuration Release --no-build --no-launch-profile -- resources setup
 fi
 
-# 3. Boot as production. Re-uses the build artifacts from step 1.
-ASPNETCORE_ENVIRONMENT=Production dotnet run --configuration Release --no-build
+# 3. Boot as production on the same port as Development (launchSettings).
+ASPNETCORE_ENVIRONMENT=Production ASPNETCORE_URLS=http://localhost:5266 \
+  dotnet run --configuration Release --no-build --no-launch-profile
