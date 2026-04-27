@@ -30,7 +30,7 @@ describe("weeklyCalculator", () => {
   });
 
   describe("with specific schedule (Mon/Wed/Fri)", () => {
-    it("on Wednesday, 2/2 expected = compliant, periodProgress 2/3", () => {
+    it("on Wednesday, expects 1 (Mon completed), 2 check-ins = compliant", () => {
       const result = weeklyCalculator(
         input({ schedules: monWedFri, checkInCount: 2 }),
         colors,
@@ -40,17 +40,7 @@ describe("weeklyCalculator", () => {
       expect(result.periodProgress).toBeCloseTo(2 / 3);
     });
 
-    it("on Wednesday, 1/2 expected = partial, periodProgress 1/3", () => {
-      const result = weeklyCalculator(
-        input({ schedules: monWedFri, checkInCount: 1 }),
-        colors,
-      );
-      expect(result.color).toBe("partial");
-      expect(result.progress).toBe(0.5);
-      expect(result.periodProgress).toBeCloseTo(1 / 3);
-    });
-
-    it("on Wednesday, 0/2 expected = failing, periodProgress 0", () => {
+    it("on Wednesday, expects 1 (Mon completed), 0 check-ins = failing", () => {
       const result = weeklyCalculator(
         input({ schedules: monWedFri, checkInCount: 0 }),
         colors,
@@ -60,18 +50,29 @@ describe("weeklyCalculator", () => {
       expect(result.periodProgress).toBe(0);
     });
 
-    it("on Monday, 1/1 expected = compliant, periodProgress 1/3", () => {
+    it("on Monday, expects 0 (today in progress) = default, periodProgress tracks check-ins", () => {
       const monday = new Date(2025, 5, 9, 14, 0);
       const result = weeklyCalculator(
         input({ schedules: monWedFri, checkInCount: 1, now: monday }),
         colors,
       );
-      expect(result.color).toBe("compliant");
-      expect(result.progress).toBe(1);
+      expect(result.color).toBe("default");
+      expect(result.progress).toBe(0);
       expect(result.periodProgress).toBeCloseTo(1 / 3);
     });
 
-    it("on Friday, 3/3 expected = compliant, periodProgress 1", () => {
+    it("on Monday with 0 check-ins, stays default (not yet behind)", () => {
+      const monday = new Date(2025, 5, 9, 14, 0);
+      const result = weeklyCalculator(
+        input({ schedules: monWedFri, checkInCount: 0, now: monday }),
+        colors,
+      );
+      expect(result.color).toBe("default");
+      expect(result.progress).toBe(0);
+      expect(result.periodProgress).toBe(0);
+    });
+
+    it("on Friday, expects 2 (Mon+Wed completed), 3 check-ins = compliant", () => {
       const friday = new Date(2025, 5, 13, 14, 0);
       const result = weeklyCalculator(
         input({ schedules: monWedFri, checkInCount: 3, now: friday }),
@@ -82,18 +83,18 @@ describe("weeklyCalculator", () => {
       expect(result.periodProgress).toBe(1);
     });
 
-    it("on Friday, 2/3 expected = partial, periodProgress 2/3", () => {
+    it("on Friday, expects 2 (Mon+Wed completed), 1 check-in = partial", () => {
       const friday = new Date(2025, 5, 13, 14, 0);
       const result = weeklyCalculator(
-        input({ schedules: monWedFri, checkInCount: 2, now: friday }),
+        input({ schedules: monWedFri, checkInCount: 1, now: friday }),
         colors,
       );
       expect(result.color).toBe("partial");
-      expect(result.progress).toBeCloseTo(2 / 3);
-      expect(result.periodProgress).toBeCloseTo(2 / 3);
+      expect(result.progress).toBe(0.5);
+      expect(result.periodProgress).toBeCloseTo(1 / 3);
     });
 
-    it("on Tuesday (no scheduled day), 1 expected, periodProgress 1/3", () => {
+    it("on Tuesday (no scheduled day), expects 1 (Mon completed), 1 check-in = compliant", () => {
       const tuesday = new Date(2025, 5, 10, 14, 0);
       const result = weeklyCalculator(
         input({ schedules: monWedFri, checkInCount: 1, now: tuesday }),
@@ -103,21 +104,43 @@ describe("weeklyCalculator", () => {
       expect(result.progress).toBe(1);
       expect(result.periodProgress).toBeCloseTo(1 / 3);
     });
+
+    it("on Tuesday with 0 check-ins (Mon was scheduled and missed) = failing", () => {
+      const tuesday = new Date(2025, 5, 10, 14, 0);
+      const result = weeklyCalculator(
+        input({ schedules: monWedFri, checkInCount: 0, now: tuesday }),
+        colors,
+      );
+      expect(result.color).toBe("failing");
+      expect(result.progress).toBe(0);
+      expect(result.periodProgress).toBe(0);
+    });
   });
 
   describe("without schedule (sliding window)", () => {
-    it("on Monday (day 1/7) with frequency 7, expects 1", () => {
+    it("on Monday (0 days completed) with frequency 7, expects 0 = default", () => {
       const monday = new Date(2025, 5, 9, 14, 0);
       const result = weeklyCalculator(
         input({ frequency: 7, checkInCount: 1, now: monday }),
         colors,
       );
-      expect(result.color).toBe("compliant");
-      expect(result.progress).toBe(1);
+      expect(result.color).toBe("default");
+      expect(result.progress).toBe(0);
       expect(result.periodProgress).toBeCloseTo(1 / 7);
     });
 
-    it("on Wednesday (day 3/7) with frequency 3, expects 2", () => {
+    it("on Monday with 0 check-ins stays default (not yet behind)", () => {
+      const monday = new Date(2025, 5, 9, 14, 0);
+      const result = weeklyCalculator(
+        input({ frequency: 3, checkInCount: 0, now: monday }),
+        colors,
+      );
+      expect(result.color).toBe("default");
+      expect(result.progress).toBe(0);
+      expect(result.periodProgress).toBe(0);
+    });
+
+    it("on Wednesday (2 days completed) with frequency 3, expects 1", () => {
       const compliant = weeklyCalculator(
         input({ frequency: 3, checkInCount: 2 }),
         colors,
@@ -126,8 +149,19 @@ describe("weeklyCalculator", () => {
       expect(compliant.progress).toBe(1);
       expect(compliant.periodProgress).toBeCloseTo(2 / 3);
 
-      const partial = weeklyCalculator(
+      const stillCompliant = weeklyCalculator(
         input({ frequency: 3, checkInCount: 1 }),
+        colors,
+      );
+      expect(stillCompliant.color).toBe("compliant");
+      expect(stillCompliant.progress).toBe(1);
+      expect(stillCompliant.periodProgress).toBeCloseTo(1 / 3);
+    });
+
+    it("on Friday (4 days completed) with frequency 3, expects 2 (partial when 1 done)", () => {
+      const friday = new Date(2025, 5, 13, 14, 0);
+      const partial = weeklyCalculator(
+        input({ frequency: 3, checkInCount: 1, now: friday }),
         colors,
       );
       expect(partial.color).toBe("partial");
@@ -135,7 +169,7 @@ describe("weeklyCalculator", () => {
       expect(partial.periodProgress).toBeCloseTo(1 / 3);
     });
 
-    it("on Sunday (day 7/7) with frequency 3, expects 3", () => {
+    it("on Sunday (6 days completed) with frequency 3, expects 3", () => {
       const sunday = new Date(2025, 5, 15, 14, 0);
       const result = weeklyCalculator(
         input({ frequency: 3, checkInCount: 3, now: sunday }),
