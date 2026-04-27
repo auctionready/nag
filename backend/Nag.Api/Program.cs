@@ -64,31 +64,33 @@ var connectionString =
 
 var schemaName = builder.Configuration["Nag:SchemaName"];
 
-builder.Services.AddMarten(opts =>
-{
-    opts.Connection(connectionString);
-    if (!string.IsNullOrWhiteSpace(schemaName))
+builder
+    .Services.AddMarten(opts =>
     {
-        opts.DatabaseSchemaName = schemaName;
-        opts.Events.DatabaseSchemaName = schemaName;
-    }
-    opts.Events.StreamIdentity = JasperFx.Events.StreamIdentity.AsGuid;
+        opts.Connection(connectionString);
+        if (!string.IsNullOrWhiteSpace(schemaName))
+        {
+            opts.DatabaseSchemaName = schemaName;
+            opts.Events.DatabaseSchemaName = schemaName;
+        }
+        opts.Events.StreamIdentity = JasperFx.Events.StreamIdentity.AsGuid;
 
-    // Skip per-cold-start pg_catalog introspection in production. Schema
-    // changes are applied out-of-band (one-shot migration), so the Lambda
-    // can assume the schema already matches.
-    if (builder.Environment.IsProduction())
-    {
-        opts.AutoCreateSchemaObjects = AutoCreate.None;
-    }
+        // Skip per-cold-start pg_catalog introspection in production. Schema
+        // changes are applied out-of-band (one-shot migration), so the Lambda
+        // can assume the schema already matches.
+        if (builder.Environment.IsProduction())
+        {
+            opts.AutoCreateSchemaObjects = AutoCreate.None;
+        }
 
-    foreach (var t in CommandRegistry.All)
-    {
-        opts.Events.AddEventType(t);
-    }
+        foreach (var t in CommandRegistry.All)
+        {
+            opts.Events.AddEventType(t);
+        }
 
-    opts.Projections.Add<HomeBoardProjection>(ProjectionLifecycle.Inline);
-});
+        opts.Projections.Add<HomeBoardProjection>(ProjectionLifecycle.Inline);
+    })
+    .UseLightweightSessions();
 
 builder.Host.UseWolverine(opts =>
 {
