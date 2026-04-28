@@ -30,5 +30,28 @@ public static class LambdaSecrets
         {
             configuration["Nag:DeviceToken:Secret"] = deviceTokenSecret;
         }
+
+        // Sentry: forward the DSN (and optional release/environment) into
+        // IConfiguration so `WebHost.UseSentry` picks them up via the
+        // `Sentry:*` config binding. Leaving SENTRY_DSN unset disables the
+        // SDK at runtime — useful for the `db-apply` invocation, which
+        // shouldn't ship its lifecycle events to Sentry.
+        var sentryDsn = Environment.GetEnvironmentVariable("SENTRY_DSN");
+        if (!string.IsNullOrWhiteSpace(sentryDsn))
+        {
+            configuration["Sentry:Dsn"] = sentryDsn;
+        }
+
+        var sentryRelease = Environment.GetEnvironmentVariable("SENTRY_RELEASE");
+        if (!string.IsNullOrWhiteSpace(sentryRelease))
+        {
+            configuration["Sentry:Release"] = sentryRelease;
+        }
+
+        var sentryEnvironment = Environment.GetEnvironmentVariable("SENTRY_ENVIRONMENT");
+        if (!string.IsNullOrWhiteSpace(sentryEnvironment))
+        {
+            configuration["Sentry:Environment"] = sentryEnvironment;
+        }
     }
 }

@@ -26,6 +26,8 @@ const api = createApi({
   dbPassword: database.masterPassword,
   deviceTokenSecret: stackConfig.deviceTokenSecret,
   clerkIssuer: stackConfig.clerkIssuer,
+  sentryDsn: stackConfig.sentryDsn,
+  sentryEnvironment: stackConfig.sentryEnvironment,
   lambdaPackagePath: stackConfig.lambdaPackagePath,
   memoryMb: stackConfig.lambdaMemoryMb,
   logRetentionDays: stackConfig.logRetentionDays,
