@@ -1,59 +1,79 @@
-import * as aws from "@pulumi/aws";
+import * as neon from "pulumi-neon";
 import * as pulumi from "@pulumi/pulumi";
 
 export interface DatabaseArgs {
-  privateSubnetIds: pulumi.Output<string[]>;
-  dbSgId: pulumi.Output<string>;
-  masterPassword: pulumi.Output<string>;
-  minAcu: number;
-  maxAcu: number;
-  autoPauseSeconds: number;
+  apiKey: pulumi.Output<string>;
+  orgId: string;
+  regionId: string;
+  pgVersion: number;
+  projectName: string;
+  branchName: string;
+  databaseName: string;
+  roleName: string;
+  minCu: number;
+  maxCu: number;
+  // Seconds of idle before the compute scales to zero. 0 means "use Neon's
+  // account default"; pass a positive integer to override.
+  suspendTimeoutSeconds: number;
 }
 
 export interface Database {
   endpoint: pulumi.Output<string>;
   databaseName: pulumi.Output<string>;
   masterUsername: pulumi.Output<string>;
+  masterPassword: pulumi.Output<string>;
 }
 
 export const createDatabase = (args: DatabaseArgs): Database => {
-  const subnetGroup = new aws.rds.SubnetGroup("nag", {
-    subnetIds: args.privateSubnetIds,
-  });
+  const provider = new neon.Provider("nag-neon", { token: args.apiKey });
 
-  const cluster = new aws.rds.Cluster("nag", {
-    engine: "aurora-postgresql",
-    engineMode: "provisioned",
-    engineVersion: "17.4",
-    databaseName: "nag",
-    masterUsername: "nag",
-    masterPassword: args.masterPassword,
-    dbSubnetGroupName: subnetGroup.name,
-    vpcSecurityGroupIds: [args.dbSgId],
-    storageEncrypted: true,
-    backupRetentionPeriod: 7,
-    preferredBackupWindow: "16:00-17:00",
-    skipFinalSnapshot: false,
-    finalSnapshotIdentifier: "nag-final",
-    deletionProtection: true,
-    serverlessv2ScalingConfiguration: {
-      minCapacity: args.minAcu,
-      maxCapacity: args.maxAcu,
-      secondsUntilAutoPause: args.autoPauseSeconds,
+  const project = new neon.Project(
+    "nag",
+    {
+      name: args.projectName,
+      orgId: args.orgId,
+      regionId: args.regionId,
+      pgVersion: args.pgVersion,
+      branch: {
+        name: args.branchName,
+        endpoint: {
+          minCu: args.minCu,
+          maxCu: args.maxCu,
+          suspendTimeout: args.suspendTimeoutSeconds,
+        },
+      },
     },
-  });
+    { provider, protect: true },
+  );
 
-  new aws.rds.ClusterInstance("nag-writer", {
-    clusterIdentifier: cluster.id,
-    instanceClass: "db.serverless",
-    engine: "aurora-postgresql",
-    engineVersion: cluster.engineVersion,
-    publiclyAccessible: false,
-  });
+  const branchId = project.branch.apply((b) => b.id);
+  const endpointHost = project.branch.apply((b) => b.endpoint.host);
+
+  const role = new neon.Role(
+    "nag",
+    {
+      projectId: project.id,
+      branchId,
+      name: args.roleName,
+    },
+    { provider },
+  );
+
+  const database = new neon.Database(
+    "nag",
+    {
+      projectId: project.id,
+      branchId,
+      name: args.databaseName,
+      ownerName: role.name,
+    },
+    { provider },
+  );
 
   return {
-    endpoint: cluster.endpoint,
-    databaseName: cluster.databaseName.apply((n) => n ?? "nag"),
-    masterUsername: cluster.masterUsername,
+    endpoint: endpointHost,
+    databaseName: database.name,
+    masterUsername: role.name,
+    masterPassword: role.password,
   };
 };

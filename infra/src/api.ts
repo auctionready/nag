@@ -2,8 +2,6 @@ import * as aws from "@pulumi/aws";
 import * as pulumi from "@pulumi/pulumi";
 
 export interface ApiArgs {
-  privateSubnetIds: pulumi.Output<string[]>;
-  lambdaSgId: pulumi.Output<string>;
   dbEndpoint: pulumi.Output<string>;
   dbName: pulumi.Output<string>;
   dbUsername: pulumi.Output<string>;
@@ -48,12 +46,6 @@ export const createApi = (args: ApiArgs): Api => {
       "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole",
   });
 
-  new aws.iam.RolePolicyAttachment("nag-api-vpc", {
-    role: role.name,
-    policyArn:
-      "arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole",
-  });
-
   const fn = new aws.lambda.Function("nag-api", {
     name: "nag-api",
     runtime: "dotnet10",
@@ -63,10 +55,6 @@ export const createApi = (args: ApiArgs): Api => {
     memorySize: args.memoryMb,
     timeout: 30,
     code: new pulumi.asset.FileArchive(args.lambdaPackagePath),
-    vpcConfig: {
-      subnetIds: args.privateSubnetIds,
-      securityGroupIds: [args.lambdaSgId],
-    },
     loggingConfig: {
       logFormat: "Text",
       logGroup: logGroup.name,

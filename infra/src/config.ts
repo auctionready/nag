@@ -8,17 +8,31 @@ export const stackConfig = {
   // token becomes invalid (clients re-register on next 401). Generate
   // a fresh value with `openssl rand -base64 48`.
   deviceTokenSecret: cfg.requireSecret("deviceTokenSecret"),
-  dbPassword: cfg.requireSecret("dbPassword"),
-  dbMinAcu: cfg.getNumber("dbMinAcu") ?? 0,
-  dbMaxAcu: cfg.getNumber("dbMaxAcu") ?? 2,
-  dbAutoPauseSeconds: cfg.getNumber("dbAutoPauseSeconds") ?? 3000,
+  // Neon API key used by the `pulumi-neon` provider to manage the
+  // project / branch / role / database. Generate via the Neon Console
+  // → Account Settings → API Keys.
+  neonApiKey: cfg.requireSecret("neonApiKey"),
+  // Neon organization ID. Find it in the Neon Console → Settings → General
+  // (or via `GET https://console.neon.tech/api/v2/users/me/organizations`).
+  // Required since Neon's 2024 multi-org rollout — project creation fails
+  // without it.
+  neonOrgId: cfg.require("neonOrgId"),
+  neonRegionId: cfg.get("neonRegionId") ?? "aws-ap-southeast-2",
+  neonPgVersion: cfg.getNumber("neonPgVersion") ?? 17,
+  neonProjectName: cfg.get("neonProjectName") ?? "nag",
+  neonBranchName: cfg.get("neonBranchName") ?? "main",
+  neonDatabaseName: cfg.get("neonDatabaseName") ?? "nag",
+  neonRoleName: cfg.get("neonRoleName") ?? "nag",
+  // Compute units (CU): 1 CU ≈ 1 vCPU + 4 GB RAM. Default 0.25 / 1 keeps
+  // idle cost near zero while allowing small bursts.
+  neonMinCu: cfg.getNumber("neonMinCu") ?? 0.25,
+  neonMaxCu: cfg.getNumber("neonMaxCu") ?? 1,
+  // Idle seconds before the compute scales to zero. 0 = use Neon's
+  // account default (5 min on Free, configurable on paid tiers).
+  neonSuspendTimeoutSeconds: cfg.getNumber("neonSuspendTimeoutSeconds") ?? 0,
   lambdaMemoryMb: cfg.getNumber("lambdaMemoryMb") ?? 1536,
   lambdaPackagePath: cfg.get("lambdaPackagePath") ?? "./artifacts/nag-api.zip",
   logRetentionDays: cfg.getNumber("logRetentionDays") ?? 14,
-  // EC2 instance type for the cost-minimized NAT instance. t4g.nano is
-  // sufficient for the current Clerk-only egress workload (~few KB,
-  // cached). Bump if outbound traffic ever grows.
-  natInstanceType: cfg.get("natInstanceType") ?? "t4g.nano",
   apiDomainName: cfg.get("apiDomainName"),
   hostedZoneName: cfg.get("hostedZoneName"),
   // Clerk Frontend API URL — e.g. https://your-instance.clerk.accounts.dev.

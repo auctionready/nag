@@ -32,7 +32,7 @@ The source lives in [`backend/`](../backend) and has its own
 | Event store   | Marten 8 on Postgres 17                                     |
 | Messaging     | Wolverine 5 (registered for future async work)              |
 | Read models   | Marten inline projections                                   |
-| Database      | Amazon RDS for PostgreSQL Serverless v2                     |
+| Database      | Neon Serverless Postgres 17                                 |
 | Auth          | Static `Authorization: Bearer <key>` (single user, for now) |
 | Logging       | Serilog → JSON console (CloudWatch picks up stdout)         |
 | Validation    | FluentValidation                                            |
@@ -159,29 +159,22 @@ Infrastructure is Pulumi (TypeScript) in [`infra/`](../infra), with a
 one-time bootstrap stack in [`infra-bootstrap/`](../infra-bootstrap).
 Region: `ap-southeast-2`. State backend: Pulumi Cloud.
 
-Topology: API Gateway HTTP API → Lambda (`dotnet10`, arm64) in a VPC →
-Aurora PostgreSQL Serverless v2 (engine 17). The API key and DB password
-are passed as KMS-encrypted Lambda environment variables (`API_KEY`,
-`DB_PASSWORD`). On cold start,
+Topology: API Gateway HTTP API → Lambda (`dotnet10`, arm64, no VPC) →
+Neon Serverless Postgres 17. The DB connection details (host/db/user/
+password) and the device-token signing secret are passed as
+KMS-encrypted Lambda environment variables (`DB_HOST`, `DB_NAME`,
+`DB_USERNAME`, `DB_PASSWORD`, `DEVICE_TOKEN_SECRET`). On cold start,
 [`LambdaSecrets.HydrateFromEnvironment`](../backend/Nag.Api/Infrastructure/LambdaSecrets.cs)
-reads them and writes the connection string + API key into
-`IConfiguration`.
+reads them and writes the connection string into `IConfiguration`.
 
-The VPC has no managed NAT Gateway and no VPC endpoints — the Lambda
-reaches Aurora over its Hyperplane ENI inside the private subnet, and
-the runtime delivers logs to CloudWatch via a Lambda-internal path.
-Outbound internet (Clerk OIDC discovery + JWKS, only when
-`Nag:ClerkIssuer` is configured) goes via a single `t4g.nano` NAT
-instance (fck-nat AMI) in one public subnet — ~US$3/mo vs ~US$33/mo
-for a managed NAT Gateway. Clerk's JWKS is cached in-process by
-`IConfigurationManager<OpenIdConnectConfiguration>`, so brief NAT
-outages (shorter than the JWKS refresh interval) are invisible to
-callers; longer outages fail Clerk-protected endpoints closed while
-anonymous registration and device-token endpoints keep working. See
-[`infra/src/nat.ts`](../infra/src/nat.ts) for the full caveats and the
-"switch back to NAT Gateway" recipe. Aurora auto-pauses after 50
-minutes of inactivity (`minCapacity: 0`, `secondsUntilAutoPause: 3000`);
-the first query after a long idle period pays a ~10–15 s warm-up.
+The Lambda runs outside any VPC, so all outbound traffic — to Neon, to
+Clerk's JWKS, to anywhere else — uses AWS-managed public networking with
+no NAT instance / NAT Gateway / Hyperplane ENI in the path. Cold start
+is ~half the in-VPC number. Clerk's JWKS is cached in-process by
+`IConfigurationManager<OpenIdConnectConfiguration>`. Neon's compute
+auto-suspends on idle (configurable via `nag:neonSuspendTimeoutSeconds`,
+default = Neon account default); the first query after a long idle pays
+a ~500 ms warm-up — much faster than Aurora Serverless v2's ~10–15 s wake.
 
 Deploys run via
 [`.github/workflows/deploy-backend.yml`](../.github/workflows/deploy-backend.yml),

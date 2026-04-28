@@ -8,8 +8,8 @@
   },
   "dependencies": {
     "@pulumi/aws": "^7.0.0",
-    "@pulumi/awsx": "^2.20.0",
-    "@pulumi/pulumi": "^3.140.0"
+    "@pulumi/pulumi": "^3.140.0",
+    "pulumi-neon": "^0.1.8"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",

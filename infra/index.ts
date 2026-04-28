@@ -1,41 +1,28 @@
 import * as pulumi from "@pulumi/pulumi";
 import { stackConfig } from "./src/config";
-import { createNetwork } from "./src/network";
-import { createNat } from "./src/nat";
 import { createDatabase } from "./src/database";
 import { createApi } from "./src/api";
 import { createDomain } from "./src/domain";
 
-const network = createNetwork();
-
-// Cost-minimized outbound for the Lambda (Clerk JWKS discovery). See
-// `infra/src/nat.ts` for caveats and the path back to a managed NAT Gateway.
-const nat = createNat({
-  vpcId: network.vpcId,
-  vpcCidr: network.vpcCidr,
-  publicSubnetIds: network.publicSubnetIds,
-  privateSubnetIds: network.privateSubnetIds,
-  // Matches numberOfAvailabilityZones in network.ts.
-  privateSubnetCount: 2,
-  instanceType: stackConfig.natInstanceType,
-});
-
 const database = createDatabase({
-  privateSubnetIds: network.privateSubnetIds,
-  dbSgId: network.dbSgId,
-  masterPassword: stackConfig.dbPassword,
-  minAcu: stackConfig.dbMinAcu,
-  maxAcu: stackConfig.dbMaxAcu,
-  autoPauseSeconds: stackConfig.dbAutoPauseSeconds,
+  apiKey: stackConfig.neonApiKey,
+  orgId: stackConfig.neonOrgId,
+  regionId: stackConfig.neonRegionId,
+  pgVersion: stackConfig.neonPgVersion,
+  projectName: stackConfig.neonProjectName,
+  branchName: stackConfig.neonBranchName,
+  databaseName: stackConfig.neonDatabaseName,
+  roleName: stackConfig.neonRoleName,
+  minCu: stackConfig.neonMinCu,
+  maxCu: stackConfig.neonMaxCu,
+  suspendTimeoutSeconds: stackConfig.neonSuspendTimeoutSeconds,
 });
 
 const api = createApi({
-  privateSubnetIds: network.privateSubnetIds,
-  lambdaSgId: network.lambdaSgId,
   dbEndpoint: database.endpoint,
   dbName: database.databaseName,
   dbUsername: database.masterUsername,
-  dbPassword: stackConfig.dbPassword,
+  dbPassword: database.masterPassword,
   deviceTokenSecret: stackConfig.deviceTokenSecret,
   clerkIssuer: stackConfig.clerkIssuer,
   lambdaPackagePath: stackConfig.lambdaPackagePath,
@@ -60,5 +47,3 @@ export const apiUrl: pulumi.Output<string> = domain
 export const functionName = api.functionName;
 export const logGroupName = api.logGroupName;
 export const dbEndpoint = database.endpoint;
-export const natInstanceId = nat.instanceId;
-export const natPublicIp = nat.publicIp;

@@ -108,7 +108,7 @@ and exits — no Postgres, no Kestrel bind. Custom filters in
 preserved as-is because the CLI runs the same Swashbuckle pipeline as
 the live `/swagger` endpoint.
 
-## Deployment (planned)
+## Deployment
 
 The host is wired for AWS Lambda via
 `AddAWSLambdaHosting(LambdaEventSource.HttpApi)`. When the process runs
@@ -116,13 +116,14 @@ under Lambda, ASP.NET Core requests are bridged from API Gateway HTTP
 API events; everywhere else (`dotnet run`, integration tests) the same
 binary runs under Kestrel.
 
-Infrastructure-as-code (CDK / SAM / Terraform) is intentionally not
-included yet — track that work in GitHub Issues.
+Infrastructure-as-code lives in [`infra/`](../infra) (Pulumi / TypeScript)
+and is deployed by the **Deploy backend** GitHub Actions workflow.
 
 Production assumes:
 
 - AWS Lambda with the managed `dotnet10` runtime (GA Jan 2026)
-- Amazon RDS for PostgreSQL Serverless v2 (Postgres 17), auto-pause on
-- DB password and device-token signing secret passed as KMS-encrypted
-  Lambda environment variables (`DB_PASSWORD`, `DEVICE_TOKEN_SECRET`)
-  — see `Nag.Api/Infrastructure/LambdaSecrets.cs`
+- [Neon](https://neon.tech) Serverless Postgres 17, auto-suspend on
+- DB connection details and the device-token signing secret passed as
+  Lambda environment variables (`DB_HOST`, `DB_NAME`, `DB_USERNAME`,
+  `DB_PASSWORD`, `DEVICE_TOKEN_SECRET`) — see
+  `Nag.Api/Infrastructure/LambdaSecrets.cs`

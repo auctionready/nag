@@ -1,4 +1,4 @@
 name: nag
 runtime: nodejs
-description: AWS deployment for the Nag backend (API Gateway HTTP API + Lambda + Aurora PostgreSQL Serverless v2).
+description: Backend deployment for Nag — API Gateway HTTP API + Lambda (dotnet10/arm64) + Neon serverless Postgres.
 main: index.ts
