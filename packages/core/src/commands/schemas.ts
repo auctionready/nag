@@ -1,9 +1,5 @@
 import { z } from "zod";
 import { regularityValues } from "@nag/schema";
-import { isInCurrentWeek } from "../retention";
-
-const inCurrentWeek = (timestamp: Date) => isInCurrentWeek(timestamp);
-const periodMessage = "Check-in timestamp must fall within the current week.";
 
 const ScheduleEntry = z.object({
   hour: z.int().min(0).max(23),
@@ -114,11 +110,8 @@ export const CreateCheckIn = z.object({
    * now" tap this is `new Date()`; for a long-press back-fill of a missed
    * slot it's that slot's `Date`. Audit log persists commands as JSON so
    * `z.coerce.date()` lets callers pass either a `Date` or an ISO string.
-   * Period invariant: must fall within the current Sunday-anchored UTC
-   * week so the per-week summary projections never observe a check-in
-   * landing in a past or future week.
    */
-  timestamp: z.coerce.date().refine(inCurrentWeek, { message: periodMessage }),
+  timestamp: z.coerce.date(),
   skipped: z.boolean().optional(),
 });
 
@@ -130,12 +123,7 @@ export const DeleteCheckIn = z.object({
 export const UpdateCheckIn = z.object({
   type: z.literal("UpdateCheckIn"),
   checkInId: z.int().positive(),
-  /**
-   * Same period invariant as `CreateCheckIn.timestamp`: an UpdateCheckIn
-   * must keep the check-in inside the current week, so a check-in's
-   * week never changes after creation.
-   */
-  timestamp: z.coerce.date().refine(inCurrentWeek, { message: periodMessage }),
+  timestamp: z.coerce.date(),
   skipped: z.boolean().optional(),
 });
 

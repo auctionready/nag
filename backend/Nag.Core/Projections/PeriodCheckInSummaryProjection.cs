@@ -57,11 +57,9 @@ public sealed class MonthlyCheckInSummaryProjection
     public void Apply(IEvent<UpdateCheckIn> e, MonthlyCheckInSummary doc)
     {
         // UpdateCheckIn only knows the check-in id. Locate it across habits
-        // and patch in place. The per-week period invariant guarantees the
-        // check-in stays in its original week, but a single Sunday-anchored
-        // week can span a month boundary — so a within-week move may still
-        // shift the routed month, leaving a stale row in the prior month
-        // doc (see XML doc on `MonthlyCheckInSummary`).
+        // and patch in place. If the new timestamp moved the check-in from
+        // a different month, this routes to the *new* month doc and the
+        // old month is left stale (see XML doc on the read model).
         foreach (var habit in doc.Habits)
         {
             var idx = habit.CheckIns.FindIndex(c => c.Id == e.Data.CheckInId);
