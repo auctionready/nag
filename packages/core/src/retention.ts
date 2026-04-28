@@ -20,6 +20,45 @@ export const previousMonthStart = (now: Date): Date => {
 };
 
 /**
+ * Sunday-anchored UTC week containing `now`. Matches the backend
+ * `PeriodCalculator.WeekBounds` so client and server agree on what week
+ * a given timestamp belongs to. Returned as `[start, end)` — `end` is
+ * the next Sunday's UTC midnight, exclusive.
+ */
+export const currentWeekBounds = (
+  now: Date = new Date(),
+): { start: Date; end: Date } => {
+  const daysSinceSunday = now.getUTCDay();
+  const start = new Date(
+    Date.UTC(
+      now.getUTCFullYear(),
+      now.getUTCMonth(),
+      now.getUTCDate() - daysSinceSunday,
+      0,
+      0,
+      0,
+      0,
+    ),
+  );
+  const end = new Date(start.getTime() + 7 * 24 * 60 * 60 * 1000);
+  return { start, end };
+};
+
+/**
+ * True when `timestamp` falls in the same Sunday-anchored UTC week as
+ * `now`. The period invariant for check-ins: `CreateCheckIn` rejects
+ * timestamps outside the current week, and `UpdateCheckIn` rejects
+ * timestamps that would move a check-in out of the current week.
+ */
+export const isInCurrentWeek = (
+  timestamp: Date,
+  now: Date = new Date(),
+): boolean => {
+  const { start, end } = currentWeekBounds(now);
+  return timestamp >= start && timestamp < end;
+};
+
+/**
  * Deletes every local check-in whose deemed `timestamp` is strictly older
  * than `cutoff`. Pure DB op — caller decides when it's safe to invoke
  * (see {@link pruneOldCheckInsIfSafe}).

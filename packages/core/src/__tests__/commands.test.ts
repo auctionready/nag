@@ -476,18 +476,19 @@ describe("CreateCheckIn", () => {
       title: "Back-fill test",
     });
 
-    const eightAmYesterday = new Date();
-    eightAmYesterday.setDate(eightAmYesterday.getDate() - 1);
-    eightAmYesterday.setHours(8, 0, 0, 0);
+    // An earlier-today slot demonstrates the back-fill semantics without
+    // tripping the current-week period invariant on `CreateCheckIn` —
+    // "yesterday" lands in the previous week when the test runs on Sunday.
+    const earlierToday = new Date(Date.now() - 30 * 60 * 1000);
     const beforeInsert = Date.now();
 
-    await createCheckIn(db, habitId, { timestamp: eightAmYesterday });
+    await createCheckIn(db, habitId, { timestamp: earlierToday });
 
     const [row] = await db
       .select()
       .from(schema.checkIn)
       .where(eq(schema.checkIn.habitId, habitId));
-    expect(row.timestamp.getTime()).toBe(eightAmYesterday.getTime());
+    expect(row.timestamp.getTime()).toBe(earlierToday.getTime());
     expect(row.createdAt.getTime()).toBeGreaterThanOrEqual(beforeInsert);
     expect(row.createdAt.getTime()).toBeGreaterThan(row.timestamp.getTime());
   });
@@ -757,6 +758,66 @@ describe("processCommand validation", () => {
 
     const logs = await db.select().from(schema.outbox);
     expect(logs).toHaveLength(0);
+  });
+
+  it("rejects CreateCheckIn whose timestamp is in a previous week", async () => {
+    const db = getDb();
+    const { habitId } = await processCommand(db, {
+      type: "CreateHabit",
+      title: "Read",
+    });
+
+    // Two weeks ago — well outside the current Sunday-anchored UTC week.
+    const twoWeeksAgo = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000);
+    await expect(
+      processCommand(db, {
+        type: "CreateCheckIn",
+        habitId,
+        timestamp: twoWeeksAgo,
+      }),
+    ).rejects.toThrow(ZodError);
+
+    const checkIns = await db.select().from(schema.checkIn);
+    expect(checkIns).toHaveLength(0);
+  });
+
+  it("rejects CreateCheckIn whose timestamp is in a future week", async () => {
+    const db = getDb();
+    const { habitId } = await processCommand(db, {
+      type: "CreateHabit",
+      title: "Read",
+    });
+
+    const eightDaysLater = new Date(Date.now() + 8 * 24 * 60 * 60 * 1000);
+    await expect(
+      processCommand(db, {
+        type: "CreateCheckIn",
+        habitId,
+        timestamp: eightDaysLater,
+      }),
+    ).rejects.toThrow(ZodError);
+  });
+
+  it("rejects UpdateCheckIn that would move the timestamp into a previous week", async () => {
+    const db = getDb();
+    const { habitId } = await processCommand(db, {
+      type: "CreateHabit",
+      title: "Read",
+    });
+    const { checkInId } = await processCommand(db, {
+      type: "CreateCheckIn",
+      habitId,
+      timestamp: new Date(),
+    });
+
+    const lastWeek = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000);
+    await expect(
+      processCommand(db, {
+        type: "UpdateCheckIn",
+        checkInId,
+        timestamp: lastWeek,
+      }),
+    ).rejects.toThrow(ZodError);
   });
 });
 

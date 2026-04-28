@@ -38,18 +38,28 @@ public sealed class DeleteHabitValidator : AbstractValidator<DeleteHabit>
 
 public sealed class CreateCheckInValidator : AbstractValidator<CreateCheckIn>
 {
-    public CreateCheckInValidator()
+    public CreateCheckInValidator(TimeProvider clock)
     {
         RuleFor(x => x.CheckInId).NotEmpty();
         RuleFor(x => x.HabitId).NotEmpty();
+        // Period invariant: a new check-in must fall in the current week.
+        // Combined with UpdateCheckIn's matching rule, this means a check-in's
+        // week never changes after creation, so the per-week summary
+        // projections never observe a cross-period move.
+        RuleFor(x => x.Timestamp)
+            .Must(ts => PeriodCalculator.IsInCurrentPeriod(Regularity.Week, ts, clock.GetUtcNow()))
+            .WithMessage("Check-in timestamp must fall within the current week.");
     }
 }
 
 public sealed class UpdateCheckInValidator : AbstractValidator<UpdateCheckIn>
 {
-    public UpdateCheckInValidator()
+    public UpdateCheckInValidator(TimeProvider clock)
     {
         RuleFor(x => x.CheckInId).NotEmpty();
+        RuleFor(x => x.Timestamp)
+            .Must(ts => PeriodCalculator.IsInCurrentPeriod(Regularity.Week, ts, clock.GetUtcNow()))
+            .WithMessage("Check-in timestamp must fall within the current week.");
     }
 }
 
