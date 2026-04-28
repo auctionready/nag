@@ -9,9 +9,10 @@ import {
   View,
 } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
-import { format, startOfDay, endOfDay, startOfMonth } from "date-fns";
+import { format, startOfDay, endOfDay } from "date-fns";
 import type { Regularity } from "@nag/schema";
 import {
+  currentWeekBounds,
   habitProgressSnapshot,
   isSameCalendarDay,
   periodStart,
@@ -196,28 +197,30 @@ export const HabitDetail = ({
   } | null>(null);
 
   const pickerConfig = useMemo(() => {
+    // Floor every picker on the current Sunday-anchored UTC week so the
+    // user can never pick a time the CreateCheckIn / UpdateCheckIn period
+    // invariant would reject. `now` itself is always in the current week,
+    // so capping `max` at `now` is sufficient on the upper bound.
+    const week = currentWeekBounds(now);
+    const clampMin = (d: Date) => (d < week.start ? week.start : d);
+    const clampMax = (d: Date) =>
+      d.getTime() >= week.end.getTime() ? new Date(week.end.getTime() - 1) : d;
+
     if (selectedDay) {
       return {
         mode: "time" as const,
-        minimumDate: startOfDay(selectedDay),
+        minimumDate: clampMin(startOfDay(selectedDay)),
         // Cap at now when editing a check-in on today so the user can't pick
         // a future time; past selected days are fully open (end-of-day).
-        maximumDate: isSameCalendarDay(selectedDay, now)
-          ? now
-          : endOfDay(selectedDay),
+        maximumDate: clampMax(
+          isSameCalendarDay(selectedDay, now) ? now : endOfDay(selectedDay),
+        ),
       };
     }
-    if (regularity === "week") {
+    if (regularity === "week" || regularity === "month") {
       return {
         mode: "datetime" as const,
-        minimumDate: periodStart("week", now),
-        maximumDate: now,
-      };
-    }
-    if (regularity === "month") {
-      return {
-        mode: "datetime" as const,
-        minimumDate: startOfMonth(now),
+        minimumDate: week.start,
         maximumDate: now,
       };
     }
