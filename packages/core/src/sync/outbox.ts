@@ -11,13 +11,28 @@ export type PendingRow = {
 };
 
 /**
- * How many sent rows we keep in the outbox after each successful send.
- * Older sent rows are deleted in the same transaction as `markSent` so the
- * table can't grow unboundedly on long-lived devices. The retained rows are
- * useful only for debugging — `serverSequence` is already mirrored into
- * `sync_state.highest_server_sequence`, and pending replays use envelope IDs.
+ * Default retention for sent outbox rows after each successful send. The
+ * value is read from the `NAG_SENT_OUTBOX_RETAIN` env var at module load
+ * (so tests can override it via Vitest's env config); set to `-1` to
+ * disable pruning entirely and keep every sent row. Falls back to 10 when
+ * the env var is unset, empty, or unparseable.
+ *
+ * Retained rows are useful only for debugging — `serverSequence` is
+ * mirrored into `sync_state.highest_server_sequence`, and pending replays
+ * use envelope IDs.
  */
-export const SENT_OUTBOX_RETAIN_DEFAULT = 10;
+export const SENT_OUTBOX_RETAIN_DEFAULT: number = readRetainEnv();
+
+function readRetainEnv(): number {
+  const raw =
+    typeof process !== "undefined"
+      ? process.env?.NAG_SENT_OUTBOX_RETAIN
+      : undefined;
+  if (raw === undefined || raw === "") return 10;
+  const parsed = Number(raw);
+  if (!Number.isFinite(parsed)) return 10;
+  return Math.trunc(parsed);
+}
 
 export const loadPendingBatch = (
   db: AnyDb,
@@ -46,7 +61,9 @@ export const loadPendingBatch = (
  * write that triggered it.
  *
  * `retainSentRows` keeps the most recent N sent rows (newest by id) for
- * debugging visibility; everything older is dropped.
+ * debugging visibility; everything older is dropped. A negative value
+ * (e.g. `-1`) disables pruning entirely so every sent row is retained —
+ * useful when `NAG_SENT_OUTBOX_RETAIN=-1` is set during investigation.
  */
 export const markSent = async (
   db: AnyDb,
@@ -71,19 +88,21 @@ export const markSent = async (
         highestServerSequence: sql`MAX(${syncState.highestServerSequence}, ${serverSequence})`,
       })
       .where(eq(syncState.id, 1));
-    // Drop sent rows older than the most recent `retainSentRows`. Using the
-    // subquery form ensures we keep the newest N regardless of how many
-    // sends happened since the last prune.
-    await db.run(sql`
-      DELETE FROM outbox
-      WHERE status = 'sent'
-        AND id NOT IN (
-          SELECT id FROM outbox
-          WHERE status = 'sent'
-          ORDER BY id DESC
-          LIMIT ${retainSentRows}
-        )
-    `);
+    if (retainSentRows >= 0) {
+      // Drop sent rows older than the most recent `retainSentRows`. The
+      // subquery form keeps the newest N regardless of how many sends
+      // happened since the last prune.
+      await db.run(sql`
+        DELETE FROM outbox
+        WHERE status = 'sent'
+          AND id NOT IN (
+            SELECT id FROM outbox
+            WHERE status = 'sent'
+            ORDER BY id DESC
+            LIMIT ${retainSentRows}
+          )
+      `);
+    }
     await db.run(sql`COMMIT`);
   } catch (e) {
     await db.run(sql`ROLLBACK`);
