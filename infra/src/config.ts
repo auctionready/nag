@@ -40,4 +40,13 @@ export const stackConfig = {
   // different Clerk instances. When unset the backend skips Clerk wiring
   // and /accounts/upgrade + /devices/pair return 503 / fail to resolve.
   clerkIssuer: cfg.get("clerkIssuer"),
+  // Sentry DSN for the backend project. Set with
+  // `pulumi config set --secret nag:sentryDsn https://...@oXXX.ingest.sentry.io/YYY`.
+  // When unset, the Lambda boots without Sentry — useful for ephemeral
+  // preview stacks that shouldn't pollute the prod project.
+  sentryDsn: cfg.getSecret("sentryDsn"),
+  // Tag every event/transaction with this environment name (defaults to
+  // the stack name, so `prod`/`dev`/`pr-123` map cleanly to Sentry's
+  // environment filter).
+  sentryEnvironment: cfg.get("sentryEnvironment") ?? pulumi.getStack(),
 };

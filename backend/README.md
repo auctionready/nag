@@ -127,6 +127,8 @@ Production assumes:
   Lambda environment variables (`DB_HOST`, `DB_NAME`, `DB_USERNAME`,
   `DB_PASSWORD`, `DEVICE_TOKEN_SECRET`) — see
   `Nag.Api/Infrastructure/LambdaSecrets.cs`
+- Sentry DSN passed as `SENTRY_DSN` (plus optional `SENTRY_ENVIRONMENT`
+  / `SENTRY_RELEASE`); when unset the SDK initializes in disabled mode
 
 ### Database migrations
 

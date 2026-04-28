@@ -32,9 +32,43 @@ var builder = WebApplication.CreateBuilder(args);
 
 LambdaSecrets.HydrateFromEnvironment(builder.Configuration);
 
+// Sentry: read all options from the `Sentry` config section. DSN comes from
+// `Sentry:Dsn` (env var `SENTRY_DSN` in Lambda, hydrated by LambdaSecrets);
+// when unset, pass an empty string to start the SDK in disabled mode (the
+// only opt-out the SDK accepts — null throws). This matters for the
+// Swashbuckle CLI host that builds the spec without any deployment config.
+builder.WebHost.UseSentry(o =>
+{
+    if (string.IsNullOrWhiteSpace(o.Dsn))
+    {
+        o.Dsn = string.Empty;
+    }
+    o.Environment ??= builder.Environment.EnvironmentName;
+    // ASP.NET Core's pipeline is async, so events are queued on a
+    // background worker. In Lambda the host is frozen between
+    // invocations — flush the queue at the end of each request so we
+    // don't lose events.
+    o.FlushOnCompletedRequest = true;
+});
+
 builder.Host.UseSerilog(
     (ctx, lc) =>
-        lc.ReadFrom.Configuration(ctx.Configuration).Enrich.FromLogContext().WriteTo.Console() // new Serilog.Formatting.Json.JsonFormatter()
+        lc
+            .ReadFrom.Configuration(ctx.Configuration)
+            .Enrich.FromLogContext()
+            .WriteTo.Console() // new Serilog.Formatting.Json.JsonFormatter()
+            .WriteTo.Sentry(s =>
+            {
+                // Piggy-back on the SDK already initialized by `UseSentry`
+                // above. Without this, the sink calls `SentrySdk.Init`
+                // itself and throws when no DSN is configured (e.g.
+                // `dotnet swagger tofile` builds the host without one).
+                s.InitializeSdk = false;
+                // Warning+ becomes a Sentry event; Information+ rides along
+                // as a breadcrumb on whatever event captures next.
+                s.MinimumEventLevel = Serilog.Events.LogEventLevel.Warning;
+                s.MinimumBreadcrumbLevel = Serilog.Events.LogEventLevel.Information;
+            })
 );
 
 builder.Services.AddAWSLambdaHosting(LambdaEventSource.HttpApi);
@@ -212,6 +246,11 @@ builder.Services.AddSwaggerGen(c =>
 #endif
 
 var app = builder.Build();
+
+// Register Sentry's performance-monitoring middleware. Distributed-trace
+// headers (`sentry-trace`, `baggage`) sent by the mobile client are picked
+// up here so backend spans nest under the originating mobile transaction.
+app.UseSentryTracing();
 
 app.UseSerilogRequestLogging();
 

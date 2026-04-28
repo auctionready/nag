@@ -10,6 +10,8 @@ export interface ApiArgs {
   dbPassword: pulumi.Output<string>;
   deviceTokenSecret: pulumi.Output<string>;
   clerkIssuer?: string;
+  sentryDsn?: pulumi.Output<string>;
+  sentryEnvironment?: string;
   lambdaPackagePath: string;
   memoryMb: number;
   logRetentionDays: number;
@@ -85,6 +87,13 @@ export const createApi = (args: ApiArgs): Api => {
         // Only set when configured — Program.cs registers the Clerk
         // verifier conditionally on Nag:ClerkIssuer being present.
         ...(args.clerkIssuer ? { Nag__ClerkIssuer: args.clerkIssuer } : {}),
+        // Sentry: when DSN is unset, LambdaSecrets leaves Sentry:Dsn
+        // empty and the SDK initializes in disabled mode (no network).
+        ...(args.sentryDsn ? { SENTRY_DSN: args.sentryDsn } : {}),
+        ...(args.sentryEnvironment
+          ? { SENTRY_ENVIRONMENT: args.sentryEnvironment }
+          : {}),
+        SENTRY_RELEASE: sourceCodeHash,
       },
     },
   });

@@ -24,19 +24,20 @@ The source lives in [`backend/`](../backend) and has its own
 
 ## Stack
 
-| Concern       | Choice                                                      |
-| ------------- | ----------------------------------------------------------- |
-| Runtime       | .NET 10 (LTS, GA on AWS Lambda since Jan 2026)              |
-| Web framework | ASP.NET Core minimal APIs                                   |
-| Lambda bridge | `Amazon.Lambda.AspNetCoreServer.Hosting`                    |
-| Event store   | Marten 8 on Postgres 17                                     |
-| Messaging     | Wolverine 5 (registered for future async work)              |
-| Read models   | Marten inline projections                                   |
-| Database      | Neon Serverless Postgres 17                                 |
-| Auth          | Static `Authorization: Bearer <key>` (single user, for now) |
-| Logging       | Serilog → JSON console (CloudWatch picks up stdout)         |
-| Validation    | FluentValidation                                            |
-| Formatting    | CSharpier (pinned in `.config/dotnet-tools.json`)           |
+| Concern       | Choice                                                                                                             |
+| ------------- | ------------------------------------------------------------------------------------------------------------------ |
+| Runtime       | .NET 10 (LTS, GA on AWS Lambda since Jan 2026)                                                                     |
+| Web framework | ASP.NET Core minimal APIs                                                                                          |
+| Lambda bridge | `Amazon.Lambda.AspNetCoreServer.Hosting`                                                                           |
+| Event store   | Marten 8 on Postgres 17                                                                                            |
+| Messaging     | Wolverine 5 (registered for future async work)                                                                     |
+| Read models   | Marten inline projections                                                                                          |
+| Database      | Neon Serverless Postgres 17                                                                                        |
+| Auth          | Static `Authorization: Bearer <key>` (single user, for now)                                                        |
+| Logging       | Serilog → JSON console (CloudWatch picks up stdout)                                                                |
+| Errors/traces | [Sentry.AspNetCore](https://docs.sentry.io/platforms/dotnet/guides/aspnetcore/) — exceptions + distributed tracing |
+| Validation    | FluentValidation                                                                                                   |
+| Formatting    | CSharpier (pinned in `.config/dotnet-tools.json`)                                                                  |
 
 ## Endpoints
 
@@ -163,7 +164,8 @@ Topology: API Gateway HTTP API → Lambda (`dotnet10`, arm64, no VPC) →
 Neon Serverless Postgres 17. The DB connection details (host/db/user/
 password) and the device-token signing secret are passed as
 KMS-encrypted Lambda environment variables (`DB_HOST`, `DB_NAME`,
-`DB_USERNAME`, `DB_PASSWORD`, `DEVICE_TOKEN_SECRET`). On cold start,
+`DB_USERNAME`, `DB_PASSWORD`, `DEVICE_TOKEN_SECRET`,
+`SENTRY_DSN` / `SENTRY_ENVIRONMENT` / `SENTRY_RELEASE`). On cold start,
 [`LambdaSecrets.HydrateFromEnvironment`](../backend/Nag.Api/Infrastructure/LambdaSecrets.cs)
 reads them and writes the connection string into `IConfiguration`.
 
@@ -184,3 +186,37 @@ which assumes the `nag-github-deploy` role via GitHub OIDC and runs
 
 See [`infra/README.md`](../infra/README.md) for first-time setup and
 smoke tests.
+
+## Observability — Sentry
+
+The host wires [`Sentry.AspNetCore`](https://docs.sentry.io/platforms/dotnet/guides/aspnetcore/)
+in `Program.cs`: exceptions thrown from any endpoint or middleware are
+captured automatically, and `app.UseSentryTracing()` records a
+performance transaction per request. The mobile client already sends
+`sentry-trace` / `baggage` headers
+([`app/src/infrastructure/sentry.ts`](../app/src/infrastructure/sentry.ts)),
+so backend spans nest under the originating mobile transaction in the
+Sentry UI.
+
+Serilog writes are bridged into Sentry via `Sentry.Serilog`:
+`Information+` rides along as a breadcrumb, `Warning+` is captured as
+a standalone Sentry event.
+
+Configuration lives in the `Sentry` section of `appsettings.json` —
+`TracesSampleRate` defaults to `0.1` in production and `1.0` in
+development. The DSN is **never** committed; it is supplied at deploy
+time via the `SENTRY_DSN` Lambda env var, which `LambdaSecrets`
+forwards into `Sentry:Dsn`. When the var is unset (e.g. preview
+stacks), the SDK starts in disabled mode and emits no network traffic.
+
+Pulumi config:
+
+```bash
+pulumi config set --secret nag:sentryDsn 'https://...@oXXX.ingest.sentry.io/YYY'
+# Optional override; defaults to the Pulumi stack name.
+pulumi config set nag:sentryEnvironment prod
+```
+
+`SENTRY_RELEASE` is wired automatically to the SHA256 of the deployed
+Lambda zip, so each deploy shows up as a distinct release on Sentry's
+release health screen.
