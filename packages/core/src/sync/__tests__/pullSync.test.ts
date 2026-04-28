@@ -12,11 +12,11 @@ const okSync = (response: SyncResult) =>
   vi.fn<GetSyncFn>().mockResolvedValue({ ok: true, response });
 
 describe("createPullSync", () => {
-  it("returns idle when server reports replay with empty commands", async () => {
+  it("returns idle when server reports replay with empty events", async () => {
     const db = getDb();
     const getSync = okSync({
       mode: "replay",
-      commands: [],
+      events: [],
       headSequence: 0,
       nextSince: null,
     });
@@ -26,29 +26,29 @@ describe("createPullSync", () => {
     expect(getSync).toHaveBeenCalledWith(0);
   });
 
-  it("treats omitted commands array as empty", async () => {
+  it("treats omitted events array as empty", async () => {
     const db = getDb();
     // Server omits null fields under JsonIgnoreCondition.WhenWritingNull,
-    // so `commands` may arrive as undefined when empty.
+    // so `events` may arrive as undefined when empty.
     const getSync = okSync({ mode: "replay", headSequence: 0 });
 
     const status = await createPullSync({ db, getSync }).run();
     expect(status).toBe("idle");
   });
 
-  it("applies replay commands in order, advancing the high-water mark", async () => {
+  it("applies replay events in order, advancing the high-water mark", async () => {
     const db = getDb();
     const getSync = okSync({
       mode: "replay",
-      commands: [
+      events: [
         {
           sequence: 1,
-          type: "CreateHabit",
+          type: "HabitCreated",
           payload: { habitId, title: "Read", goal: null },
         },
         {
           sequence: 2,
-          type: "UpdateHabit",
+          type: "HabitDetailsEdited",
           payload: { habitId, title: "Read more" },
         },
       ],
@@ -109,10 +109,10 @@ describe("createPullSync", () => {
         ok: true,
         response: {
           mode: "replay",
-          commands: [
+          events: [
             {
               sequence: 1,
-              type: "CreateHabit",
+              type: "HabitCreated",
               payload: { habitId, title: "First", goal: null },
             },
           ],
@@ -124,10 +124,10 @@ describe("createPullSync", () => {
         ok: true,
         response: {
           mode: "replay",
-          commands: [
+          events: [
             {
               sequence: 2,
-              type: "UpdateHabit",
+              type: "HabitDetailsEdited",
               payload: { habitId, title: "Second" },
             },
           ],
@@ -154,10 +154,10 @@ describe("createPullSync", () => {
       ok: true,
       response: {
         mode: "replay",
-        commands: [
+        events: [
           {
             sequence: ++seq,
-            type: "CreateHabit",
+            type: "HabitCreated",
             payload: {
               habitId: `00000000-0000-4000-8000-${String(seq).padStart(12, "0")}`,
               title: `H${seq}`,
@@ -228,7 +228,7 @@ describe("createPullSync", () => {
 
     const getSync = okSync({
       mode: "replay",
-      commands: [],
+      events: [],
       headSequence: 50,
       nextSince: null,
     });

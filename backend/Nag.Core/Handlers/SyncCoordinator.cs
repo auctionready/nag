@@ -6,14 +6,14 @@ namespace Nag.Core.Handlers;
 
 /// <summary>
 /// Decides whether a pull-sync request should replay a small batch of
-/// commands or hand back a full snapshot. Snapshot mode kicks in for fresh
-/// installs (<c>since == 0</c>) and for clients that have fallen far behind
-/// the head sequence (gap &gt; <see cref="SnapshotThreshold"/>). The
-/// snapshot is just the existing <see cref="HomeBoard"/> read model — its
+/// past-tense events or hand back a full snapshot. Snapshot mode kicks in
+/// for fresh installs (<c>since == 0</c>) and for clients that have
+/// fallen far behind the head sequence (gap &gt; <see cref="SnapshotThreshold"/>).
+/// The snapshot is just the existing <see cref="HomeBoard"/> read model — its
 /// <c>LastSequence</c> doubles as the high-water mark the client should
 /// adopt after applying.
 /// </summary>
-public sealed class SyncCoordinator(IQuerySession session, CommandsReader reader)
+public sealed class SyncCoordinator(IQuerySession session, EventsReader reader)
 {
     public const int SnapshotThreshold = 50;
 
@@ -43,7 +43,7 @@ public sealed class SyncCoordinator(IQuerySession session, CommandsReader reader
         var page = await reader.ReadSinceAsync(since, limit: null, ct);
         return new SyncResponse(
             Mode: "replay",
-            Commands: page.Commands,
+            Events: page.Events,
             HeadSequence: headSequence,
             NextSince: page.NextSince
         );

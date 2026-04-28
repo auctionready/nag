@@ -61,19 +61,4 @@ public static class CommandsEndpoints
             _ => Results.StatusCode(500),
         };
     }
-
-    [Tags("Commands")]
-    [EndpointName("getCommands")]
-    [ProducesResponseType(typeof(CommandsPage), StatusCodes.Status200OK)]
-    [WolverineGet("/commands")]
-    public static async Task<IResult> GetCommands(
-        [FromQuery] long since,
-        [FromQuery] int? limit,
-        CommandsReader reader,
-        CancellationToken ct
-    )
-    {
-        var page = await reader.ReadSinceAsync(since, limit, ct);
-        return Results.Ok(page);
-    }
 }

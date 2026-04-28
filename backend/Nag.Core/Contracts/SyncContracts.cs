@@ -7,7 +7,7 @@ namespace Nag.Core.Contracts;
 /// <see cref="Mode"/> field tells the client which payload fields are
 /// populated:
 /// <list type="bullet">
-///   <item><c>"replay"</c>: <see cref="Commands"/> + <see cref="HeadSequence"/>
+///   <item><c>"replay"</c>: <see cref="Events"/> + <see cref="HeadSequence"/>
 ///     (and <see cref="NextSince"/> if more pages await).</item>
 ///   <item><c>"snapshot"</c>: <see cref="SequenceAtSnapshot"/> +
 ///     <see cref="Snapshot"/>. Client replaces local replicated state.</item>
@@ -19,7 +19,7 @@ namespace Nag.Core.Contracts;
 /// </summary>
 public sealed record SyncResponse(
     string Mode,
-    IReadOnlyList<CommandEnvelopeOut>? Commands = null,
+    IReadOnlyList<EventEnvelope>? Events = null,
     long? HeadSequence = null,
     long? NextSince = null,
     long? SequenceAtSnapshot = null,

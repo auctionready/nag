@@ -88,12 +88,14 @@ export const CheckInMarkedSkipped = z.object({
   type: z.literal("CheckInMarkedSkipped"),
   checkInId: Uuid,
   habitId: Uuid,
+  timestamp: IsoDateTime,
 });
 
 export const CheckInMarkedDone = z.object({
   type: z.literal("CheckInMarkedDone"),
   checkInId: Uuid,
   habitId: Uuid,
+  timestamp: IsoDateTime,
 });
 
 export const CheckInDeleted = z.object({

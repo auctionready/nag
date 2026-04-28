@@ -27,14 +27,18 @@ public sealed record CheckInMoved(
 );
 
 /// <summary>
-/// A check-in was marked as a skip rather than a completion.
+/// A check-in was marked as a skip rather than a completion. Carries
+/// the check-in's current `Timestamp` (looked up by the dispatcher from
+/// <see cref="ReadModels.CheckInState"/>) so the per-period summary
+/// projection can slice by period without an external state lookup.
 /// </summary>
-public sealed record CheckInMarkedSkipped(Guid CheckInId, Guid HabitId);
+public sealed record CheckInMarkedSkipped(Guid CheckInId, Guid HabitId, DateTimeOffset Timestamp);
 
 /// <summary>
-/// A check-in was un-skipped (marked as a completion).
+/// A check-in was un-skipped (marked as a completion). Same `Timestamp`
+/// rationale as <see cref="CheckInMarkedSkipped"/>.
 /// </summary>
-public sealed record CheckInMarkedDone(Guid CheckInId, Guid HabitId);
+public sealed record CheckInMarkedDone(Guid CheckInId, Guid HabitId, DateTimeOffset Timestamp);
 
 /// <summary>
 /// A check-in was deleted. Carries the timestamp the check-in had at

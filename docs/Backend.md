@@ -43,11 +43,12 @@ The source lives in [`backend/`](../backend) and has its own
 
 | Method | Path                                     | Auth | Notes                                                                |
 | ------ | ---------------------------------------- | ---- | -------------------------------------------------------------------- |
-| `POST` | `/commands`                              | yes  | Append a command. Idempotent on `id`.                                |
-| `GET`  | `/commands?since=<long>&limit=<int?>`    | yes  | Page of commands; `limit` capped at 500.                             |
+| `POST` | `/commands`                              | yes  | Append a command (server translates → events). Idempotent on `id`.   |
+| `GET`  | `/events?since=<long>&limit=<int?>`      | yes  | Page of past-tense events; `limit` capped at 500.                    |
+| `GET`  | `/sync?since=<long>`                     | yes  | Pull-sync: replay (events) or snapshot (HomeBoard).                  |
 | `GET`  | `/home-board`                            | yes  | Materialized current-period view.                                    |
 | `GET`  | `/check-ins/monthly/{year}/{month}`      | yes  | Materialized check-ins for one calendar month (UTC).                 |
-| `GET`  | `/check-ins/weekly/{year}/{month}/{day}` | yes  | Materialized check-ins for one Sunday-anchored week. `day` = Sunday. |
+| `GET`  | `/check-ins/weekly/{year}/{month}/{day}` | yes  | Materialized check-ins for one Monday-anchored week. `day` = Monday. |
 | `GET`  | `/health`                                | no   | Liveness.                                                            |
 
 In Debug builds, `/swagger` serves OpenAPI UI. In Release builds the
@@ -85,11 +86,16 @@ Response:
 }
 ```
 
-## Commands & projection
+## Commands, events & projection
 
-Commands live in `Nag.Core/Commands/`. They are also the _events_
-written to Marten — a 1:1 mapping for now. All events land on a single
-stream identified by `NagStreams.Root` (single-tenant; this becomes a
+`Nag.Core/Commands/` defines the **inbound intent** vocabulary —
+what `POST /commands` accepts. `Nag.Core/Events/` defines the
+**past-tense fact** vocabulary the server appends to Marten and ships
+to clients on `/events` and `/sync` replays. The
+`CommandDispatcher` is the bridge: it validates a command, loads any
+prior state it needs (from `CheckInState` for moves and deletes), and
+emits one or more events. All events land on a single stream
+identified by `NagStreams.Root` (single-tenant; this becomes a
 per-user GUID when we add multi-tenancy).
 
 `HomeBoardProjection` is a Marten `SingleStreamProjection<HomeBoard,
@@ -134,14 +140,15 @@ locally (older rows are pruned after every successful pull-sync).
 When the user browses history, the app calls
 `GET /check-ins/{monthly|weekly}/…` to fill in the missing periods.
 
-Limitations (intentional, MVP):
-
-- `UpdateCheckIn` that moves a check-in across a period boundary
-  patches the new period but leaves a stale copy in the old period.
-- `DeleteCheckIn` is not applied to summaries; deleted rows linger.
-
-Both are tolerable for the "browse settled history" use case where
-the period is no longer mutating.
+Cross-period correctness is now an invariant. `CheckInMoved` carries
+both `OldTimestamp` and `NewTimestamp`, so the projection's slicer
+fans out to **both** the source and target period docs via Marten's
+`Identities` — the source removes the stale row, the target upserts
+the new one. `CheckInDeleted` carries the timestamp at delete time
+and routes cleanly to the right period. The
+`CheckInIndexProjection` (one tiny doc per check-in, keyed by
+`CheckInId`) is what lets the dispatcher fill in `OldTimestamp` /
+`Timestamp` without a state-stream replay on every Update / Delete.
 
 ## Idempotency
 

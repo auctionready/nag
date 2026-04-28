@@ -1,5 +1,5 @@
 import type { AnyDb } from "../db";
-import { applyServerCommand, type ServerCommand } from "./applyServerCommand";
+import { applyServerEvent, type ServerEvent } from "./applyServerEvent";
 import { installSnapshot, type ServerSnapshot } from "./installSnapshot";
 import { getHighestServerSequence, isHalted } from "./outbox";
 import { syncAllNotifications } from "../notificationConsolidator";
@@ -15,7 +15,7 @@ export type PullStatus = "idle" | "halted" | "offline";
  */
 export type SyncResult = {
   mode: "replay" | "snapshot" | string;
-  commands?: ServerCommand[] | null;
+  events?: ServerEvent[] | null;
   headSequence?: number | null;
   nextSince?: number | null;
   sequenceAtSnapshot?: number | null;
@@ -108,17 +108,17 @@ export const createPullSync = ({
         return "offline";
       }
 
-      const commands = response.commands ?? [];
+      const events = response.events ?? [];
       debug(
-        `pullSync.run: replay mode commands=${commands.length} headSequence=${response.headSequence ?? "(none)"} nextSince=${response.nextSince ?? "(none)"}`,
+        `pullSync.run: replay mode events=${events.length} headSequence=${response.headSequence ?? "(none)"} nextSince=${response.nextSince ?? "(none)"}`,
       );
-      for (const cmd of commands) {
-        await applyServerCommand(db, cmd);
+      for (const event of events) {
+        await applyServerEvent(db, event);
         mutated = true;
       }
       // `nextSince` arrives as `undefined` (server omits null fields) when
       // there are no more pages.
-      if (response.nextSince == null || commands.length === 0) {
+      if (response.nextSince == null || events.length === 0) {
         break;
       }
     }

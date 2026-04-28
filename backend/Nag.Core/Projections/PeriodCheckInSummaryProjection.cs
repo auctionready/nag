@@ -1,27 +1,42 @@
 using JasperFx.Events;
 using Marten.Events.Projections;
-using Nag.Core.Commands;
+using Nag.Core.Events;
 using Nag.Core.ReadModels;
 
 namespace Nag.Core.Projections;
 
 /// <summary>
-/// Projects every <c>CreateCheckIn</c> / <c>UpdateCheckIn</c> into a
-/// per-month <see cref="MonthlyCheckInSummary"/> document keyed by
-/// <c>yyyy-MM</c> (UTC). Lets the mobile app drop check-ins older than
-/// the previous month locally and still browse history by fetching a
-/// month's summary on demand.
+/// Projects every check-in event into a per-month
+/// <see cref="MonthlyCheckInSummary"/> document keyed by <c>yyyy-MM</c>
+/// (UTC). Lets the mobile app drop check-ins older than the previous
+/// month locally and still browse history by fetching a month's
+/// summary on demand.
+///
+/// <para>
+/// <see cref="CheckInMoved"/> uses <c>Identities</c> to fan out to
+/// <em>both</em> the source and the target month doc — the source
+/// removes the stale row, the target upserts the new one. With the
+/// <c>OldTimestamp</c> baked into the event, neither side needs to
+/// look up state.
+/// </para>
 /// </summary>
 public sealed class MonthlyCheckInSummaryProjection
     : MultiStreamProjection<MonthlyCheckInSummary, string>
 {
     public MonthlyCheckInSummaryProjection()
     {
-        Identity<CreateCheckIn>(e => MonthKeys.For(e.Timestamp));
-        Identity<UpdateCheckIn>(e => MonthKeys.For(e.Timestamp));
+        Identity<CheckInRecorded>(e => MonthKeys.For(e.Timestamp));
+        Identities<CheckInMoved>(e =>
+            MonthKeys.For(e.OldTimestamp) == MonthKeys.For(e.NewTimestamp)
+                ? new[] { MonthKeys.For(e.NewTimestamp) }
+                : new[] { MonthKeys.For(e.OldTimestamp), MonthKeys.For(e.NewTimestamp) }
+        );
+        Identity<CheckInMarkedSkipped>(e => MonthKeys.For(e.Timestamp));
+        Identity<CheckInMarkedDone>(e => MonthKeys.For(e.Timestamp));
+        Identity<CheckInDeleted>(e => MonthKeys.For(e.Timestamp));
     }
 
-    public static MonthlyCheckInSummary Create(IEvent<CreateCheckIn> e) =>
+    public static MonthlyCheckInSummary Create(IEvent<CheckInRecorded> e) =>
         new()
         {
             Id = MonthKeys.For(e.Data.Timestamp),
@@ -33,45 +48,84 @@ public sealed class MonthlyCheckInSummaryProjection
                     HabitId = e.Data.HabitId,
                     CheckIns =
                     [
-                        new HomeCheckIn(
-                            e.Data.CheckInId,
-                            e.Data.Timestamp,
-                            e.Data.Skipped ?? false
-                        ),
+                        new HomeCheckIn(e.Data.CheckInId, e.Data.Timestamp, e.Data.Skipped),
                     ],
                 },
             ],
         };
 
-    public void Apply(IEvent<CreateCheckIn> e, MonthlyCheckInSummary doc)
+    public void Apply(IEvent<CheckInRecorded> e, MonthlyCheckInSummary doc)
     {
-        Upsert(
-            doc.Habits,
-            e.Data.HabitId,
-            e.Data.CheckInId,
-            e.Data.Timestamp,
-            e.Data.Skipped ?? false
-        );
+        EnsureInitialized(doc);
+        Upsert(doc.Habits, e.Data.HabitId, e.Data.CheckInId, e.Data.Timestamp, e.Data.Skipped);
     }
 
-    public void Apply(IEvent<UpdateCheckIn> e, MonthlyCheckInSummary doc)
+    public void Apply(IEvent<CheckInMoved> e, MonthlyCheckInSummary doc)
     {
-        // UpdateCheckIn only knows the check-in id. Locate it across habits
-        // and patch in place. If the new timestamp moved the check-in from
-        // a different month, this routes to the *new* month doc and the
-        // old month is left stale (see XML doc on the read model).
-        foreach (var habit in doc.Habits)
+        var data = e.Data;
+        var oldKey = MonthKeys.For(data.OldTimestamp);
+        var newKey = MonthKeys.For(data.NewTimestamp);
+
+        if (oldKey == newKey)
         {
-            var idx = habit.CheckIns.FindIndex(c => c.Id == e.Data.CheckInId);
-            if (idx < 0)
-                continue;
-            habit.CheckIns[idx] = habit.CheckIns[idx] with
-            {
-                Timestamp = e.Data.Timestamp,
-                Skipped = e.Data.Skipped ?? habit.CheckIns[idx].Skipped,
-            };
+            // Same-period move: single slice; just update the timestamp.
+            EnsureInitialized(doc);
+            var existingSkipped = FindSkipped(doc.Habits, data.CheckInId) ?? false;
+            Upsert(doc.Habits, data.HabitId, data.CheckInId, data.NewTimestamp, existingSkipped);
             return;
         }
+
+        // Cross-period move: `Identities` routes the event to both old and
+        // new period docs. Disambiguate the slice by the doc's contents:
+        // the old-period doc already has the check-in (from `CheckInRecorded`),
+        // the new-period doc doesn't. Avoids relying on Marten populating
+        // `doc.Id` on freshly-created docs.
+        var alreadyHasCheckIn = doc.Habits.Any(h => h.CheckIns.Any(c => c.Id == data.CheckInId));
+        if (alreadyHasCheckIn)
+        {
+            Remove(doc.Habits, data.CheckInId);
+        }
+        else
+        {
+            if (string.IsNullOrEmpty(doc.Id))
+                doc.Id = newKey;
+            if (doc.MonthStart == default)
+                doc.MonthStart = MonthKeys.StartOf(data.NewTimestamp);
+            Upsert(doc.Habits, data.HabitId, data.CheckInId, data.NewTimestamp, false);
+        }
+    }
+
+    public void Apply(IEvent<CheckInMarkedSkipped> e, MonthlyCheckInSummary doc)
+    {
+        EnsureInitialized(doc);
+        UpdateSkipped(doc.Habits, e.Data.CheckInId, true);
+    }
+
+    public void Apply(IEvent<CheckInMarkedDone> e, MonthlyCheckInSummary doc)
+    {
+        EnsureInitialized(doc);
+        UpdateSkipped(doc.Habits, e.Data.CheckInId, false);
+    }
+
+    public void Apply(IEvent<CheckInDeleted> e, MonthlyCheckInSummary doc)
+    {
+        EnsureInitialized(doc);
+        Remove(doc.Habits, e.Data.CheckInId);
+    }
+
+    /// <summary>
+    /// When `Identities` slicing routes an event to a doc that doesn't yet
+    /// exist, Marten constructs a default and sets <see cref="MonthlyCheckInSummary.Id"/>
+    /// to the slice key. <see cref="MonthlyCheckInSummary.MonthStart"/> is
+    /// not set automatically — derive it from the id ("yyyy-MM").
+    /// </summary>
+    private static void EnsureInitialized(MonthlyCheckInSummary doc)
+    {
+        if (doc.MonthStart != default || string.IsNullOrEmpty(doc.Id))
+            return;
+        var year = int.Parse(doc.Id.AsSpan(0, 4));
+        var month = int.Parse(doc.Id.AsSpan(5, 2));
+        doc.MonthStart = new DateTimeOffset(year, month, 1, 0, 0, 0, TimeSpan.Zero);
     }
 
     private static void Upsert(
@@ -97,23 +151,68 @@ public sealed class MonthlyCheckInSummaryProjection
         habit.CheckIns.RemoveAll(c => c.Id == checkInId);
         habit.CheckIns.Add(new HomeCheckIn(checkInId, timestamp, skipped));
     }
+
+    private static void UpdateSkipped(
+        List<HabitPeriodCheckIns> habits,
+        Guid checkInId,
+        bool skipped
+    )
+    {
+        foreach (var habit in habits)
+        {
+            var idx = habit.CheckIns.FindIndex(c => c.Id == checkInId);
+            if (idx < 0)
+                continue;
+            habit.CheckIns[idx] = habit.CheckIns[idx] with { Skipped = skipped };
+            return;
+        }
+    }
+
+    private static void Remove(List<HabitPeriodCheckIns> habits, Guid checkInId)
+    {
+        foreach (var habit in habits)
+        {
+            habit.CheckIns.RemoveAll(c => c.Id == checkInId);
+        }
+    }
+
+    private static bool? FindSkipped(List<HabitPeriodCheckIns> habits, Guid checkInId)
+    {
+        foreach (var habit in habits)
+        {
+            var match = habit.CheckIns.FirstOrDefault(c => c.Id == checkInId);
+            if (match is not null)
+                return match.Skipped;
+        }
+        return null;
+    }
 }
 
 /// <summary>
-/// Same shape as <see cref="MonthlyCheckInSummaryProjection"/>, sliced by
-/// Sunday-anchored week instead of month. Sunday matches
-/// <see cref="Nag.Core.Domain.PeriodCalculator"/>.
+/// Sibling of <see cref="MonthlyCheckInSummaryProjection"/>, sliced by
+/// week instead of month. Anchored on Monday (UTC) — the system-wide
+/// default per <see cref="Nag.Core.Domain.PeriodCalculator"/>; account-level
+/// overrides aren't honoured by the slicer (it'd need the account's
+/// `WeekStartsOn` at slice time, and slicers are pure). Single-tenant
+/// MVP, so the system anchor is fine.
 /// </summary>
 public sealed class WeeklyCheckInSummaryProjection
     : MultiStreamProjection<WeeklyCheckInSummary, string>
 {
     public WeeklyCheckInSummaryProjection()
     {
-        Identity<CreateCheckIn>(e => WeekKeys.For(e.Timestamp));
-        Identity<UpdateCheckIn>(e => WeekKeys.For(e.Timestamp));
+        Identity<CheckInRecorded>(e => WeekKeys.For(e.Timestamp));
+        Identities<CheckInMoved>(e =>
+            WeekKeys.For(e.OldTimestamp) == WeekKeys.For(e.NewTimestamp)
+                ? new[] { WeekKeys.For(e.NewTimestamp) }
+                : new[] { WeekKeys.For(e.OldTimestamp), WeekKeys.For(e.NewTimestamp) }
+        );
+        Identity<CheckInMarkedSkipped>(e => WeekKeys.For(e.Timestamp));
+        Identity<CheckInMarkedDone>(e => WeekKeys.For(e.Timestamp));
+        Identity<CheckInDeleted>(e => WeekKeys.For(e.Timestamp));
     }
 
-    public static WeeklyCheckInSummary Create(IEvent<CreateCheckIn> e) =>
+    public static WeeklyCheckInSummary Create(IEvent<CheckInRecorded> e) =>
         new()
         {
             Id = WeekKeys.For(e.Data.Timestamp),
@@ -125,57 +224,137 @@ public sealed class WeeklyCheckInSummaryProjection
                     HabitId = e.Data.HabitId,
                     CheckIns =
                     [
-                        new HomeCheckIn(
-                            e.Data.CheckInId,
-                            e.Data.Timestamp,
-                            e.Data.Skipped ?? false
-                        ),
+                        new HomeCheckIn(e.Data.CheckInId, e.Data.Timestamp, e.Data.Skipped),
                     ],
                 },
             ],
         };
 
-    public void Apply(IEvent<CreateCheckIn> e, WeeklyCheckInSummary doc)
+    public void Apply(IEvent<CheckInRecorded> e, WeeklyCheckInSummary doc)
     {
-        var habit = doc.Habits.FirstOrDefault(h => h.HabitId == e.Data.HabitId);
+        EnsureInitialized(doc);
+        Upsert(doc.Habits, e.Data.HabitId, e.Data.CheckInId, e.Data.Timestamp, e.Data.Skipped);
+    }
+
+    public void Apply(IEvent<CheckInMoved> e, WeeklyCheckInSummary doc)
+    {
+        var data = e.Data;
+        var oldKey = WeekKeys.For(data.OldTimestamp);
+        var newKey = WeekKeys.For(data.NewTimestamp);
+
+        if (oldKey == newKey)
+        {
+            EnsureInitialized(doc);
+            var existingSkipped = FindSkipped(doc.Habits, data.CheckInId) ?? false;
+            Upsert(doc.Habits, data.HabitId, data.CheckInId, data.NewTimestamp, existingSkipped);
+            return;
+        }
+
+        var alreadyHasCheckIn = doc.Habits.Any(h => h.CheckIns.Any(c => c.Id == data.CheckInId));
+        if (alreadyHasCheckIn)
+        {
+            Remove(doc.Habits, data.CheckInId);
+        }
+        else
+        {
+            if (string.IsNullOrEmpty(doc.Id))
+                doc.Id = newKey;
+            if (doc.WeekStart == default)
+                doc.WeekStart = WeekKeys.StartOf(data.NewTimestamp);
+            Upsert(doc.Habits, data.HabitId, data.CheckInId, data.NewTimestamp, false);
+        }
+    }
+
+    public void Apply(IEvent<CheckInMarkedSkipped> e, WeeklyCheckInSummary doc)
+    {
+        EnsureInitialized(doc);
+        UpdateSkipped(doc.Habits, e.Data.CheckInId, true);
+    }
+
+    public void Apply(IEvent<CheckInMarkedDone> e, WeeklyCheckInSummary doc)
+    {
+        EnsureInitialized(doc);
+        UpdateSkipped(doc.Habits, e.Data.CheckInId, false);
+    }
+
+    public void Apply(IEvent<CheckInDeleted> e, WeeklyCheckInSummary doc)
+    {
+        EnsureInitialized(doc);
+        Remove(doc.Habits, e.Data.CheckInId);
+    }
+
+    /// <summary>
+    /// Same role as the monthly equivalent — derive
+    /// <see cref="WeeklyCheckInSummary.WeekStart"/> from the doc id
+    /// ("yyyy-MM-dd") when Marten created a fresh doc for this slice.
+    /// </summary>
+    private static void EnsureInitialized(WeeklyCheckInSummary doc)
+    {
+        if (doc.WeekStart != default || string.IsNullOrEmpty(doc.Id))
+            return;
+        var year = int.Parse(doc.Id.AsSpan(0, 4));
+        var month = int.Parse(doc.Id.AsSpan(5, 2));
+        var day = int.Parse(doc.Id.AsSpan(8, 2));
+        doc.WeekStart = new DateTimeOffset(year, month, day, 0, 0, 0, TimeSpan.Zero);
+    }
+
+    private static void Upsert(
+        List<HabitPeriodCheckIns> habits,
+        Guid habitId,
+        Guid checkInId,
+        DateTimeOffset timestamp,
+        bool skipped
+    )
+    {
+        var habit = habits.FirstOrDefault(h => h.HabitId == habitId);
         if (habit is null)
         {
-            doc.Habits.Add(
+            habits.Add(
                 new HabitPeriodCheckIns
                 {
-                    HabitId = e.Data.HabitId,
-                    CheckIns =
-                    [
-                        new HomeCheckIn(
-                            e.Data.CheckInId,
-                            e.Data.Timestamp,
-                            e.Data.Skipped ?? false
-                        ),
-                    ],
+                    HabitId = habitId,
+                    CheckIns = [new HomeCheckIn(checkInId, timestamp, skipped)],
                 }
             );
             return;
         }
-        habit.CheckIns.RemoveAll(c => c.Id == e.Data.CheckInId);
-        habit.CheckIns.Add(
-            new HomeCheckIn(e.Data.CheckInId, e.Data.Timestamp, e.Data.Skipped ?? false)
-        );
+        habit.CheckIns.RemoveAll(c => c.Id == checkInId);
+        habit.CheckIns.Add(new HomeCheckIn(checkInId, timestamp, skipped));
     }
 
-    public void Apply(IEvent<UpdateCheckIn> e, WeeklyCheckInSummary doc)
+    private static void UpdateSkipped(
+        List<HabitPeriodCheckIns> habits,
+        Guid checkInId,
+        bool skipped
+    )
     {
-        foreach (var habit in doc.Habits)
+        foreach (var habit in habits)
         {
-            var idx = habit.CheckIns.FindIndex(c => c.Id == e.Data.CheckInId);
+            var idx = habit.CheckIns.FindIndex(c => c.Id == checkInId);
             if (idx < 0)
                 continue;
-            habit.CheckIns[idx] = habit.CheckIns[idx] with
-            {
-                Timestamp = e.Data.Timestamp,
-                Skipped = e.Data.Skipped ?? habit.CheckIns[idx].Skipped,
-            };
+            habit.CheckIns[idx] = habit.CheckIns[idx] with { Skipped = skipped };
             return;
         }
+    }
+
+    private static void Remove(List<HabitPeriodCheckIns> habits, Guid checkInId)
+    {
+        foreach (var habit in habits)
+        {
+            habit.CheckIns.RemoveAll(c => c.Id == checkInId);
+        }
+    }
+
+    private static bool? FindSkipped(List<HabitPeriodCheckIns> habits, Guid checkInId)
+    {
+        foreach (var habit in habits)
+        {
+            var match = habit.CheckIns.FirstOrDefault(c => c.Id == checkInId);
+            if (match is not null)
+                return match.Skipped;
+        }
+        return null;
     }
 }
 
@@ -196,6 +375,9 @@ internal static class MonthKeys
 
 internal static class WeekKeys
 {
+    // Monday-anchored to match the system-wide default in PeriodCalculator.
+    private const DayOfWeek WeekStart = DayOfWeek.Monday;
+
     public static string For(DateTimeOffset timestamp)
     {
         var start = StartOf(timestamp);
@@ -205,9 +387,9 @@ internal static class WeekKeys
     public static DateTimeOffset StartOf(DateTimeOffset timestamp)
     {
         var utc = timestamp.UtcDateTime;
-        var daysSinceSunday = (int)utc.DayOfWeek;
+        var daysSinceStart = ((int)utc.DayOfWeek - (int)WeekStart + 7) % 7;
         return new DateTimeOffset(utc.Year, utc.Month, utc.Day, 0, 0, 0, TimeSpan.Zero).AddDays(
-            -daysSinceSunday
+            -daysSinceStart
         );
     }
 }

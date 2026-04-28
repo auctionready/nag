@@ -156,8 +156,15 @@ builder
         opts.Schema.For<Device>();
         opts.Schema.For<ProcessedCommand>().MultiTenanted();
         opts.Schema.For<HomeBoard>().MultiTenanted();
+        // Past-tense event projections introduced alongside the
+        // server-side switch — same per-account isolation rule as
+        // HomeBoard / ProcessedCommand.
+        opts.Schema.For<CheckInState>().MultiTenanted();
+        opts.Schema.For<MonthlyCheckInSummary>().MultiTenanted();
+        opts.Schema.For<WeeklyCheckInSummary>().MultiTenanted();
 
         opts.Projections.Add<HomeBoardProjection>(ProjectionLifecycle.Inline);
+        opts.Projections.Add<CheckInIndexProjection>(ProjectionLifecycle.Inline);
         opts.Projections.Add<MonthlyCheckInSummaryProjection>(ProjectionLifecycle.Inline);
         opts.Projections.Add<WeeklyCheckInSummaryProjection>(ProjectionLifecycle.Inline);
     })
@@ -192,7 +199,7 @@ builder.Services.AddMartenTenancyDetection(opts =>
 });
 
 builder.Services.AddScoped<CommandDispatcher>();
-builder.Services.AddScoped<CommandsReader>();
+builder.Services.AddScoped<EventsReader>();
 builder.Services.AddScoped<SyncCoordinator>();
 
 // Clerk verifier — registered in both modes. When Nag:ClerkIssuer is unset

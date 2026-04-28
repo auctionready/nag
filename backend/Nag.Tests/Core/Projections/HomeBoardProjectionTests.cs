@@ -1,6 +1,6 @@
 using Nag.Core;
-using Nag.Core.Commands;
 using Nag.Core.Domain;
+using Nag.Core.Events;
 using Nag.Core.ReadModels;
 using Nag.Tests.Infrastructure;
 using Shouldly;
@@ -15,9 +15,9 @@ public class HomeBoardProjectionTests
 
     public HomeBoardProjectionTests(PostgresFixture fixture) => _fixture = fixture;
 
-    public class CreateHabit_runs_inline : HomeBoardProjectionTests
+    public class HabitCreated_runs_inline : HomeBoardProjectionTests
     {
-        public CreateHabit_runs_inline(PostgresFixture fixture)
+        public HabitCreated_runs_inline(PostgresFixture fixture)
             : base(fixture) { }
 
         [Fact]
@@ -27,7 +27,7 @@ public class HomeBoardProjectionTests
             await using var session = store.LightweightSession();
 
             var habitId = Guid.NewGuid();
-            session.Events.Append(NagStreams.Root, new CreateHabit(habitId, "Read"));
+            session.Events.Append(NagStreams.Root, new HabitCreated(habitId, "Read"));
             await session.SaveChangesAsync();
 
             var board = await session.LoadAsync<HomeBoard>(NagStreams.Root);
@@ -38,9 +38,9 @@ public class HomeBoardProjectionTests
         }
     }
 
-    public class UpdateHabit_replaces_in_place : HomeBoardProjectionTests
+    public class HabitDetailsEdited_replaces_in_place : HomeBoardProjectionTests
     {
-        public UpdateHabit_replaces_in_place(PostgresFixture fixture)
+        public HabitDetailsEdited_replaces_in_place(PostgresFixture fixture)
             : base(fixture) { }
 
         [Fact]
@@ -52,8 +52,8 @@ public class HomeBoardProjectionTests
             var habitId = Guid.NewGuid();
             session.Events.Append(
                 NagStreams.Root,
-                new CreateHabit(habitId, "Read"),
-                new UpdateHabit(habitId, Title: "Read more")
+                new HabitCreated(habitId, "Read"),
+                new HabitDetailsEdited(habitId, Title: "Read more")
             );
             await session.SaveChangesAsync();
 
@@ -62,9 +62,9 @@ public class HomeBoardProjectionTests
         }
     }
 
-    public class DeleteHabit_removes_it : HomeBoardProjectionTests
+    public class HabitDeleted_removes_it : HomeBoardProjectionTests
     {
-        public DeleteHabit_removes_it(PostgresFixture fixture)
+        public HabitDeleted_removes_it(PostgresFixture fixture)
             : base(fixture) { }
 
         [Fact]
@@ -76,8 +76,8 @@ public class HomeBoardProjectionTests
             var habitId = Guid.NewGuid();
             session.Events.Append(
                 NagStreams.Root,
-                new CreateHabit(habitId, "Read"),
-                new DeleteHabit(habitId)
+                new HabitCreated(habitId, "Read"),
+                new HabitDeleted(habitId)
             );
             await session.SaveChangesAsync();
 
@@ -86,9 +86,9 @@ public class HomeBoardProjectionTests
         }
     }
 
-    public class CreateCheckIn_appends_to_period : HomeBoardProjectionTests
+    public class CheckInRecorded_appends_to_period : HomeBoardProjectionTests
     {
-        public CreateCheckIn_appends_to_period(PostgresFixture fixture)
+        public CheckInRecorded_appends_to_period(PostgresFixture fixture)
             : base(fixture) { }
 
         [Fact]
@@ -101,8 +101,8 @@ public class HomeBoardProjectionTests
             var checkInId = Guid.NewGuid();
             session.Events.Append(
                 NagStreams.Root,
-                new CreateHabit(habitId, "Read", Goal: new GoalPayload(Regularity.Day, 1)),
-                new CreateCheckIn(checkInId, habitId, DateTimeOffset.UtcNow)
+                new HabitCreated(habitId, "Read", Goal: new GoalPayload(Regularity.Day, 1)),
+                new CheckInRecorded(checkInId, habitId, DateTimeOffset.UtcNow)
             );
             await session.SaveChangesAsync();
 
