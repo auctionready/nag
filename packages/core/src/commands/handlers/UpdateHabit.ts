@@ -1,7 +1,6 @@
 import { eq } from "drizzle-orm";
 import { habit, goal, schedule } from "@nag/schema";
 import type { AnyDb } from "../../db";
-import { syncAllNotifications } from "../../notificationConsolidator";
 import type { UpdateHabit } from "../schemas";
 
 function popcount(n: number): number {
@@ -60,11 +59,9 @@ export async function handleUpdateHabit(
           })),
         )
         .returning({ id: schedule.id });
-      await syncAllNotifications(db);
       return { scheduleIds: insertedSchedules.map((s) => s.id) };
     }
   }
 
-  await syncAllNotifications(db);
   return { scheduleIds: [] };
 }

@@ -1,7 +1,6 @@
 import { eq } from "drizzle-orm";
 import { habit } from "@nag/schema";
 import type { AnyDb } from "../../db";
-import { syncAllNotifications } from "../../notificationConsolidator";
 import type { DeleteHabit } from "../schemas";
 
 export async function handleDeleteHabit(
@@ -17,6 +16,5 @@ export async function handleDeleteHabit(
     throw new Error(`DeleteHabit: habit id=${command.habitId} not found`);
   }
 
-  await syncAllNotifications(db);
   return { externalId: deleted[0].externalId };
 }
