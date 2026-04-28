@@ -33,6 +33,33 @@ describe("previousMonthStart", () => {
   });
 });
 
+/**
+ * Insert a check-in directly (skipping `processCommand`) so the retention
+ * tests can populate stale timestamps that the user-facing CreateCheckIn
+ * validator now rejects. The retention path is independent of how the
+ * row got there — it only cares about `timestamp`.
+ */
+const insertOldCheckIn = async (
+  db: ReturnType<typeof getDb>,
+  habitId: number,
+  timestamp: Date,
+) => db.insert(schema.checkIn).values({ habitId, timestamp });
+
+const seedOutbox = async (
+  db: ReturnType<typeof getDb>,
+  status: "pending" | "sent" | "failed",
+) =>
+  db.insert(schema.outbox).values({
+    commandType: "CreateCheckIn",
+    payload: JSON.stringify({}),
+    status,
+    ...(status === "sent"
+      ? { sentAt: new Date(), serverSequence: 1 }
+      : status === "failed"
+        ? { lastError: "test" }
+        : {}),
+  });
+
 describe("pruneOldCheckIns", () => {
   it("deletes check-ins older than the cutoff and keeps newer ones", async () => {
     const db = getDb();
@@ -41,13 +68,10 @@ describe("pruneOldCheckIns", () => {
       title: "Read",
     });
 
-    const insertCheckIn = async (timestamp: Date) =>
-      processCommand(db, { type: "CreateCheckIn", habitId, timestamp });
-
-    await insertCheckIn(new Date("2026-01-15T08:00:00.000Z"));
-    await insertCheckIn(new Date("2026-02-15T08:00:00.000Z"));
-    await insertCheckIn(new Date("2026-03-15T08:00:00.000Z"));
-    await insertCheckIn(new Date("2026-04-15T08:00:00.000Z"));
+    await insertOldCheckIn(db, habitId, new Date("2026-01-15T08:00:00.000Z"));
+    await insertOldCheckIn(db, habitId, new Date("2026-02-15T08:00:00.000Z"));
+    await insertOldCheckIn(db, habitId, new Date("2026-03-15T08:00:00.000Z"));
+    await insertOldCheckIn(db, habitId, new Date("2026-04-15T08:00:00.000Z"));
 
     await pruneOldCheckIns(db, new Date("2026-03-01T00:00:00.000Z"));
 
@@ -65,11 +89,7 @@ describe("pruneOldCheckIns", () => {
       type: "CreateHabit",
       title: "Read",
     });
-    await processCommand(db, {
-      type: "CreateCheckIn",
-      habitId,
-      timestamp: new Date("2026-04-01T08:00:00.000Z"),
-    });
+    await insertOldCheckIn(db, habitId, new Date("2026-04-01T08:00:00.000Z"));
 
     await pruneOldCheckIns(db, new Date("2026-03-01T00:00:00.000Z"));
 
@@ -85,18 +105,11 @@ describe("pruneOldCheckInsIfSafe", () => {
       type: "CreateHabit",
       title: "Read",
     });
-    await processCommand(db, {
-      type: "CreateCheckIn",
-      habitId,
-      timestamp: new Date("2026-01-15T08:00:00.000Z"),
-    });
-    await processCommand(db, {
-      type: "CreateCheckIn",
-      habitId,
-      timestamp: new Date("2026-04-15T08:00:00.000Z"),
-    });
+    await insertOldCheckIn(db, habitId, new Date("2026-01-15T08:00:00.000Z"));
+    await insertOldCheckIn(db, habitId, new Date("2026-04-15T08:00:00.000Z"));
 
-    // Mark every outbox row sent so the safety gate is satisfied.
+    // The CreateHabit dispatched above already populated the outbox; mark
+    // it sent so the safety gate (no pending/failed rows) is satisfied.
     await db
       .update(schema.outbox)
       .set({ status: "sent", sentAt: new Date(), serverSequence: 1 });
@@ -118,12 +131,8 @@ describe("pruneOldCheckInsIfSafe", () => {
       type: "CreateHabit",
       title: "Read",
     });
-    await processCommand(db, {
-      type: "CreateCheckIn",
-      habitId,
-      timestamp: new Date("2026-01-15T08:00:00.000Z"),
-    });
-    // Outbox left as `pending` — the safety gate should refuse.
+    await insertOldCheckIn(db, habitId, new Date("2026-01-15T08:00:00.000Z"));
+    await seedOutbox(db, "pending");
 
     const ran = await pruneOldCheckInsIfSafe(
       db,
@@ -141,12 +150,7 @@ describe("pruneOldCheckInsIfSafe", () => {
       type: "CreateHabit",
       title: "Read",
     });
-    await processCommand(db, {
-      type: "CreateCheckIn",
-      habitId,
-      timestamp: new Date("2026-01-15T08:00:00.000Z"),
-    });
-
+    await insertOldCheckIn(db, habitId, new Date("2026-01-15T08:00:00.000Z"));
     await db.update(schema.outbox).set({ status: "failed", lastError: "test" });
 
     const ran = await pruneOldCheckInsIfSafe(

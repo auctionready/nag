@@ -134,14 +134,17 @@ locally (older rows are pruned after every successful pull-sync).
 When the user browses history, the app calls
 `GET /check-ins/{monthly|weekly}/…` to fill in the missing periods.
 
-Limitations (intentional, MVP):
+Cross-period staleness is bounded by the per-week period invariant on
+`CreateCheckIn` / `UpdateCheckIn` (see `CreateCheckInValidator` and
+`UpdateCheckInValidator`): a check-in's Sunday-anchored UTC week is
+fixed at creation, so the **weekly** projection never observes a
+cross-period move. The **monthly** projection can still see a within-week
+move shift between adjacent months when the current week straddles a
+month boundary; the prior month's doc retains a stale row in that case.
 
-- `UpdateCheckIn` that moves a check-in across a period boundary
-  patches the new period but leaves a stale copy in the old period.
-- `DeleteCheckIn` is not applied to summaries; deleted rows linger.
-
-Both are tolerable for the "browse settled history" use case where
-the period is no longer mutating.
+`DeleteCheckIn` is not applied to summaries; deleted rows linger.
+Acceptable for the "browse settled history" use case where the period
+is no longer mutating.
 
 ## Idempotency
 

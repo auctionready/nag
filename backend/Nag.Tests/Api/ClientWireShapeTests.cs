@@ -166,6 +166,9 @@ public class ClientWireShapeTests : IClassFixture<ClientWireShapeTests.Factory>
     {
         var client = AuthedClient();
         var habitId = Guid.NewGuid().ToString("D");
+        // Check-in timestamps use UtcNow so the current-week period invariant
+        // in CreateCheckInValidator passes regardless of when tests run.
+        var checkInTs = DateTimeOffset.UtcNow.ToString("O");
         await client.PostAsync(
             "/commands",
             Json(
@@ -188,7 +191,7 @@ public class ClientWireShapeTests : IClassFixture<ClientWireShapeTests.Factory>
               "payload": {
                 "checkInId": "{{Guid.NewGuid():D}}",
                 "habitId": "{{habitId}}",
-                "timestamp": "2026-04-24T10:03:00.000Z",
+                "timestamp": "{{checkInTs}}",
                 "skipped": null
               }
             }
@@ -204,6 +207,8 @@ public class ClientWireShapeTests : IClassFixture<ClientWireShapeTests.Factory>
         var client = AuthedClient();
         var habitId = Guid.NewGuid().ToString("D");
         var checkInId = Guid.NewGuid().ToString("D");
+        var createdAt = DateTimeOffset.UtcNow.ToString("O");
+        var updatedAt = DateTimeOffset.UtcNow.AddMinutes(1).ToString("O");
         await client.PostAsync(
             "/commands",
             Json(
@@ -228,7 +233,7 @@ public class ClientWireShapeTests : IClassFixture<ClientWireShapeTests.Factory>
                   "payload": {
                     "checkInId": "{{checkInId}}",
                     "habitId": "{{habitId}}",
-                    "timestamp": "2026-04-24T10:03:00.000Z",
+                    "timestamp": "{{createdAt}}",
                     "skipped": null
                   }
                 }
@@ -243,7 +248,7 @@ public class ClientWireShapeTests : IClassFixture<ClientWireShapeTests.Factory>
               "type": "UpdateCheckIn",
               "payload": {
                 "checkInId": "{{checkInId}}",
-                "timestamp": "2026-04-24T10:04:00.000Z",
+                "timestamp": "{{updatedAt}}",
                 "skipped": true
               }
             }
@@ -259,6 +264,7 @@ public class ClientWireShapeTests : IClassFixture<ClientWireShapeTests.Factory>
         var client = AuthedClient();
         var habitId = Guid.NewGuid().ToString("D");
         var checkInId = Guid.NewGuid().ToString("D");
+        var checkInTs = DateTimeOffset.UtcNow.ToString("O");
         await client.PostAsync(
             "/commands",
             Json(
@@ -283,7 +289,7 @@ public class ClientWireShapeTests : IClassFixture<ClientWireShapeTests.Factory>
                   "payload": {
                     "checkInId": "{{checkInId}}",
                     "habitId": "{{habitId}}",
-                    "timestamp": "2026-04-24T10:03:00.000Z",
+                    "timestamp": "{{checkInTs}}",
                     "skipped": null
                   }
                 }

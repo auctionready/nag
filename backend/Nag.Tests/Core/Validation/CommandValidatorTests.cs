@@ -118,3 +118,56 @@ public class GoalPayloadValidatorTests
         _v.TestValidate(goal).ShouldNotHaveAnyValidationErrors();
     }
 }
+
+public class CheckInPeriodInvariantTests
+{
+    // Fixed "now" is a Wednesday (2026-04-29) so the current week runs
+    // Sunday 2026-04-26 through Saturday 2026-05-02 (UTC).
+    private static readonly DateTimeOffset _now = new(2026, 4, 29, 12, 0, 0, TimeSpan.Zero);
+
+    private sealed class FixedClock(DateTimeOffset now) : TimeProvider
+    {
+        public override DateTimeOffset GetUtcNow() => now;
+    }
+
+    private readonly CreateCheckInValidator _create = new(new FixedClock(_now));
+    private readonly UpdateCheckInValidator _update = new(new FixedClock(_now));
+
+    [Fact]
+    public void create_passes_when_timestamp_is_in_current_week()
+    {
+        var cmd = new CreateCheckIn(Guid.NewGuid(), Guid.NewGuid(), _now.AddDays(-1));
+        _create.TestValidate(cmd).ShouldNotHaveValidationErrorFor(c => c.Timestamp);
+    }
+
+    [Fact]
+    public void create_fails_when_timestamp_is_in_previous_week()
+    {
+        var lastWeek = new DateTimeOffset(2026, 4, 25, 12, 0, 0, TimeSpan.Zero); // Saturday
+        var cmd = new CreateCheckIn(Guid.NewGuid(), Guid.NewGuid(), lastWeek);
+        _create.TestValidate(cmd).ShouldHaveValidationErrorFor(c => c.Timestamp);
+    }
+
+    [Fact]
+    public void create_fails_when_timestamp_is_in_next_week()
+    {
+        var nextWeek = new DateTimeOffset(2026, 5, 3, 0, 0, 0, TimeSpan.Zero); // Sunday after
+        var cmd = new CreateCheckIn(Guid.NewGuid(), Guid.NewGuid(), nextWeek);
+        _create.TestValidate(cmd).ShouldHaveValidationErrorFor(c => c.Timestamp);
+    }
+
+    [Fact]
+    public void update_passes_when_timestamp_is_in_current_week()
+    {
+        var cmd = new UpdateCheckIn(Guid.NewGuid(), _now.AddHours(-3));
+        _update.TestValidate(cmd).ShouldNotHaveValidationErrorFor(c => c.Timestamp);
+    }
+
+    [Fact]
+    public void update_fails_when_timestamp_is_in_previous_week()
+    {
+        var lastWeek = new DateTimeOffset(2026, 4, 22, 0, 0, 0, TimeSpan.Zero);
+        var cmd = new UpdateCheckIn(Guid.NewGuid(), lastWeek);
+        _update.TestValidate(cmd).ShouldHaveValidationErrorFor(c => c.Timestamp);
+    }
+}
