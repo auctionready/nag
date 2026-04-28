@@ -1,6 +1,7 @@
-import { sql, eq } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { habit, goal, schedule, checkIn, outbox, syncState } from "@nag/schema";
 import type { AnyDb } from "../db";
+import { withTransaction } from "../db/transaction";
 
 /**
  * Snapshot shape from `GET /sync` snapshot mode. Mirrors the C# `HomeBoard`
@@ -43,8 +44,8 @@ export type ServerSnapshot = {
 /**
  * Replaces all replicated tables (`habit`, `goal`, `schedule`, `check_in`)
  * with the snapshot, clears the outbox, advances `highest_server_sequence`
- * to `sequenceAtSnapshot`, and clears `halted`. All in one
- * `BEGIN`/`COMMIT` so a crash mid-install rolls back to the prior state.
+ * to `sequenceAtSnapshot`, and clears `halted`. All in one transaction so
+ * a crash mid-install rolls back to the prior state.
  *
  * The outbox wipe is deliberate: snapshot mode is reserved for "client is
  * far behind" cases (fresh install, long offline). The pull-sync runner
@@ -57,9 +58,8 @@ export const installSnapshot = async (
   db: AnyDb,
   sequenceAtSnapshot: number,
   snapshot: ServerSnapshot,
-): Promise<void> => {
-  await db.run(sql`BEGIN`);
-  try {
+): Promise<void> =>
+  withTransaction(db, async () => {
     // Order matters for FK cascades: schedule → goal → check_in → habit
     // would also work, but a clean truncate of `habit` cascades through
     // `goal`/`schedule`/`check_in` via ON DELETE CASCADE.
@@ -128,10 +128,4 @@ export const installSnapshot = async (
         highestServerSequence: sequenceAtSnapshot,
       })
       .where(eq(syncState.id, 1));
-
-    await db.run(sql`COMMIT`);
-  } catch (e) {
-    await db.run(sql`ROLLBACK`);
-    throw e;
-  }
-};
+  });

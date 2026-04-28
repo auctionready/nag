@@ -1,6 +1,7 @@
 import { sql, eq } from "drizzle-orm";
 import { habit, goal, schedule, checkIn, syncState } from "@nag/schema";
 import type { AnyDb } from "../db";
+import { withTransaction } from "../db/transaction";
 
 /**
  * Server-shipped command envelope as it arrives over `/sync` replay. Loose
@@ -240,8 +241,8 @@ const applyDeleteCheckIn = async (
 /**
  * Applies one server-shipped command envelope to the local DB and advances
  * `sync_state.highest_server_sequence` to the envelope's sequence — all in
- * one `BEGIN`/`COMMIT` so a crash mid-apply rolls back both the data write
- * and the high-water mark bump. Server-apply handlers are upsert-shaped and
+ * one transaction so a crash mid-apply rolls back both the data write and
+ * the high-water mark bump. Server-apply handlers are upsert-shaped and
  * tolerate "target missing" so replays and out-of-order arrivals are safe.
  *
  * Does NOT write to `outbox`: these commands originated from the server,
@@ -250,9 +251,8 @@ const applyDeleteCheckIn = async (
 export const applyServerCommand = async (
   db: AnyDb,
   envelope: ServerCommand,
-): Promise<void> => {
-  await db.run(sql`BEGIN`);
-  try {
+): Promise<void> =>
+  withTransaction(db, async () => {
     const payload = envelope.payload as Record<string, unknown>;
     switch (envelope.type) {
       case "CreateHabit":
@@ -306,10 +306,4 @@ export const applyServerCommand = async (
         })
         .where(eq(syncState.id, 1));
     }
-
-    await db.run(sql`COMMIT`);
-  } catch (e) {
-    await db.run(sql`ROLLBACK`);
-    throw e;
-  }
-};
+  });
