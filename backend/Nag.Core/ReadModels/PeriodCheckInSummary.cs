@@ -19,17 +19,14 @@ public sealed record HabitPeriodCheckIns
 /// <c>MonthlyCheckInSummaryProjection</c> as a fan-out from the global
 /// command stream.
 ///
-/// Cross-month staleness is bounded by the per-week period invariant
-/// enforced in <see cref="Validation.CreateCheckInValidator"/> and
-/// <see cref="Validation.UpdateCheckInValidator"/>: a check-in's
-/// <em>week</em> is fixed at creation, but a single Sunday-anchored
-/// week can straddle a month boundary, so an <c>UpdateCheckIn</c>
-/// within that week may shift a check-in between adjacent months. The
-/// stale entry in the outgoing month doc is the residual cost; older
-/// months never observe a write after they're settled.
-///
-/// <c>DeleteCheckIn</c> is not applied to summaries; deleted rows
-/// linger. Deletes are rare for old check-ins (the use case here).
+/// Limitations (intentional, MVP):
+///  - <c>UpdateCheckIn</c> that moves a check-in across month boundaries
+///    inserts the row into the new month but does not remove it from the
+///    old month — UpdateCheckIn carries only the new timestamp.
+///  - <c>DeleteCheckIn</c> is not applied to summaries; deleted rows
+///    linger. Deletes are rare for old check-ins (the use case here).
+/// Both are tolerable for a "browse the past" feature where the user is
+/// inspecting a settled period that no longer mutates.
 /// </summary>
 public sealed class MonthlyCheckInSummary
 {
@@ -46,16 +43,7 @@ public sealed class MonthlyCheckInSummary
 /// Materialised summary of every check-in in a single Sunday-anchored week.
 /// Doc id is the Sunday-of-week key <c>"yyyy-MM-dd"</c> (UTC). Sunday
 /// matches <see cref="Domain.PeriodCalculator"/> and the client's day-mask
-/// convention.
-///
-/// Cross-week moves are an invariant of the per-week period validation
-/// (see <see cref="Validation.CreateCheckInValidator"/> /
-/// <see cref="Validation.UpdateCheckInValidator"/>): a check-in is
-/// pinned to the week it was created in, so this projection never
-/// observes an event whose timestamp lands in a different week from a
-/// prior version of the same check-in.
-///
-/// <c>DeleteCheckIn</c> is not applied; deleted rows linger.
+/// convention. Same MVP limitations as <see cref="MonthlyCheckInSummary"/>.
 /// </summary>
 public sealed class WeeklyCheckInSummary
 {

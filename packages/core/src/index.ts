@@ -57,8 +57,6 @@ export {
 export { processCommand, type CommandResult } from "./commands/processor";
 export {
   previousMonthStart,
-  currentWeekBounds,
-  isInCurrentWeek,
   pruneOldCheckIns,
   pruneOldCheckInsIfSafe,
 } from "./retention";
