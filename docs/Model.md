@@ -172,6 +172,11 @@ high-water mark needed by pull-sync is mirrored into
 `sync_state.highest_server_sequence`, and pending replays use
 `envelope_id`.
 
+The retention count is overridable at module load via the
+`NAG_SENT_OUTBOX_RETAIN` env var; set it to `-1` to disable pruning
+entirely (useful when investigating sync regressions where the full
+outbox history matters).
+
 ## Relations
 
 Drizzle relations are declared in
