@@ -1,9 +1,9 @@
 import * as aws from "@pulumi/aws";
 import * as pulumi from "@pulumi/pulumi";
+import * as crypto from "crypto";
+import * as fs from "fs";
 
 export interface ApiArgs {
-  privateSubnetIds: pulumi.Output<string[]>;
-  lambdaSgId: pulumi.Output<string>;
   dbEndpoint: pulumi.Output<string>;
   dbName: pulumi.Output<string>;
   dbUsername: pulumi.Output<string>;
@@ -21,6 +21,12 @@ export interface Api {
   invokeUrl: pulumi.Output<string>;
   logGroupName: pulumi.Output<string>;
   functionName: pulumi.Output<string>;
+  lambda: aws.lambda.Function;
+  // Base64-encoded SHA256 of the zip we uploaded. We compute it locally
+  // (rather than relying on the AWS provider's `sourceCodeHash` output,
+  // which is empty when not supplied as input) so downstream resources
+  // — like the db-apply Command — can use it as a "code changed" trigger.
+  sourceCodeHash: string;
 }
 
 export const createApi = (args: ApiArgs): Api => {
@@ -48,11 +54,10 @@ export const createApi = (args: ApiArgs): Api => {
       "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole",
   });
 
-  new aws.iam.RolePolicyAttachment("nag-api-vpc", {
-    role: role.name,
-    policyArn:
-      "arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole",
-  });
+  const sourceCodeHash = crypto
+    .createHash("sha256")
+    .update(fs.readFileSync(args.lambdaPackagePath))
+    .digest("base64");
 
   const fn = new aws.lambda.Function("nag-api", {
     name: "nag-api",
@@ -63,10 +68,7 @@ export const createApi = (args: ApiArgs): Api => {
     memorySize: args.memoryMb,
     timeout: 30,
     code: new pulumi.asset.FileArchive(args.lambdaPackagePath),
-    vpcConfig: {
-      subnetIds: args.privateSubnetIds,
-      securityGroupIds: [args.lambdaSgId],
-    },
+    sourceCodeHash,
     loggingConfig: {
       logFormat: "Text",
       logGroup: logGroup.name,
@@ -138,5 +140,7 @@ export const createApi = (args: ApiArgs): Api => {
     invokeUrl: stage.invokeUrl,
     logGroupName: logGroup.name,
     functionName: fn.name,
+    lambda: fn,
+    sourceCodeHash,
   };
 };

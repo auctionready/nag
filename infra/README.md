@@ -1,26 +1,24 @@
 # Nag infrastructure (Pulumi, TypeScript)
 
-AWS deployment for the Nag backend: API Gateway HTTP API → Lambda (`dotnet10`, arm64) → Aurora PostgreSQL Serverless v2 (engine 17). The DB password and the device-token signing secret are injected into the Lambda as KMS-encrypted environment variables — no managed NAT Gateway, no AWS Secrets Manager.
+AWS deployment for the Nag backend: API Gateway HTTP API → Lambda (`dotnet10`, arm64) → **Neon serverless PostgreSQL** (engine 17). The DB password (provisioned by Neon) and the device-token signing secret are injected into the Lambda as KMS-encrypted environment variables — no managed NAT Gateway, no AWS Secrets Manager, no VPC.
 
 State backend: **Pulumi Cloud**.
-Region: **ap-southeast-2**.
+Region: **ap-southeast-2** (Lambda + API Gateway). Neon project lives in `aws-ap-southeast-2` for in-region latency.
 
 ## Architecture
 
 ```
 Internet → API Gateway HTTP API ($default)
-        → Lambda nag-api (VPC, private subnets)
-        → Aurora PostgreSQL Serverless v2 (private subnets, auto-pauses when idle)
-        → CloudWatch Logs /aws/lambda/nag-api (14-day retention, via Lambda-internal path)
-
-Lambda outbound (Clerk JWKS only) → NAT instance (t4g.nano, fck-nat AMI, single AZ) → Internet
+        → Lambda nag-api (no VPC — direct AWS-managed egress)
+        → Neon PostgreSQL (public endpoint, TLS-only, scale-to-zero)
+        → CloudWatch Logs /aws/lambda/nag-api (14-day retention)
 ```
 
-The Lambda reaches Aurora over its Hyperplane ENI inside the private subnet, and log delivery is handled by the Lambda runtime (not the function's VPC networking). The DB password and the device-token signing secret are passed as Lambda environment variables (`DB_PASSWORD`, `DEVICE_TOKEN_SECRET`), encrypted at rest with the AWS-managed KMS key — see `backend/Nag.Api/Infrastructure/LambdaSecrets.cs`.
+The Lambda runs outside any VPC, so all outbound traffic — to Neon, to Clerk's JWKS, to anywhere else — uses AWS-managed public networking with no NAT instance / NAT Gateway / Hyperplane ENI in the path. Cold start is ~half the in-VPC number.
 
-Outbound internet (a few KB to Clerk's `/.well-known/openid-configuration` + JWKS, cached in-process) is served by a single `t4g.nano` NAT instance running the [fck-nat](https://fck-nat.dev/) community AMI, in one public subnet. This costs ~US$3/mo vs ~US$33/mo for a managed NAT Gateway. Tradeoff: if the NAT instance or its AZ goes down, Clerk-protected endpoints (`/accounts/upgrade`, `/devices/pair`) fail until it's replaced; everything else (health checks, anonymous registration, device-token endpoints) keeps working. See [`src/nat.ts`](./src/nat.ts) for the full caveats list and the recipe for switching back to a managed NAT Gateway.
+The DB password and device-token signing secret are passed as Lambda environment variables (`DB_PASSWORD`, `DEVICE_TOKEN_SECRET`), encrypted at rest with the AWS-managed KMS key — see `backend/Nag.Api/Infrastructure/LambdaSecrets.cs`. The Npgsql connection string forces `SSL Mode=Require` so the in-flight Neon traffic is always TLS.
 
-Aurora is configured with `minCapacity: 0` and `secondsUntilAutoPause` (default 3000 s / 50 min) so the cluster scales to zero when idle. The first query after a long idle period pays a ~10–15 s warm-up.
+Neon's compute scales to zero after `neonSuspendTimeoutSeconds` of idle (default = Neon account default, ~5 min on Free). First query after a long idle pays a ~500 ms warm-up — much faster than Aurora Serverless v2's ~10–15 s wake.
 
 ## Prerequisites
 
@@ -29,6 +27,7 @@ Aurora is configured with `minCapacity: 0` and `secondsUntilAutoPause` (default 
 3. Pulumi CLI installed and `pulumi login` done (Pulumi Cloud).
 4. Node 24 and `npm` available.
 5. .NET 10 SDK (only needed when building the Lambda package locally).
+6. A Neon account + API key (Console → Account Settings → API Keys).
 
 ## First-time setup
 
@@ -37,16 +36,48 @@ cd infra
 npm ci
 pulumi stack init prod
 pulumi config set aws:region ap-southeast-2
+pulumi config set --secret nag:neonApiKey <neon-api-key>
 pulumi config set --secret nag:deviceTokenSecret "$(openssl rand -base64 48)"
-pulumi config set --secret nag:dbPassword <strong-db-password>
-# optional: pulumi config set nag:dbMinAcu 0.5     # keep a warm floor instead of auto-pause
-# optional: pulumi config set nag:dbMaxAcu 2
-# optional: pulumi config set nag:dbAutoPauseSeconds 3000
-# optional: pulumi config set nag:clerkIssuer https://your-instance.clerk.accounts.dev
+# optional Neon overrides:
+# pulumi config set nag:neonRegionId aws-ap-southeast-2
+# pulumi config set nag:neonMinCu 0.25
+# pulumi config set nag:neonMaxCu 1
+# pulumi config set nag:neonSuspendTimeoutSeconds 0   # 0 = Neon default
+# pulumi config set nag:clerkIssuer https://your-instance.clerk.accounts.dev
 # optional: custom domain (set both, or neither)
 # pulumi config set nag:hostedZoneName example.com
 # pulumi config set nag:apiDomainName  api.example.com
 ```
+
+The `pulumi-neon` npm SDK ships TypeScript bindings; the Pulumi runtime resolves the corresponding `pulumi-resource-neon` plugin binary from the bundled provider package. If `pulumi up` cannot find the plugin, install it with:
+
+```bash
+pulumi plugin install resource neon 0.2.0
+```
+
+### Migrating data from Aurora to Neon
+
+The Pulumi diff that introduces the Neon project does **not** copy data. To cut over a populated Aurora cluster:
+
+```bash
+# 1. Snapshot Aurora (point-in-time, while the cluster is awake).
+pg_dump --format=custom --no-owner --no-privileges \
+        --host <aurora-endpoint> --username nag --dbname nag \
+        --file nag.dump
+
+# 2. Provision the Neon project (run once before the cutover).
+pulumi up
+
+# 3. Restore into Neon. Connection details come from the stack outputs +
+#    the `nag-neon` role password (a Pulumi secret).
+NEON_HOST=$(pulumi stack output dbEndpoint)
+NEON_PASSWORD=$(pulumi stack output --show-secrets dbPassword)   # add this output if you need it
+PGPASSWORD=$NEON_PASSWORD pg_restore --no-owner --no-privileges \
+  --host "$NEON_HOST" --username nag --dbname nag --clean --if-exists \
+  nag.dump
+```
+
+In a maintenance window: pause writes, snapshot, restore, run `pulumi up` to switch the Lambda env vars, smoke-test, then destroy the Aurora cluster + VPC + NAT instance from the _previous_ stack state (the new stack no longer references those resources, so `pulumi up` already removed them — verify with `pulumi stack` and `aws ec2 describe-vpcs`).
 
 ### Rotating the device-token secret
 
@@ -64,15 +95,18 @@ device token fails HMAC verification → mobile clients get 401 → they
 hit `/devices/register` (anonymous) and receive a fresh token signed
 by the new secret. There is no separate revocation list.
 
-### Migrating from the legacy `nag:apiKey`
+### Rotating the Neon role password
 
-Stacks deployed before phase 2c carry a `nag:apiKey` entry that is no
-longer read by the backend. Drop it after the stack is on the new
-auth model:
+Neon assigns the role password at create time and exposes it as a
+Pulumi secret output. To rotate, taint the role and re-run `up`:
 
 ```bash
-pulumi config rm nag:apiKey --stack prod
+pulumi state delete 'urn:pulumi:prod::nag::neon:index/role:Role::nag'
+pulumi up
 ```
+
+The role is recreated with a fresh password and the Lambda env var
+`DB_PASSWORD` updates in the same deploy.
 
 ## Custom domain (optional)
 
@@ -97,11 +131,7 @@ ops/sync-eas-env.sh <pulumi-stack> <eas-environment>
 ```
 
 The script sets `NAG_API_BASE_URL` (plaintext) in the named EAS
-environment. Mobile clients no longer ship a build-time API key —
-each device registers anonymously on first launch via
-`POST /devices/register` and stores the returned `deviceToken` in
-SecureStore. Re-run the script if the backend moves to a different
-URL (e.g. behind a new custom domain).
+environment.
 
 ## Build the Lambda package
 
@@ -163,9 +193,7 @@ infra/
   index.ts                # wires the modules
   src/
     config.ts             # typed stack-config accessor
-    network.ts            # VPC, public + private subnets, SGs
-    nat.ts                # NAT instance (t4g.nano, fck-nat) — cost-minimized egress
-    database.ts           # Aurora Serverless v2 cluster + writer (auto-pause)
+    database.ts           # Neon project + branch endpoint + role + database
     api.ts                # Lambda + API Gateway + log group + IAM
     domain.ts             # ACM cert + API Gateway custom domain + Route 53 alias (optional)
   Pulumi.yaml             # project

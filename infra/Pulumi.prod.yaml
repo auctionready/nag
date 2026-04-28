@@ -1,19 +1,24 @@
 config:
   aws:region: ap-southeast-2
-  nag:dbMinAcu: "0"
-  nag:dbMaxAcu: "2"
-  nag:dbAutoPauseSeconds: "300"
   nag:lambdaMemoryMb: "1536"
   nag:logRetentionDays: "14"
+  # Neon settings — defaults in `src/config.ts` (region aws-ap-southeast-2,
+  # pg17, project/branch/database/role all named "nag", 0.25–1 CU, default
+  # suspend). Override here per-stack if needed.
+  # nag:neonRegionId: aws-ap-southeast-2
+  # nag:neonMinCu: "0.25"
+  # nag:neonMaxCu: "1"
+  # nag:neonSuspendTimeoutSeconds: "0"
+  #
+  # nag:neonApiKey is the Neon API token (Account Settings → API Keys).
+  # Set via:
+  #   pulumi config set --secret nag:neonApiKey <token>
+  #
   # nag:deviceTokenSecret is the HMAC-SHA256 signing key for per-device
   # bearer tokens. Generate + set via:
   #   pulumi config set --secret nag:deviceTokenSecret "$(openssl rand -base64 48)"
   # Rotating invalidates every previously-issued token (clients hit 401
-  # and re-register). The legacy `nag:apiKey` entry below is dead;
-  # delete it after this stack is on the new auth model:
-  #   pulumi config rm nag:apiKey
-  #
-  # nag:dbPassword is set via: pulumi config set --secret nag:dbPassword <value>
+  # and re-register).
   #
   # Custom domain (optional — both must be set or neither). When set, Pulumi
   # creates an ACM cert + API Gateway custom domain + Route 53 alias, and the
@@ -21,15 +26,11 @@ config:
   # `*.execute-api.*` invoke URL. Set via:
   #   pulumi config set nag:hostedZoneName <existing-route53-zone-name>
   #   pulumi config set nag:apiDomainName  <subdomain.example.com>
-  # nag:hostedZoneName: example.com
-  # nag:apiDomainName:  api.example.com
-
-  nag:apiKey:
-    secure: AAABAHqvJWXa9LwHynaS8fnmfIk+twCeAe/CjT5IYBgd9no/NNmZLFtXHj3B/J1OmviXrozz
-  nag:dbPassword:
-    secure: AAABABHObgMRRA+CSbpLYaYK6wAJ4WYRBLy2kFELytWNIBZPC3KkcoDLGd7Vl65VZi5HmA==
   nag:hostedZoneName: auctionready.co.nz
   nag:apiDomainName: nagapi.auctionready.co.nz
   nag:clerkIssuer: https://feasible-lynx-68.clerk.accounts.dev
   nag:deviceTokenSecret:
     secure: AAABAAvZ0CwtsUW0936DcahM7Pbc27SYhgBXzFuIx6+Yzw+qpNdwQ+ky5B0pUtK+dkZ6ihsGRmqJyCYUppGMXVSBEIjyQDm8G2pfu4TH1w5UKZbC5VopQnwRcK67yB6H
+  nag:neonApiKey:
+    secure: AAABAMg2QtvUImBHglF1c8xDLGLyB9KJPzoMLlc9zfPQlcqEC+WGj75XGvkfQ/XpH4PUHchce6Gb9T7bdC57sbqn4o7Z/z4iMpjZd1SQd2ku89TbtnAX4qM/rReJdI9gEmrBFSs=
+  nag:neonOrgId: org-broad-bread-95932480

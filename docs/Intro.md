@@ -29,12 +29,12 @@ The point of nag is to help you **bed in habits**. Concretely, it aims to:
 
 The repo is a pnpm workspace with three packages plus a .NET backend:
 
-| Package            | Purpose                                                                                                |
-| ------------------ | ------------------------------------------------------------------------------------------------------ |
-| `app/`             | The Expo / React Native application — screens, navigation, UI.                                         |
-| `packages/schema/` | Drizzle ORM schema definitions and migrations (SQLite via expo-sqlite).                                |
-| `packages/core/`   | Domain logic: queries, commands, compliance, traffic-light calculators.                                |
-| `backend/`         | ASP.NET Core 10 + Marten/Wolverine API (AWS Lambda + RDS Postgres 17). See [Backend.md](./Backend.md). |
+| Package            | Purpose                                                                                                 |
+| ------------------ | ------------------------------------------------------------------------------------------------------- |
+| `app/`             | The Expo / React Native application — screens, navigation, UI.                                          |
+| `packages/schema/` | Drizzle ORM schema definitions and migrations (SQLite via expo-sqlite).                                 |
+| `packages/core/`   | Domain logic: queries, commands, compliance, traffic-light calculators.                                 |
+| `backend/`         | ASP.NET Core 10 + Marten/Wolverine API (AWS Lambda + Neon Postgres 17). See [Backend.md](./Backend.md). |
 
 The app talks to SQLite through Drizzle, using the schema defined in
 `@nag/schema` and the queries, commands, and domain helpers exported from

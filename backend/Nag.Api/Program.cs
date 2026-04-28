@@ -10,8 +10,11 @@ using Microsoft.IdentityModel.Protocols.OpenIdConnect;
 using Nag.Api.Auth;
 using Nag.Api.Infrastructure;
 using Nag.Core.Contracts;
+using Nag.Core.Domain;
 using Nag.Core.Handlers;
+using Nag.Core.Idempotency;
 using Nag.Core.Projections;
+using Nag.Core.ReadModels;
 using Nag.Core.Validation;
 using Serilog;
 using Wolverine;
@@ -87,6 +90,16 @@ builder
         {
             opts.Events.AddEventType(t);
         }
+
+        // Register every document type the API stores or loads, so that
+        // `db-apply` (which we run out-of-band; see `infra/src/migrations.ts`)
+        // can plan their tables. With AutoCreate.None, Marten doesn't
+        // auto-discover documents on first use, so any unregistered type
+        // would 5xx with a missing-relation error.
+        opts.Schema.For<Account>();
+        opts.Schema.For<Device>();
+        opts.Schema.For<ProcessedCommand>();
+        opts.Schema.For<HomeBoard>();
 
         opts.Projections.Add<HomeBoardProjection>(ProjectionLifecycle.Inline);
     })
