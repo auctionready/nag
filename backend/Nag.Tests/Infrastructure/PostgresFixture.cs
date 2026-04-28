@@ -51,6 +51,8 @@ public sealed class PostgresFixture : IAsyncLifetime
 
             foreach (var t in CommandRegistry.All)
                 opts.Events.AddEventType(t);
+            foreach (var t in EventRegistry.All)
+                opts.Events.AddEventType(t);
 
             opts.Projections.Add<HomeBoardProjection>(ProjectionLifecycle.Inline);
             opts.Projections.Add<MonthlyCheckInSummaryProjection>(ProjectionLifecycle.Inline);

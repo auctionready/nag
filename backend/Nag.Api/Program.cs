@@ -139,6 +139,14 @@ builder
             opts.Events.AddEventType(t);
         }
 
+        // Past-tense events the server emits. Currently registered so
+        // Marten knows the types; consumers (projections, dispatcher
+        // emit, sync wire) follow in subsequent stack PRs.
+        foreach (var t in EventRegistry.All)
+        {
+            opts.Events.AddEventType(t);
+        }
+
         // Register every document type the API stores or loads, so that
         // `db-apply` (which we run out-of-band; see `infra/src/migrations.ts`)
         // can plan their tables. With AutoCreate.None, Marten doesn't

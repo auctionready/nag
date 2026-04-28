@@ -111,6 +111,21 @@ export {
   DeleteCheckIn,
   type GoalPayload,
 } from "./commands/schemas";
+export {
+  Event,
+  EventTypeNames,
+  HabitCreated,
+  HabitDetailsEdited,
+  HabitGoalDefined,
+  HabitGoalCleared,
+  HabitDeleted,
+  CheckInRecorded,
+  CheckInMoved,
+  CheckInMarkedSkipped,
+  CheckInMarkedDone,
+  CheckInDeleted,
+  type EventTypeName,
+} from "./events";
 export type { AnyDb } from "./db";
 export {
   Day,
