@@ -3,6 +3,7 @@ import { stackConfig } from "./src/config";
 import { createDatabase } from "./src/database";
 import { createApi } from "./src/api";
 import { createDomain } from "./src/domain";
+import { applyMigrations } from "./src/migrations";
 
 const database = createDatabase({
   apiKey: stackConfig.neonApiKey,
@@ -39,6 +40,15 @@ const domain =
         hostedZoneName: stackConfig.hostedZoneName,
       })
     : undefined;
+
+applyMigrations({
+  dbEndpoint: database.endpoint,
+  dbName: database.databaseName,
+  dbUsername: database.masterUsername,
+  dbPassword: database.masterPassword,
+  lambdaSourceCodeHash: api.sourceCodeHash,
+  dependsOn: [api.lambda],
+});
 
 export const invokeUrl = api.invokeUrl;
 export const apiUrl: pulumi.Output<string> = domain

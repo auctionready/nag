@@ -127,3 +127,22 @@ Production assumes:
   Lambda environment variables (`DB_HOST`, `DB_NAME`, `DB_USERNAME`,
   `DB_PASSWORD`, `DEVICE_TOKEN_SECRET`) — see
   `Nag.Api/Infrastructure/LambdaSecrets.cs`
+
+### Database migrations
+
+Marten in production runs with `AutoCreateSchemaObjects = AutoCreate.None`
+so the Lambda doesn't pay the pg_catalog introspection cost on every cold
+start. Schema changes therefore have to be applied out-of-band — Pulumi
+wires `scripts/apply-db-migrations.sh` as a `command.local.Command`
+resource (see [`infra/src/migrations.ts`](../infra/src/migrations.ts))
+that runs after the Neon DB and the Lambda code are in place, and
+re-fires whenever the Lambda zip hash or DB password changes. The
+underlying `db-apply` JasperFx command is idempotent, so re-running is
+safe.
+
+To run it manually against a non-prod DB:
+
+```bash
+DB_HOST=localhost DB_NAME=nag DB_USERNAME=nag DB_PASSWORD=... \
+  ./scripts/apply-db-migrations.sh
+```
