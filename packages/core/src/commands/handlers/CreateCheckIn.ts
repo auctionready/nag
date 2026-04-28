@@ -1,6 +1,5 @@
 import { checkIn } from "@nag/schema";
 import type { AnyDb } from "../../db";
-import { syncAllNotifications } from "../../notificationConsolidator";
 import type { CreateCheckIn } from "../schemas";
 
 export async function handleCreateCheckIn(
@@ -18,6 +17,5 @@ export async function handleCreateCheckIn(
     })
     .returning({ id: checkIn.id, externalId: checkIn.externalId });
 
-  await syncAllNotifications(db);
   return { checkInId: inserted.id, externalId: inserted.externalId };
 }

@@ -195,11 +195,11 @@ export const clearAll = async (opts: { keepDeviceInfo?: boolean } = {}) => {
  * which is fine because compliance is computed entirely on-device.
  *
  * The notification schedulers are stubbed for the duration of the seed
- * so the per-handler `syncAllNotifications` calls don't fan out to
- * slow native I/O across ~20 iterations. After the seed completes we
- * restore the real schedulers and run the sync once. This also reduces
- * the storm of `expo-sqlite` change-listener fires that otherwise makes
- * `useLiveQuery` flicker through partial states on the board screen.
+ * so the post-commit `syncAllNotifications` call (one per `processCommand`)
+ * doesn't fan out to slow native I/O across ~20 iterations. After the seed
+ * completes we restore the real schedulers and run the sync once. This also
+ * reduces the storm of `expo-sqlite` change-listener fires that otherwise
+ * makes `useLiveQuery` flicker through partial states on the board screen.
  */
 export const seedSampleData = async () => {
   const now = new Date();

@@ -1,7 +1,6 @@
 import { eq } from "drizzle-orm";
 import { checkIn } from "@nag/schema";
 import type { AnyDb } from "../../db";
-import { syncAllNotifications } from "../../notificationConsolidator";
 import type { UpdateCheckIn } from "../schemas";
 
 export async function handleUpdateCheckIn(
@@ -16,6 +15,5 @@ export async function handleUpdateCheckIn(
       updatedAt: new Date(),
     })
     .where(eq(checkIn.id, command.checkInId));
-  await syncAllNotifications(db);
   return {};
 }

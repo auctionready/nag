@@ -1,7 +1,6 @@
 import { eq } from "drizzle-orm";
 import { checkIn } from "@nag/schema";
 import type { AnyDb } from "../../db";
-import { syncAllNotifications } from "../../notificationConsolidator";
 import type { DeleteCheckIn } from "../schemas";
 
 export async function handleDeleteCheckIn(
@@ -19,6 +18,5 @@ export async function handleDeleteCheckIn(
     );
   }
 
-  await syncAllNotifications(db);
   return { externalId: deleted[0].externalId };
 }

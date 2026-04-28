@@ -43,9 +43,10 @@ export const HabitTileView = ({
   const scale = useRef(new Animated.Value(1)).current;
   const didLongPress = useRef(false);
 
-  const handleCheckIn = useCallback(async () => {
-    await onCheckIn();
-
+  const handleCheckIn = useCallback(() => {
+    // Animate immediately so the user sees the gesture was registered,
+    // even if the dispatch (and its post-commit notification sync) takes
+    // a moment. Errors from `onCheckIn` surface via the caller's logger.
     Animated.sequence([
       Animated.timing(scale, {
         toValue: 1.1,
@@ -58,13 +59,14 @@ export const HabitTileView = ({
         useNativeDriver: true,
       }),
     ]).start();
+    void onCheckIn();
   }, [onCheckIn, scale]);
 
   const longPress = Gesture.LongPress()
     .minDuration(500)
     .onStart(() => {
       didLongPress.current = true;
-      void handleCheckIn();
+      handleCheckIn();
     });
 
   return (
