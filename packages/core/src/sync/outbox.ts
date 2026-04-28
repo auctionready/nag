@@ -1,6 +1,7 @@
 import { sql, eq, asc } from "drizzle-orm";
 import { outbox, syncState } from "@nag/schema";
 import type { AnyDb } from "../db";
+import { withTransaction } from "../db/transaction";
 
 export type PendingRow = {
   id: number;
@@ -30,17 +31,16 @@ export const loadPendingBatch = (
 /**
  * Marks the outbox row sent and bumps `sync_state.highest_server_sequence`
  * so the next pull-sync `since` value reflects the just-acknowledged write.
- * Both updates run in one `BEGIN`/`COMMIT` so a crash between them either
- * sees both or neither — preventing the high-water mark from advancing
- * past a row that's still pending.
+ * Both updates run in one transaction so a crash between them either sees
+ * both or neither — preventing the high-water mark from advancing past a
+ * row that's still pending.
  */
 export const markSent = async (
   db: AnyDb,
   id: number,
   serverSequence: number,
-): Promise<void> => {
-  await db.run(sql`BEGIN`);
-  try {
+): Promise<void> =>
+  withTransaction(db, async () => {
     await db
       .update(outbox)
       .set({
@@ -56,12 +56,7 @@ export const markSent = async (
         highestServerSequence: sql`MAX(${syncState.highestServerSequence}, ${serverSequence})`,
       })
       .where(eq(syncState.id, 1));
-    await db.run(sql`COMMIT`);
-  } catch (e) {
-    await db.run(sql`ROLLBACK`);
-    throw e;
-  }
-};
+  });
 
 export const markPendingWithError = async (
   db: AnyDb,
@@ -71,29 +66,19 @@ export const markPendingWithError = async (
   await db.update(outbox).set({ lastError: error }).where(eq(outbox.id, id));
 };
 
-/**
- * Marks the row as `failed` and sets `sync_state.halted = 1` atomically via
- * raw `BEGIN`/`COMMIT` (drizzle's expo-sqlite `transaction()` helper is
- * sync-only; see `processor.ts`).
- */
+/** Marks the row as `failed` and sets `sync_state.halted = 1` atomically. */
 export const markFailedAndHalt = async (
   db: AnyDb,
   id: number,
   error: string,
-): Promise<void> => {
-  await db.run(sql`BEGIN`);
-  try {
+): Promise<void> =>
+  withTransaction(db, async () => {
     await db
       .update(outbox)
       .set({ status: "failed", lastError: error })
       .where(eq(outbox.id, id));
     await db.update(syncState).set({ halted: true }).where(eq(syncState.id, 1));
-    await db.run(sql`COMMIT`);
-  } catch (e) {
-    await db.run(sql`ROLLBACK`);
-    throw e;
-  }
-};
+  });
 
 export const isHalted = async (db: AnyDb): Promise<boolean> => {
   const [row] = await db
@@ -108,9 +93,8 @@ export const isHalted = async (db: AnyDb): Promise<boolean> => {
  * `pending` in one transaction. Envelope IDs are preserved so retries remain
  * idempotent on the server. Called by the app's "Resume sync" admin action.
  */
-export const resumeDispatch = async (db: AnyDb): Promise<void> => {
-  await db.run(sql`BEGIN`);
-  try {
+export const resumeDispatch = async (db: AnyDb): Promise<void> =>
+  withTransaction(db, async () => {
     await db
       .update(syncState)
       .set({ halted: false })
@@ -119,12 +103,7 @@ export const resumeDispatch = async (db: AnyDb): Promise<void> => {
       .update(outbox)
       .set({ status: "pending", lastError: null })
       .where(eq(outbox.status, "failed"));
-    await db.run(sql`COMMIT`);
-  } catch (e) {
-    await db.run(sql`ROLLBACK`);
-    throw e;
-  }
-};
+  });
 
 export const countPending = async (db: AnyDb): Promise<number> => {
   const [row] = await db

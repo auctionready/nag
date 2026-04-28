@@ -1,5 +1,5 @@
-import { sql } from "drizzle-orm";
 import type { AnyDb } from "../db";
+import { withTransaction } from "../db/transaction";
 import { Command } from "./schemas";
 import type { HandlerMap } from "./handlers";
 import { handlers } from "./handlers";
@@ -12,11 +12,11 @@ export type CommandResult<T extends Command> = Awaited<
 /**
  * Executes a command transactionally: BEGIN → handler → audit → COMMIT.
  *
- * Uses raw `BEGIN` / `COMMIT` (not `db.transaction`) because drizzle-orm's
- * expo-sqlite driver ships a synchronous `transaction()` helper whose
- * callback signature is `(tx) => T`. Passing an async callback commits
- * before the awaited inserts resolve; the raw pattern is the correct
- * workaround on RN until drizzle exposes an async variant.
+ * Uses `withTransaction` (a JS-side promise-chain mutex over raw
+ * `BEGIN`/`COMMIT`) because drizzle-orm's expo-sqlite `db.transaction()`
+ * callback is sync-only — passing an async callback commits before awaited
+ * writes resolve. The mutex also serializes against other transaction sites
+ * (outbox dispatcher, pull-sync) on the single shared connection.
  */
 export async function processCommand<T extends Command>(
   db: AnyDb,
@@ -28,14 +28,10 @@ export async function processCommand<T extends Command>(
     command: T,
   ) => ReturnType<HandlerMap[T["type"]]>;
 
-  await db.run(sql`BEGIN`);
-  try {
-    const result = await handler(db, command);
+  type R = Awaited<ReturnType<HandlerMap[T["type"]]>>;
+  return withTransaction<R>(db, async (): Promise<R> => {
+    const result = (await handler(db, command)) as R;
     await audit(db, command, (result ?? {}) as HandlerAuditContext);
-    await db.run(sql`COMMIT`);
     return result;
-  } catch (error) {
-    await db.run(sql`ROLLBACK`);
-    throw error;
-  }
+  });
 }
