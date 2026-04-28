@@ -9,7 +9,16 @@ import {
   syncState,
   identity,
 } from "@nag/schema";
-import { Day, processCommand, type CreateHabit } from "@nag/core";
+import {
+  Day,
+  getConsolidatedScheduler,
+  getNotificationScheduler,
+  processCommand,
+  setConsolidatedScheduler,
+  setNotificationScheduler,
+  syncAllNotifications,
+  type CreateHabit,
+} from "@nag/core";
 import { db } from "./index";
 
 interface SeedEntry {
@@ -184,27 +193,54 @@ export const clearAll = async (opts: { keepDeviceInfo?: boolean } = {}) => {
  * locally so the UI's compliance windows include the older check-ins;
  * the backend stamps its own ingest time when it receives the command,
  * which is fine because compliance is computed entirely on-device.
+ *
+ * The notification schedulers are stubbed for the duration of the seed
+ * so the per-handler `syncAllNotifications` calls don't fan out to
+ * slow native I/O across ~20 iterations. After the seed completes we
+ * restore the real schedulers and run the sync once. This also reduces
+ * the storm of `expo-sqlite` change-listener fires that otherwise makes
+ * `useLiveQuery` flicker through partial states on the board screen.
  */
 export const seedSampleData = async () => {
   const now = new Date();
   const goalCreatedAt = subDays(now, 30);
 
-  for (const entry of sampleData) {
-    const result = await processCommand(db, entry.command);
+  const realConsolidated = getConsolidatedScheduler();
+  const realNotification = getNotificationScheduler();
+  const noopConsolidated = {
+    cancelAllSlotNotifications: async () => {},
+    scheduleSlotNotification: async () => {},
+  };
+  const noopNotification = {
+    cancelNotifications: async () => {},
+    syncNotifications: async () => {},
+  };
+  setConsolidatedScheduler(noopConsolidated);
+  setNotificationScheduler(noopNotification);
 
-    if (entry.command.goal) {
-      await db
-        .update(goal)
-        .set({ createdAt: goalCreatedAt, updatedAt: goalCreatedAt })
-        .where(eq(goal.habitId, result.habitId));
-    }
+  try {
+    for (const entry of sampleData) {
+      const result = await processCommand(db, entry.command);
 
-    for (const ci of entry.checkIns ?? []) {
-      await processCommand(db, {
-        type: "CreateCheckIn",
-        habitId: result.habitId,
-        timestamp: subDays(now, ci.daysAgo),
-      });
+      if (entry.command.goal) {
+        await db
+          .update(goal)
+          .set({ createdAt: goalCreatedAt, updatedAt: goalCreatedAt })
+          .where(eq(goal.habitId, result.habitId));
+      }
+
+      for (const ci of entry.checkIns ?? []) {
+        await processCommand(db, {
+          type: "CreateCheckIn",
+          habitId: result.habitId,
+          timestamp: subDays(now, ci.daysAgo),
+        });
+      }
     }
+  } finally {
+    setConsolidatedScheduler(realConsolidated);
+    setNotificationScheduler(realNotification);
   }
+
+  await syncAllNotifications(db);
 };
