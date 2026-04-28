@@ -469,6 +469,42 @@ describe("outbox sent-row retention", () => {
     expect(await countSent(db)).toBe(1);
     expect(await countPending(db)).toBe(0);
   });
+
+  it("retains every sent row when retainSentRows is negative (prune disabled)", async () => {
+    const db = getDb();
+    const total = 15;
+    for (let i = 0; i < total; i++) {
+      await processCommand(db, { type: "CreateHabit", title: `H${i}` });
+    }
+
+    const rows = await db
+      .select({ id: schema.outbox.id })
+      .from(schema.outbox)
+      .orderBy(asc(schema.outbox.id));
+
+    let seq = 0;
+    for (const r of rows) {
+      await markSent(db, r.id, ++seq, /* retain */ -1);
+    }
+
+    expect(await countSent(db)).toBe(total);
+  });
+
+  it("drops every sent row when retainSentRows is 0", async () => {
+    const db = getDb();
+    await seedThreeCommands(db);
+
+    const rows = await db
+      .select({ id: schema.outbox.id })
+      .from(schema.outbox)
+      .orderBy(asc(schema.outbox.id));
+    let seq = 0;
+    for (const r of rows) {
+      await markSent(db, r.id, ++seq, /* retain */ 0);
+    }
+
+    expect(await countSent(db)).toBe(0);
+  });
 });
 
 describe("dispatcher + previously-sent rows", () => {
