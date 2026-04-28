@@ -3,6 +3,7 @@ import * as schema from "@nag/schema";
 import { setupTestDb } from "./testDb";
 import { processCommand } from "../commands/processor";
 import {
+  currentWeekBounds,
   previousMonthStart,
   pruneOldCheckIns,
   pruneOldCheckInsIfSafe,
@@ -30,6 +31,41 @@ describe("previousMonthStart", () => {
     expect(previousMonthStart(now).toISOString()).toBe(
       "2026-02-01T00:00:00.000Z",
     );
+  });
+});
+
+describe("currentWeekBounds", () => {
+  // 2026-04-24 is a Friday.
+  const friday = new Date("2026-04-24T14:30:00.000Z");
+
+  it("defaults to a Monday-anchored week", () => {
+    const { start, end } = currentWeekBounds(friday);
+    expect(start.toISOString()).toBe("2026-04-20T00:00:00.000Z");
+    expect(end.toISOString()).toBe("2026-04-27T00:00:00.000Z");
+  });
+
+  it("anchors on Sunday when configured", () => {
+    const { start, end } = currentWeekBounds(friday, 0);
+    expect(start.toISOString()).toBe("2026-04-19T00:00:00.000Z");
+    expect(end.toISOString()).toBe("2026-04-26T00:00:00.000Z");
+  });
+
+  it("returns the anchor day itself as the start", () => {
+    const monday = new Date("2026-04-20T14:00:00.000Z");
+    const { start } = currentWeekBounds(monday);
+    expect(start.toISOString()).toBe("2026-04-20T00:00:00.000Z");
+  });
+
+  it("rolls back a full week when called on the day before the anchor", () => {
+    // Sunday before a Mon-anchored week → start is the previous Monday.
+    const sunday = new Date("2026-04-19T14:00:00.000Z");
+    const { start } = currentWeekBounds(sunday);
+    expect(start.toISOString()).toBe("2026-04-13T00:00:00.000Z");
+  });
+
+  it("spans exactly seven days", () => {
+    const { start, end } = currentWeekBounds(friday);
+    expect(end.getTime() - start.getTime()).toBe(7 * 24 * 60 * 60 * 1000);
   });
 });
 

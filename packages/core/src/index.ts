@@ -57,8 +57,10 @@ export {
 export { processCommand, type CommandResult } from "./commands/processor";
 export {
   previousMonthStart,
+  currentWeekBounds,
   pruneOldCheckIns,
   pruneOldCheckInsIfSafe,
+  type WeekStartsOn,
 } from "./retention";
 export {
   createDispatcher,

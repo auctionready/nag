@@ -4,7 +4,8 @@ public static class PeriodCalculator
 {
     public static (DateTimeOffset Start, DateTimeOffset End) CurrentPeriod(
         Regularity regularity,
-        DateTimeOffset now
+        DateTimeOffset now,
+        DayOfWeek weekStartsOn = DayOfWeek.Monday
     )
     {
         var utc = now.ToUniversalTime();
@@ -14,7 +15,7 @@ public static class PeriodCalculator
                 new DateTimeOffset(utc.Year, utc.Month, utc.Day, 0, 0, 0, TimeSpan.Zero),
                 new DateTimeOffset(utc.Year, utc.Month, utc.Day, 0, 0, 0, TimeSpan.Zero).AddDays(1)
             ),
-            Regularity.Week => WeekBounds(utc),
+            Regularity.Week => WeekBounds(utc, weekStartsOn),
             Regularity.Month => (
                 new DateTimeOffset(utc.Year, utc.Month, 1, 0, 0, 0, TimeSpan.Zero),
                 new DateTimeOffset(utc.Year, utc.Month, 1, 0, 0, 0, TimeSpan.Zero).AddMonths(1)
@@ -26,18 +27,26 @@ public static class PeriodCalculator
     public static bool IsInCurrentPeriod(
         Regularity regularity,
         DateTimeOffset timestamp,
-        DateTimeOffset now
+        DateTimeOffset now,
+        DayOfWeek weekStartsOn = DayOfWeek.Monday
     )
     {
-        var (start, end) = CurrentPeriod(regularity, now);
+        var (start, end) = CurrentPeriod(regularity, now, weekStartsOn);
         var t = timestamp.ToUniversalTime();
         return t >= start && t < end;
     }
 
-    private static (DateTimeOffset Start, DateTimeOffset End) WeekBounds(DateTimeOffset utc)
+    /// <summary>
+    /// Bounds of the week that contains <paramref name="utc"/>, anchored on
+    /// the configured <paramref name="weekStartsOn"/> day. End is the same
+    /// day-of-week one week later, exclusive.
+    /// </summary>
+    private static (DateTimeOffset Start, DateTimeOffset End) WeekBounds(
+        DateTimeOffset utc,
+        DayOfWeek weekStartsOn
+    )
     {
-        // Week starts Sunday (matches client schedule day bitmask: Sun=1).
-        var daysSinceSunday = (int)utc.DayOfWeek;
+        var daysSinceStart = ((int)utc.DayOfWeek - (int)weekStartsOn + 7) % 7;
         var start = new DateTimeOffset(
             utc.Year,
             utc.Month,
@@ -46,7 +55,7 @@ public static class PeriodCalculator
             0,
             0,
             TimeSpan.Zero
-        ).AddDays(-daysSinceSunday);
+        ).AddDays(-daysSinceStart);
         return (start, start.AddDays(7));
     }
 }

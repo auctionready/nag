@@ -30,11 +30,40 @@ public class PeriodCalculatorTests
         private readonly DateTimeOffset _friday = new(2026, 4, 24, 14, 30, 0, TimeSpan.Zero);
 
         [Fact]
-        public void starts_on_previous_sunday()
+        public void defaults_to_monday_anchor()
         {
             var (start, _) = PeriodCalculator.CurrentPeriod(Regularity.Week, _friday);
+            start.DayOfWeek.ShouldBe(DayOfWeek.Monday);
+            start.ShouldBe(new DateTimeOffset(2026, 4, 20, 0, 0, 0, TimeSpan.Zero));
+        }
+
+        [Fact]
+        public void honours_sunday_anchor_when_configured()
+        {
+            var (start, _) = PeriodCalculator.CurrentPeriod(
+                Regularity.Week,
+                _friday,
+                weekStartsOn: DayOfWeek.Sunday
+            );
             start.DayOfWeek.ShouldBe(DayOfWeek.Sunday);
             start.ShouldBe(new DateTimeOffset(2026, 4, 19, 0, 0, 0, TimeSpan.Zero));
+        }
+
+        [Fact]
+        public void anchor_day_returns_itself_as_start()
+        {
+            var monday = new DateTimeOffset(2026, 4, 20, 14, 0, 0, TimeSpan.Zero);
+            var (start, _) = PeriodCalculator.CurrentPeriod(Regularity.Week, monday);
+            start.ShouldBe(new DateTimeOffset(2026, 4, 20, 0, 0, 0, TimeSpan.Zero));
+        }
+
+        [Fact]
+        public void anchor_day_minus_one_rolls_back_a_full_week()
+        {
+            // Sunday before a Mon-anchored week → start is the previous Monday.
+            var sunday = new DateTimeOffset(2026, 4, 19, 14, 0, 0, TimeSpan.Zero);
+            var (start, _) = PeriodCalculator.CurrentPeriod(Regularity.Week, sunday);
+            start.ShouldBe(new DateTimeOffset(2026, 4, 13, 0, 0, 0, TimeSpan.Zero));
         }
 
         [Fact]
@@ -90,6 +119,20 @@ public class PeriodCalculatorTests
                     _now
                 )
                 .ShouldBeFalse();
+        }
+
+        [Fact]
+        public void weekly_membership_follows_configured_anchor()
+        {
+            // Sunday 2026-04-19 is in the previous Mon-anchored week, but in
+            // the current Sun-anchored week.
+            var sundayTs = new DateTimeOffset(2026, 4, 19, 14, 0, 0, TimeSpan.Zero);
+            PeriodCalculator
+                .IsInCurrentPeriod(Regularity.Week, sundayTs, _now, weekStartsOn: DayOfWeek.Monday)
+                .ShouldBeFalse();
+            PeriodCalculator
+                .IsInCurrentPeriod(Regularity.Week, sundayTs, _now, weekStartsOn: DayOfWeek.Sunday)
+                .ShouldBeTrue();
         }
     }
 }
