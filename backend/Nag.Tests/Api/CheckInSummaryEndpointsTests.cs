@@ -30,7 +30,9 @@ public class CheckInSummaryEndpointsTests : IClassFixture<CheckInSummaryEndpoint
         var client = AuthedClient();
         var habitId = Guid.NewGuid();
         var checkInId = Guid.NewGuid();
-        var ts = new DateTimeOffset(2026, 4, 15, 9, 0, 0, TimeSpan.Zero);
+        // Current-week invariant on CreateCheckIn forces real-time timestamps.
+        // Fetch the summary for the month the check-in actually lands in.
+        var ts = DateTimeOffset.UtcNow;
 
         await client.PostAsJsonAsync(
             "/commands",
@@ -64,11 +66,11 @@ public class CheckInSummaryEndpointsTests : IClassFixture<CheckInSummaryEndpoint
         );
 
         var summary = await client.GetFromJsonAsync<MonthlyCheckInSummary>(
-            "/check-ins/monthly/2026/4",
+            $"/check-ins/monthly/{ts.UtcDateTime.Year}/{ts.UtcDateTime.Month}",
             NagJsonOptions.Default
         );
         summary.ShouldNotBeNull();
-        summary!.Id.ShouldBe("2026-04");
+        summary!.Id.ShouldBe($"{ts.UtcDateTime.Year:D4}-{ts.UtcDateTime.Month:D2}");
         var habit = summary.Habits.Single(h => h.HabitId == habitId);
         habit.CheckIns.ShouldContain(c => c.Id == checkInId);
     }
