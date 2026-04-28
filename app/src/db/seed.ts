@@ -1,4 +1,4 @@
-import { eq, type InferInsertModel } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { subDays } from "date-fns";
 import {
   habit,
@@ -9,23 +9,20 @@ import {
   syncState,
   identity,
 } from "@nag/schema";
-import { Day, AllDays } from "@nag/core";
+import {
+  Day,
+  getConsolidatedScheduler,
+  getNotificationScheduler,
+  processCommand,
+  setConsolidatedScheduler,
+  setNotificationScheduler,
+  syncAllNotifications,
+  type CreateHabit,
+} from "@nag/core";
 import { db } from "./index";
 
-type HabitInsert = Omit<
-  InferInsertModel<typeof habit>,
-  "id" | "createdAt" | "updatedAt"
->;
-type GoalInsert = Omit<
-  InferInsertModel<typeof goal>,
-  "id" | "habitId" | "createdAt" | "updatedAt"
->;
-type ScheduleSlot = { hour: number; minute: number; days: number };
-
 interface SeedEntry {
-  habit: HabitInsert;
-  goal?: GoalInsert;
-  schedules?: ScheduleSlot[];
+  command: CreateHabit;
   checkIns?: { daysAgo: number }[];
 }
 
@@ -35,42 +32,67 @@ const MWF = Day.Mon | Day.Wed | Day.Fri;
 const TuTh = Day.Tue | Day.Thu;
 
 // ── Sample data ──────────────────────────────────────────────────────
-// Edit this array to change what gets seeded.
+// Edit this array to change what gets seeded. Each entry is a CreateHabit
+// command that the seeder fans out via `processCommand`, so the same
+// rows that land locally also queue in the outbox and replicate to the
+// backend on the next sync.
+//
 // daysAgo: 0 = today, 1 = yesterday, etc.
 
 const sampleData: SeedEntry[] = [
-  // Daily, every day at 7am — already done today
   {
-    habit: { title: "Meditate" },
-    goal: { regularity: "day", frequency: 1 },
-    schedules: [{ hour: 7, minute: 0, days: AllDays }],
+    // Daily, every day at 7am — already done today.
+    command: {
+      type: "CreateHabit",
+      title: "Meditate",
+      goal: {
+        regularity: "day",
+        schedules: [{ hour: 7, minute: 0 }],
+      },
+    },
     checkIns: [{ daysAgo: 0 }],
   },
-  // Two slots per day (morning + evening), weekdays only
   {
-    habit: { title: "Exercise" },
-    goal: { regularity: "day", frequency: 2 },
-    schedules: [
-      { hour: 6, minute: 30, days: Weekdays },
-      { hour: 18, minute: 0, days: Weekdays },
-    ],
+    // Twice a day on weekdays (morning + evening). Modelled as a weekly
+    // habit so the schedules can carry day-of-week filters; the handler
+    // counts popcount(days) across schedules to derive frequency = 10.
+    command: {
+      type: "CreateHabit",
+      title: "Exercise",
+      goal: {
+        regularity: "week",
+        schedules: [
+          { hour: 6, minute: 30, days: Weekdays },
+          { hour: 18, minute: 0, days: Weekdays },
+        ],
+      },
+    },
     checkIns: [{ daysAgo: 0 }],
   },
-  // Daily at 9pm, all week — nothing checked in yet
   {
-    habit: { title: "Read" },
-    goal: { regularity: "day", frequency: 1 },
-    schedules: [{ hour: 21, minute: 0, days: AllDays }],
-    checkIns: [],
+    // Daily at 9pm, all week — nothing checked in yet.
+    command: {
+      type: "CreateHabit",
+      title: "Read",
+      goal: {
+        regularity: "day",
+        schedules: [{ hour: 21, minute: 0 }],
+      },
+    },
   },
-  // MWF mornings + Tue/Thu evenings (5 slots across the week)
   {
-    habit: { title: "Journal" },
-    goal: { regularity: "week", frequency: 5 },
-    schedules: [
-      { hour: 8, minute: 0, days: MWF },
-      { hour: 20, minute: 0, days: TuTh },
-    ],
+    // MWF mornings + Tue/Thu evenings (5 slots across the week).
+    command: {
+      type: "CreateHabit",
+      title: "Journal",
+      goal: {
+        regularity: "week",
+        schedules: [
+          { hour: 8, minute: 0, days: MWF },
+          { hour: 20, minute: 0, days: TuTh },
+        ],
+      },
+    },
     checkIns: [
       { daysAgo: 0 },
       { daysAgo: 1 },
@@ -79,35 +101,53 @@ const sampleData: SeedEntry[] = [
       { daysAgo: 5 },
     ],
   },
-  // 3× per week, scheduled MWF at 6am
   {
-    habit: { title: "Run 5k" },
-    goal: { regularity: "week", frequency: 3 },
-    schedules: [{ hour: 6, minute: 0, days: MWF }],
+    // 3× per week, scheduled MWF at 6am.
+    command: {
+      type: "CreateHabit",
+      title: "Run 5k",
+      goal: {
+        regularity: "week",
+        schedules: [{ hour: 6, minute: 0, days: MWF }],
+      },
+    },
     checkIns: [{ daysAgo: 1 }],
   },
-  // Weekend-only habit, two slots on Sat + Sun
   {
-    habit: { title: "Practice guitar" },
-    goal: { regularity: "week", frequency: 2 },
-    schedules: [{ hour: 10, minute: 0, days: Day.Sat | Day.Sun }],
+    // Weekend-only habit, one slot on Sat + Sun.
+    command: {
+      type: "CreateHabit",
+      title: "Practice guitar",
+      goal: {
+        regularity: "week",
+        schedules: [{ hour: 10, minute: 0, days: Day.Sat | Day.Sun }],
+      },
+    },
     checkIns: [{ daysAgo: 3 }],
   },
-  // Three slots per day on weekdays (morning, lunch, evening)
   {
-    habit: { title: "Drink water" },
-    goal: { regularity: "day", frequency: 3 },
-    schedules: [
-      { hour: 8, minute: 0, days: Weekdays },
-      { hour: 12, minute: 30, days: Weekdays },
-      { hour: 17, minute: 0, days: Weekdays },
-    ],
+    // Three slots per day on weekdays (morning, lunch, evening).
+    command: {
+      type: "CreateHabit",
+      title: "Drink water",
+      goal: {
+        regularity: "week",
+        schedules: [
+          { hour: 8, minute: 0, days: Weekdays },
+          { hour: 12, minute: 30, days: Weekdays },
+          { hour: 17, minute: 0, days: Weekdays },
+        ],
+      },
+    },
     checkIns: [{ daysAgo: 0 }, { daysAgo: 0 }],
   },
-  // Monthly, no schedule
   {
-    habit: { title: "Call family" },
-    goal: { regularity: "month", frequency: 4 },
+    // Monthly, no schedule — frequency-only goal.
+    command: {
+      type: "CreateHabit",
+      title: "Call family",
+      goal: { regularity: "month", frequency: 4 },
+    },
     checkIns: [
       { daysAgo: 2 },
       { daysAgo: 8 },
@@ -115,9 +155,9 @@ const sampleData: SeedEntry[] = [
       { daysAgo: 22 },
     ],
   },
-  // No goal, no schedule — freeform
   {
-    habit: { title: "Stretch" },
+    // No goal, no schedule — freeform.
+    command: { type: "CreateHabit", title: "Stretch" },
     checkIns: [{ daysAgo: 0 }],
   },
 ];
@@ -146,44 +186,61 @@ export const clearAll = async (opts: { keepDeviceInfo?: boolean } = {}) => {
   }
 };
 
+/**
+ * Seeds via {@link processCommand} so each habit + check-in lands in the
+ * outbox alongside the local row, and the dispatcher replicates them to
+ * the backend on the next sync. Goal `createdAt` is then back-dated
+ * locally so the UI's compliance windows include the older check-ins;
+ * the backend stamps its own ingest time when it receives the command,
+ * which is fine because compliance is computed entirely on-device.
+ *
+ * The notification schedulers are stubbed for the duration of the seed
+ * so the per-handler `syncAllNotifications` calls don't fan out to
+ * slow native I/O across ~20 iterations. After the seed completes we
+ * restore the real schedulers and run the sync once. This also reduces
+ * the storm of `expo-sqlite` change-listener fires that otherwise makes
+ * `useLiveQuery` flicker through partial states on the board screen.
+ */
 export const seedSampleData = async () => {
   const now = new Date();
   const goalCreatedAt = subDays(now, 30);
 
-  for (const entry of sampleData) {
-    const [inserted] = await db
-      .insert(habit)
-      .values(entry.habit)
-      .returning({ id: habit.id });
+  const realConsolidated = getConsolidatedScheduler();
+  const realNotification = getNotificationScheduler();
+  const noopConsolidated = {
+    cancelAllSlotNotifications: async () => {},
+    scheduleSlotNotification: async () => {},
+  };
+  const noopNotification = {
+    cancelNotifications: async () => {},
+    syncNotifications: async () => {},
+  };
+  setConsolidatedScheduler(noopConsolidated);
+  setNotificationScheduler(noopNotification);
 
-    if (entry.goal) {
-      const [insertedGoal] = await db
-        .insert(goal)
-        .values({
-          ...entry.goal,
-          habitId: inserted.id,
-          createdAt: goalCreatedAt,
-          updatedAt: goalCreatedAt,
-        })
-        .returning({ id: goal.id });
+  try {
+    for (const entry of sampleData) {
+      const result = await processCommand(db, entry.command);
 
-      if (entry.schedules) {
-        for (const slot of entry.schedules) {
-          await db.insert(schedule).values({
-            goalId: insertedGoal.id,
-            hour: slot.hour,
-            minute: slot.minute,
-            days: slot.days,
-          });
-        }
+      if (entry.command.goal) {
+        await db
+          .update(goal)
+          .set({ createdAt: goalCreatedAt, updatedAt: goalCreatedAt })
+          .where(eq(goal.habitId, result.habitId));
+      }
+
+      for (const ci of entry.checkIns ?? []) {
+        await processCommand(db, {
+          type: "CreateCheckIn",
+          habitId: result.habitId,
+          timestamp: subDays(now, ci.daysAgo),
+        });
       }
     }
-
-    if (entry.checkIns) {
-      for (const ci of entry.checkIns) {
-        const timestamp = subDays(now, ci.daysAgo);
-        await db.insert(checkIn).values({ habitId: inserted.id, timestamp });
-      }
-    }
+  } finally {
+    setConsolidatedScheduler(realConsolidated);
+    setNotificationScheduler(realNotification);
   }
+
+  await syncAllNotifications(db);
 };
