@@ -20,6 +20,42 @@ export const previousMonthStart = (now: Date): Date => {
 };
 
 /**
+ * Day-of-week index matching JavaScript `Date.prototype.getUTCDay()` and
+ * .NET's `DayOfWeek` enum: Sunday = 0, Monday = 1, …, Saturday = 6.
+ * Used as the configurable anchor for week-bounded period calculations
+ * (see {@link currentWeekBounds}). The account-level default is Monday.
+ */
+export type WeekStartsOn = 0 | 1 | 2 | 3 | 4 | 5 | 6;
+
+/**
+ * Bounds of the week (in UTC) that contains `now`, anchored on the given
+ * `weekStartsOn` day. Returned half-open: `start` is midnight on the
+ * anchor day; `end` is midnight on the next anchor day, exclusive.
+ *
+ * Mirrors the server's `PeriodCalculator.WeekBounds`, so a timestamp
+ * passed through both ends up in the same week on either side.
+ */
+export const currentWeekBounds = (
+  now: Date = new Date(),
+  weekStartsOn: WeekStartsOn = 1,
+): { start: Date; end: Date } => {
+  const daysSinceStart = (now.getUTCDay() - weekStartsOn + 7) % 7;
+  const start = new Date(
+    Date.UTC(
+      now.getUTCFullYear(),
+      now.getUTCMonth(),
+      now.getUTCDate() - daysSinceStart,
+      0,
+      0,
+      0,
+      0,
+    ),
+  );
+  const end = new Date(start.getTime() + 7 * 24 * 60 * 60 * 1000);
+  return { start, end };
+};
+
+/**
  * Deletes every local check-in whose deemed `timestamp` is strictly older
  * than `cutoff`. Pure DB op — caller decides when it's safe to invoke
  * (see {@link pruneOldCheckInsIfSafe}).
