@@ -19,6 +19,7 @@ using Nag.Core.Validation;
 using Serilog;
 using Wolverine;
 using Wolverine.Http;
+using Wolverine.Http.Marten;
 #if DEBUG
 using Microsoft.OpenApi;
 using Nag.Api.OpenApi;
@@ -112,6 +113,19 @@ builder
         }
         opts.Events.StreamIdentity = JasperFx.Events.StreamIdentity.AsGuid;
 
+        // Per-account isolation. Conjoined tenancy tags every event row with
+        // a `tenant_id`; documents flagged below get the same column. The
+        // `IDocumentSession` injected into authenticated handlers is already
+        // tenanted by Wolverine HTTP (see `opts.TenantId.IsClaimTypeNamed`
+        // below), so every existing `session.Events.Append(NagStreams.Root, …)`
+        // and `session.LoadAsync<HomeBoard>(NagStreams.Root, …)` automatically
+        // scopes to the calling account.
+        //
+        // `Account` and `Device` stay single-tenant on purpose: they're how
+        // we *find* the tenant in the first place (sub → account, deviceId
+        // → device), so they have to be queryable without a tenant context.
+        opts.Events.TenancyStyle = Marten.Storage.TenancyStyle.Conjoined;
+
         // Skip per-cold-start pg_catalog introspection in production. Schema
         // changes are applied out-of-band (one-shot migration), so the Lambda
         // can assume the schema already matches.
@@ -132,8 +146,8 @@ builder
         // would 5xx with a missing-relation error.
         opts.Schema.For<Account>();
         opts.Schema.For<Device>();
-        opts.Schema.For<ProcessedCommand>();
-        opts.Schema.For<HomeBoard>();
+        opts.Schema.For<ProcessedCommand>().MultiTenanted();
+        opts.Schema.For<HomeBoard>().MultiTenanted();
 
         opts.Projections.Add<HomeBoardProjection>(ProjectionLifecycle.Inline);
     })
@@ -155,6 +169,17 @@ builder.Host.UseWolverine(opts =>
 });
 
 builder.Services.AddWolverineHttp();
+
+// Wire the per-request tenant id (from the `account_id` claim populated by
+// our auth handler) into the `IDocumentSession`/`IQuerySession` that Marten
+// resolves from DI. Without this, `opts.TenantId.IsClaimTypeNamed(...)`
+// below only feeds the Wolverine message-context and `AssertExists`
+// ProblemDetails path — DI sessions stay non-tenanted and conjoined-tenant
+// reads/writes silently fall through to `*DEFAULT*`, defeating isolation.
+builder.Services.AddMartenTenancyDetection(opts =>
+{
+    opts.IsClaimTypeNamed(NagClaimTypes.AccountId);
+});
 
 builder.Services.AddScoped<CommandDispatcher>();
 builder.Services.AddScoped<CommandsReader>();

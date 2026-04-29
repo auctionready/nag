@@ -50,6 +50,76 @@ public class HomeBoardEndpointsTests : IClassFixture<HomeBoardEndpointsTests.Fac
     }
 
     [Fact]
+    public async Task two_accounts_see_separate_boards()
+    {
+        // Two device tokens minted for distinct accountIds. With Marten's
+        // conjoined tenancy on `account_id` (Phase 2d), each request's
+        // `IDocumentSession` is scoped to its account so writes by one
+        // device are invisible to another.
+        var accountA = Guid.NewGuid();
+        var accountB = Guid.NewGuid();
+        var clientA = _factory.CreateAuthedClient(
+            _factory.IssueDeviceToken(accountA, Guid.NewGuid())
+        );
+        var clientB = _factory.CreateAuthedClient(
+            _factory.IssueDeviceToken(accountB, Guid.NewGuid())
+        );
+
+        var habitA = Guid.NewGuid();
+        var habitB = Guid.NewGuid();
+
+        var respA = await clientA.PostAsJsonAsync(
+            "/commands",
+            new
+            {
+                id = Guid.NewGuid(),
+                type = "CreateHabit",
+                timestamp = DateTimeOffset.UtcNow,
+                payload = new
+                {
+                    habitId = habitA,
+                    title = "A's habit",
+                    goal = new { regularity = "day", frequency = 1 },
+                },
+            }
+        );
+        respA.EnsureSuccessStatusCode();
+        var respB = await clientB.PostAsJsonAsync(
+            "/commands",
+            new
+            {
+                id = Guid.NewGuid(),
+                type = "CreateHabit",
+                timestamp = DateTimeOffset.UtcNow,
+                payload = new
+                {
+                    habitId = habitB,
+                    title = "B's habit",
+                    goal = new { regularity = "day", frequency = 1 },
+                },
+            }
+        );
+        respB.EnsureSuccessStatusCode();
+
+        var boardA = await clientA.GetFromJsonAsync<HomeBoard>(
+            "/home-board",
+            NagJsonOptions.Default
+        );
+        var boardB = await clientB.GetFromJsonAsync<HomeBoard>(
+            "/home-board",
+            NagJsonOptions.Default
+        );
+
+        boardA!.Habits.ShouldHaveSingleItem();
+        boardA.Habits[0].Id.ShouldBe(habitA);
+        boardA.Habits[0].Title.ShouldBe("A's habit");
+
+        boardB!.Habits.ShouldHaveSingleItem();
+        boardB.Habits[0].Id.ShouldBe(habitB);
+        boardB.Habits[0].Title.ShouldBe("B's habit");
+    }
+
+    [Fact]
     public async Task check_in_appears_in_period()
     {
         var client = AuthedClient();
