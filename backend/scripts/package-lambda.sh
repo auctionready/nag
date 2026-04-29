@@ -27,6 +27,13 @@ dotnet tool update -g Amazon.Lambda.Tools >/dev/null
 
 cd "$BACKEND_DIR/Nag.Api"
 
+# Wipe prior pre-generated handlers before regenerating: `codegen write`
+# only adds/overwrites, it doesn't prune handlers for routes that were
+# deleted or renamed. Without this, stale `Internal/Generated/*.cs`
+# files referencing removed types (e.g. an endpoint that's been renamed)
+# fail the Release compile below.
+rm -rf Internal/Generated
+
 # NAG_RUN_JASPERFX_COMMANDS gates Program.cs's JasperFx command path.
 # Without it, `dotnet run -- codegen write` would still hit `app.Run()`.
 NAG_RUN_JASPERFX_COMMANDS=1 dotnet run --configuration Release -- codegen write

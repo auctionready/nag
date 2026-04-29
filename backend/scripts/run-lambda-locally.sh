@@ -40,6 +40,10 @@ load_env() {
 [ -f .env.local ] && load_env .env.local
 
 # 1. Pre-generate Wolverine handler types (same step as package-lambda.sh).
+# Wipe stale handlers first — `codegen write` doesn't prune for deleted
+# or renamed routes, and a stale `Internal/Generated/*.cs` will break the
+# Release compile.
+rm -rf Internal/Generated
 NAG_RUN_JASPERFX_COMMANDS=1 dotnet run --configuration Release --no-launch-profile -- codegen write
 
 if [ "${APPLY_SCHEMA:-}" = "1" ]; then
