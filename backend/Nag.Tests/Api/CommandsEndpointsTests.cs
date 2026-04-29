@@ -115,10 +115,10 @@ public class CommandsEndpointsTests : IClassFixture<CommandsEndpointsTests.Facto
             await PostHabit(client, "Read");
             await PostHabit(client, "Run");
 
-            var page = await client.GetFromJsonAsync<CommandsPage>("/commands?since=0");
+            var page = await client.GetFromJsonAsync<EventsPage>("/events?since=0");
             page.ShouldNotBeNull();
-            page!.Commands.Count.ShouldBeGreaterThanOrEqualTo(2);
-            page.Commands.Select(c => c.Sequence).ShouldBeInOrder();
+            page!.Events.Count.ShouldBeGreaterThanOrEqualTo(2);
+            page.Events.Select(c => c.Sequence).ShouldBeInOrder();
         }
 
         [Fact]
@@ -129,8 +129,8 @@ public class CommandsEndpointsTests : IClassFixture<CommandsEndpointsTests.Facto
             await PostHabit(client, "Run");
             await PostHabit(client, "Stretch");
 
-            var page = await client.GetFromJsonAsync<CommandsPage>("/commands?since=0&limit=2");
-            page!.Commands.Count.ShouldBe(2);
+            var page = await client.GetFromJsonAsync<EventsPage>("/events?since=0&limit=2");
+            page!.Events.Count.ShouldBe(2);
             page.NextSince.ShouldNotBeNull();
         }
     }

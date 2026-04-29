@@ -41,12 +41,15 @@ The source lives in [`backend/`](../backend) and has its own
 
 ## Endpoints
 
-| Method | Path                                  | Auth | Notes                                    |
-| ------ | ------------------------------------- | ---- | ---------------------------------------- |
-| `POST` | `/commands`                           | yes  | Append a command. Idempotent on `id`.    |
-| `GET`  | `/commands?since=<long>&limit=<int?>` | yes  | Page of commands; `limit` capped at 500. |
-| `GET`  | `/home-board`                         | yes  | The materialized view.                   |
-| `GET`  | `/health`                             | no   | Liveness.                                |
+| Method | Path                                     | Auth | Notes                                                                |
+| ------ | ---------------------------------------- | ---- | -------------------------------------------------------------------- |
+| `POST` | `/commands`                              | yes  | Append a command (server translates → events). Idempotent on `id`.   |
+| `GET`  | `/events?since=<long>&limit=<int?>`      | yes  | Page of past-tense events; `limit` capped at 500.                    |
+| `GET`  | `/sync?since=<long>`                     | yes  | Pull-sync: replay (events) or snapshot (HomeBoard).                  |
+| `GET`  | `/home-board`                            | yes  | Materialized current-period view.                                    |
+| `GET`  | `/check-ins/monthly/{year}/{month}`      | yes  | Materialized check-ins for one calendar month (UTC).                 |
+| `GET`  | `/check-ins/weekly/{year}/{month}/{day}` | yes  | Materialized check-ins for one Monday-anchored week. `day` = Monday. |
+| `GET`  | `/health`                                | no   | Liveness.                                                            |
 
 In Debug builds, `/swagger` serves OpenAPI UI. In Release builds the
 Swashbuckle package is conditionally excluded from the binary.
@@ -83,11 +86,16 @@ Response:
 }
 ```
 
-## Commands & projection
+## Commands, events & projection
 
-Commands live in `Nag.Core/Commands/`. They are also the _events_
-written to Marten — a 1:1 mapping for now. All events land on a single
-stream identified by `NagStreams.Root` (single-tenant; this becomes a
+`Nag.Core/Commands/` defines the **inbound intent** vocabulary —
+what `POST /commands` accepts. `Nag.Core/Events/` defines the
+**past-tense fact** vocabulary the server appends to Marten and ships
+to clients on `/events` and `/sync` replays. The
+`CommandDispatcher` is the bridge: it validates a command, loads any
+prior state it needs (from `CheckInState` for moves and deletes), and
+emits one or more events. All events land on a single stream
+identified by `NagStreams.Root` (single-tenant; this becomes a
 per-user GUID when we add multi-tenancy).
 
 `HomeBoardProjection` is a Marten `SingleStreamProjection<HomeBoard,
@@ -108,6 +116,39 @@ HomeBoard {
 
 Period scoping (which check-ins to include) is delegated to
 `PeriodCalculator` so it can be unit-tested without Marten.
+
+### Per-period check-in summaries
+
+`MonthlyCheckInSummaryProjection` and `WeeklyCheckInSummaryProjection`
+are `MultiStreamProjection<…, string>` projections, fan-out from the
+same global event stream into one document per period. Doc ids are:
+
+- Monthly: `"yyyy-MM"` (UTC, e.g. `"2026-04"`)
+- Weekly: `"yyyy-MM-dd"` of the Sunday starting the week (UTC)
+
+Each summary mirrors the `PeriodCheckIns` shape used in `HomeBoard`,
+grouped by habit, so the mobile app can render historical periods
+with the same UI it uses for the live board:
+
+```csharp
+MonthlyCheckInSummary { Id: "2026-04", MonthStart, Habits: [{ HabitId, CheckIns: [...] }] }
+WeeklyCheckInSummary  { Id: "2026-04-26", WeekStart, Habits: [{ HabitId, CheckIns: [...] }] }
+```
+
+The mobile app holds only current + previous month's check-ins
+locally (older rows are pruned after every successful pull-sync).
+When the user browses history, the app calls
+`GET /check-ins/{monthly|weekly}/…` to fill in the missing periods.
+
+Cross-period correctness is now an invariant. `CheckInMoved` carries
+both `OldTimestamp` and `NewTimestamp`, so the projection's slicer
+fans out to **both** the source and target period docs via Marten's
+`Identities` — the source removes the stale row, the target upserts
+the new one. `CheckInDeleted` carries the timestamp at delete time
+and routes cleanly to the right period. The
+`CheckInIndexProjection` (one tiny doc per check-in, keyed by
+`CheckInId`) is what lets the dispatcher fill in `OldTimestamp` /
+`Timestamp` without a state-stream replay on every Update / Delete.
 
 ## Idempotency
 

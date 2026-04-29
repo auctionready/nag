@@ -19,7 +19,7 @@ const commandEnvelopeOut = {
   sequence: 1,
   id: "11111111-1111-4111-8111-111111111111",
   timestamp: "2024-05-01T10:00:00.000Z",
-  type: "CreateHabit" as const,
+  type: "HabitCreated" as const,
   payload: {
     habitId: "22222222-2222-4222-8222-222222222222",
     title: "Read",
@@ -82,38 +82,38 @@ describe("nagApiClient", () => {
     });
   });
 
-  describe("getCommands", () => {
+  describe("getEvents", () => {
     it("builds a query string from since and limit", async () => {
       const scope = nock(BASE_URL)
-        .get("/commands")
+        .get("/events")
         .query({ since: "0", limit: "10" })
-        .reply(200, { commands: [], nextSince: null });
+        .reply(200, { events: [], nextSince: null });
 
-      await makeClient().getCommands({ queries: { since: 0, limit: 10 } });
+      await makeClient().getEvents({ queries: { since: 0, limit: 10 } });
 
       expect(scope.isDone()).toBe(true);
     });
 
     it("omits optional params when not provided", async () => {
       const scope = nock(BASE_URL)
-        .get("/commands")
+        .get("/events")
         .query({ since: "42" })
-        .reply(200, { commands: [], nextSince: null });
+        .reply(200, { events: [], nextSince: null });
 
-      await makeClient().getCommands({ queries: { since: 42 } });
+      await makeClient().getEvents({ queries: { since: 42 } });
 
       expect(scope.isDone()).toBe(true);
     });
 
-    it("decodes ISO timestamps inside returned commands into Date instances", async () => {
+    it("decodes ISO timestamps inside returned events into Date instances", async () => {
       nock(BASE_URL)
-        .get("/commands")
+        .get("/events")
         .query({ since: "0" })
-        .reply(200, { commands: [commandEnvelopeOut], nextSince: null });
+        .reply(200, { events: [commandEnvelopeOut], nextSince: null });
 
-      const page = await makeClient().getCommands({ queries: { since: 0 } });
+      const page = await makeClient().getEvents({ queries: { since: 0 } });
 
-      const first = page.commands![0]!;
+      const first = page.events![0]!;
       expect(first.timestamp).toBeInstanceOf(Date);
       expect((first.timestamp as Date).toISOString()).toBe(
         "2024-05-01T10:00:00.000Z",

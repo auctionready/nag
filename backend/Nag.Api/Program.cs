@@ -139,6 +139,14 @@ builder
             opts.Events.AddEventType(t);
         }
 
+        // Past-tense events the server emits. Currently registered so
+        // Marten knows the types; consumers (projections, dispatcher
+        // emit, sync wire) follow in subsequent stack PRs.
+        foreach (var t in EventRegistry.All)
+        {
+            opts.Events.AddEventType(t);
+        }
+
         // Register every document type the API stores or loads, so that
         // `db-apply` (which we run out-of-band; see `infra/src/migrations.ts`)
         // can plan their tables. With AutoCreate.None, Marten doesn't
@@ -148,8 +156,17 @@ builder
         opts.Schema.For<Device>();
         opts.Schema.For<ProcessedCommand>().MultiTenanted();
         opts.Schema.For<HomeBoard>().MultiTenanted();
+        // Past-tense event projections introduced alongside the
+        // server-side switch — same per-account isolation rule as
+        // HomeBoard / ProcessedCommand.
+        opts.Schema.For<CheckInState>().MultiTenanted();
+        opts.Schema.For<MonthlyCheckInSummary>().MultiTenanted();
+        opts.Schema.For<WeeklyCheckInSummary>().MultiTenanted();
 
         opts.Projections.Add<HomeBoardProjection>(ProjectionLifecycle.Inline);
+        opts.Projections.Add<CheckInIndexProjection>(ProjectionLifecycle.Inline);
+        opts.Projections.Add<MonthlyCheckInSummaryProjection>(ProjectionLifecycle.Inline);
+        opts.Projections.Add<WeeklyCheckInSummaryProjection>(ProjectionLifecycle.Inline);
     })
     .UseLightweightSessions();
 
@@ -182,7 +199,7 @@ builder.Services.AddMartenTenancyDetection(opts =>
 });
 
 builder.Services.AddScoped<CommandDispatcher>();
-builder.Services.AddScoped<CommandsReader>();
+builder.Services.AddScoped<EventsReader>();
 builder.Services.AddScoped<SyncCoordinator>();
 
 // Clerk verifier — registered in both modes. When Nag:ClerkIssuer is unset

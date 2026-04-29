@@ -1,10 +1,18 @@
 import { describe, it, expect, vi } from "vitest";
-import { asc } from "drizzle-orm";
+import { asc, eq } from "drizzle-orm";
 import * as schema from "@nag/schema";
 import { setupTestDb } from "../../__tests__/testDb";
 import { processCommand } from "../../commands/processor";
 import { createDispatcher } from "../dispatcher";
-import { countPending, countFailed, isHalted, resumeDispatch } from "../outbox";
+import {
+  countPending,
+  countFailed,
+  countSent,
+  isHalted,
+  markSent,
+  resumeDispatch,
+  SENT_OUTBOX_RETAIN_DEFAULT,
+} from "../outbox";
 import type { PostResult } from "../types";
 
 const getDb = setupTestDb("dispatcher-test.db");
@@ -388,6 +396,114 @@ describe("dispatcher gating on device registration", () => {
 
     expect(status).toBe("offline");
     expect(post).not.toHaveBeenCalled();
+  });
+});
+
+describe("outbox sent-row retention", () => {
+  it("keeps only the most recent SENT_OUTBOX_RETAIN_DEFAULT sent rows after markSent", async () => {
+    const db = getDb();
+    // Seed many more rows than the retention limit so prune actually fires.
+    const total = SENT_OUTBOX_RETAIN_DEFAULT + 5;
+    for (let i = 0; i < total; i++) {
+      await processCommand(db, { type: "CreateHabit", title: `H${i}` });
+    }
+
+    let seq = 0;
+    const post = vi.fn(
+      async (): Promise<PostResult> => ({ ok: true, sequence: ++seq }),
+    );
+
+    expect(await createDispatcher({ db, post }).run()).toBe("idle");
+
+    expect(await countPending(db)).toBe(0);
+    expect(await countSent(db)).toBe(SENT_OUTBOX_RETAIN_DEFAULT);
+
+    // The retained rows are the newest by id — the oldest are pruned.
+    // Assert via `serverSequence` (deterministic per test, unlike SQLite's
+    // autoincrement which is shared across the test file).
+    const rows = await db
+      .select({ serverSequence: schema.outbox.serverSequence })
+      .from(schema.outbox)
+      .orderBy(asc(schema.outbox.id));
+    expect(rows.length).toBe(SENT_OUTBOX_RETAIN_DEFAULT);
+    expect(rows[0].serverSequence).toBe(total - SENT_OUTBOX_RETAIN_DEFAULT + 1);
+    expect(rows.at(-1)!.serverSequence).toBe(total);
+  });
+
+  it("keeps all rows when count is below the retention limit", async () => {
+    const db = getDb();
+    await seedThreeCommands(db);
+
+    let seq = 0;
+    const post = vi.fn(
+      async (): Promise<PostResult> => ({ ok: true, sequence: ++seq }),
+    );
+    await createDispatcher({ db, post }).run();
+
+    expect(await countSent(db)).toBe(3);
+  });
+
+  it("does not prune pending or failed rows", async () => {
+    const db = getDb();
+
+    // Seed a row marked as failed (simulate a previously-halted send) and
+    // a row pending to be sent now.
+    await db.insert(schema.outbox).values({
+      commandType: "CreateHabit",
+      payload: JSON.stringify({ habitId: "x", title: "Failed" }),
+      status: "failed",
+      lastError: "old failure",
+    });
+    await processCommand(db, { type: "CreateHabit", title: "Pending" });
+
+    // Bypass the dispatcher and call markSent directly with a tiny retention
+    // window to force a prune that *would* delete other-status rows if the
+    // prune query mis-targeted.
+    const [pendingRow] = await db
+      .select({ id: schema.outbox.id })
+      .from(schema.outbox)
+      .where(eq(schema.outbox.status, "pending"));
+    await markSent(db, pendingRow.id, 1, /* retain */ 1);
+
+    expect(await countFailed(db)).toBe(1);
+    expect(await countSent(db)).toBe(1);
+    expect(await countPending(db)).toBe(0);
+  });
+
+  it("retains every sent row when retainSentRows is negative (prune disabled)", async () => {
+    const db = getDb();
+    const total = 15;
+    for (let i = 0; i < total; i++) {
+      await processCommand(db, { type: "CreateHabit", title: `H${i}` });
+    }
+
+    const rows = await db
+      .select({ id: schema.outbox.id })
+      .from(schema.outbox)
+      .orderBy(asc(schema.outbox.id));
+
+    let seq = 0;
+    for (const r of rows) {
+      await markSent(db, r.id, ++seq, /* retain */ -1);
+    }
+
+    expect(await countSent(db)).toBe(total);
+  });
+
+  it("drops every sent row when retainSentRows is 0", async () => {
+    const db = getDb();
+    await seedThreeCommands(db);
+
+    const rows = await db
+      .select({ id: schema.outbox.id })
+      .from(schema.outbox)
+      .orderBy(asc(schema.outbox.id));
+    let seq = 0;
+    for (const r of rows) {
+      await markSent(db, r.id, ++seq, /* retain */ 0);
+    }
+
+    expect(await countSent(db)).toBe(0);
   });
 });
 

@@ -1,8 +1,9 @@
 import type { AnyDb } from "../db";
-import { applyServerCommand, type ServerCommand } from "./applyServerCommand";
+import { applyServerEvent, type ServerEvent } from "./applyServerEvent";
 import { installSnapshot, type ServerSnapshot } from "./installSnapshot";
 import { getHighestServerSequence, isHalted } from "./outbox";
 import { syncAllNotifications } from "../notificationConsolidator";
+import { pruneOldCheckInsIfSafe } from "../retention";
 
 export type PullStatus = "idle" | "halted" | "offline";
 
@@ -14,7 +15,7 @@ export type PullStatus = "idle" | "halted" | "offline";
  */
 export type SyncResult = {
   mode: "replay" | "snapshot" | string;
-  commands?: ServerCommand[] | null;
+  events?: ServerEvent[] | null;
   headSequence?: number | null;
   nextSince?: number | null;
   sequenceAtSnapshot?: number | null;
@@ -107,17 +108,17 @@ export const createPullSync = ({
         return "offline";
       }
 
-      const commands = response.commands ?? [];
+      const events = response.events ?? [];
       debug(
-        `pullSync.run: replay mode commands=${commands.length} headSequence=${response.headSequence ?? "(none)"} nextSince=${response.nextSince ?? "(none)"}`,
+        `pullSync.run: replay mode events=${events.length} headSequence=${response.headSequence ?? "(none)"} nextSince=${response.nextSince ?? "(none)"}`,
       );
-      for (const cmd of commands) {
-        await applyServerCommand(db, cmd);
+      for (const event of events) {
+        await applyServerEvent(db, event);
         mutated = true;
       }
       // `nextSince` arrives as `undefined` (server omits null fields) when
       // there are no more pages.
-      if (response.nextSince == null || commands.length === 0) {
+      if (response.nextSince == null || events.length === 0) {
         break;
       }
     }
@@ -130,6 +131,16 @@ export const createPullSync = ({
         // Notification scheduling failures shouldn't poison the sync —
         // data is already committed. Caller will surface via Sentry.
       }
+    }
+
+    // Drop check-ins older than the start of the previous month — but only
+    // when the outbox is fully drained, so we never lose a row whose
+    // CreateCheckIn hasn't been acknowledged. Pruned periods can be
+    // re-fetched from the per-period summary endpoints on demand.
+    try {
+      await pruneOldCheckInsIfSafe(db);
+    } catch (e) {
+      error("pullSync.run: pruneOldCheckInsIfSafe threw", e);
     }
 
     return "idle";

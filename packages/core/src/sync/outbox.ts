@@ -11,6 +11,30 @@ export type PendingRow = {
   timestamp: Date;
 };
 
+/**
+ * Default retention for sent outbox rows after each successful send. The
+ * value is read from the `NAG_SENT_OUTBOX_RETAIN` env var at module load
+ * (so tests can override it via Vitest's env config); set to `-1` to
+ * disable pruning entirely and keep every sent row. Falls back to 10 when
+ * the env var is unset, empty, or unparseable.
+ *
+ * Retained rows are useful only for debugging — `serverSequence` is
+ * mirrored into `sync_state.highest_server_sequence`, and pending replays
+ * use envelope IDs.
+ */
+export const SENT_OUTBOX_RETAIN_DEFAULT: number = readRetainEnv();
+
+function readRetainEnv(): number {
+  const raw =
+    typeof process !== "undefined"
+      ? process.env?.NAG_SENT_OUTBOX_RETAIN
+      : undefined;
+  if (raw === undefined || raw === "") return 10;
+  const parsed = Number(raw);
+  if (!Number.isFinite(parsed)) return 10;
+  return Math.trunc(parsed);
+}
+
 export const loadPendingBatch = (
   db: AnyDb,
   limit: number,
@@ -29,16 +53,24 @@ export const loadPendingBatch = (
     .limit(limit);
 
 /**
- * Marks the outbox row sent and bumps `sync_state.highest_server_sequence`
- * so the next pull-sync `since` value reflects the just-acknowledged write.
- * Both updates run in one transaction so a crash between them either sees
- * both or neither — preventing the high-water mark from advancing past a
- * row that's still pending.
+ * Marks the outbox row sent, bumps `sync_state.highest_server_sequence`
+ * so the next pull-sync `since` value reflects the just-acknowledged write,
+ * and prunes older sent rows so the outbox can't grow unbounded. All three
+ * updates run in one transaction so a crash between them either sees all
+ * or none — preventing the high-water mark from advancing past a row
+ * that's still pending, and keeping the prune transactional with the
+ * write that triggered it.
+ *
+ * `retainSentRows` keeps the most recent N sent rows (newest by id) for
+ * debugging visibility; everything older is dropped. A negative value
+ * (e.g. `-1`) disables pruning entirely so every sent row is retained —
+ * useful when `NAG_SENT_OUTBOX_RETAIN=-1` is set during investigation.
  */
 export const markSent = async (
   db: AnyDb,
   id: number,
   serverSequence: number,
+  retainSentRows: number = SENT_OUTBOX_RETAIN_DEFAULT,
 ): Promise<void> =>
   withTransaction(db, async () => {
     await db
@@ -56,6 +88,21 @@ export const markSent = async (
         highestServerSequence: sql`MAX(${syncState.highestServerSequence}, ${serverSequence})`,
       })
       .where(eq(syncState.id, 1));
+    if (retainSentRows >= 0) {
+      // Drop sent rows older than the most recent `retainSentRows`. The
+      // subquery form keeps the newest N regardless of how many sends
+      // happened since the last prune.
+      await db.run(sql`
+        DELETE FROM outbox
+        WHERE status = 'sent'
+          AND id NOT IN (
+            SELECT id FROM outbox
+            WHERE status = 'sent'
+            ORDER BY id DESC
+            LIMIT ${retainSentRows}
+          )
+      `);
+    }
   });
 
 export const markPendingWithError = async (
@@ -118,6 +165,14 @@ export const countFailed = async (db: AnyDb): Promise<number> => {
     .select({ count: sql<number>`count(*)` })
     .from(outbox)
     .where(eq(outbox.status, "failed"));
+  return Number(row?.count ?? 0);
+};
+
+export const countSent = async (db: AnyDb): Promise<number> => {
+  const [row] = await db
+    .select({ count: sql<number>`count(*)` })
+    .from(outbox)
+    .where(eq(outbox.status, "sent"));
   return Number(row?.count ?? 0);
 };
 

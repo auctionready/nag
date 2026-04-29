@@ -163,48 +163,6 @@
             "description": "Not Found"
           }
         }
-      },
-      "get": {
-        "tags": [
-          "Commands"
-        ],
-        "summary": "GET_commands",
-        "description": "GET_commands",
-        "operationId": "getCommands",
-        "parameters": [
-          {
-            "name": "since",
-            "in": "query",
-            "schema": {
-              "type": "integer",
-              "format": "int64"
-            }
-          },
-          {
-            "name": "limit",
-            "in": "query",
-            "schema": {
-              "type": "integer",
-              "format": "int32",
-              "nullable": true
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/CommandsPage"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Not Found"
-          }
-        }
       }
     },
     "/devices/register": {
@@ -326,6 +284,50 @@
         "security": [ ]
       }
     },
+    "/events": {
+      "get": {
+        "tags": [
+          "Events"
+        ],
+        "summary": "GET_events",
+        "description": "GET_events",
+        "operationId": "getEvents",
+        "parameters": [
+          {
+            "name": "since",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "nullable": true
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EventsPage"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found"
+          }
+        }
+      }
+    },
     "/health": {
       "get": {
         "tags": [
@@ -353,6 +355,111 @@
           }
         },
         "security": [ ]
+      }
+    },
+    "/check-ins/monthly/{year}/{month}": {
+      "get": {
+        "tags": [
+          "Read Models"
+        ],
+        "summary": "GET_check_ins_monthly_year_month",
+        "description": "GET_check_ins_monthly_year_month",
+        "operationId": "getMonthlyCheckInSummary",
+        "parameters": [
+          {
+            "name": "year",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "month",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MonthlyCheckInSummary"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "404": {
+            "description": "Not Found"
+          }
+        }
+      }
+    },
+    "/check-ins/weekly/{year}/{month}/{day}": {
+      "get": {
+        "tags": [
+          "Read Models"
+        ],
+        "summary": "GET_check_ins_weekly_year_month_day",
+        "description": "GET_check_ins_weekly_year_month_day",
+        "operationId": "getWeeklyCheckInSummary",
+        "parameters": [
+          {
+            "name": "year",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "month",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "day",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WeeklyCheckInSummary"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "404": {
+            "description": "Not Found"
+          }
+        }
       }
     },
     "/home-board": {
@@ -418,6 +525,103 @@
   },
   "components": {
     "schemas": {
+      "CheckInDeleted": {
+        "type": "object",
+        "properties": {
+          "checkInId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "habitId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "additionalProperties": false
+      },
+      "CheckInMarkedDone": {
+        "type": "object",
+        "properties": {
+          "checkInId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "habitId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "additionalProperties": false
+      },
+      "CheckInMarkedSkipped": {
+        "type": "object",
+        "properties": {
+          "checkInId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "habitId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "additionalProperties": false
+      },
+      "CheckInMoved": {
+        "type": "object",
+        "properties": {
+          "checkInId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "habitId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "oldTimestamp": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "newTimestamp": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "additionalProperties": false
+      },
+      "CheckInRecorded": {
+        "type": "object",
+        "properties": {
+          "checkInId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "habitId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "skipped": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
       "CommandAccepted": {
         "type": "object",
         "properties": {
@@ -462,220 +666,6 @@
             "CreateCheckIn": "#/components/schemas/CommandEnvelope_CreateCheckIn",
             "UpdateCheckIn": "#/components/schemas/CommandEnvelope_UpdateCheckIn",
             "DeleteCheckIn": "#/components/schemas/CommandEnvelope_DeleteCheckIn"
-          }
-        }
-      },
-      "CommandEnvelopeOut": {
-        "oneOf": [
-          {
-            "$ref": "#/components/schemas/CommandEnvelopeOut_CreateHabit"
-          },
-          {
-            "$ref": "#/components/schemas/CommandEnvelopeOut_UpdateHabit"
-          },
-          {
-            "$ref": "#/components/schemas/CommandEnvelopeOut_DeleteHabit"
-          },
-          {
-            "$ref": "#/components/schemas/CommandEnvelopeOut_CreateCheckIn"
-          },
-          {
-            "$ref": "#/components/schemas/CommandEnvelopeOut_UpdateCheckIn"
-          },
-          {
-            "$ref": "#/components/schemas/CommandEnvelopeOut_DeleteCheckIn"
-          }
-        ],
-        "additionalProperties": false,
-        "discriminator": {
-          "propertyName": "type",
-          "mapping": {
-            "CreateHabit": "#/components/schemas/CommandEnvelopeOut_CreateHabit",
-            "UpdateHabit": "#/components/schemas/CommandEnvelopeOut_UpdateHabit",
-            "DeleteHabit": "#/components/schemas/CommandEnvelopeOut_DeleteHabit",
-            "CreateCheckIn": "#/components/schemas/CommandEnvelopeOut_CreateCheckIn",
-            "UpdateCheckIn": "#/components/schemas/CommandEnvelopeOut_UpdateCheckIn",
-            "DeleteCheckIn": "#/components/schemas/CommandEnvelopeOut_DeleteCheckIn"
-          }
-        }
-      },
-      "CommandEnvelopeOut_CreateCheckIn": {
-        "required": [
-          "type",
-          "payload"
-        ],
-        "type": "object",
-        "properties": {
-          "sequence": {
-            "type": "integer",
-            "format": "int64"
-          },
-          "id": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "timestamp": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "type": {
-            "enum": [
-              "CreateCheckIn"
-            ],
-            "type": "string"
-          },
-          "payload": {
-            "$ref": "#/components/schemas/CreateCheckIn"
-          }
-        }
-      },
-      "CommandEnvelopeOut_CreateHabit": {
-        "required": [
-          "type",
-          "payload"
-        ],
-        "type": "object",
-        "properties": {
-          "sequence": {
-            "type": "integer",
-            "format": "int64"
-          },
-          "id": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "timestamp": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "type": {
-            "enum": [
-              "CreateHabit"
-            ],
-            "type": "string"
-          },
-          "payload": {
-            "$ref": "#/components/schemas/CreateHabit"
-          }
-        }
-      },
-      "CommandEnvelopeOut_DeleteCheckIn": {
-        "required": [
-          "type",
-          "payload"
-        ],
-        "type": "object",
-        "properties": {
-          "sequence": {
-            "type": "integer",
-            "format": "int64"
-          },
-          "id": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "timestamp": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "type": {
-            "enum": [
-              "DeleteCheckIn"
-            ],
-            "type": "string"
-          },
-          "payload": {
-            "$ref": "#/components/schemas/DeleteCheckIn"
-          }
-        }
-      },
-      "CommandEnvelopeOut_DeleteHabit": {
-        "required": [
-          "type",
-          "payload"
-        ],
-        "type": "object",
-        "properties": {
-          "sequence": {
-            "type": "integer",
-            "format": "int64"
-          },
-          "id": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "timestamp": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "type": {
-            "enum": [
-              "DeleteHabit"
-            ],
-            "type": "string"
-          },
-          "payload": {
-            "$ref": "#/components/schemas/DeleteHabit"
-          }
-        }
-      },
-      "CommandEnvelopeOut_UpdateCheckIn": {
-        "required": [
-          "type",
-          "payload"
-        ],
-        "type": "object",
-        "properties": {
-          "sequence": {
-            "type": "integer",
-            "format": "int64"
-          },
-          "id": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "timestamp": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "type": {
-            "enum": [
-              "UpdateCheckIn"
-            ],
-            "type": "string"
-          },
-          "payload": {
-            "$ref": "#/components/schemas/UpdateCheckIn"
-          }
-        }
-      },
-      "CommandEnvelopeOut_UpdateHabit": {
-        "required": [
-          "type",
-          "payload"
-        ],
-        "type": "object",
-        "properties": {
-          "sequence": {
-            "type": "integer",
-            "format": "int64"
-          },
-          "id": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "timestamp": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "type": {
-            "enum": [
-              "UpdateHabit"
-            ],
-            "type": "string"
-          },
-          "payload": {
-            "$ref": "#/components/schemas/UpdateHabit"
           }
         }
       },
@@ -835,24 +825,6 @@
           }
         }
       },
-      "CommandsPage": {
-        "type": "object",
-        "properties": {
-          "commands": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/CommandEnvelopeOut"
-            },
-            "nullable": true
-          },
-          "nextSince": {
-            "type": "integer",
-            "format": "int64",
-            "nullable": true
-          }
-        },
-        "additionalProperties": false
-      },
       "CreateCheckIn": {
         "type": "object",
         "properties": {
@@ -938,6 +910,374 @@
         },
         "additionalProperties": false
       },
+      "EventEnvelope": {
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/EventEnvelope_HabitCreated"
+          },
+          {
+            "$ref": "#/components/schemas/EventEnvelope_HabitDetailsEdited"
+          },
+          {
+            "$ref": "#/components/schemas/EventEnvelope_HabitGoalDefined"
+          },
+          {
+            "$ref": "#/components/schemas/EventEnvelope_HabitGoalCleared"
+          },
+          {
+            "$ref": "#/components/schemas/EventEnvelope_HabitDeleted"
+          },
+          {
+            "$ref": "#/components/schemas/EventEnvelope_CheckInRecorded"
+          },
+          {
+            "$ref": "#/components/schemas/EventEnvelope_CheckInMoved"
+          },
+          {
+            "$ref": "#/components/schemas/EventEnvelope_CheckInMarkedSkipped"
+          },
+          {
+            "$ref": "#/components/schemas/EventEnvelope_CheckInMarkedDone"
+          },
+          {
+            "$ref": "#/components/schemas/EventEnvelope_CheckInDeleted"
+          }
+        ],
+        "additionalProperties": false,
+        "discriminator": {
+          "propertyName": "type",
+          "mapping": {
+            "HabitCreated": "#/components/schemas/EventEnvelope_HabitCreated",
+            "HabitDetailsEdited": "#/components/schemas/EventEnvelope_HabitDetailsEdited",
+            "HabitGoalDefined": "#/components/schemas/EventEnvelope_HabitGoalDefined",
+            "HabitGoalCleared": "#/components/schemas/EventEnvelope_HabitGoalCleared",
+            "HabitDeleted": "#/components/schemas/EventEnvelope_HabitDeleted",
+            "CheckInRecorded": "#/components/schemas/EventEnvelope_CheckInRecorded",
+            "CheckInMoved": "#/components/schemas/EventEnvelope_CheckInMoved",
+            "CheckInMarkedSkipped": "#/components/schemas/EventEnvelope_CheckInMarkedSkipped",
+            "CheckInMarkedDone": "#/components/schemas/EventEnvelope_CheckInMarkedDone",
+            "CheckInDeleted": "#/components/schemas/EventEnvelope_CheckInDeleted"
+          }
+        }
+      },
+      "EventEnvelope_CheckInDeleted": {
+        "required": [
+          "type",
+          "payload"
+        ],
+        "type": "object",
+        "properties": {
+          "sequence": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "type": {
+            "enum": [
+              "CheckInDeleted"
+            ],
+            "type": "string"
+          },
+          "payload": {
+            "$ref": "#/components/schemas/CheckInDeleted"
+          }
+        }
+      },
+      "EventEnvelope_CheckInMarkedDone": {
+        "required": [
+          "type",
+          "payload"
+        ],
+        "type": "object",
+        "properties": {
+          "sequence": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "type": {
+            "enum": [
+              "CheckInMarkedDone"
+            ],
+            "type": "string"
+          },
+          "payload": {
+            "$ref": "#/components/schemas/CheckInMarkedDone"
+          }
+        }
+      },
+      "EventEnvelope_CheckInMarkedSkipped": {
+        "required": [
+          "type",
+          "payload"
+        ],
+        "type": "object",
+        "properties": {
+          "sequence": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "type": {
+            "enum": [
+              "CheckInMarkedSkipped"
+            ],
+            "type": "string"
+          },
+          "payload": {
+            "$ref": "#/components/schemas/CheckInMarkedSkipped"
+          }
+        }
+      },
+      "EventEnvelope_CheckInMoved": {
+        "required": [
+          "type",
+          "payload"
+        ],
+        "type": "object",
+        "properties": {
+          "sequence": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "type": {
+            "enum": [
+              "CheckInMoved"
+            ],
+            "type": "string"
+          },
+          "payload": {
+            "$ref": "#/components/schemas/CheckInMoved"
+          }
+        }
+      },
+      "EventEnvelope_CheckInRecorded": {
+        "required": [
+          "type",
+          "payload"
+        ],
+        "type": "object",
+        "properties": {
+          "sequence": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "type": {
+            "enum": [
+              "CheckInRecorded"
+            ],
+            "type": "string"
+          },
+          "payload": {
+            "$ref": "#/components/schemas/CheckInRecorded"
+          }
+        }
+      },
+      "EventEnvelope_HabitCreated": {
+        "required": [
+          "type",
+          "payload"
+        ],
+        "type": "object",
+        "properties": {
+          "sequence": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "type": {
+            "enum": [
+              "HabitCreated"
+            ],
+            "type": "string"
+          },
+          "payload": {
+            "$ref": "#/components/schemas/HabitCreated"
+          }
+        }
+      },
+      "EventEnvelope_HabitDeleted": {
+        "required": [
+          "type",
+          "payload"
+        ],
+        "type": "object",
+        "properties": {
+          "sequence": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "type": {
+            "enum": [
+              "HabitDeleted"
+            ],
+            "type": "string"
+          },
+          "payload": {
+            "$ref": "#/components/schemas/HabitDeleted"
+          }
+        }
+      },
+      "EventEnvelope_HabitDetailsEdited": {
+        "required": [
+          "type",
+          "payload"
+        ],
+        "type": "object",
+        "properties": {
+          "sequence": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "type": {
+            "enum": [
+              "HabitDetailsEdited"
+            ],
+            "type": "string"
+          },
+          "payload": {
+            "$ref": "#/components/schemas/HabitDetailsEdited"
+          }
+        }
+      },
+      "EventEnvelope_HabitGoalCleared": {
+        "required": [
+          "type",
+          "payload"
+        ],
+        "type": "object",
+        "properties": {
+          "sequence": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "type": {
+            "enum": [
+              "HabitGoalCleared"
+            ],
+            "type": "string"
+          },
+          "payload": {
+            "$ref": "#/components/schemas/HabitGoalCleared"
+          }
+        }
+      },
+      "EventEnvelope_HabitGoalDefined": {
+        "required": [
+          "type",
+          "payload"
+        ],
+        "type": "object",
+        "properties": {
+          "sequence": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "type": {
+            "enum": [
+              "HabitGoalDefined"
+            ],
+            "type": "string"
+          },
+          "payload": {
+            "$ref": "#/components/schemas/HabitGoalDefined"
+          }
+        }
+      },
+      "EventsPage": {
+        "type": "object",
+        "properties": {
+          "events": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/EventEnvelope"
+            },
+            "nullable": true
+          },
+          "nextSince": {
+            "type": "integer",
+            "format": "int64",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
       "GoalPayload": {
         "type": "object",
         "properties": {
@@ -963,6 +1303,136 @@
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/ScheduleEntry"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "HabitCreated": {
+        "type": "object",
+        "properties": {
+          "habitId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "title": {
+            "type": "string",
+            "nullable": true
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          },
+          "icon": {
+            "type": "string",
+            "nullable": true
+          },
+          "goal": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/GoalPayload"
+              }
+            ],
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "HabitDeleted": {
+        "type": "object",
+        "properties": {
+          "habitId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "additionalProperties": false
+      },
+      "HabitDetailsEdited": {
+        "type": "object",
+        "properties": {
+          "habitId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "title": {
+            "type": "string",
+            "nullable": true
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          },
+          "clearDescription": {
+            "type": "boolean"
+          },
+          "icon": {
+            "type": "string",
+            "nullable": true
+          },
+          "clearIcon": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
+      "HabitGoalCleared": {
+        "type": "object",
+        "properties": {
+          "habitId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "additionalProperties": false
+      },
+      "HabitGoalDefined": {
+        "type": "object",
+        "properties": {
+          "habitId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "regularity": {
+            "enum": [
+              "day",
+              "week",
+              "month"
+            ],
+            "type": "string",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/Regularity"
+              }
+            ]
+          },
+          "frequency": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "schedules": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ScheduleEntry"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "HabitPeriodCheckIns": {
+        "type": "object",
+        "properties": {
+          "habitId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "checkIns": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/HomeCheckIn"
             },
             "nullable": true
           }
@@ -1102,6 +1572,27 @@
         "type": "object",
         "additionalProperties": false
       },
+      "MonthlyCheckInSummary": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "nullable": true
+          },
+          "monthStart": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "habits": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/HabitPeriodCheckIns"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
       "PairDeviceRequest": {
         "type": "object",
         "properties": {
@@ -1222,10 +1713,10 @@
             "type": "string",
             "nullable": true
           },
-          "commands": {
+          "events": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/CommandEnvelopeOut"
+              "$ref": "#/components/schemas/EventEnvelope"
             },
             "nullable": true
           },
@@ -1357,6 +1848,27 @@
           }
         },
         "additionalProperties": false
+      },
+      "WeeklyCheckInSummary": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "nullable": true
+          },
+          "weekStart": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "habits": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/HabitPeriodCheckIns"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
       }
     },
     "securitySchemes": {
@@ -1382,6 +1894,9 @@
     },
     {
       "name": "Devices"
+    },
+    {
+      "name": "Events"
     },
     {
       "name": "Health"

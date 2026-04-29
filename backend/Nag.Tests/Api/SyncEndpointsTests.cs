@@ -92,10 +92,10 @@ public class SyncEndpointsTests
             var raw = await client.GetStringAsync($"/sync?since={first}");
             using var doc = JsonDocument.Parse(raw);
             doc.RootElement.GetProperty("mode").GetString().ShouldBe("replay");
-            var commands = doc.RootElement.GetProperty("commands");
-            commands.GetArrayLength().ShouldBe(1);
-            commands[0].GetProperty("type").GetString().ShouldBe("CreateHabit");
-            commands[0].GetProperty("sequence").GetInt64().ShouldBeGreaterThan(first);
+            var events = doc.RootElement.GetProperty("events");
+            events.GetArrayLength().ShouldBe(1);
+            events[0].GetProperty("type").GetString().ShouldBe("HabitCreated");
+            events[0].GetProperty("sequence").GetInt64().ShouldBeGreaterThan(first);
             doc.RootElement.GetProperty("headSequence").GetInt64().ShouldBeGreaterThan(first);
         }
     }
@@ -186,7 +186,7 @@ public class SyncEndpointsTests
             var raw = await client.GetStringAsync($"/sync?since={lastSeq}");
             using var doc = JsonDocument.Parse(raw);
             doc.RootElement.GetProperty("mode").GetString().ShouldBe("replay");
-            doc.RootElement.GetProperty("commands").GetArrayLength().ShouldBe(0);
+            doc.RootElement.GetProperty("events").GetArrayLength().ShouldBe(0);
         }
     }
 

@@ -56,6 +56,13 @@ export {
 } from "./queries";
 export { processCommand, type CommandResult } from "./commands/processor";
 export {
+  previousMonthStart,
+  currentWeekBounds,
+  pruneOldCheckIns,
+  pruneOldCheckInsIfSafe,
+  type WeekStartsOn,
+} from "./retention";
+export {
   createDispatcher,
   makeSingleflight,
   isHalted,
@@ -64,7 +71,7 @@ export {
   countFailed,
   loadPendingBatch,
   getHighestServerSequence,
-  applyServerCommand,
+  applyServerEvent,
   installSnapshot,
   createPullSync,
   type Dispatcher,
@@ -75,7 +82,7 @@ export {
   type PostCommandsFn,
   type PendingRow,
   type ServerSnapshot,
-  type ServerCommand,
+  type ServerEvent,
   type PullSync,
   type PullSyncOptions,
   type PullStatus,
@@ -104,6 +111,21 @@ export {
   DeleteCheckIn,
   type GoalPayload,
 } from "./commands/schemas";
+export {
+  Event,
+  EventTypeNames,
+  HabitCreated,
+  HabitDetailsEdited,
+  HabitGoalDefined,
+  HabitGoalCleared,
+  HabitDeleted,
+  CheckInRecorded,
+  CheckInMoved,
+  CheckInMarkedSkipped,
+  CheckInMarkedDone,
+  CheckInDeleted,
+  type EventTypeName,
+} from "./events";
 export type { AnyDb } from "./db";
 export {
   Day,

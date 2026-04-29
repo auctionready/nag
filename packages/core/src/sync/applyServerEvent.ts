@@ -4,12 +4,12 @@ import type { AnyDb } from "../db";
 import { withTransaction } from "../db/transaction";
 
 /**
- * Server-shipped command envelope as it arrives over `/sync` replay. Loose
+ * Server-shipped event envelope as it arrives over `/sync` replay. Loose
  * shape — the type discriminator drives our switch and the payload is
  * narrowed at apply time. `sequence` is required in practice but typed
  * optional to match the upstream Zodios schema.
  */
-export type ServerCommand = {
+export type ServerEvent = {
   sequence?: number;
   id?: string;
   timestamp?: string | Date;
@@ -94,7 +94,7 @@ const lookupHabitId = async (
   return row?.id ?? null;
 };
 
-const applyCreateHabit = async (
+const applyHabitCreated = async (
   db: AnyDb,
   payload: {
     habitId: string;
@@ -105,8 +105,8 @@ const applyCreateHabit = async (
   },
 ): Promise<void> => {
   // Upsert keyed on external_id so a replay of an already-applied
-  // CreateHabit (e.g. our own command echoed back, or a redelivery on
-  // resume) is a no-op rather than a constraint violation.
+  // event (e.g. our own command echoed back as an event, or a redelivery
+  // on resume) is a no-op rather than a constraint violation.
   await db
     .insert(habit)
     .values({
@@ -132,50 +132,59 @@ const applyCreateHabit = async (
   }
 };
 
-const applyUpdateHabit = async (
+const applyHabitDetailsEdited = async (
   db: AnyDb,
   payload: {
     habitId: string;
-    title?: string;
+    title?: string | null;
     description?: string | null;
-    icon?: string | null;
     clearDescription?: boolean;
+    icon?: string | null;
     clearIcon?: boolean;
-    clearGoal?: boolean;
-    goal?: ServerGoal | null;
   },
 ): Promise<void> => {
   const habitId = await lookupHabitId(db, payload.habitId);
-  if (habitId === null) {
-    // Tolerate target-missing: the row may have been deleted by a later
-    // command in the same replay window, or never existed locally yet.
-    return;
-  }
+  if (habitId === null) return;
 
   const set: Record<string, unknown> = { updatedAt: new Date() };
-  if (payload.title !== undefined) set.title = payload.title;
+  if (payload.title != null) set.title = payload.title;
   if (payload.clearDescription) set.description = null;
-  else if (payload.description !== undefined)
-    set.description = payload.description;
+  else if (payload.description != null) set.description = payload.description;
   if (payload.clearIcon) set.icon = null;
-  else if (payload.icon !== undefined) set.icon = payload.icon;
+  else if (payload.icon != null) set.icon = payload.icon;
   await db.update(habit).set(set).where(eq(habit.id, habitId));
-
-  if (payload.clearGoal) {
-    await db.delete(goal).where(eq(goal.habitId, habitId));
-  } else if (payload.goal) {
-    await writeGoalAndSchedules(db, habitId, payload.goal);
-  }
 };
 
-const applyDeleteHabit = async (
+const applyHabitGoalDefined = async (
+  db: AnyDb,
+  payload: ServerGoal & { habitId: string },
+): Promise<void> => {
+  const habitId = await lookupHabitId(db, payload.habitId);
+  if (habitId === null) return;
+  await writeGoalAndSchedules(db, habitId, {
+    regularity: payload.regularity,
+    frequency: payload.frequency,
+    schedules: payload.schedules,
+  });
+};
+
+const applyHabitGoalCleared = async (
+  db: AnyDb,
+  payload: { habitId: string },
+): Promise<void> => {
+  const habitId = await lookupHabitId(db, payload.habitId);
+  if (habitId === null) return;
+  await db.delete(goal).where(eq(goal.habitId, habitId));
+};
+
+const applyHabitDeleted = async (
   db: AnyDb,
   payload: { habitId: string },
 ): Promise<void> => {
   await db.delete(habit).where(eq(habit.externalId, payload.habitId));
 };
 
-const applyCreateCheckIn = async (
+const applyCheckInRecorded = async (
   db: AnyDb,
   payload: {
     checkInId: string;
@@ -185,11 +194,7 @@ const applyCreateCheckIn = async (
   },
 ): Promise<void> => {
   const habitId = await lookupHabitId(db, payload.habitId);
-  if (habitId === null) {
-    // Habit deleted (or never seen). Drop the check-in — without an FK
-    // target it can't be persisted.
-    return;
-  }
+  if (habitId === null) return;
   await db
     .insert(checkIn)
     .values({
@@ -209,29 +214,36 @@ const applyCreateCheckIn = async (
     });
 };
 
-const applyUpdateCheckIn = async (
+const applyCheckInMoved = async (
   db: AnyDb,
   payload: {
     checkInId: string;
-    timestamp: string;
-    skipped?: boolean | null;
+    newTimestamp: string;
   },
 ): Promise<void> => {
-  const set: Record<string, unknown> = {
-    timestamp: new Date(payload.timestamp),
-    updatedAt: new Date(),
-  };
-  if (payload.skipped !== undefined && payload.skipped !== null) {
-    set.skipped = payload.skipped;
-  }
-  // No-op if missing — drizzle's update returns silently when no rows match.
+  // No-op if the row is missing locally — the original CreateCheckIn may
+  // not have replayed yet, or the row was deleted by a later event.
   await db
     .update(checkIn)
-    .set(set)
+    .set({
+      timestamp: new Date(payload.newTimestamp),
+      updatedAt: new Date(),
+    })
     .where(eq(checkIn.externalId, payload.checkInId));
 };
 
-const applyDeleteCheckIn = async (
+const applyCheckInSkipChanged = async (
+  db: AnyDb,
+  payload: { checkInId: string },
+  skipped: boolean,
+): Promise<void> => {
+  await db
+    .update(checkIn)
+    .set({ skipped, updatedAt: new Date() })
+    .where(eq(checkIn.externalId, payload.checkInId));
+};
+
+const applyCheckInDeleted = async (
   db: AnyDb,
   payload: { checkInId: string },
 ): Promise<void> => {
@@ -239,61 +251,87 @@ const applyDeleteCheckIn = async (
 };
 
 /**
- * Applies one server-shipped command envelope to the local DB and advances
- * `sync_state.highest_server_sequence` to the envelope's sequence — all in
- * one transaction so a crash mid-apply rolls back both the data write and
- * the high-water mark bump. Server-apply handlers are upsert-shaped and
+ * Applies one server-shipped event envelope to the local DB and advances
+ * `sync_state.highest_server_sequence` to the envelope's sequence — all
+ * in one transaction so a crash mid-apply rolls back both the data write
+ * and the high-water mark bump. Apply handlers are upsert-shaped and
  * tolerate "target missing" so replays and out-of-order arrivals are safe.
  *
- * Does NOT write to `outbox`: these commands originated from the server,
+ * Does NOT write to `outbox`: these events originated from the server,
  * not from a local user action.
  */
-export const applyServerCommand = async (
+export const applyServerEvent = async (
   db: AnyDb,
-  envelope: ServerCommand,
+  envelope: ServerEvent,
 ): Promise<void> =>
   withTransaction(db, async () => {
     const payload = envelope.payload as Record<string, unknown>;
     switch (envelope.type) {
-      case "CreateHabit":
-        await applyCreateHabit(
+      case "HabitCreated":
+        await applyHabitCreated(
           db,
-          payload as Parameters<typeof applyCreateHabit>[1],
+          payload as Parameters<typeof applyHabitCreated>[1],
         );
         break;
-      case "UpdateHabit":
-        await applyUpdateHabit(
+      case "HabitDetailsEdited":
+        await applyHabitDetailsEdited(
           db,
-          payload as Parameters<typeof applyUpdateHabit>[1],
+          payload as Parameters<typeof applyHabitDetailsEdited>[1],
         );
         break;
-      case "DeleteHabit":
-        await applyDeleteHabit(
+      case "HabitGoalDefined":
+        await applyHabitGoalDefined(
           db,
-          payload as Parameters<typeof applyDeleteHabit>[1],
+          payload as Parameters<typeof applyHabitGoalDefined>[1],
         );
         break;
-      case "CreateCheckIn":
-        await applyCreateCheckIn(
+      case "HabitGoalCleared":
+        await applyHabitGoalCleared(
           db,
-          payload as Parameters<typeof applyCreateCheckIn>[1],
+          payload as Parameters<typeof applyHabitGoalCleared>[1],
         );
         break;
-      case "UpdateCheckIn":
-        await applyUpdateCheckIn(
+      case "HabitDeleted":
+        await applyHabitDeleted(
           db,
-          payload as Parameters<typeof applyUpdateCheckIn>[1],
+          payload as Parameters<typeof applyHabitDeleted>[1],
         );
         break;
-      case "DeleteCheckIn":
-        await applyDeleteCheckIn(
+      case "CheckInRecorded":
+        await applyCheckInRecorded(
           db,
-          payload as Parameters<typeof applyDeleteCheckIn>[1],
+          payload as Parameters<typeof applyCheckInRecorded>[1],
+        );
+        break;
+      case "CheckInMoved":
+        await applyCheckInMoved(
+          db,
+          payload as Parameters<typeof applyCheckInMoved>[1],
+        );
+        break;
+      case "CheckInMarkedSkipped":
+        await applyCheckInSkipChanged(
+          db,
+          payload as { checkInId: string },
+          true,
+        );
+        break;
+      case "CheckInMarkedDone":
+        await applyCheckInSkipChanged(
+          db,
+          payload as { checkInId: string },
+          false,
+        );
+        break;
+      case "CheckInDeleted":
+        await applyCheckInDeleted(
+          db,
+          payload as Parameters<typeof applyCheckInDeleted>[1],
         );
         break;
       default:
         throw new Error(
-          `applyServerCommand: unknown envelope type "${envelope.type}"`,
+          `applyServerEvent: unknown envelope type "${envelope.type}"`,
         );
     }
 
