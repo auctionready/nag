@@ -30,37 +30,47 @@ public class CheckInSummaryEndpointsTests : IClassFixture<CheckInSummaryEndpoint
         var client = AuthedClient();
         var habitId = Guid.NewGuid();
         var checkInId = Guid.NewGuid();
-        // Current-week invariant on CreateCheckIn forces real-time timestamps.
-        // Fetch the summary for the month the check-in actually lands in.
         var ts = DateTimeOffset.UtcNow;
 
         await client.PostAsJsonAsync(
-            "/commands",
+            "/events",
             new
             {
                 id = Guid.NewGuid(),
-                type = "CreateHabit",
                 timestamp = DateTimeOffset.UtcNow,
-                payload = new
+                events = new[]
                 {
-                    habitId,
-                    title = "Read",
-                    goal = new { regularity = "day", frequency = 1 },
+                    new
+                    {
+                        type = "HabitCreated",
+                        payload = new
+                        {
+                            habitId,
+                            title = "Read",
+                            goal = new { regularity = "day", frequency = 1 },
+                        },
+                    },
                 },
             }
         );
         await client.PostAsJsonAsync(
-            "/commands",
+            "/events",
             new
             {
                 id = Guid.NewGuid(),
-                type = "CreateCheckIn",
                 timestamp = DateTimeOffset.UtcNow,
-                payload = new
+                events = new[]
                 {
-                    checkInId,
-                    habitId,
-                    timestamp = ts,
+                    new
+                    {
+                        type = "CheckInRecorded",
+                        payload = new
+                        {
+                            checkInId,
+                            habitId,
+                            timestamp = ts,
+                        },
+                    },
                 },
             }
         );

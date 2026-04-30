@@ -36,166 +36,6 @@ export const UnbindAccountResponse = z
   .partial();
 export type UnbindAccountResponse = z.infer<typeof UnbindAccountResponse>;
 
-export const Regularity = z.enum(["day", "week", "month"]);
-export type Regularity = z.infer<typeof Regularity>;
-
-export const ScheduleEntry = z
-  .object({
-    hour: z.int(),
-    minute: z.int(),
-    days: z.int().nullable(),
-    dayOfMonth: z.int().nullable(),
-    reminder: z.boolean().nullable(),
-  })
-  .partial();
-export type ScheduleEntry = z.infer<typeof ScheduleEntry>;
-
-export const GoalPayload = z
-  .object({
-    regularity: Regularity,
-    frequency: z.int().nullable(),
-    schedules: z.array(ScheduleEntry).nullable(),
-  })
-  .partial();
-export type GoalPayload = z.infer<typeof GoalPayload>;
-
-export const CreateHabit = z
-  .object({
-    habitId: z.uuid(),
-    title: z.string().nullable(),
-    description: z.string().nullable(),
-    icon: z.string().nullable(),
-    goal: GoalPayload.nullable(),
-  })
-  .partial();
-export type CreateHabit = z.infer<typeof CreateHabit>;
-
-export const CommandEnvelope_CreateHabit = z
-  .object({
-    id: z.uuid().optional(),
-    timestamp: IsoDatetime.optional(),
-    type: z.literal("CreateHabit"),
-    payload: CreateHabit,
-  })
-  .passthrough();
-export type CommandEnvelope_CreateHabit = z.infer<
-  typeof CommandEnvelope_CreateHabit
->;
-
-export const UpdateHabit = z
-  .object({
-    habitId: z.uuid(),
-    title: z.string().nullable(),
-    description: z.string().nullable(),
-    icon: z.string().nullable(),
-    goal: GoalPayload.nullable(),
-    clearDescription: z.boolean(),
-    clearIcon: z.boolean(),
-    clearGoal: z.boolean(),
-  })
-  .partial();
-export type UpdateHabit = z.infer<typeof UpdateHabit>;
-
-export const CommandEnvelope_UpdateHabit = z
-  .object({
-    id: z.uuid().optional(),
-    timestamp: IsoDatetime.optional(),
-    type: z.literal("UpdateHabit"),
-    payload: UpdateHabit,
-  })
-  .passthrough();
-export type CommandEnvelope_UpdateHabit = z.infer<
-  typeof CommandEnvelope_UpdateHabit
->;
-
-export const DeleteHabit = z.object({ habitId: z.uuid() }).partial();
-export type DeleteHabit = z.infer<typeof DeleteHabit>;
-
-export const CommandEnvelope_DeleteHabit = z
-  .object({
-    id: z.uuid().optional(),
-    timestamp: IsoDatetime.optional(),
-    type: z.literal("DeleteHabit"),
-    payload: DeleteHabit,
-  })
-  .passthrough();
-export type CommandEnvelope_DeleteHabit = z.infer<
-  typeof CommandEnvelope_DeleteHabit
->;
-
-export const CreateCheckIn = z
-  .object({
-    checkInId: z.uuid(),
-    habitId: z.uuid(),
-    timestamp: IsoDatetime,
-    skipped: z.boolean().nullable(),
-  })
-  .partial();
-export type CreateCheckIn = z.infer<typeof CreateCheckIn>;
-
-export const CommandEnvelope_CreateCheckIn = z
-  .object({
-    id: z.uuid().optional(),
-    timestamp: IsoDatetime.optional(),
-    type: z.literal("CreateCheckIn"),
-    payload: CreateCheckIn,
-  })
-  .passthrough();
-export type CommandEnvelope_CreateCheckIn = z.infer<
-  typeof CommandEnvelope_CreateCheckIn
->;
-
-export const UpdateCheckIn = z
-  .object({
-    checkInId: z.uuid(),
-    timestamp: IsoDatetime,
-    skipped: z.boolean().nullable(),
-  })
-  .partial();
-export type UpdateCheckIn = z.infer<typeof UpdateCheckIn>;
-
-export const CommandEnvelope_UpdateCheckIn = z
-  .object({
-    id: z.uuid().optional(),
-    timestamp: IsoDatetime.optional(),
-    type: z.literal("UpdateCheckIn"),
-    payload: UpdateCheckIn,
-  })
-  .passthrough();
-export type CommandEnvelope_UpdateCheckIn = z.infer<
-  typeof CommandEnvelope_UpdateCheckIn
->;
-
-export const DeleteCheckIn = z.object({ checkInId: z.uuid() }).partial();
-export type DeleteCheckIn = z.infer<typeof DeleteCheckIn>;
-
-export const CommandEnvelope_DeleteCheckIn = z
-  .object({
-    id: z.uuid().optional(),
-    timestamp: IsoDatetime.optional(),
-    type: z.literal("DeleteCheckIn"),
-    payload: DeleteCheckIn,
-  })
-  .passthrough();
-export type CommandEnvelope_DeleteCheckIn = z.infer<
-  typeof CommandEnvelope_DeleteCheckIn
->;
-
-export const CommandEnvelope = z.discriminatedUnion("type", [
-  CommandEnvelope_CreateHabit,
-  CommandEnvelope_UpdateHabit,
-  CommandEnvelope_DeleteHabit,
-  CommandEnvelope_CreateCheckIn,
-  CommandEnvelope_UpdateCheckIn,
-  CommandEnvelope_DeleteCheckIn,
-]);
-export type CommandEnvelope = z.infer<typeof CommandEnvelope>;
-
-export const CommandAccepted = z
-  .object({ accepted: z.boolean(), sequence: z.int() })
-  .partial();
-export type CommandAccepted = z.infer<typeof CommandAccepted>;
-
 export const RegisterDeviceRequest = z
   .object({ deviceId: z.uuid(), label: z.string().nullable() })
   .partial();
@@ -230,6 +70,29 @@ export const PairDeviceResponse = z
   .partial();
 export type PairDeviceResponse = z.infer<typeof PairDeviceResponse>;
 
+export const Regularity = z.enum(["day", "week", "month"]);
+export type Regularity = z.infer<typeof Regularity>;
+
+export const ScheduleEntry = z
+  .object({
+    hour: z.int(),
+    minute: z.int(),
+    days: z.int().nullable(),
+    dayOfMonth: z.int().nullable(),
+    reminder: z.boolean().nullable(),
+  })
+  .partial();
+export type ScheduleEntry = z.infer<typeof ScheduleEntry>;
+
+export const GoalPayload = z
+  .object({
+    regularity: Regularity,
+    frequency: z.int().nullable(),
+    schedules: z.array(ScheduleEntry).nullable(),
+  })
+  .partial();
+export type GoalPayload = z.infer<typeof GoalPayload>;
+
 export const HabitCreated = z
   .object({
     habitId: z.uuid(),
@@ -240,6 +103,179 @@ export const HabitCreated = z
   })
   .partial();
 export type HabitCreated = z.infer<typeof HabitCreated>;
+
+export const EventEntry_HabitCreated = z
+  .object({ type: z.literal("HabitCreated"), payload: HabitCreated })
+  .passthrough();
+export type EventEntry_HabitCreated = z.infer<typeof EventEntry_HabitCreated>;
+
+export const HabitDetailsEdited = z
+  .object({
+    habitId: z.uuid(),
+    title: z.string().nullable(),
+    description: z.string().nullable(),
+    clearDescription: z.boolean(),
+    icon: z.string().nullable(),
+    clearIcon: z.boolean(),
+  })
+  .partial();
+export type HabitDetailsEdited = z.infer<typeof HabitDetailsEdited>;
+
+export const EventEntry_HabitDetailsEdited = z
+  .object({
+    type: z.literal("HabitDetailsEdited"),
+    payload: HabitDetailsEdited,
+  })
+  .passthrough();
+export type EventEntry_HabitDetailsEdited = z.infer<
+  typeof EventEntry_HabitDetailsEdited
+>;
+
+export const HabitGoalDefined = z
+  .object({
+    habitId: z.uuid(),
+    regularity: Regularity,
+    frequency: z.int().nullable(),
+    schedules: z.array(ScheduleEntry).nullable(),
+  })
+  .partial();
+export type HabitGoalDefined = z.infer<typeof HabitGoalDefined>;
+
+export const EventEntry_HabitGoalDefined = z
+  .object({ type: z.literal("HabitGoalDefined"), payload: HabitGoalDefined })
+  .passthrough();
+export type EventEntry_HabitGoalDefined = z.infer<
+  typeof EventEntry_HabitGoalDefined
+>;
+
+export const HabitGoalCleared = z.object({ habitId: z.uuid() }).partial();
+export type HabitGoalCleared = z.infer<typeof HabitGoalCleared>;
+
+export const EventEntry_HabitGoalCleared = z
+  .object({ type: z.literal("HabitGoalCleared"), payload: HabitGoalCleared })
+  .passthrough();
+export type EventEntry_HabitGoalCleared = z.infer<
+  typeof EventEntry_HabitGoalCleared
+>;
+
+export const HabitDeleted = z.object({ habitId: z.uuid() }).partial();
+export type HabitDeleted = z.infer<typeof HabitDeleted>;
+
+export const EventEntry_HabitDeleted = z
+  .object({ type: z.literal("HabitDeleted"), payload: HabitDeleted })
+  .passthrough();
+export type EventEntry_HabitDeleted = z.infer<typeof EventEntry_HabitDeleted>;
+
+export const CheckInRecorded = z
+  .object({
+    checkInId: z.uuid(),
+    habitId: z.uuid(),
+    timestamp: IsoDatetime,
+    skipped: z.boolean(),
+  })
+  .partial();
+export type CheckInRecorded = z.infer<typeof CheckInRecorded>;
+
+export const EventEntry_CheckInRecorded = z
+  .object({ type: z.literal("CheckInRecorded"), payload: CheckInRecorded })
+  .passthrough();
+export type EventEntry_CheckInRecorded = z.infer<
+  typeof EventEntry_CheckInRecorded
+>;
+
+export const CheckInMoved = z
+  .object({
+    checkInId: z.uuid(),
+    habitId: z.uuid(),
+    oldTimestamp: IsoDatetime,
+    newTimestamp: IsoDatetime,
+  })
+  .partial();
+export type CheckInMoved = z.infer<typeof CheckInMoved>;
+
+export const EventEntry_CheckInMoved = z
+  .object({ type: z.literal("CheckInMoved"), payload: CheckInMoved })
+  .passthrough();
+export type EventEntry_CheckInMoved = z.infer<typeof EventEntry_CheckInMoved>;
+
+export const CheckInMarkedSkipped = z
+  .object({
+    checkInId: z.uuid(),
+    habitId: z.uuid(),
+    timestamp: IsoDatetime,
+  })
+  .partial();
+export type CheckInMarkedSkipped = z.infer<typeof CheckInMarkedSkipped>;
+
+export const EventEntry_CheckInMarkedSkipped = z
+  .object({
+    type: z.literal("CheckInMarkedSkipped"),
+    payload: CheckInMarkedSkipped,
+  })
+  .passthrough();
+export type EventEntry_CheckInMarkedSkipped = z.infer<
+  typeof EventEntry_CheckInMarkedSkipped
+>;
+
+export const CheckInMarkedDone = z
+  .object({
+    checkInId: z.uuid(),
+    habitId: z.uuid(),
+    timestamp: IsoDatetime,
+  })
+  .partial();
+export type CheckInMarkedDone = z.infer<typeof CheckInMarkedDone>;
+
+export const EventEntry_CheckInMarkedDone = z
+  .object({ type: z.literal("CheckInMarkedDone"), payload: CheckInMarkedDone })
+  .passthrough();
+export type EventEntry_CheckInMarkedDone = z.infer<
+  typeof EventEntry_CheckInMarkedDone
+>;
+
+export const CheckInDeleted = z
+  .object({
+    checkInId: z.uuid(),
+    habitId: z.uuid(),
+    timestamp: IsoDatetime,
+  })
+  .partial();
+export type CheckInDeleted = z.infer<typeof CheckInDeleted>;
+
+export const EventEntry_CheckInDeleted = z
+  .object({ type: z.literal("CheckInDeleted"), payload: CheckInDeleted })
+  .passthrough();
+export type EventEntry_CheckInDeleted = z.infer<
+  typeof EventEntry_CheckInDeleted
+>;
+
+export const EventEntry = z.discriminatedUnion("type", [
+  EventEntry_HabitCreated,
+  EventEntry_HabitDetailsEdited,
+  EventEntry_HabitGoalDefined,
+  EventEntry_HabitGoalCleared,
+  EventEntry_HabitDeleted,
+  EventEntry_CheckInRecorded,
+  EventEntry_CheckInMoved,
+  EventEntry_CheckInMarkedSkipped,
+  EventEntry_CheckInMarkedDone,
+  EventEntry_CheckInDeleted,
+]);
+export type EventEntry = z.infer<typeof EventEntry>;
+
+export const WriteEventEnvelope = z
+  .object({
+    id: z.uuid(),
+    timestamp: IsoDatetime,
+    events: z.array(EventEntry).nullable(),
+  })
+  .partial();
+export type WriteEventEnvelope = z.infer<typeof WriteEventEnvelope>;
+
+export const WriteEventAccepted = z
+  .object({ accepted: z.boolean(), sequence: z.int() })
+  .partial();
+export type WriteEventAccepted = z.infer<typeof WriteEventAccepted>;
 
 export const EventEnvelope_HabitCreated = z
   .object({
@@ -254,18 +290,6 @@ export type EventEnvelope_HabitCreated = z.infer<
   typeof EventEnvelope_HabitCreated
 >;
 
-export const HabitDetailsEdited = z
-  .object({
-    habitId: z.uuid(),
-    title: z.string().nullable(),
-    description: z.string().nullable(),
-    clearDescription: z.boolean(),
-    icon: z.string().nullable(),
-    clearIcon: z.boolean(),
-  })
-  .partial();
-export type HabitDetailsEdited = z.infer<typeof HabitDetailsEdited>;
-
 export const EventEnvelope_HabitDetailsEdited = z
   .object({
     sequence: z.int().optional(),
@@ -278,16 +302,6 @@ export const EventEnvelope_HabitDetailsEdited = z
 export type EventEnvelope_HabitDetailsEdited = z.infer<
   typeof EventEnvelope_HabitDetailsEdited
 >;
-
-export const HabitGoalDefined = z
-  .object({
-    habitId: z.uuid(),
-    regularity: Regularity,
-    frequency: z.int().nullable(),
-    schedules: z.array(ScheduleEntry).nullable(),
-  })
-  .partial();
-export type HabitGoalDefined = z.infer<typeof HabitGoalDefined>;
 
 export const EventEnvelope_HabitGoalDefined = z
   .object({
@@ -302,9 +316,6 @@ export type EventEnvelope_HabitGoalDefined = z.infer<
   typeof EventEnvelope_HabitGoalDefined
 >;
 
-export const HabitGoalCleared = z.object({ habitId: z.uuid() }).partial();
-export type HabitGoalCleared = z.infer<typeof HabitGoalCleared>;
-
 export const EventEnvelope_HabitGoalCleared = z
   .object({
     sequence: z.int().optional(),
@@ -317,9 +328,6 @@ export const EventEnvelope_HabitGoalCleared = z
 export type EventEnvelope_HabitGoalCleared = z.infer<
   typeof EventEnvelope_HabitGoalCleared
 >;
-
-export const HabitDeleted = z.object({ habitId: z.uuid() }).partial();
-export type HabitDeleted = z.infer<typeof HabitDeleted>;
 
 export const EventEnvelope_HabitDeleted = z
   .object({
@@ -334,16 +342,6 @@ export type EventEnvelope_HabitDeleted = z.infer<
   typeof EventEnvelope_HabitDeleted
 >;
 
-export const CheckInRecorded = z
-  .object({
-    checkInId: z.uuid(),
-    habitId: z.uuid(),
-    timestamp: IsoDatetime,
-    skipped: z.boolean(),
-  })
-  .partial();
-export type CheckInRecorded = z.infer<typeof CheckInRecorded>;
-
 export const EventEnvelope_CheckInRecorded = z
   .object({
     sequence: z.int().optional(),
@@ -356,16 +354,6 @@ export const EventEnvelope_CheckInRecorded = z
 export type EventEnvelope_CheckInRecorded = z.infer<
   typeof EventEnvelope_CheckInRecorded
 >;
-
-export const CheckInMoved = z
-  .object({
-    checkInId: z.uuid(),
-    habitId: z.uuid(),
-    oldTimestamp: IsoDatetime,
-    newTimestamp: IsoDatetime,
-  })
-  .partial();
-export type CheckInMoved = z.infer<typeof CheckInMoved>;
 
 export const EventEnvelope_CheckInMoved = z
   .object({
@@ -380,15 +368,6 @@ export type EventEnvelope_CheckInMoved = z.infer<
   typeof EventEnvelope_CheckInMoved
 >;
 
-export const CheckInMarkedSkipped = z
-  .object({
-    checkInId: z.uuid(),
-    habitId: z.uuid(),
-    timestamp: IsoDatetime,
-  })
-  .partial();
-export type CheckInMarkedSkipped = z.infer<typeof CheckInMarkedSkipped>;
-
 export const EventEnvelope_CheckInMarkedSkipped = z
   .object({
     sequence: z.int().optional(),
@@ -402,15 +381,6 @@ export type EventEnvelope_CheckInMarkedSkipped = z.infer<
   typeof EventEnvelope_CheckInMarkedSkipped
 >;
 
-export const CheckInMarkedDone = z
-  .object({
-    checkInId: z.uuid(),
-    habitId: z.uuid(),
-    timestamp: IsoDatetime,
-  })
-  .partial();
-export type CheckInMarkedDone = z.infer<typeof CheckInMarkedDone>;
-
 export const EventEnvelope_CheckInMarkedDone = z
   .object({
     sequence: z.int().optional(),
@@ -423,15 +393,6 @@ export const EventEnvelope_CheckInMarkedDone = z
 export type EventEnvelope_CheckInMarkedDone = z.infer<
   typeof EventEnvelope_CheckInMarkedDone
 >;
-
-export const CheckInDeleted = z
-  .object({
-    checkInId: z.uuid(),
-    habitId: z.uuid(),
-    timestamp: IsoDatetime,
-  })
-  .partial();
-export type CheckInDeleted = z.infer<typeof CheckInDeleted>;
 
 export const EventEnvelope_CheckInDeleted = z
   .object({
@@ -611,17 +572,6 @@ export const endpoints = makeApi([
   },
   {
     method: "post",
-    path: "/commands",
-    alias: "postCommands",
-    parameters: [{ name: "body", type: "Body", schema: CommandEnvelope }],
-    response: CommandAccepted,
-    errors: [
-      { status: 400, schema: ErrorResponse },
-      { status: 404, schema: z.void() },
-    ],
-  },
-  {
-    method: "post",
     path: "/devices/pair",
     alias: "postDevicesPair",
     parameters: [{ name: "body", type: "Body", schema: PairDeviceRequest }],
@@ -639,6 +589,17 @@ export const endpoints = makeApi([
     alias: "postDevicesRegister",
     parameters: [{ name: "body", type: "Body", schema: RegisterDeviceRequest }],
     response: RegisterDeviceResponse,
+    errors: [
+      { status: 400, schema: ErrorResponse },
+      { status: 404, schema: z.void() },
+    ],
+  },
+  {
+    method: "post",
+    path: "/events",
+    alias: "postEvents",
+    parameters: [{ name: "body", type: "Body", schema: WriteEventEnvelope }],
+    response: WriteEventAccepted,
     errors: [
       { status: 400, schema: ErrorResponse },
       { status: 404, schema: z.void() },

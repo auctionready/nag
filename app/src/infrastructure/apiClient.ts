@@ -1,7 +1,7 @@
 import Constants from "expo-constants";
 import {
   createNagApiClient,
-  postCommands as apiPostCommands,
+  postEvents as apiPostEvents,
   registerDevice as apiRegisterDevice,
   upgradeAccount as apiUpgradeAccount,
   unbindAccount as apiUnbindAccount,
@@ -13,9 +13,9 @@ import {
 } from "@nag/api-client";
 import {
   refreshDeviceToken,
-  type CommandEnvelope,
+  type WriteEventEnvelope,
   type GetSyncFn,
-  type PostCommandsFn,
+  type PostEventsFn,
   type PostResult,
   type RegisterDeviceFn,
   type RegisterDeviceResult,
@@ -111,9 +111,9 @@ const registerDeviceRaw: RegisterDeviceFn = (
 ): Promise<RegisterDeviceResult> =>
   apiRegisterDevice(getApiClient(), request, logger);
 
-export const postCommands: PostCommandsFn = (
-  envelope: CommandEnvelope,
-): Promise<PostResult> => apiPostCommands(getApiClient(), envelope, logger);
+export const postEvents: PostEventsFn = (
+  envelope: WriteEventEnvelope,
+): Promise<PostResult> => apiPostEvents(getApiClient(), envelope, logger);
 
 export const registerDevice: RegisterDeviceFn = registerDeviceRaw;
 

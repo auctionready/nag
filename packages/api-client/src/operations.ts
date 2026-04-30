@@ -23,16 +23,21 @@ export type WrapperLog = {
 };
 
 /**
- * Wire shape of an outbound command envelope. Wider than the generated
- * Zodios `postCommands_Body` discriminated union so the outbox dispatcher
- * can ship whatever the audit log captured — the server re-validates
- * against the same Zod schema and rejects anything malformed with a 400.
+ * Wire shape of an outbound write envelope. Wider than the generated
+ * Zodios `postEvents_Body` (whose `events` array is a discriminated union)
+ * so the outbox dispatcher can ship whatever the auditor captured — the
+ * server re-validates each event entry and rejects anything malformed
+ * with a 400.
  */
-export type CommandEnvelope = {
-  id: string;
-  timestamp: string;
+export type EventEntry = {
   type: string;
   payload: unknown;
+};
+
+export type WriteEventEnvelope = {
+  id: string;
+  timestamp: string;
+  events: EventEntry[];
 };
 
 export type PostResult =
@@ -113,50 +118,51 @@ const failureFromError = (
   return { ok: false, kind: "transient", message };
 };
 
-type PostCommandsBody = ZodiosBodyByAlias<Endpoints, "postCommands">;
-type PostCommandsResponse = ZodiosResponseByAlias<Endpoints, "postCommands">;
-type PostCommandsError400 = ZodiosErrorByAlias<Endpoints, "postCommands", 400>;
+type PostEventsBody = ZodiosBodyByAlias<Endpoints, "postEvents">;
+type PostEventsResponse = ZodiosResponseByAlias<Endpoints, "postEvents">;
+type PostEventsError400 = ZodiosErrorByAlias<Endpoints, "postEvents", 400>;
 
 // Re-export the mapped type for downstream callers that want to peek at the
 // documented 400 body shape without re-deriving it.
 export type { ZodiosErrorByAlias };
 
 /**
- * POSTs a command envelope and translates the Zodios/axios response into
- * a `PostResult`. Never throws on HTTP or network errors — the caller
- * (dispatcher) reads `result.ok` and decides what to do.
+ * POSTs a write-event envelope and translates the Zodios/axios response
+ * into a `PostResult`. Never throws on HTTP or network errors — the
+ * caller (dispatcher) reads `result.ok` and decides what to do.
  */
-export const postCommands = async (
+export const postEvents = async (
   client: NagApiClient,
-  envelope: CommandEnvelope,
+  envelope: WriteEventEnvelope,
   log?: WrapperLog,
 ): Promise<PostResult> => {
+  const types = envelope.events.map((e) => e.type).join(",");
   log?.debug?.(
-    `POST /commands id=${envelope.id} type=${envelope.type} timestamp=${envelope.timestamp}`,
+    `POST /events id=${envelope.id} types=[${types}] timestamp=${envelope.timestamp}`,
   );
   const start = Date.now();
   try {
-    const response: PostCommandsResponse = await client.postCommands(
-      envelope as PostCommandsBody,
+    const response: PostEventsResponse = await client.postEvents(
+      envelope as PostEventsBody,
     );
     const elapsed = Date.now() - start;
     log?.debug?.(
-      `POST /commands ok (${elapsed}ms) sequence=${response.sequence} accepted=${(response as { accepted?: boolean }).accepted}`,
+      `POST /events ok (${elapsed}ms) sequence=${response.sequence} accepted=${(response as { accepted?: boolean }).accepted}`,
     );
     return { ok: true, sequence: response.sequence ?? 0 };
   } catch (error: unknown) {
     return failureFromError(
-      "POST /commands",
+      "POST /events",
       log,
       Date.now() - start,
       error,
       () => {
-        if (isErrorFromAlias(endpoints, "postCommands", error)) {
+        if (isErrorFromAlias(endpoints, "postEvents", error)) {
           // The endpoint documents both a 400 (ErrorResponse) and a 404
           // (void; the latter comes from Wolverine HTTP's tenant-not-found
           // path). Narrow to the ErrorResponse-shaped variant for the
           // documented-message extraction.
-          const data = error.response.data as PostCommandsError400 | void;
+          const data = error.response.data as PostEventsError400 | void;
           return data && typeof data === "object" && "errors" in data
             ? (data as { errors?: string[] }).errors?.[0]
             : undefined;

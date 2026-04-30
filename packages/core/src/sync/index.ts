@@ -5,10 +5,11 @@ export {
 } from "./dispatcher";
 export { makeSingleflight } from "./singleflight";
 export {
-  type CommandEnvelope,
+  type EventEntry,
+  type WriteEventEnvelope,
   type DispatchStatus,
   type PostResult,
-  type PostCommandsFn,
+  type PostEventsFn,
 } from "./types";
 export {
   isHalted,

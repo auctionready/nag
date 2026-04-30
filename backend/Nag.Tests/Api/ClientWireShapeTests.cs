@@ -38,10 +38,10 @@ public class ClientWireShapeTests : IClassFixture<ClientWireShapeTests.Factory>
 
     private static StringContent Json(string body) => new(body, Encoding.UTF8, "application/json");
 
-    // ----- Happy path per command type -----
+    // ----- Happy path per event type -----
 
     [Fact]
-    public async Task CreateHabit_with_exact_client_wire_shape_is_accepted()
+    public async Task HabitCreated_with_exact_client_wire_shape_is_accepted()
     {
         var client = AuthedClient();
         var envelopeId = Guid.NewGuid().ToString("D"); // 8-4-4-4-12 lower hex
@@ -50,99 +50,123 @@ public class ClientWireShapeTests : IClassFixture<ClientWireShapeTests.Factory>
             {
               "id": "{{envelopeId}}",
               "timestamp": "2026-04-24T10:00:00.000Z",
-              "type": "CreateHabit",
-              "payload": {
-                "habitId": "{{habitId}}",
-                "title": "Read",
-                "description": null,
-                "icon": null,
-                "goal": null
-              }
+              "events": [
+                {
+                  "type": "HabitCreated",
+                  "payload": {
+                    "habitId": "{{habitId}}",
+                    "title": "Read",
+                    "description": null,
+                    "icon": null,
+                    "goal": null
+                  }
+                }
+              ]
             }
             """;
 
-        var response = await client.PostAsync("/commands", Json(body));
+        var response = await client.PostAsync("/events", Json(body));
 
         response.StatusCode.ShouldBe(HttpStatusCode.OK);
-        var accepted = await response.Content.ReadFromJsonAsync<CommandAccepted>();
+        var accepted = await response.Content.ReadFromJsonAsync<WriteEventAccepted>();
         accepted!.Accepted.ShouldBeTrue();
     }
 
     [Fact]
-    public async Task CreateHabit_with_inline_goal_is_accepted()
+    public async Task HabitCreated_with_inline_goal_is_accepted()
     {
         var client = AuthedClient();
         var body = $$"""
             {
               "id": "{{Guid.NewGuid():D}}",
               "timestamp": "2026-04-24T10:00:00.000Z",
-              "type": "CreateHabit",
-              "payload": {
-                "habitId": "{{Guid.NewGuid():D}}",
-                "title": "Meditate",
-                "description": null,
-                "icon": null,
-                "goal": { "regularity": "day", "frequency": 1, "schedules": null }
-              }
+              "events": [
+                {
+                  "type": "HabitCreated",
+                  "payload": {
+                    "habitId": "{{Guid.NewGuid():D}}",
+                    "title": "Meditate",
+                    "description": null,
+                    "icon": null,
+                    "goal": { "regularity": "day", "frequency": 1, "schedules": null }
+                  }
+                }
+              ]
             }
             """;
 
-        var response = await client.PostAsync("/commands", Json(body));
+        var response = await client.PostAsync("/events", Json(body));
         response.StatusCode.ShouldBe(HttpStatusCode.OK);
     }
 
     [Fact]
-    public async Task UpdateHabit_with_clear_flags_is_accepted()
+    public async Task HabitDetailsEdited_and_HabitGoalCleared_in_one_envelope_are_accepted()
     {
         var client = AuthedClient();
-        // First create the habit so UpdateHabit has a target.
         var habitId = Guid.NewGuid().ToString("D");
         await client.PostAsync(
-            "/commands",
+            "/events",
             Json(
                 $$"""
                 {
                   "id": "{{Guid.NewGuid():D}}",
                   "timestamp": "2026-04-24T10:00:00.000Z",
-                  "type": "CreateHabit",
-                  "payload": { "habitId": "{{habitId}}", "title": "x" }
+                  "events": [
+                    {
+                      "type": "HabitCreated",
+                      "payload": { "habitId": "{{habitId}}", "title": "x" }
+                    }
+                  ]
                 }
                 """
             )
         );
 
+        // The TS UpdateHabit handler emits one envelope carrying both the
+        // edit and the goal-cleared events; this exercises that shape.
         var body = $$"""
             {
               "id": "{{Guid.NewGuid():D}}",
               "timestamp": "2026-04-24T10:01:00.000Z",
-              "type": "UpdateHabit",
-              "payload": {
-                "habitId": "{{habitId}}",
-                "title": "renamed",
-                "clearDescription": true,
-                "clearGoal": true
-              }
+              "events": [
+                {
+                  "type": "HabitDetailsEdited",
+                  "payload": {
+                    "habitId": "{{habitId}}",
+                    "title": "renamed",
+                    "clearDescription": true
+                  }
+                },
+                {
+                  "type": "HabitGoalCleared",
+                  "payload": { "habitId": "{{habitId}}" }
+                }
+              ]
             }
             """;
 
-        var response = await client.PostAsync("/commands", Json(body));
+        var response = await client.PostAsync("/events", Json(body));
         response.StatusCode.ShouldBe(HttpStatusCode.OK);
     }
 
     [Fact]
-    public async Task DeleteHabit_with_exact_client_wire_shape_is_accepted()
+    public async Task HabitDeleted_with_exact_client_wire_shape_is_accepted()
     {
         var client = AuthedClient();
         var habitId = Guid.NewGuid().ToString("D");
         await client.PostAsync(
-            "/commands",
+            "/events",
             Json(
                 $$"""
                 {
                   "id": "{{Guid.NewGuid():D}}",
                   "timestamp": "2026-04-24T10:00:00.000Z",
-                  "type": "CreateHabit",
-                  "payload": { "habitId": "{{habitId}}", "title": "x" }
+                  "events": [
+                    {
+                      "type": "HabitCreated",
+                      "payload": { "habitId": "{{habitId}}", "title": "x" }
+                    }
+                  ]
                 }
                 """
             )
@@ -152,32 +176,38 @@ public class ClientWireShapeTests : IClassFixture<ClientWireShapeTests.Factory>
             {
               "id": "{{Guid.NewGuid():D}}",
               "timestamp": "2026-04-24T10:02:00.000Z",
-              "type": "DeleteHabit",
-              "payload": { "habitId": "{{habitId}}" }
+              "events": [
+                {
+                  "type": "HabitDeleted",
+                  "payload": { "habitId": "{{habitId}}" }
+                }
+              ]
             }
             """;
 
-        var response = await client.PostAsync("/commands", Json(body));
+        var response = await client.PostAsync("/events", Json(body));
         response.StatusCode.ShouldBe(HttpStatusCode.OK);
     }
 
     [Fact]
-    public async Task CreateCheckIn_with_exact_client_wire_shape_is_accepted()
+    public async Task CheckInRecorded_with_exact_client_wire_shape_is_accepted()
     {
         var client = AuthedClient();
         var habitId = Guid.NewGuid().ToString("D");
-        // Check-in timestamps use UtcNow so the current-week period invariant
-        // in CreateCheckInValidator passes regardless of when tests run.
         var checkInTs = DateTimeOffset.UtcNow.ToString("O");
         await client.PostAsync(
-            "/commands",
+            "/events",
             Json(
                 $$"""
                 {
                   "id": "{{Guid.NewGuid():D}}",
                   "timestamp": "2026-04-24T10:00:00.000Z",
-                  "type": "CreateHabit",
-                  "payload": { "habitId": "{{habitId}}", "title": "x" }
+                  "events": [
+                    {
+                      "type": "HabitCreated",
+                      "payload": { "habitId": "{{habitId}}", "title": "x" }
+                    }
+                  ]
                 }
                 """
             )
@@ -187,55 +217,66 @@ public class ClientWireShapeTests : IClassFixture<ClientWireShapeTests.Factory>
             {
               "id": "{{Guid.NewGuid():D}}",
               "timestamp": "2026-04-24T10:03:00.000Z",
-              "type": "CreateCheckIn",
-              "payload": {
-                "checkInId": "{{Guid.NewGuid():D}}",
-                "habitId": "{{habitId}}",
-                "timestamp": "{{checkInTs}}",
-                "skipped": null
-              }
+              "events": [
+                {
+                  "type": "CheckInRecorded",
+                  "payload": {
+                    "checkInId": "{{Guid.NewGuid():D}}",
+                    "habitId": "{{habitId}}",
+                    "timestamp": "{{checkInTs}}",
+                    "skipped": false
+                  }
+                }
+              ]
             }
             """;
 
-        var response = await client.PostAsync("/commands", Json(body));
+        var response = await client.PostAsync("/events", Json(body));
         response.StatusCode.ShouldBe(HttpStatusCode.OK);
     }
 
     [Fact]
-    public async Task UpdateCheckIn_with_exact_client_wire_shape_is_accepted()
+    public async Task CheckInMoved_with_exact_client_wire_shape_is_accepted()
     {
         var client = AuthedClient();
         var habitId = Guid.NewGuid().ToString("D");
         var checkInId = Guid.NewGuid().ToString("D");
-        var createdAt = DateTimeOffset.UtcNow.ToString("O");
-        var updatedAt = DateTimeOffset.UtcNow.AddMinutes(1).ToString("O");
+        var oldTs = DateTimeOffset.UtcNow.ToString("O");
+        var newTs = DateTimeOffset.UtcNow.AddMinutes(1).ToString("O");
         await client.PostAsync(
-            "/commands",
+            "/events",
             Json(
                 $$"""
                 {
                   "id": "{{Guid.NewGuid():D}}",
                   "timestamp": "2026-04-24T10:00:00.000Z",
-                  "type": "CreateHabit",
-                  "payload": { "habitId": "{{habitId}}", "title": "x" }
+                  "events": [
+                    {
+                      "type": "HabitCreated",
+                      "payload": { "habitId": "{{habitId}}", "title": "x" }
+                    }
+                  ]
                 }
                 """
             )
         );
         await client.PostAsync(
-            "/commands",
+            "/events",
             Json(
                 $$"""
                 {
                   "id": "{{Guid.NewGuid():D}}",
                   "timestamp": "2026-04-24T10:03:00.000Z",
-                  "type": "CreateCheckIn",
-                  "payload": {
-                    "checkInId": "{{checkInId}}",
-                    "habitId": "{{habitId}}",
-                    "timestamp": "{{createdAt}}",
-                    "skipped": null
-                  }
+                  "events": [
+                    {
+                      "type": "CheckInRecorded",
+                      "payload": {
+                        "checkInId": "{{checkInId}}",
+                        "habitId": "{{habitId}}",
+                        "timestamp": "{{oldTs}}"
+                      }
+                    }
+                  ]
                 }
                 """
             )
@@ -245,53 +286,65 @@ public class ClientWireShapeTests : IClassFixture<ClientWireShapeTests.Factory>
             {
               "id": "{{Guid.NewGuid():D}}",
               "timestamp": "2026-04-24T10:04:00.000Z",
-              "type": "UpdateCheckIn",
-              "payload": {
-                "checkInId": "{{checkInId}}",
-                "timestamp": "{{updatedAt}}",
-                "skipped": true
-              }
+              "events": [
+                {
+                  "type": "CheckInMoved",
+                  "payload": {
+                    "checkInId": "{{checkInId}}",
+                    "habitId": "{{habitId}}",
+                    "oldTimestamp": "{{oldTs}}",
+                    "newTimestamp": "{{newTs}}"
+                  }
+                }
+              ]
             }
             """;
 
-        var response = await client.PostAsync("/commands", Json(body));
+        var response = await client.PostAsync("/events", Json(body));
         response.StatusCode.ShouldBe(HttpStatusCode.OK);
     }
 
     [Fact]
-    public async Task DeleteCheckIn_with_exact_client_wire_shape_is_accepted()
+    public async Task CheckInDeleted_with_exact_client_wire_shape_is_accepted()
     {
         var client = AuthedClient();
         var habitId = Guid.NewGuid().ToString("D");
         var checkInId = Guid.NewGuid().ToString("D");
         var checkInTs = DateTimeOffset.UtcNow.ToString("O");
         await client.PostAsync(
-            "/commands",
+            "/events",
             Json(
                 $$"""
                 {
                   "id": "{{Guid.NewGuid():D}}",
                   "timestamp": "2026-04-24T10:00:00.000Z",
-                  "type": "CreateHabit",
-                  "payload": { "habitId": "{{habitId}}", "title": "x" }
+                  "events": [
+                    {
+                      "type": "HabitCreated",
+                      "payload": { "habitId": "{{habitId}}", "title": "x" }
+                    }
+                  ]
                 }
                 """
             )
         );
         await client.PostAsync(
-            "/commands",
+            "/events",
             Json(
                 $$"""
                 {
                   "id": "{{Guid.NewGuid():D}}",
                   "timestamp": "2026-04-24T10:03:00.000Z",
-                  "type": "CreateCheckIn",
-                  "payload": {
-                    "checkInId": "{{checkInId}}",
-                    "habitId": "{{habitId}}",
-                    "timestamp": "{{checkInTs}}",
-                    "skipped": null
-                  }
+                  "events": [
+                    {
+                      "type": "CheckInRecorded",
+                      "payload": {
+                        "checkInId": "{{checkInId}}",
+                        "habitId": "{{habitId}}",
+                        "timestamp": "{{checkInTs}}"
+                      }
+                    }
+                  ]
                 }
                 """
             )
@@ -301,12 +354,20 @@ public class ClientWireShapeTests : IClassFixture<ClientWireShapeTests.Factory>
             {
               "id": "{{Guid.NewGuid():D}}",
               "timestamp": "2026-04-24T10:05:00.000Z",
-              "type": "DeleteCheckIn",
-              "payload": { "checkInId": "{{checkInId}}" }
+              "events": [
+                {
+                  "type": "CheckInDeleted",
+                  "payload": {
+                    "checkInId": "{{checkInId}}",
+                    "habitId": "{{habitId}}",
+                    "timestamp": "{{checkInTs}}"
+                  }
+                }
+              ]
             }
             """;
 
-        var response = await client.PostAsync("/commands", Json(body));
+        var response = await client.PostAsync("/events", Json(body));
         response.StatusCode.ShouldBe(HttpStatusCode.OK);
     }
 
@@ -322,12 +383,16 @@ public class ClientWireShapeTests : IClassFixture<ClientWireShapeTests.Factory>
             {
               "Id": "{{Guid.NewGuid():D}}",
               "Timestamp": "2026-04-24T10:00:00.000Z",
-              "Type": "CreateHabit",
-              "Payload": { "habitId": "{{Guid.NewGuid():D}}", "title": "x" }
+              "Events": [
+                {
+                  "Type": "HabitCreated",
+                  "Payload": { "habitId": "{{Guid.NewGuid():D}}", "title": "x" }
+                }
+              ]
             }
             """;
 
-        var response = await client.PostAsync("/commands", Json(body));
+        var response = await client.PostAsync("/events", Json(body));
         response.StatusCode.ShouldBe(HttpStatusCode.OK);
     }
 
@@ -341,12 +406,16 @@ public class ClientWireShapeTests : IClassFixture<ClientWireShapeTests.Factory>
             {
               "id": "not-a-uuid",
               "timestamp": "2026-04-24T10:00:00.000Z",
-              "type": "CreateHabit",
-              "payload": { "habitId": "{{Guid.NewGuid():D}}", "title": "x" }
+              "events": [
+                {
+                  "type": "HabitCreated",
+                  "payload": { "habitId": "{{Guid.NewGuid():D}}", "title": "x" }
+                }
+              ]
             }
             """;
 
-        var response = await client.PostAsync("/commands", Json(body));
+        var response = await client.PostAsync("/events", Json(body));
         response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
     }
 
@@ -358,12 +427,16 @@ public class ClientWireShapeTests : IClassFixture<ClientWireShapeTests.Factory>
             {
               "id": "{{Guid.NewGuid():D}}",
               "timestamp": "2026-04-24T10:00:00.000Z",
-              "type": "CreateHabit",
-              "payload": { "habitId": "not-a-uuid", "title": "x" }
+              "events": [
+                {
+                  "type": "HabitCreated",
+                  "payload": { "habitId": "not-a-uuid", "title": "x" }
+                }
+              ]
             }
             """;
 
-        var response = await client.PostAsync("/commands", Json(body));
+        var response = await client.PostAsync("/events", Json(body));
         response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
     }
 
@@ -380,12 +453,16 @@ public class ClientWireShapeTests : IClassFixture<ClientWireShapeTests.Factory>
             {
               "id": "{{id}}",
               "timestamp": "2026-04-24T10:00:00.000Z",
-              "type": "CreateHabit",
-              "payload": { "habitId": "{{Guid.NewGuid():D}}", "title": "x" }
+              "events": [
+                {
+                  "type": "HabitCreated",
+                  "payload": { "habitId": "{{Guid.NewGuid():D}}", "title": "x" }
+                }
+              ]
             }
             """;
 
-        var response = await client.PostAsync("/commands", Json(body));
+        var response = await client.PostAsync("/events", Json(body));
         response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
     }
 
@@ -399,12 +476,16 @@ public class ClientWireShapeTests : IClassFixture<ClientWireShapeTests.Factory>
             {
               "id": "{{id}}",
               "timestamp": "2026-04-24T10:00:00.000Z",
-              "type": "CreateHabit",
-              "payload": { "habitId": "{{Guid.NewGuid():D}}", "title": "x" }
+              "events": [
+                {
+                  "type": "HabitCreated",
+                  "payload": { "habitId": "{{Guid.NewGuid():D}}", "title": "x" }
+                }
+              ]
             }
             """;
 
-        var response = await client.PostAsync("/commands", Json(body));
+        var response = await client.PostAsync("/events", Json(body));
         response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
     }
 }

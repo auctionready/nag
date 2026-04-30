@@ -7,11 +7,16 @@ import {
   markFailedAndHalt,
   isHalted,
 } from "./outbox";
-import type { CommandEnvelope, DispatchStatus, PostCommandsFn } from "./types";
+import type {
+  EventEntry,
+  DispatchStatus,
+  PostEventsFn,
+  WriteEventEnvelope,
+} from "./types";
 
 export type DispatcherOptions = {
   db: AnyDb;
-  post: PostCommandsFn;
+  post: PostEventsFn;
   batchSize?: number;
   /**
    * Optional hook for side-effects on halt / transient errors (e.g. Sentry
@@ -70,14 +75,27 @@ export const createDispatcher = ({
     if (rows.length === 0) return "idle";
 
     for (const row of rows) {
-      const envelope: CommandEnvelope = {
+      let events: EventEntry[];
+      try {
+        events = JSON.parse(row.events) as EventEntry[];
+      } catch (parseErr) {
+        const message =
+          parseErr instanceof Error ? parseErr.message : String(parseErr);
+        error(
+          `dispatcher: row id=${row.id} events JSON parse failed: ${message}`,
+        );
+        await markFailedAndHalt(db, row.id, `events JSON parse: ${message}`);
+        onError?.(parseErr);
+        return "halted";
+      }
+      const envelope: WriteEventEnvelope = {
         id: row.envelopeId,
         timestamp: row.timestamp.toISOString(),
-        type: row.commandType,
-        payload: row.payload ? JSON.parse(row.payload) : {},
+        events,
       };
+      const types = events.map((e) => e.type).join(",");
       debug(
-        `dispatcher: POSTing row id=${row.id} envelope=${envelope.id} type=${envelope.type}`,
+        `dispatcher: POSTing row id=${row.id} envelope=${envelope.id} types=[${types}]`,
       );
 
       let result;

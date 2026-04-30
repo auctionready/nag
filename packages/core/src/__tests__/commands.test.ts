@@ -516,7 +516,7 @@ describe("DeleteCheckIn", () => {
 });
 
 describe("audit logging", () => {
-  it("records a server-shaped audit entry for each command", async () => {
+  it("records a server-shaped event envelope per processCommand call", async () => {
     const db = getDb();
     const { externalId } = await processCommand(db, {
       type: "CreateHabit",
@@ -526,19 +526,23 @@ describe("audit logging", () => {
 
     const logs = await db.select().from(schema.outbox);
     expect(logs).toHaveLength(1);
-    expect(logs[0].commandType).toBe("CreateHabit");
     expect(logs[0].timestamp).toBeInstanceOf(Date);
     expect(logs[0].status).toBe("pending");
     expect(logs[0].envelopeId).toMatch(
       /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/,
     );
 
-    const payload = JSON.parse(logs[0].payload!);
-    expect(payload.habitId).toBe(externalId);
-    expect(payload.title).toBe("Audit test");
-    expect(payload.description).toBeNull();
-    expect(payload.icon).toBeNull();
-    expect(payload.goal).toEqual({
+    const events = JSON.parse(logs[0].events) as {
+      type: string;
+      payload: Record<string, unknown>;
+    }[];
+    expect(events).toHaveLength(1);
+    expect(events[0].type).toBe("HabitCreated");
+    expect(events[0].payload.habitId).toBe(externalId);
+    expect(events[0].payload.title).toBe("Audit test");
+    expect(events[0].payload.description).toBeNull();
+    expect(events[0].payload.icon).toBeNull();
+    expect(events[0].payload.goal).toEqual({
       regularity: "week",
       frequency: 2,
       schedules: null,
@@ -555,11 +559,16 @@ describe("audit logging", () => {
     await processCommand(db, { type: "DeleteHabit", habitId });
 
     const logs = await db.select().from(schema.outbox);
-    const deleteLog = logs.find((l) => l.commandType === "DeleteHabit");
+    const deleteLog = logs.find((l) => {
+      const events = JSON.parse(l.events) as { type: string }[];
+      return events.some((e) => e.type === "HabitDeleted");
+    });
     expect(deleteLog).toBeDefined();
-    expect(deleteLog!.payload).not.toBeNull();
-    const payload = JSON.parse(deleteLog!.payload!);
-    expect(payload.habitId).toBe(externalId);
+    const events = JSON.parse(deleteLog!.events) as {
+      type: string;
+      payload: { habitId: string };
+    }[];
+    expect(events[0].payload.habitId).toBe(externalId);
   });
 
   it("does not audit on validation failure", async () => {
@@ -588,10 +597,14 @@ describe("audit logging", () => {
 
     const logs = await db.select().from(schema.outbox);
     expect(logs).toHaveLength(3);
-    expect(logs.map((l) => l.commandType)).toEqual([
-      "CreateHabit",
-      "CreateCheckIn",
-      "UpdateHabit",
+    const types = logs.map((l) => {
+      const events = JSON.parse(l.events) as { type: string }[];
+      return events.map((e) => e.type).join(",");
+    });
+    expect(types).toEqual([
+      "HabitCreated",
+      "CheckInRecorded",
+      "HabitDetailsEdited",
     ]);
   });
 });

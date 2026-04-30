@@ -7,24 +7,19 @@ using Swashbuckle.AspNetCore.SwaggerGen;
 namespace Nag.Api.OpenApi;
 
 /// <summary>
-/// Builds discriminated unions for the wire envelopes:
-/// <see cref="CommandEnvelope"/> (inbound, write side, payloads come from
-/// <see cref="CommandRegistry"/>) and <see cref="EventEnvelope"/> (outbound,
-/// read side, payloads come from <see cref="EventRegistry"/>). Each variant
-/// fixes <c>type</c> to a const string and <c>payload</c> to the matching
-/// schema.
+/// Builds a discriminated union for both wire envelopes:
+/// <see cref="EventEntry"/> (inbound, the per-event payload inside
+/// <see cref="WriteEventEnvelope"/>) and <see cref="EventEnvelope"/>
+/// (outbound, on <c>GET /events</c> and <c>/sync</c> replays). Both
+/// share the same payload-shape vocabulary — every <c>type</c> value
+/// is a member of <see cref="EventRegistry"/>. Each variant fixes
+/// <c>type</c> to a const string and <c>payload</c> to the matching
+/// event schema.
 /// </summary>
 public sealed class CommandSchemasFilter : IDocumentFilter
 {
     public void Apply(OpenApiDocument swaggerDoc, DocumentFilterContext context)
     {
-        var commandVariants = new List<(string name, IOpenApiSchema payloadRef)>();
-        foreach (var (name, type) in CommandRegistry.ByName)
-        {
-            var payloadRef = context.SchemaGenerator.GenerateSchema(type, context.SchemaRepository);
-            commandVariants.Add((name, payloadRef));
-        }
-
         var eventVariants = new List<(string name, IOpenApiSchema payloadRef)>();
         foreach (var (name, type) in EventRegistry.ByName)
         {
@@ -32,7 +27,7 @@ public sealed class CommandSchemasFilter : IDocumentFilter
             eventVariants.Add((name, payloadRef));
         }
 
-        PatchEnvelope(swaggerDoc, context, nameof(CommandEnvelope), commandVariants);
+        PatchEnvelope(swaggerDoc, context, nameof(EventEntry), eventVariants);
         PatchEnvelope(swaggerDoc, context, nameof(EventEnvelope), eventVariants);
     }
 
@@ -52,7 +47,7 @@ public sealed class CommandSchemasFilter : IDocumentFilter
         if (envelopeSchema is not OpenApiSchema envelope)
             return;
 
-        // Build a named variant schema for each event/command type.
+        // Build a named variant schema for each event type.
         var variantRefs = new List<IOpenApiSchema>();
         var mapping = new Dictionary<string, OpenApiSchemaReference>();
 

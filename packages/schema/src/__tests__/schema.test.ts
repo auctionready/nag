@@ -230,49 +230,31 @@ describe("schema", () => {
   });
 
   describe("outbox table", () => {
-    describe("with payload", () => {
-      let log: typeof schema.outbox.$inferSelect;
+    let log: typeof schema.outbox.$inferSelect;
 
-      beforeEach(async () => {
-        [log] = await db
-          .insert(schema.outbox)
-          .values({
-            commandType: "CreateHabit",
-            payload: JSON.stringify({ title: "Test" }),
-          })
-          .returning();
-      });
-
-      it("stores command type", () => {
-        expect(log.commandType).toBe("CreateHabit");
-      });
-
-      it("stores serialized payload", () => {
-        expect(log.payload).toBe('{"title":"Test"}');
-      });
-
-      it("auto-sets timestamp", () => {
-        expect(log.timestamp).toBeInstanceOf(Date);
-      });
+    beforeEach(async () => {
+      [log] = await db
+        .insert(schema.outbox)
+        .values({
+          events: JSON.stringify([
+            { type: "HabitCreated", payload: { habitId: "h-1", title: "T" } },
+          ]),
+        })
+        .returning();
     });
 
-    describe("without payload", () => {
-      let log: typeof schema.outbox.$inferSelect;
+    it("stores serialized events array", () => {
+      const parsed = JSON.parse(log.events) as { type: string }[];
+      expect(parsed).toHaveLength(1);
+      expect(parsed[0].type).toBe("HabitCreated");
+    });
 
-      beforeEach(async () => {
-        [log] = await db
-          .insert(schema.outbox)
-          .values({ commandType: "DeleteHabit" })
-          .returning();
-      });
+    it("auto-sets timestamp", () => {
+      expect(log.timestamp).toBeInstanceOf(Date);
+    });
 
-      it("stores command type", () => {
-        expect(log.commandType).toBe("DeleteHabit");
-      });
-
-      it("defaults payload to null", () => {
-        expect(log.payload).toBeNull();
-      });
+    it("defaults status to pending", () => {
+      expect(log.status).toBe("pending");
     });
   });
 });

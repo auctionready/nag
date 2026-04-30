@@ -7,15 +7,19 @@ const API_KEY = "test-api-key";
 
 const envelope = {
   id: "11111111-1111-4111-8111-111111111111",
-  type: "CreateHabit" as const,
   timestamp: "2024-05-01T10:00:00.000Z",
-  payload: {
-    habitId: "22222222-2222-4222-8222-222222222222",
-    title: "Read",
-  },
+  events: [
+    {
+      type: "HabitCreated" as const,
+      payload: {
+        habitId: "22222222-2222-4222-8222-222222222222",
+        title: "Read",
+      },
+    },
+  ],
 };
 
-const commandEnvelopeOut = {
+const eventEnvelopeOut = {
   sequence: 1,
   id: "11111111-1111-4111-8111-111111111111",
   timestamp: "2024-05-01T10:00:00.000Z",
@@ -47,7 +51,7 @@ describe("nagApiClient", () => {
     nock.restore();
   });
 
-  describe("postCommands", () => {
+  describe("postEvents", () => {
     it("sends the envelope with bearer auth and JSON headers", async () => {
       const scope = nock(BASE_URL, {
         reqheaders: {
@@ -55,13 +59,13 @@ describe("nagApiClient", () => {
           "content-type": /^application\/json/,
         },
       })
-        .post("/commands", (body) => {
+        .post("/events", (body) => {
           expect(body).toEqual(envelope);
           return true;
         })
         .reply(200, { accepted: true, sequence: 7 });
 
-      const result = await makeClient().postCommands(envelope);
+      const result = await makeClient().postEvents(envelope);
 
       expect(result).toEqual({ accepted: true, sequence: 7 });
       expect(scope.isDone()).toBe(true);
@@ -69,16 +73,16 @@ describe("nagApiClient", () => {
 
     it("rejects on 400", async () => {
       nock(BASE_URL)
-        .post("/commands")
+        .post("/events")
         .reply(400, { errors: ["envelope.id is required"] });
 
-      await expect(makeClient().postCommands(envelope)).rejects.toThrow();
+      await expect(makeClient().postEvents(envelope)).rejects.toThrow();
     });
 
     it("rejects on 401", async () => {
-      nock(BASE_URL).post("/commands").reply(401);
+      nock(BASE_URL).post("/events").reply(401);
 
-      await expect(makeClient().postCommands(envelope)).rejects.toThrow();
+      await expect(makeClient().postEvents(envelope)).rejects.toThrow();
     });
   });
 
@@ -109,7 +113,7 @@ describe("nagApiClient", () => {
       nock(BASE_URL)
         .get("/events")
         .query({ since: "0" })
-        .reply(200, { events: [commandEnvelopeOut], nextSince: null });
+        .reply(200, { events: [eventEnvelopeOut], nextSince: null });
 
       const page = await makeClient().getEvents({ queries: { since: 0 } });
 

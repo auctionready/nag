@@ -1,6 +1,7 @@
 import { habit, goal, schedule } from "@nag/schema";
 import type { AnyDb } from "../../db";
 import type { CreateHabit } from "../schemas";
+import type { HabitCreated } from "../../events";
 
 function popcount(n: number): number {
   let count = 0;
@@ -11,10 +12,17 @@ function popcount(n: number): number {
   return count;
 }
 
+export type CreateHabitResult = {
+  habitId: number;
+  externalId: string;
+  scheduleIds: number[];
+  events: [HabitCreated];
+};
+
 export async function handleCreateHabit(
   db: AnyDb,
   command: CreateHabit,
-): Promise<{ habitId: number; externalId: string; scheduleIds: number[] }> {
+): Promise<CreateHabitResult> {
   const [inserted] = await db
     .insert(habit)
     .values({
@@ -22,6 +30,8 @@ export async function handleCreateHabit(
       description: command.description ?? null,
     })
     .returning({ id: habit.id, externalId: habit.externalId });
+
+  let scheduleIds: number[] = [];
 
   if (command.goal) {
     const frequency = command.goal.schedules
@@ -56,17 +66,37 @@ export async function handleCreateHabit(
           })),
         )
         .returning({ id: schedule.id });
-      return {
-        habitId: inserted.id,
-        externalId: inserted.externalId,
-        scheduleIds: insertedSchedules.map((s) => s.id),
-      };
+      scheduleIds = insertedSchedules.map((s) => s.id);
     }
   }
+
+  const event: HabitCreated = {
+    type: "HabitCreated",
+    habitId: inserted.externalId,
+    title: command.title,
+    description: command.description ?? null,
+    icon: null,
+    goal: command.goal
+      ? {
+          regularity: command.goal.regularity,
+          frequency: command.goal.frequency ?? null,
+          schedules: command.goal.schedules
+            ? command.goal.schedules.map((s) => ({
+                hour: s.hour,
+                minute: s.minute,
+                days: s.days ?? null,
+                dayOfMonth: s.dayOfMonth ?? null,
+                reminder: s.reminder ?? null,
+              }))
+            : null,
+        }
+      : null,
+  };
 
   return {
     habitId: inserted.id,
     externalId: inserted.externalId,
-    scheduleIds: [],
+    scheduleIds,
+    events: [event],
   };
 }

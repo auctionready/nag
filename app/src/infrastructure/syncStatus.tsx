@@ -26,7 +26,7 @@ import { postCommitBus } from "./postCommitBus";
 import {
   isApiConfigured,
   logApiConfig,
-  postCommands,
+  postEvents,
   getSync,
 } from "./apiClient";
 import { log } from "./log";
@@ -105,7 +105,7 @@ export const SyncStatusProvider = ({ children }: PropsWithChildren) => {
     if (!enabled) return async () => {};
     const dispatcher = createDispatcher({
       db,
-      post: postCommands,
+      post: postEvents,
       onError: (err) => {
         const message = err instanceof Error ? err.message : String(err);
         logger.error("dispatcher onError", message);

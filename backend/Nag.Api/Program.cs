@@ -134,14 +134,8 @@ builder
             opts.AutoCreateSchemaObjects = AutoCreate.None;
         }
 
-        foreach (var t in CommandRegistry.All)
-        {
-            opts.Events.AddEventType(t);
-        }
-
-        // Past-tense events the server emits. Currently registered so
-        // Marten knows the types; consumers (projections, dispatcher
-        // emit, sync wire) follow in subsequent stack PRs.
+        // The server appends only past-tense events. Every event type
+        // the client may emit must be registered with Marten.
         foreach (var t in EventRegistry.All)
         {
             opts.Events.AddEventType(t);
@@ -154,11 +148,11 @@ builder
         // would 5xx with a missing-relation error.
         opts.Schema.For<Account>();
         opts.Schema.For<Device>();
-        opts.Schema.For<ProcessedCommand>().MultiTenanted();
+        opts.Schema.For<ProcessedEnvelope>().MultiTenanted();
         opts.Schema.For<HomeBoard>().MultiTenanted();
         // Past-tense event projections introduced alongside the
         // server-side switch — same per-account isolation rule as
-        // HomeBoard / ProcessedCommand.
+        // HomeBoard / ProcessedEnvelope.
         opts.Schema.For<CheckInState>().MultiTenanted();
         opts.Schema.For<MonthlyCheckInSummary>().MultiTenanted();
         opts.Schema.For<WeeklyCheckInSummary>().MultiTenanted();
@@ -173,7 +167,7 @@ builder
 builder.Host.UseWolverine(opts =>
 {
     opts.Durability.Mode = DurabilityMode.Serverless;
-    opts.Discovery.IncludeAssembly(typeof(CommandDispatcher).Assembly);
+    opts.Discovery.IncludeAssembly(typeof(EventDispatcher).Assembly);
 
     // In production, load handler types pre-generated at build time
     // (via `codegen write`) rather than compiling them on first invocation.
@@ -198,7 +192,7 @@ builder.Services.AddMartenTenancyDetection(opts =>
     opts.IsClaimTypeNamed(NagClaimTypes.AccountId);
 });
 
-builder.Services.AddScoped<CommandDispatcher>();
+builder.Services.AddScoped<EventDispatcher>();
 builder.Services.AddScoped<EventsReader>();
 builder.Services.AddScoped<SyncCoordinator>();
 
@@ -254,7 +248,7 @@ builder.Services.AddAuthorization(opts =>
     opts.FallbackPolicy = opts.DefaultPolicy;
 });
 
-builder.Services.AddValidatorsFromAssemblyContaining<CreateHabitValidator>(filter: result =>
+builder.Services.AddValidatorsFromAssemblyContaining<HabitCreatedValidator>(filter: result =>
     result.ValidatorType != typeof(ScheduleEntryValidator)
 );
 
