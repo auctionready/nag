@@ -22,6 +22,7 @@ import {
   AnimatedSplash,
   SPLASH_DURATION_MS,
 } from "../components/AnimatedSplash";
+import { useShowSplash } from "../hooks/useShowSplash";
 
 // Keep the native splash up until fonts load and the JS animated splash mounts;
 // then we hide it and run the reveal animation.
@@ -88,16 +89,10 @@ const RootLayout = () => {
     "SpaceGrotesk-Bold": require("../../assets/fonts/SpaceGrotesk-Bold.otf"),
     "JetBrainsMono-Regular": require("../../assets/fonts/JetBrainsMono-Regular.ttf"),
   });
-  const [splashDone, setSplashDone] = React.useState(false);
-  const splashFired = React.useRef(false);
-
-  // No cleanup — we never want this timer cancelled. Guard with ref so it
-  // only starts once even if fontsLoaded somehow flickers.
-  React.useEffect(() => {
-    if (!fontsLoaded || splashFired.current) return;
-    splashFired.current = true;
-    setTimeout(() => setSplashDone(true), SPLASH_DURATION_MS);
-  }, [fontsLoaded]);
+  const showSplash = useShowSplash({
+    fontsLoaded: fontsLoaded ?? false,
+    minShowMs: SPLASH_DURATION_MS,
+  });
 
   React.useEffect(() => {
     if (ref) {
@@ -119,7 +114,7 @@ const RootLayout = () => {
           </SyncStatusProvider>
         </DatabaseProvider>
       </ClerkOrPassthrough>
-      {!splashDone && <AnimatedSplash />}
+      {showSplash && <AnimatedSplash />}
     </GestureHandlerRootView>
   );
 };
