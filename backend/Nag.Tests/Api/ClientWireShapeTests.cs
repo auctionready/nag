@@ -67,9 +67,10 @@ public class ClientWireShapeTests : IClassFixture<ClientWireShapeTests.Factory>
 
         var response = await client.PostAsync("/events", Json(body));
 
-        response.StatusCode.ShouldBe(HttpStatusCode.OK);
-        var accepted = await response.Content.ReadFromJsonAsync<WriteEventAccepted>();
-        accepted!.Accepted.ShouldBeTrue();
+        response.StatusCode.ShouldBe(HttpStatusCode.Created);
+        response.Headers.Location!.ToString().ShouldBe($"/events/by-envelope/{envelopeId}");
+        response.Headers.TryGetValues("X-Nag-Sequence", out var seq).ShouldBeTrue();
+        long.Parse(seq!.Single()).ShouldBeGreaterThan(0);
     }
 
     [Fact]
@@ -96,7 +97,7 @@ public class ClientWireShapeTests : IClassFixture<ClientWireShapeTests.Factory>
             """;
 
         var response = await client.PostAsync("/events", Json(body));
-        response.StatusCode.ShouldBe(HttpStatusCode.OK);
+        response.StatusCode.ShouldBe(HttpStatusCode.Created);
     }
 
     [Fact]
@@ -146,7 +147,7 @@ public class ClientWireShapeTests : IClassFixture<ClientWireShapeTests.Factory>
             """;
 
         var response = await client.PostAsync("/events", Json(body));
-        response.StatusCode.ShouldBe(HttpStatusCode.OK);
+        response.StatusCode.ShouldBe(HttpStatusCode.Created);
     }
 
     [Fact]
@@ -186,7 +187,7 @@ public class ClientWireShapeTests : IClassFixture<ClientWireShapeTests.Factory>
             """;
 
         var response = await client.PostAsync("/events", Json(body));
-        response.StatusCode.ShouldBe(HttpStatusCode.OK);
+        response.StatusCode.ShouldBe(HttpStatusCode.Created);
     }
 
     [Fact]
@@ -232,7 +233,7 @@ public class ClientWireShapeTests : IClassFixture<ClientWireShapeTests.Factory>
             """;
 
         var response = await client.PostAsync("/events", Json(body));
-        response.StatusCode.ShouldBe(HttpStatusCode.OK);
+        response.StatusCode.ShouldBe(HttpStatusCode.Created);
     }
 
     [Fact]
@@ -301,7 +302,7 @@ public class ClientWireShapeTests : IClassFixture<ClientWireShapeTests.Factory>
             """;
 
         var response = await client.PostAsync("/events", Json(body));
-        response.StatusCode.ShouldBe(HttpStatusCode.OK);
+        response.StatusCode.ShouldBe(HttpStatusCode.Created);
     }
 
     [Fact]
@@ -368,7 +369,7 @@ public class ClientWireShapeTests : IClassFixture<ClientWireShapeTests.Factory>
             """;
 
         var response = await client.PostAsync("/events", Json(body));
-        response.StatusCode.ShouldBe(HttpStatusCode.OK);
+        response.StatusCode.ShouldBe(HttpStatusCode.Created);
     }
 
     // ----- Case sensitivity -----
@@ -393,7 +394,7 @@ public class ClientWireShapeTests : IClassFixture<ClientWireShapeTests.Factory>
             """;
 
         var response = await client.PostAsync("/events", Json(body));
-        response.StatusCode.ShouldBe(HttpStatusCode.OK);
+        response.StatusCode.ShouldBe(HttpStatusCode.Created);
     }
 
     // ----- Non-retriable failure modes, with a helpful error body -----

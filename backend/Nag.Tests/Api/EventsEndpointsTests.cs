@@ -22,18 +22,25 @@ public class EventsEndpointsTests : IClassFixture<EventsEndpointsTests.Factory>
 
     private HttpClient AuthedClient() => _factory.CreateAuthedClient();
 
+    private static long ReadSequenceHeader(HttpResponseMessage response)
+    {
+        response.Headers.TryGetValues("X-Nag-Sequence", out var values).ShouldBeTrue();
+        return long.Parse(values!.Single());
+    }
+
     public class Posting_a_habit_created_event : EventsEndpointsTests
     {
         public Posting_a_habit_created_event(PostgresFixture pg, Factory factory)
             : base(pg, factory) { }
 
         [Fact]
-        public async Task accepts_first_post()
+        public async Task accepts_first_post_as_201_with_location_and_sequence_headers()
         {
             var client = AuthedClient();
+            var envelopeId = Guid.NewGuid();
             var envelope = new
             {
-                id = Guid.NewGuid(),
+                id = envelopeId,
                 timestamp = DateTimeOffset.UtcNow,
                 events = new[]
                 {
@@ -46,15 +53,14 @@ public class EventsEndpointsTests : IClassFixture<EventsEndpointsTests.Factory>
             };
 
             var response = await client.PostAsJsonAsync("/events", envelope);
-            response.StatusCode.ShouldBe(HttpStatusCode.OK);
-            var result = await response.Content.ReadFromJsonAsync<WriteEventAccepted>();
-            result.ShouldNotBeNull();
-            result!.Accepted.ShouldBeTrue();
-            result.Sequence.ShouldBeGreaterThan(0);
+            response.StatusCode.ShouldBe(HttpStatusCode.Created);
+            response.Headers.Location!.ToString().ShouldBe($"/events/by-envelope/{envelopeId}");
+            ReadSequenceHeader(response).ShouldBeGreaterThan(0);
+            (await response.Content.ReadAsStringAsync()).ShouldBeEmpty();
         }
 
         [Fact]
-        public async Task duplicate_post_returns_existing_sequence()
+        public async Task duplicate_post_returns_200_with_same_sequence()
         {
             var client = AuthedClient();
             var id = Guid.NewGuid();
@@ -73,13 +79,13 @@ public class EventsEndpointsTests : IClassFixture<EventsEndpointsTests.Factory>
             };
 
             var first = await client.PostAsJsonAsync("/events", envelope);
-            var firstResult = await first.Content.ReadFromJsonAsync<WriteEventAccepted>();
+            first.StatusCode.ShouldBe(HttpStatusCode.Created);
+            var firstSeq = ReadSequenceHeader(first);
 
             var second = await client.PostAsJsonAsync("/events", envelope);
             second.StatusCode.ShouldBe(HttpStatusCode.OK);
-            var secondResult = await second.Content.ReadFromJsonAsync<WriteEventAccepted>();
-            secondResult!.Accepted.ShouldBeFalse();
-            secondResult.Sequence.ShouldBe(firstResult!.Sequence);
+            second.Headers.Location!.ToString().ShouldBe($"/events/by-envelope/{id}");
+            ReadSequenceHeader(second).ShouldBe(firstSeq);
         }
 
         [Fact]
@@ -140,9 +146,8 @@ public class EventsEndpointsTests : IClassFixture<EventsEndpointsTests.Factory>
             };
 
             var response = await client.PostAsJsonAsync("/events", envelope);
-            response.StatusCode.ShouldBe(HttpStatusCode.OK);
-            var result = await response.Content.ReadFromJsonAsync<WriteEventAccepted>();
-            result!.Sequence.ShouldBeGreaterThanOrEqualTo(2);
+            response.StatusCode.ShouldBe(HttpStatusCode.Created);
+            ReadSequenceHeader(response).ShouldBeGreaterThanOrEqualTo(2);
         }
     }
 
@@ -175,6 +180,64 @@ public class EventsEndpointsTests : IClassFixture<EventsEndpointsTests.Factory>
             var page = await client.GetFromJsonAsync<EventsPage>("/events?since=0&limit=2");
             page!.Events.Count.ShouldBe(2);
             page.NextSince.ShouldNotBeNull();
+        }
+    }
+
+    public class Fetching_events_by_envelope_id : EventsEndpointsTests
+    {
+        public Fetching_events_by_envelope_id(PostgresFixture pg, Factory factory)
+            : base(pg, factory) { }
+
+        [Fact]
+        public async Task returns_only_the_events_appended_for_that_envelope()
+        {
+            var client = AuthedClient();
+
+            // Append two unrelated envelopes around the one we'll query for,
+            // so we can prove the endpoint filters to the right range.
+            await PostHabitCreated(client, "Before");
+
+            var habitId = Guid.NewGuid();
+            var targetId = Guid.NewGuid();
+            var resp = await client.PostAsJsonAsync(
+                "/events",
+                new
+                {
+                    id = targetId,
+                    timestamp = DateTimeOffset.UtcNow,
+                    events = new object[]
+                    {
+                        new { type = "HabitCreated", payload = new { habitId, title = "Target" } },
+                        new
+                        {
+                            type = "HabitDetailsEdited",
+                            payload = new { habitId, title = "Target renamed" },
+                        },
+                    },
+                }
+            );
+            resp.StatusCode.ShouldBe(HttpStatusCode.Created);
+
+            await PostHabitCreated(client, "After");
+
+            var page = await client.GetFromJsonAsync<EventsByEnvelope>(
+                $"/events/by-envelope/{targetId}",
+                NagJsonOptions.Default
+            );
+            page.ShouldNotBeNull();
+            page!.Id.ShouldBe(targetId);
+            page.Events.Count.ShouldBe(2);
+            page.Events.Select(e => e.Type)
+                .ShouldBe(new[] { "HabitCreated", "HabitDetailsEdited" });
+            page.Events.Select(e => e.Sequence).ShouldBeInOrder();
+        }
+
+        [Fact]
+        public async Task unknown_envelope_id_returns_404()
+        {
+            var client = AuthedClient();
+            var resp = await client.GetAsync($"/events/by-envelope/{Guid.NewGuid()}");
+            resp.StatusCode.ShouldBe(HttpStatusCode.NotFound);
         }
     }
 

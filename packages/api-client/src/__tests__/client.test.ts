@@ -63,11 +63,22 @@ describe("nagApiClient", () => {
           expect(body).toEqual(envelope);
           return true;
         })
-        .reply(200, { accepted: true, sequence: 7 });
+        .reply(201, "", {
+          Location: "/events/by-envelope/11111111-1111-4111-8111-111111111111",
+          "X-Nag-Sequence": "7",
+        });
 
-      const result = await makeClient().postEvents(envelope);
+      // Response body is empty (REST-pure POST); the typed client just
+      // surfaces the empty object and the wrapper reads sequence from
+      // the response header. We exercise the wire shape here directly
+      // via axios so we can assert on status + headers.
+      const response = await makeClient().axios.post("/events", envelope);
 
-      expect(result).toEqual({ accepted: true, sequence: 7 });
+      expect(response.status).toBe(201);
+      expect(response.headers["x-nag-sequence"]).toBe("7");
+      expect(response.headers["location"]).toBe(
+        "/events/by-envelope/11111111-1111-4111-8111-111111111111",
+      );
       expect(scope.isDone()).toBe(true);
     });
 

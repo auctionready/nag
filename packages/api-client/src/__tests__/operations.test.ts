@@ -55,10 +55,22 @@ describe("operations", () => {
   });
 
   describe("postEvents", () => {
-    it("returns ok with the server-assigned sequence on 200", async () => {
-      nock(BASE_URL)
-        .post("/events")
-        .reply(200, { accepted: true, sequence: 42 });
+    it("returns ok with sequence read from X-Nag-Sequence header on 201", async () => {
+      nock(BASE_URL).post("/events").reply(201, "", {
+        Location: "/events/by-envelope/11111111-1111-4111-8111-111111111111",
+        "X-Nag-Sequence": "42",
+      });
+
+      const result = await postEvents(makeClient(), envelope);
+
+      expect(result).toEqual({ ok: true, sequence: 42 });
+    });
+
+    it("returns ok with the same sequence on a 200 duplicate replay", async () => {
+      nock(BASE_URL).post("/events").reply(200, "", {
+        Location: "/events/by-envelope/11111111-1111-4111-8111-111111111111",
+        "X-Nag-Sequence": "42",
+      });
 
       const result = await postEvents(makeClient(), envelope);
 

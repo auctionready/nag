@@ -118,18 +118,19 @@ const failureFromError = (
   return { ok: false, kind: "transient", message };
 };
 
-type PostEventsBody = ZodiosBodyByAlias<Endpoints, "postEvents">;
-type PostEventsResponse = ZodiosResponseByAlias<Endpoints, "postEvents">;
-type PostEventsError400 = ZodiosErrorByAlias<Endpoints, "postEvents", 400>;
-
 // Re-export the mapped type for downstream callers that want to peek at the
 // documented 400 body shape without re-deriving it.
 export type { ZodiosErrorByAlias };
 
 /**
- * POSTs a write-event envelope and translates the Zodios/axios response
- * into a `PostResult`. Never throws on HTTP or network errors — the
- * caller (dispatcher) reads `result.ok` and decides what to do.
+ * POSTs a write-event envelope and translates the axios response into a
+ * `PostResult`. Goes through `client.axios` rather than the typed
+ * `client.postEvents` because the response is now header-driven (no
+ * body): we need the raw `AxiosResponse` to read `X-Nag-Sequence` and
+ * the status code (`201` first time, `200` duplicate replay).
+ *
+ * Never throws on HTTP or network errors — the caller (dispatcher)
+ * reads `result.ok` and decides what to do.
  */
 export const postEvents = async (
   client: NagApiClient,
@@ -142,14 +143,15 @@ export const postEvents = async (
   );
   const start = Date.now();
   try {
-    const response: PostEventsResponse = await client.postEvents(
-      envelope as PostEventsBody,
-    );
+    const response = await client.axios.post("/events", envelope);
     const elapsed = Date.now() - start;
+    const headerValue = response.headers["x-nag-sequence"];
+    const sequence =
+      typeof headerValue === "string" ? Number.parseInt(headerValue, 10) : 0;
     log?.debug?.(
-      `POST /events ok (${elapsed}ms) sequence=${response.sequence} accepted=${(response as { accepted?: boolean }).accepted}`,
+      `POST /events ok (${elapsed}ms) status=${response.status} sequence=${sequence}`,
     );
-    return { ok: true, sequence: response.sequence ?? 0 };
+    return { ok: true, sequence: Number.isFinite(sequence) ? sequence : 0 };
   } catch (error: unknown) {
     return failureFromError(
       "POST /events",
@@ -157,15 +159,11 @@ export const postEvents = async (
       Date.now() - start,
       error,
       () => {
-        if (isErrorFromAlias(endpoints, "postEvents", error)) {
-          // The endpoint documents both a 400 (ErrorResponse) and a 404
-          // (void; the latter comes from Wolverine HTTP's tenant-not-found
-          // path). Narrow to the ErrorResponse-shaped variant for the
-          // documented-message extraction.
-          const data = error.response.data as PostEventsError400 | void;
-          return data && typeof data === "object" && "errors" in data
-            ? (data as { errors?: string[] }).errors?.[0]
-            : undefined;
+        if (isAxiosError(error) && error.response?.status === 400) {
+          // 400 body is `ErrorResponse { errors: string[] }` — extract
+          // the first message for the failure summary the dispatcher logs.
+          const data = error.response.data as { errors?: string[] } | undefined;
+          return data?.errors?.[0];
         }
         return undefined;
       },

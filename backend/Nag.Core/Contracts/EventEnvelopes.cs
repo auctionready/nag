@@ -20,7 +20,13 @@ public sealed record WriteEventEnvelope(
 
 public sealed record EventEntry(string Type, JsonElement Payload);
 
-public sealed record WriteEventAccepted(bool Accepted, long Sequence);
+/// <summary>
+/// Body of <c>GET /events/by-envelope/{id}</c>. Returns the events the
+/// server appended for one previously-POSTed envelope, in stream order.
+/// Lets the client reconcile against what the server actually persisted
+/// without rewalking the whole stream via <c>/sync</c>.
+/// </summary>
+public sealed record EventsByEnvelope(Guid Id, IReadOnlyList<EventEnvelope> Events);
 
 /// <summary>
 /// Outbound read envelope on <c>GET /events</c> and <c>/sync</c> replays.

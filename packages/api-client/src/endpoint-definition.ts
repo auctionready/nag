@@ -272,10 +272,8 @@ export const WriteEventEnvelope = z
   .partial();
 export type WriteEventEnvelope = z.infer<typeof WriteEventEnvelope>;
 
-export const WriteEventAccepted = z
-  .object({ accepted: z.boolean(), sequence: z.int() })
-  .partial();
-export type WriteEventAccepted = z.infer<typeof WriteEventAccepted>;
+export const IResult = z.object({}).partial();
+export type IResult = z.infer<typeof IResult>;
 
 export const EventEnvelope_HabitCreated = z
   .object({
@@ -429,8 +427,10 @@ export const EventsPage = z
   .partial();
 export type EventsPage = z.infer<typeof EventsPage>;
 
-export const IResult = z.object({}).partial();
-export type IResult = z.infer<typeof IResult>;
+export const EventsByEnvelope = z
+  .object({ id: z.uuid(), events: z.array(EventEnvelope).nullable() })
+  .partial();
+export type EventsByEnvelope = z.infer<typeof EventsByEnvelope>;
 
 export const HomeCheckIn = z
   .object({
@@ -599,7 +599,7 @@ export const endpoints = makeApi([
     path: "/events",
     alias: "postEvents",
     parameters: [{ name: "body", type: "Body", schema: WriteEventEnvelope }],
-    response: WriteEventAccepted,
+    response: z.object({}).partial(),
     errors: [
       { status: 400, schema: ErrorResponse },
       { status: 404, schema: z.void() },
@@ -614,6 +614,14 @@ export const endpoints = makeApi([
       { name: "limit", type: "Query", schema: z.int().nullish() },
     ],
     response: EventsPage,
+    errors: [{ status: 404, schema: z.void() }],
+  },
+  {
+    method: "get",
+    path: "/events/by-envelope/:id",
+    alias: "getEventsByEnvelope",
+    parameters: [{ name: "id", type: "Path", schema: z.uuid() }],
+    response: EventsByEnvelope,
     errors: [{ status: 404, schema: z.void() }],
   },
   {
