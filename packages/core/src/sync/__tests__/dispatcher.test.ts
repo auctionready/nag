@@ -51,7 +51,7 @@ describe("dispatcher happy path", () => {
       // Each envelope carries one event for these single-event commands;
       // for UpdateHabit the title-only diff also produces a single event.
       seenOrder.push(env.events.map((e: { type: string }) => e.type).join(","));
-      return { ok: true, sequence: nextSequence++ };
+      return { ok: true, sequence: nextSequence++, events: [] };
     });
 
     const dispatcher = createDispatcher({ db, post });
@@ -85,6 +85,7 @@ describe("dispatcher happy path", () => {
       async (): Promise<PostResult> => ({
         ok: true,
         sequence: 42,
+        events: [],
       }),
     );
     const status = await createDispatcher({ db, post }).run();
@@ -120,7 +121,7 @@ describe("dispatcher non-retriable (4xx)", () => {
           message: "bad payload",
         };
       }
-      return { ok: true, sequence: 100 + call };
+      return { ok: true, sequence: 100 + call, events: [] };
     });
 
     const onError = vi.fn();
@@ -154,7 +155,7 @@ describe("dispatcher non-retriable (4xx)", () => {
         status: 422,
         message: "nope",
       })
-      .mockResolvedValue({ ok: true, sequence: 1 });
+      .mockResolvedValue({ ok: true, sequence: 1, events: [] });
 
     const dispatcher = createDispatcher({ db, post });
     await dispatcher.run();
@@ -173,7 +174,7 @@ describe("dispatcher transient errors", () => {
 
     const post = vi
       .fn<() => Promise<PostResult>>()
-      .mockResolvedValueOnce({ ok: true, sequence: 1 })
+      .mockResolvedValueOnce({ ok: true, sequence: 1, events: [] })
       .mockRejectedValueOnce(new Error("ECONNREFUSED"));
 
     const status = await createDispatcher({ db, post }).run();
@@ -232,7 +233,7 @@ describe("dispatcher idempotent replay (crash between POST and markSent)", () =>
         // Simulate: server accepted, but our acknowledgement process threw.
         throw new Error("network dropped after server processed");
       }
-      return { ok: true, sequence: 7 }; // duplicate-safe success
+      return { ok: true, sequence: 7, events: [] }; // duplicate-safe success
     });
 
     const dispatcher = createDispatcher({ db, post });
@@ -298,6 +299,7 @@ describe("resumeDispatch", () => {
       async (): Promise<PostResult> => ({
         ok: true,
         sequence: seq++,
+        events: [],
       }),
     );
     const status = await createDispatcher({ db, post: post2 }).run();
@@ -322,6 +324,7 @@ describe("batchSize", () => {
       async (): Promise<PostResult> => ({
         ok: true,
         sequence: seq++,
+        events: [],
       }),
     );
     const dispatcher = createDispatcher({ db, post, batchSize: 2 });
@@ -352,7 +355,7 @@ describe("envelope shape", () => {
     const capturedEnvelopes: unknown[] = [];
     const post = vi.fn(async (env): Promise<PostResult> => {
       capturedEnvelopes.push(env);
-      return { ok: true, sequence: 1 };
+      return { ok: true, sequence: 1, events: [] };
     });
 
     await createDispatcher({ db, post }).run();
@@ -419,7 +422,11 @@ describe("outbox sent-row retention", () => {
 
     let seq = 0;
     const post = vi.fn(
-      async (): Promise<PostResult> => ({ ok: true, sequence: ++seq }),
+      async (): Promise<PostResult> => ({
+        ok: true,
+        sequence: ++seq,
+        events: [],
+      }),
     );
 
     expect(await createDispatcher({ db, post }).run()).toBe("idle");
@@ -445,7 +452,11 @@ describe("outbox sent-row retention", () => {
 
     let seq = 0;
     const post = vi.fn(
-      async (): Promise<PostResult> => ({ ok: true, sequence: ++seq }),
+      async (): Promise<PostResult> => ({
+        ok: true,
+        sequence: ++seq,
+        events: [],
+      }),
     );
     await createDispatcher({ db, post }).run();
 
@@ -542,6 +553,7 @@ describe("dispatcher + previously-sent rows", () => {
       async (): Promise<PostResult> => ({
         ok: true,
         sequence: 1,
+        events: [],
       }),
     );
     const status = await createDispatcher({ db, post }).run();
