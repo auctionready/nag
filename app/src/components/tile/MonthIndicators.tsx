@@ -1,9 +1,6 @@
-import { StyleSheet, View } from "react-native";
+import { StyleSheet, View, type ViewStyle } from "react-native";
 import { buildMonthCells } from "@nag/core";
-
-const CHECKED_IN_COLOR = "#34C759";
-const TICK_HEIGHT_PAST = 14;
-const TICK_HEIGHT_FUTURE = 8;
+import { tokens } from "../theme";
 
 interface MonthIndicatorsProps {
   checkIns: { timestamp: Date }[];
@@ -12,40 +9,45 @@ interface MonthIndicatorsProps {
 
 export const MonthIndicators = ({ checkIns, now }: MonthIndicatorsProps) => {
   const cells = buildMonthCells(checkIns, now);
+  // Render as a 2-row grid (~15 columns) to mirror the design's mini month
+  // strip: today is brand orange, done is ink, past with no check-in is
+  // faint, future is an empty bordered cell.
   return (
-    <View style={styles.row}>
-      {cells.map(({ dayNumber, hasCheckIn, isPast, isFuture }) => {
-        const height = isFuture ? TICK_HEIGHT_FUTURE : TICK_HEIGHT_PAST;
-        const backgroundColor = hasCheckIn
-          ? CHECKED_IN_COLOR
-          : "rgba(255,255,255,1)";
-        const opacity = isFuture ? 0.12 : isPast && !hasCheckIn ? 0.3 : 1;
-        return (
-          <View key={dayNumber} style={styles.cell}>
-            <View style={[styles.tick, { height, backgroundColor, opacity }]} />
-          </View>
-        );
+    <View style={styles.grid}>
+      {cells.map(({ dayNumber, hasCheckIn, isToday, isFuture }) => {
+        const cellStyle: ViewStyle[] = [styles.cell];
+        if (isToday) cellStyle.push(styles.cellToday);
+        else if (hasCheckIn) cellStyle.push(styles.cellDone);
+        else if (isFuture) cellStyle.push(styles.cellFuture);
+        else cellStyle.push(styles.cellPast);
+        return <View key={dayNumber} style={cellStyle} />;
       })}
     </View>
   );
 };
 
 const styles = StyleSheet.create({
-  row: {
-    position: "absolute",
-    bottom: 10,
-    left: 8,
-    right: 8,
-    height: 24,
+  grid: {
     flexDirection: "row",
-    alignItems: "center",
+    flexWrap: "wrap",
+    gap: 3,
   },
   cell: {
-    flex: 1,
-    alignItems: "center",
+    flexBasis: "5.5%",
+    aspectRatio: 1,
+    borderRadius: 2,
   },
-  tick: {
-    width: 3,
-    borderRadius: 1.5,
+  cellToday: {
+    backgroundColor: tokens.orange,
+  },
+  cellDone: {
+    backgroundColor: tokens.ink,
+  },
+  cellPast: {
+    backgroundColor: tokens.faint,
+  },
+  cellFuture: {
+    borderWidth: 1,
+    borderColor: tokens.faint,
   },
 });

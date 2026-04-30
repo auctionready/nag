@@ -11,11 +11,10 @@ import type { PeriodIndicatorsProps } from "./PeriodIndicators";
 interface HabitTileProps {
   id: number;
   title: string;
+  icon?: string | null;
 }
 
-const OFF_DAY_COLOR = "#8E8E93";
-
-export const HabitTile = ({ id, title }: HabitTileProps) => {
+export const HabitTile = ({ id, title, icon }: HabitTileProps) => {
   const router = useRouter();
   const goal = useHabitGoalSummary(id);
   const { checkInCount, periodCheckIns, recentCheckIns, schedules } =
@@ -33,8 +32,6 @@ export const HabitTile = ({ id, title }: HabitTileProps) => {
 
   const isWeekly = goal?.regularity === "week";
   const isMonthly = goal?.regularity === "month";
-  // A weekly habit with no day-of-week schedule still shows day indicators,
-  // but painted from the check-in mask rather than the (empty) schedule.
   const hasSchedule = isWeekly && snap.scheduledDaysMask !== 0;
 
   const effectiveScheduledMask = hasSchedule
@@ -43,10 +40,6 @@ export const HabitTile = ({ id, title }: HabitTileProps) => {
   const effectiveCheckedInMask = hasSchedule
     ? snap.completedDaysMask
     : snap.unscheduledWeeklyMask;
-  // Check-ins on *unscheduled* days still need to light up their letter so
-  // the user sees them. Only meaningful for scheduled habits — the
-  // unscheduled-weekly branch already fills every check-in day via
-  // `unscheduledWeeklyMask`.
   const effectiveAnyCheckInMask = hasSchedule ? snap.anyCheckInDaysMask : 0;
 
   const periodIndicators: PeriodIndicatorsProps | undefined = isMonthly
@@ -58,9 +51,6 @@ export const HabitTile = ({ id, title }: HabitTileProps) => {
           checkedInDaysMask: effectiveCheckedInMask,
           partialDaysMask: hasSchedule ? snap.partialDaysMask : 0,
           anyCheckInDaysMask: effectiveAnyCheckInMask,
-          todayColor: hasSchedule ? snap.anchorColor : undefined,
-          partialColor: hasSchedule ? complianceColors.partial : undefined,
-          missedColor: hasSchedule ? complianceColors.failing : undefined,
         }
       : undefined;
 
@@ -80,11 +70,11 @@ export const HabitTile = ({ id, title }: HabitTileProps) => {
     <HabitTileView
       id={id}
       title={title}
+      icon={icon}
       goal={goal}
       checkInCount={checkInCount}
       recentCheckIns={recentCheckIns}
-      color={snap.isAnchorOffDay ? OFF_DAY_COLOR : snap.periodColor}
-      ringProgress={snap.isAnchorOffDay ? 0 : snap.ring}
+      scheduleCount={schedules.length}
       isOffDay={snap.isAnchorOffDay}
       periodIndicators={periodIndicators}
       onPress={handlePress}

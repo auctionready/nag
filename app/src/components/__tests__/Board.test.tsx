@@ -1,6 +1,15 @@
 import { render, fireEvent } from "@testing-library/react-native";
 import { Board } from "../Board";
 
+jest.mock("../useBoardProgress", () => ({
+  useBoardProgress: () => ({
+    doneCount: 0,
+    totalCount: 0,
+    percent: 0,
+    line: "",
+  }),
+}));
+
 const mockHabits = [
   { id: 1, title: "Exercise" },
   { id: 2, title: "Read" },
@@ -18,8 +27,8 @@ describe("Board", () => {
       );
     });
 
-    it("renders empty state message", () => {
-      expect(view.getByText("You have no habits set")).toBeTruthy();
+    it("renders empty state title", () => {
+      expect(view.getByText("nothing to nag yet.")).toBeTruthy();
     });
 
     it("renders Create Habit button", () => {
@@ -49,12 +58,12 @@ describe("Board", () => {
       );
     });
 
-    it("renders + Add Habit button", () => {
-      expect(view.getByText("+ Add Habit")).toBeTruthy();
+    it("renders the add-habit dashed tile", () => {
+      expect(view.getByText("add habit")).toBeTruthy();
     });
 
-    it("calls onAddHabit when + Add Habit is pressed", () => {
-      fireEvent.press(view.getByText("+ Add Habit"));
+    it("calls onAddHabit when the add tile is pressed", () => {
+      fireEvent.press(view.getByText("add habit"));
       expect(onAddHabit).toHaveBeenCalledTimes(1);
     });
 

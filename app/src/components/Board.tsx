@@ -1,5 +1,9 @@
-import { Pressable, StyleSheet, Text, View } from "react-native";
-import { ScrollView } from "react-native-gesture-handler";
+import { useMemo } from "react";
+import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import Svg, { Path, Rect } from "react-native-svg";
+import { tokens } from "./theme";
+import { useBoardProgress } from "./useBoardProgress";
 
 interface Habit {
   id: number;
@@ -10,92 +14,289 @@ export interface BoardProps {
   habits: Habit[];
   onAddHabit: () => void;
   renderTile: (habit: Habit) => React.ReactNode;
+  onCalendar?: () => void;
+  onProfile?: () => void;
 }
 
-export const Board = ({ habits, onAddHabit, renderTile }: BoardProps) => {
+export const Board = ({
+  habits,
+  onAddHabit,
+  renderTile,
+  onCalendar,
+  onProfile,
+}: BoardProps) => {
+  const insets = useSafeAreaInsets();
+  const habitIds = useMemo(() => habits.map((h) => h.id), [habits]);
+  const { percent, line } = useBoardProgress(habitIds);
+
   if (!habits.length) {
     return (
-      <View style={styles.emptyContainer}>
-        <Text style={styles.emptyText}>You have no habits set</Text>
-        <Pressable style={styles.createButton} onPress={onAddHabit}>
-          <Text style={styles.createButtonText}>Create Habit</Text>
-        </Pressable>
+      <View style={[styles.empty, { paddingTop: insets.top + 24 }]}>
+        <TopBar onProfile={onProfile} onCalendar={onCalendar} />
+        <View style={styles.emptyBody}>
+          <Text style={styles.emptyTitle}>nothing to nag yet.</Text>
+          <Text style={styles.emptySubtitle}>
+            set up your first habit and we&apos;ll start nudging.
+          </Text>
+          <Pressable style={styles.createButton} onPress={onAddHabit}>
+            <Text style={styles.createButtonText}>Create Habit</Text>
+          </Pressable>
+        </View>
       </View>
     );
   }
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.grid}>
-      {habits.map((item) => (
-        <View key={item.id} style={styles.tileWrapper}>
-          {renderTile(item)}
+    <View style={[styles.container, { paddingTop: insets.top }]}>
+      <TopBar onProfile={onProfile} onCalendar={onCalendar} />
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={[
+          styles.scrollContent,
+          { paddingBottom: insets.bottom + 24 },
+        ]}
+        showsVerticalScrollIndicator={false}
+      >
+        <Header percent={percent} line={line} />
+        <View style={styles.grid}>
+          {habits.map((item) => (
+            <View key={item.id} style={styles.cell}>
+              {renderTile(item)}
+            </View>
+          ))}
+          <View style={styles.cell}>
+            <AddTile onPress={onAddHabit} />
+          </View>
         </View>
-      ))}
-      <View style={styles.addTileWrapper}>
-        <Pressable style={styles.addTile} onPress={onAddHabit}>
-          <Text style={styles.addTileText}>+ Add Habit</Text>
-        </Pressable>
-      </View>
-    </ScrollView>
+      </ScrollView>
+    </View>
   );
 };
+
+const TopBar = ({
+  onProfile,
+  onCalendar,
+}: {
+  onProfile?: () => void;
+  onCalendar?: () => void;
+}) => (
+  <View style={styles.topBar}>
+    <Pressable
+      onPress={onProfile}
+      hitSlop={8}
+      style={({ pressed }) => [styles.avatar, pressed && styles.pressed]}
+      accessibilityLabel="Profile"
+    >
+      <Text style={styles.avatarText}>JC</Text>
+    </Pressable>
+    <View style={styles.wordmarkRow}>
+      <Text style={styles.wordmark}>nag</Text>
+      <Text style={styles.wordmarkDot}>.</Text>
+    </View>
+    <Pressable
+      onPress={onCalendar}
+      hitSlop={8}
+      style={({ pressed }) => [styles.iconBtn, pressed && styles.pressed]}
+      accessibilityLabel="Calendar"
+    >
+      <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
+        <Rect
+          x={3}
+          y={5}
+          width={18}
+          height={16}
+          rx={2}
+          stroke={tokens.ink}
+          strokeWidth={1.7}
+        />
+        <Path
+          d="M3 10h18M8 3v4M16 3v4"
+          stroke={tokens.ink}
+          strokeWidth={1.7}
+          strokeLinecap="round"
+        />
+      </Svg>
+    </Pressable>
+  </View>
+);
+
+const Header = ({ percent, line }: { percent: number; line: string }) => (
+  <View style={styles.header}>
+    <View style={styles.headerRow}>
+      <Text style={styles.percent}>{percent}</Text>
+      <Text style={styles.percentSuffix}>% today</Text>
+    </View>
+    <Text style={styles.headerLine}>{line}</Text>
+  </View>
+);
+
+const AddTile = ({ onPress }: { onPress: () => void }) => (
+  <Pressable
+    onPress={onPress}
+    style={({ pressed }) => [styles.addTile, pressed && styles.pressed]}
+  >
+    <Svg width={14} height={14} viewBox="0 0 14 14" fill="none">
+      <Path
+        d="M7 2v10M2 7h10"
+        stroke={tokens.mute}
+        strokeWidth={1.6}
+        strokeLinecap="round"
+      />
+    </Svg>
+    <Text style={styles.addTileText}>add habit</Text>
+  </Pressable>
+);
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#fff",
+    backgroundColor: tokens.cream,
+  },
+  scroll: {
+    flex: 1,
+  },
+  scrollContent: {
+    paddingHorizontal: 16,
+    paddingTop: 6,
+  },
+  topBar: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 18,
+    paddingTop: 6,
+    paddingBottom: 14,
+  },
+  avatar: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: "rgba(26,20,16,0.06)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  avatarText: {
+    color: tokens.ink,
+    fontSize: 12,
+    fontWeight: "600",
+    letterSpacing: 0.4,
+  },
+  wordmarkRow: {
+    flexDirection: "row",
+    alignItems: "baseline",
+  },
+  wordmark: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: tokens.ink,
+    letterSpacing: -0.36,
+  },
+  wordmarkDot: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: tokens.orange,
+    letterSpacing: -0.36,
+  },
+  iconBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "rgba(26,20,16,0.045)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  pressed: {
+    opacity: 0.7,
+  },
+  header: {
+    paddingHorizontal: 4,
+    paddingTop: 6,
+    paddingBottom: 18,
+  },
+  headerRow: {
+    flexDirection: "row",
+    alignItems: "baseline",
+  },
+  percent: {
+    fontSize: 40,
+    fontWeight: "600",
+    color: tokens.ink,
+    letterSpacing: -1.6,
+    lineHeight: 40,
+  },
+  percentSuffix: {
+    fontSize: 22,
+    fontWeight: "500",
+    color: tokens.mute,
+    marginLeft: 4,
+    letterSpacing: -0.5,
+  },
+  headerLine: {
+    fontFamily: "JetBrainsMono",
+    fontSize: 11.5,
+    color: tokens.mute,
+    letterSpacing: 0.3,
+    marginTop: 4,
   },
   grid: {
     flexDirection: "row",
     flexWrap: "wrap",
-    padding: 8,
+    marginHorizontal: -5,
   },
-  tileWrapper: {
+  cell: {
     width: "50%",
-    aspectRatio: 1,
-    padding: 4,
-  },
-  addTileWrapper: {
-    width: "50%",
-    aspectRatio: 1,
-    padding: 4,
+    padding: 5,
   },
   addTile: {
-    flex: 1,
-    borderWidth: 2,
-    borderColor: "#007AFF",
+    minHeight: 156,
+    borderRadius: 18,
+    borderWidth: 1.5,
     borderStyle: "dashed",
-    borderRadius: 12,
-    padding: 16,
-    justifyContent: "center",
+    borderColor: tokens.faint,
+    flexDirection: "row",
     alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    padding: 14,
   },
   addTileText: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: "#007AFF",
+    color: tokens.mute,
+    fontSize: 14,
+    fontWeight: "500",
   },
-  emptyContainer: {
+  empty: {
     flex: 1,
-    backgroundColor: "#fff",
-    justifyContent: "center",
-    alignItems: "center",
-    padding: 16,
+    backgroundColor: tokens.cream,
   },
-  emptyText: {
-    fontSize: 18,
-    color: "#999",
+  emptyBody: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 28,
+    gap: 8,
+  },
+  emptyTitle: {
+    fontSize: 22,
+    fontWeight: "600",
+    color: tokens.ink,
+    letterSpacing: -0.4,
+  },
+  emptySubtitle: {
+    fontSize: 14,
+    color: tokens.mute,
+    textAlign: "center",
     marginBottom: 16,
   },
   createButton: {
-    backgroundColor: "#007AFF",
+    backgroundColor: tokens.ink,
     paddingHorizontal: 24,
     paddingVertical: 12,
-    borderRadius: 8,
+    borderRadius: 999,
   },
   createButtonText: {
-    color: "#fff",
-    fontSize: 16,
+    color: tokens.cream,
+    fontSize: 14,
     fontWeight: "600",
+    letterSpacing: 0.2,
   },
 });
