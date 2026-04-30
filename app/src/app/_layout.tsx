@@ -86,6 +86,7 @@ const RootLayout = () => {
     "JetBrainsMono-Regular": require("../../assets/fonts/JetBrainsMono-Regular.ttf"),
   });
   const [splashDone, setSplashDone] = React.useState(false);
+  const onSplashFinish = React.useCallback(() => setSplashDone(true), []);
 
   React.useEffect(() => {
     if (ref) {
@@ -107,7 +108,7 @@ const RootLayout = () => {
           </SyncStatusProvider>
         </DatabaseProvider>
       </ClerkOrPassthrough>
-      {!splashDone && <AnimatedSplash onFinish={() => setSplashDone(true)} />}
+      {!splashDone && <AnimatedSplash onFinish={onSplashFinish} />}
     </GestureHandlerRootView>
   );
 };
