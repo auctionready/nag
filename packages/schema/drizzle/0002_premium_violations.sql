@@ -1,1 +1,0 @@
-ALTER TABLE `goal` RENAME COLUMN "count" TO "frequency";

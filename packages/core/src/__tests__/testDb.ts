@@ -40,7 +40,7 @@ export function setupTestDb(name: string): () => TestDb {
     await db.delete(schema.goal);
     await db.delete(schema.habit);
     // sync_state is a single-row flag table; reset its state instead of
-    // deleting the row (the row is seeded by migration 0008).
+    // deleting the row (the row is seeded by the initial migration).
     await db
       .update(schema.syncState)
       .set({ halted: false, highestServerSequence: 0 })
