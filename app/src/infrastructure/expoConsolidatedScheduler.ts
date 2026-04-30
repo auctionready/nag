@@ -13,18 +13,7 @@ export const expoConsolidatedScheduler: ConsolidatedNotificationScheduler = {
     const { status } = await Notifications.getPermissionsAsync();
     permissionGranted = status === "granted";
 
-    const all = await Notifications.getAllScheduledNotificationsAsync();
-    await Promise.all(
-      all
-        .filter(
-          (n) =>
-            n.identifier.startsWith("slot-") ||
-            n.identifier.startsWith("habit-"),
-        )
-        .map((n) =>
-          Notifications.cancelScheduledNotificationAsync(n.identifier),
-        ),
-    );
+    await Notifications.cancelAllScheduledNotificationsAsync();
   },
 
   scheduleSlotNotification: async (params): Promise<void> => {
