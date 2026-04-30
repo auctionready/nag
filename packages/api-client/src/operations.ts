@@ -40,8 +40,22 @@ export type WriteEventEnvelope = {
   events: EventEntry[];
 };
 
+/**
+ * One event the server appended for an envelope, mirrored back on the
+ * `POST /events` response (or fetched from
+ * `GET /events/by-envelope/{id}`). Sequence + timestamp are server-
+ * assigned; `payload` is the same shape the client sent.
+ */
+export type AppendedEvent = {
+  sequence: number;
+  id: string;
+  type: string;
+  timestamp: string;
+  payload: unknown;
+};
+
 export type PostResult =
-  | { ok: true; sequence: number }
+  | { ok: true; sequence: number; events: AppendedEvent[] }
   | { ok: false; kind: "non-retriable"; status: number; message: string }
   | { ok: false; kind: "transient"; message: string };
 
@@ -123,11 +137,16 @@ const failureFromError = (
 export type { ZodiosErrorByAlias };
 
 /**
- * POSTs a write-event envelope and translates the axios response into a
- * `PostResult`. Goes through `client.axios` rather than the typed
- * `client.postEvents` because the response is now header-driven (no
- * body): we need the raw `AxiosResponse` to read `X-Nag-Sequence` and
- * the status code (`201` first time, `200` duplicate replay).
+ * POSTs a write-event envelope and translates the response into a
+ * `PostResult`. The server returns 201 (first time) or 200 (duplicate
+ * replay) with an `EventsByEnvelope` body — the events the server
+ * actually appended, with sequence + timestamp + payload. The wrapper
+ * surfaces those events so the dispatcher can reconcile against its
+ * optimistic local state without a follow-up GET.
+ *
+ * Goes through `client.axios.post` directly so we keep raw timestamp
+ * strings rather than the `Date` instances Zodios's response-side zod
+ * schema would coerce them into.
  *
  * Never throws on HTTP or network errors — the caller (dispatcher)
  * reads `result.ok` and decides what to do.
@@ -145,13 +164,16 @@ export const postEvents = async (
   try {
     const response = await client.axios.post("/events", envelope);
     const elapsed = Date.now() - start;
-    const headerValue = response.headers["x-nag-sequence"];
-    const sequence =
-      typeof headerValue === "string" ? Number.parseInt(headerValue, 10) : 0;
+    const body = response.data as {
+      id: string;
+      events: AppendedEvent[] | null;
+    };
+    const events = body.events ?? [];
+    const sequence = events.length > 0 ? events[events.length - 1].sequence : 0;
     log?.debug?.(
-      `POST /events ok (${elapsed}ms) status=${response.status} sequence=${sequence}`,
+      `POST /events ok (${elapsed}ms) status=${response.status} sequence=${sequence} events=${events.length}`,
     );
-    return { ok: true, sequence: Number.isFinite(sequence) ? sequence : 0 };
+    return { ok: true, sequence, events };
   } catch (error: unknown) {
     return failureFromError(
       "POST /events",

@@ -69,8 +69,11 @@ public class ClientWireShapeTests : IClassFixture<ClientWireShapeTests.Factory>
 
         response.StatusCode.ShouldBe(HttpStatusCode.Created);
         response.Headers.Location!.ToString().ShouldBe($"/events/by-envelope/{envelopeId}");
-        response.Headers.TryGetValues("X-Nag-Sequence", out var seq).ShouldBeTrue();
-        long.Parse(seq!.Single()).ShouldBeGreaterThan(0);
+        var posted = await response.Content.ReadFromJsonAsync<EventsByEnvelope>(
+            NagJsonOptions.Default
+        );
+        posted!.Events.Count.ShouldBe(1);
+        posted.Events[0].Sequence.ShouldBeGreaterThan(0);
     }
 
     [Fact]

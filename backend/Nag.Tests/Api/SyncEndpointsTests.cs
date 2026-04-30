@@ -32,8 +32,8 @@ public class SyncEndpointsTests
         };
         var resp = await client.PostAsJsonAsync("/events", envelope);
         resp.EnsureSuccessStatusCode();
-        resp.Headers.TryGetValues("X-Nag-Sequence", out var values).ShouldBeTrue();
-        return long.Parse(values!.Single());
+        var body = await resp.Content.ReadFromJsonAsync<EventsByEnvelope>(NagJsonOptions.Default);
+        return body!.Events[^1].Sequence;
     }
 
     public class SinceZeroReturnsSnapshot

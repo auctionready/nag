@@ -22,45 +22,45 @@ public class EventsEndpointsTests : IClassFixture<EventsEndpointsTests.Factory>
 
     private HttpClient AuthedClient() => _factory.CreateAuthedClient();
 
-    private static long ReadSequenceHeader(HttpResponseMessage response)
-    {
-        response.Headers.TryGetValues("X-Nag-Sequence", out var values).ShouldBeTrue();
-        return long.Parse(values!.Single());
-    }
-
     public class Posting_a_habit_created_event : EventsEndpointsTests
     {
         public Posting_a_habit_created_event(PostgresFixture pg, Factory factory)
             : base(pg, factory) { }
 
         [Fact]
-        public async Task accepts_first_post_as_201_with_location_and_sequence_headers()
+        public async Task accepts_first_post_as_201_with_location_and_event_body()
         {
             var client = AuthedClient();
             var envelopeId = Guid.NewGuid();
+            var habitId = Guid.NewGuid();
             var envelope = new
             {
                 id = envelopeId,
                 timestamp = DateTimeOffset.UtcNow,
                 events = new[]
                 {
-                    new
-                    {
-                        type = "HabitCreated",
-                        payload = new { habitId = Guid.NewGuid(), title = "Read" },
-                    },
+                    new { type = "HabitCreated", payload = new { habitId, title = "Read" } },
                 },
             };
 
             var response = await client.PostAsJsonAsync("/events", envelope);
             response.StatusCode.ShouldBe(HttpStatusCode.Created);
             response.Headers.Location!.ToString().ShouldBe($"/events/by-envelope/{envelopeId}");
-            ReadSequenceHeader(response).ShouldBeGreaterThan(0);
-            (await response.Content.ReadAsStringAsync()).ShouldBeEmpty();
+
+            // 201 carries the just-appended events (RFC 7231 §6.3.2: a 201
+            // may include a representation of the new resource).
+            var body = await response.Content.ReadFromJsonAsync<EventsByEnvelope>(
+                NagJsonOptions.Default
+            );
+            body.ShouldNotBeNull();
+            body!.Id.ShouldBe(envelopeId);
+            body.Events.Count.ShouldBe(1);
+            body.Events[0].Type.ShouldBe("HabitCreated");
+            body.Events[0].Sequence.ShouldBeGreaterThan(0);
         }
 
         [Fact]
-        public async Task duplicate_post_returns_200_with_same_sequence()
+        public async Task duplicate_post_returns_200_with_same_event_body()
         {
             var client = AuthedClient();
             var id = Guid.NewGuid();
@@ -80,12 +80,22 @@ public class EventsEndpointsTests : IClassFixture<EventsEndpointsTests.Factory>
 
             var first = await client.PostAsJsonAsync("/events", envelope);
             first.StatusCode.ShouldBe(HttpStatusCode.Created);
-            var firstSeq = ReadSequenceHeader(first);
+            var firstBody = await first.Content.ReadFromJsonAsync<EventsByEnvelope>(
+                NagJsonOptions.Default
+            );
 
             var second = await client.PostAsJsonAsync("/events", envelope);
             second.StatusCode.ShouldBe(HttpStatusCode.OK);
             second.Headers.Location!.ToString().ShouldBe($"/events/by-envelope/{id}");
-            ReadSequenceHeader(second).ShouldBe(firstSeq);
+
+            var secondBody = await second.Content.ReadFromJsonAsync<EventsByEnvelope>(
+                NagJsonOptions.Default
+            );
+            secondBody.ShouldNotBeNull();
+            secondBody!.Id.ShouldBe(id);
+            secondBody
+                .Events.Select(e => e.Sequence)
+                .ShouldBe(firstBody!.Events.Select(e => e.Sequence));
         }
 
         [Fact]
@@ -126,7 +136,7 @@ public class EventsEndpointsTests : IClassFixture<EventsEndpointsTests.Factory>
         }
 
         [Fact]
-        public async Task multi_event_envelope_appends_all_atomically()
+        public async Task multi_event_envelope_returns_all_appended_events_in_order()
         {
             var client = AuthedClient();
             var habitId = Guid.NewGuid();
@@ -147,7 +157,11 @@ public class EventsEndpointsTests : IClassFixture<EventsEndpointsTests.Factory>
 
             var response = await client.PostAsJsonAsync("/events", envelope);
             response.StatusCode.ShouldBe(HttpStatusCode.Created);
-            ReadSequenceHeader(response).ShouldBeGreaterThanOrEqualTo(2);
+            var body = await response.Content.ReadFromJsonAsync<EventsByEnvelope>(
+                NagJsonOptions.Default
+            );
+            body!.Events.Select(e => e.Type).ShouldBe(["HabitCreated", "HabitDetailsEdited"]);
+            body.Events.Select(e => e.Sequence).ShouldBeInOrder();
         }
     }
 
@@ -227,8 +241,7 @@ public class EventsEndpointsTests : IClassFixture<EventsEndpointsTests.Factory>
             page.ShouldNotBeNull();
             page!.Id.ShouldBe(targetId);
             page.Events.Count.ShouldBe(2);
-            page.Events.Select(e => e.Type)
-                .ShouldBe(new[] { "HabitCreated", "HabitDetailsEdited" });
+            page.Events.Select(e => e.Type).ShouldBe(["HabitCreated", "HabitDetailsEdited"]);
             page.Events.Select(e => e.Sequence).ShouldBeInOrder();
         }
 

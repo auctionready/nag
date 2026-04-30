@@ -272,9 +272,6 @@ export const WriteEventEnvelope = z
   .partial();
 export type WriteEventEnvelope = z.infer<typeof WriteEventEnvelope>;
 
-export const IResult = z.object({}).partial();
-export type IResult = z.infer<typeof IResult>;
-
 export const EventEnvelope_HabitCreated = z
   .object({
     sequence: z.int().optional(),
@@ -419,6 +416,11 @@ export const EventEnvelope = z.discriminatedUnion("type", [
 ]);
 export type EventEnvelope = z.infer<typeof EventEnvelope>;
 
+export const EventsByEnvelope = z
+  .object({ id: z.uuid(), events: z.array(EventEnvelope).nullable() })
+  .partial();
+export type EventsByEnvelope = z.infer<typeof EventsByEnvelope>;
+
 export const EventsPage = z
   .object({
     events: z.array(EventEnvelope).nullable(),
@@ -427,10 +429,8 @@ export const EventsPage = z
   .partial();
 export type EventsPage = z.infer<typeof EventsPage>;
 
-export const EventsByEnvelope = z
-  .object({ id: z.uuid(), events: z.array(EventEnvelope).nullable() })
-  .partial();
-export type EventsByEnvelope = z.infer<typeof EventsByEnvelope>;
+export const IResult = z.object({}).partial();
+export type IResult = z.infer<typeof IResult>;
 
 export const HomeCheckIn = z
   .object({
@@ -599,7 +599,7 @@ export const endpoints = makeApi([
     path: "/events",
     alias: "postEvents",
     parameters: [{ name: "body", type: "Body", schema: WriteEventEnvelope }],
-    response: z.object({}).partial(),
+    response: EventsByEnvelope,
     errors: [
       { status: 400, schema: ErrorResponse },
       { status: 404, schema: z.void() },
