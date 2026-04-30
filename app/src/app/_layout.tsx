@@ -2,7 +2,7 @@
 // errors — notably the db module, which opens SQLite at import time.
 import { Sentry, navigationIntegration } from "../infrastructure/sentry";
 import "../db/devMenu";
-import { init } from "../infrastructure/init";
+import { init, postMigrationInit } from "../infrastructure/init";
 import { useNotificationResponseHandler } from "../infrastructure/notificationResponseHandler";
 import { useForegroundNotificationSync } from "../infrastructure/foregroundSync";
 import { SyncStatusProvider } from "../infrastructure/syncStatus";
@@ -27,6 +27,9 @@ SplashScreen.preventAutoHideAsync().catch(() => undefined);
 init();
 
 const InnerLayout = () => {
+  React.useEffect(() => {
+    postMigrationInit();
+  }, []);
   useNotificationResponseHandler();
   useForegroundNotificationSync();
 

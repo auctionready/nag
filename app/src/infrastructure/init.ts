@@ -27,10 +27,11 @@ export const init = () => {
     setNotificationScheduler(expoNotificationScheduler);
     setConsolidatedScheduler(expoConsolidatedScheduler);
   });
-  // Fire-and-forget: registers this device on first launch and re-tries on
-  // every subsequent launch until the server returns an accountId. The
-  // outbox dispatcher refuses to ship until that happens, so a failure here
-  // holds up sync but never blocks app startup or the UI.
+};
+
+// Must be called after migrations have run — identity table is created by the
+// initial migration and won't exist if this fires before DatabaseProvider is ready.
+export const postMigrationInit = () => {
   void ensureDeviceRegistered({
     db,
     tokenStore: deviceTokenStore,
