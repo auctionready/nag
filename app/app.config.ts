@@ -25,9 +25,9 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   userInterfaceStyle: "light",
   scheme: "nag",
   splash: {
-    image: "./assets/donkey-splash.jpeg",
-    resizeMode: "cover",
-    backgroundColor: "#8b6545",
+    image: "./assets/splash.png",
+    resizeMode: "contain",
+    backgroundColor: "#FFF8F0",
   },
   ios: {
     ...config.ios,
