@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <rect width="1024" height="1024" fill="#FFF8F0"/>
+  <g transform="translate(102.4 215.04)">
+    <circle cx="41" cy="41" r="41" fill="#1A1410"/>
+    <circle cx="163.88" cy="41" r="41" fill="#1A1410"/>
+    <circle cx="286.76" cy="41" r="41" fill="#1A1410"/>
+    <circle cx="409.64" cy="41" r="39" fill="none" stroke="#1A1410" stroke-width="4" stroke-dasharray="9 9"/>
+    <circle cx="532.52" cy="41" r="41" fill="#1A1410"/>
+    <circle cx="655.4" cy="41" r="41" fill="#1A1410"/>
+    <circle cx="778.28" cy="41" r="41" fill="#FF5A36"/>
+  </g>
+  <text x="512" y="594" font-family="Space Grotesk" font-weight="700" font-size="430" letter-spacing="-21.5" text-anchor="middle" dominant-baseline="middle" fill="#1A1410">nag</text>
+</svg>

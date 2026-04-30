@@ -13,9 +13,16 @@ import { ClerkProvider } from "@clerk/clerk-expo";
 import React from "react";
 import { View } from "react-native";
 import { useNavigationContainerRef, Stack } from "expo-router";
+import { useFonts } from "expo-font";
+import * as SplashScreen from "expo-splash-screen";
 
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { DatabaseProvider } from "../db/DatabaseProvider";
+import { AnimatedSplash } from "../components/AnimatedSplash";
+
+// Keep the native splash up until fonts load and the JS animated splash mounts;
+// then we hide it and run the reveal animation.
+SplashScreen.preventAutoHideAsync().catch(() => undefined);
 
 init();
 
@@ -71,12 +78,22 @@ const ClerkOrPassthrough = ({ children }: { children: React.ReactNode }) => {
 
 const RootLayout = () => {
   const ref = useNavigationContainerRef();
+  const [fontsLoaded] = useFonts({
+    "SpaceGrotesk-Bold": require("../../assets/fonts/SpaceGrotesk-Bold.otf"),
+    "JetBrainsMono-Regular": require("../../assets/fonts/JetBrainsMono-Regular.ttf"),
+  });
+  const [splashDone, setSplashDone] = React.useState(false);
 
   React.useEffect(() => {
     if (ref) {
       navigationIntegration.registerNavigationContainer(ref);
     }
   }, [ref]);
+
+  // Native splash stays up until fonts load. Once we render
+  // <AnimatedSplash />, it calls SplashScreen.hideAsync() on its first frame
+  // so the icon stays visible across the hand-off.
+  if (!fontsLoaded) return null;
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
@@ -87,6 +104,7 @@ const RootLayout = () => {
           </SyncStatusProvider>
         </DatabaseProvider>
       </ClerkOrPassthrough>
+      {!splashDone && <AnimatedSplash onFinish={() => setSplashDone(true)} />}
     </GestureHandlerRootView>
   );
 };

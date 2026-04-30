@@ -25,9 +25,9 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   userInterfaceStyle: "light",
   scheme: "nag",
   splash: {
-    image: "./assets/donkey-splash.jpeg",
-    resizeMode: "cover",
-    backgroundColor: "#8b6545",
+    image: "./assets/icon.png",
+    resizeMode: "contain",
+    backgroundColor: "#FFF8F0",
   },
   ios: {
     ...config.ios,
@@ -49,6 +49,15 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     ],
     "expo-router",
     "expo-sqlite",
+    "expo-font",
+    [
+      "expo-splash-screen",
+      {
+        image: "./assets/icon.png",
+        imageWidth: 280,
+        backgroundColor: "#FFF8F0",
+      },
+    ],
     [
       "@sentry/react-native/expo",
       {

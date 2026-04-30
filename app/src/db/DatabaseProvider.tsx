@@ -2,7 +2,8 @@ import { useEffect, useState, type PropsWithChildren } from "react";
 import { Text, View } from "react-native";
 import { runMigrations } from "./runMigrations";
 
-const SPLASH_BACKGROUND = "#8b6545";
+const SPLASH_BACKGROUND = "#FFF8F0";
+const ERROR_TEXT = "#1A1410";
 
 export const DatabaseProvider = ({ children }: PropsWithChildren) => {
   const [ready, setReady] = useState(false);
@@ -35,7 +36,7 @@ export const DatabaseProvider = ({ children }: PropsWithChildren) => {
           padding: 24,
         }}
       >
-        <Text style={{ color: "white", textAlign: "center" }}>
+        <Text style={{ color: ERROR_TEXT, textAlign: "center" }}>
           Migration error: {error.message}
         </Text>
       </View>
