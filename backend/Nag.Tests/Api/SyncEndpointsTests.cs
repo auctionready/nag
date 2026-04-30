@@ -24,13 +24,15 @@ public class SyncEndpointsTests
         var envelope = new
         {
             id = Guid.NewGuid(),
-            type = "CreateHabit",
             timestamp = DateTimeOffset.UtcNow,
-            payload = new { habitId = Guid.NewGuid(), title },
+            events = new[]
+            {
+                new { type = "HabitCreated", payload = new { habitId = Guid.NewGuid(), title } },
+            },
         };
-        var resp = await client.PostAsJsonAsync("/commands", envelope);
+        var resp = await client.PostAsJsonAsync("/events", envelope);
         resp.EnsureSuccessStatusCode();
-        var body = await resp.Content.ReadFromJsonAsync<CommandAccepted>();
+        var body = await resp.Content.ReadFromJsonAsync<WriteEventAccepted>();
         return body!.Sequence;
     }
 

@@ -3,19 +3,24 @@ using System.Text.Json;
 namespace Nag.Core.Contracts;
 
 /// <summary>
-/// Inbound write envelope on <c>POST /commands</c>. <see cref="Type"/> is
-/// a member of <see cref="CommandRegistry"/>; <see cref="Payload"/> is the
-/// command-specific JSON the server deserialises into a command type and
-/// hands to <see cref="Handlers.CommandDispatcher"/>.
+/// Inbound write envelope on <c>POST /events</c>. The client emits one
+/// envelope per user intent ("the user updated this habit"), carrying
+/// the one-or-more past-tense events that intent produced. Server
+/// dedupes on <see cref="Id"/> and appends the events atomically.
+///
+/// Each <see cref="EventEntry.Type"/> must name a member of
+/// <see cref="EventRegistry"/>; <see cref="EventEntry.Payload"/> is
+/// the event-specific JSON.
 /// </summary>
-public sealed record CommandEnvelope(
+public sealed record WriteEventEnvelope(
     Guid Id,
-    string Type,
     DateTimeOffset Timestamp,
-    JsonElement Payload
+    IReadOnlyList<EventEntry> Events
 );
 
-public sealed record CommandAccepted(bool Accepted, long Sequence);
+public sealed record EventEntry(string Type, JsonElement Payload);
+
+public sealed record WriteEventAccepted(bool Accepted, long Sequence);
 
 /// <summary>
 /// Outbound read envelope on <c>GET /events</c> and <c>/sync</c> replays.

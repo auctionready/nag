@@ -48,7 +48,9 @@ describe("dispatcher happy path", () => {
     const seenOrder: string[] = [];
     let nextSequence = 100;
     const post = vi.fn(async (env): Promise<PostResult> => {
-      seenOrder.push(env.type);
+      // Each envelope carries one event for these single-event commands;
+      // for UpdateHabit the title-only diff also produces a single event.
+      seenOrder.push(env.events.map((e: { type: string }) => e.type).join(","));
       return { ok: true, sequence: nextSequence++ };
     });
 
@@ -56,7 +58,11 @@ describe("dispatcher happy path", () => {
     const status = await dispatcher.run();
 
     expect(status).toBe("idle");
-    expect(seenOrder).toEqual(["CreateHabit", "CreateCheckIn", "UpdateHabit"]);
+    expect(seenOrder).toEqual([
+      "HabitCreated",
+      "CheckInRecorded",
+      "HabitDetailsEdited",
+    ]);
     expect(post).toHaveBeenCalledTimes(3);
 
     const rows = await db
@@ -336,7 +342,7 @@ describe("batchSize", () => {
 });
 
 describe("envelope shape", () => {
-  it("sends { id, timestamp (ISO), type, payload } from the outbox row", async () => {
+  it("sends { id, timestamp (ISO), events: [{type, payload}] } from the outbox row", async () => {
     const db = getDb();
     const { externalId } = await processCommand(db, {
       type: "CreateHabit",
@@ -355,14 +361,17 @@ describe("envelope shape", () => {
     const env = capturedEnvelopes[0] as {
       id: string;
       timestamp: string;
-      type: string;
-      payload: { habitId: string; title: string };
+      events: Array<{
+        type: string;
+        payload: { habitId: string; title: string };
+      }>;
     };
     expect(env.id).toMatch(/^[0-9a-f-]{36}$/);
     expect(env.timestamp).toMatch(/^\d{4}-\d{2}-\d{2}T/);
-    expect(env.type).toBe("CreateHabit");
-    expect(env.payload.habitId).toBe(externalId);
-    expect(env.payload.title).toBe("Shape");
+    expect(env.events).toHaveLength(1);
+    expect(env.events[0].type).toBe("HabitCreated");
+    expect(env.events[0].payload.habitId).toBe(externalId);
+    expect(env.events[0].payload.title).toBe("Shape");
   });
 });
 
@@ -449,8 +458,12 @@ describe("outbox sent-row retention", () => {
     // Seed a row marked as failed (simulate a previously-halted send) and
     // a row pending to be sent now.
     await db.insert(schema.outbox).values({
-      commandType: "CreateHabit",
-      payload: JSON.stringify({ habitId: "x", title: "Failed" }),
+      events: JSON.stringify([
+        {
+          type: "HabitCreated",
+          payload: { habitId: "x", title: "Failed" },
+        },
+      ]),
       status: "failed",
       lastError: "old failure",
     });
@@ -512,11 +525,15 @@ describe("dispatcher + previously-sent rows", () => {
     const db = getDb();
     // Simulate a historical row the migration marked as sent.
     await db.insert(schema.outbox).values({
-      commandType: "CreateHabit",
-      payload: JSON.stringify({
-        habitId: "00000000-0000-0000-0000-000000000000",
-        title: "Legacy",
-      }),
+      events: JSON.stringify([
+        {
+          type: "HabitCreated",
+          payload: {
+            habitId: "00000000-0000-0000-0000-000000000000",
+            title: "Legacy",
+          },
+        },
+      ]),
       status: "sent",
       sentAt: new Date(),
     });

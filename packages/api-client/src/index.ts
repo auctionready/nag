@@ -9,12 +9,13 @@ export { isErrorFromAlias, isErrorFromPath, ZodiosError } from "@zodios/core";
 export * as schemas from "./endpoint-definition";
 export { endpoints } from "./endpoint-definition";
 export {
-  postCommands,
+  postEvents,
   registerDevice,
   upgradeAccount,
   unbindAccount,
   getSync,
-  type CommandEnvelope,
+  type EventEntry,
+  type WriteEventEnvelope,
   type PostResult,
   type RegisterDeviceResult,
   type UpgradeAccountResult,

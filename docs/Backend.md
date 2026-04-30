@@ -9,11 +9,11 @@ The source lives in [`backend/`](../backend) and has its own
 
 ## Goals
 
-1. **Durable command log.** The mobile app already uses an
-   audit-log/command-sourcing pattern client-side
-   (`packages/core/src/commands/`). The backend extends that idea to a
-   server-of-record so commands survive device loss and can sync to a
-   future second device or web client.
+1. **Durable event log.** The mobile app emits past-tense events
+   locally (`packages/core/src/events/`) and ships them to the server
+   via `POST /events`. The backend is the server-of-record so those
+   events survive device loss and can sync to a future second device
+   or web client.
 2. **Pointer-driven sync.** The client tracks the last sequence number
    it has seen. After reconnecting (or on a fresh install) it pulls
    anything newer.
@@ -41,15 +41,15 @@ The source lives in [`backend/`](../backend) and has its own
 
 ## Endpoints
 
-| Method | Path                                     | Auth | Notes                                                                |
-| ------ | ---------------------------------------- | ---- | -------------------------------------------------------------------- |
-| `POST` | `/commands`                              | yes  | Append a command (server translates → events). Idempotent on `id`.   |
-| `GET`  | `/events?since=<long>&limit=<int?>`      | yes  | Page of past-tense events; `limit` capped at 500.                    |
-| `GET`  | `/sync?since=<long>`                     | yes  | Pull-sync: replay (events) or snapshot (HomeBoard).                  |
-| `GET`  | `/home-board`                            | yes  | Materialized current-period view.                                    |
-| `GET`  | `/check-ins/monthly/{year}/{month}`      | yes  | Materialized check-ins for one calendar month (UTC).                 |
-| `GET`  | `/check-ins/weekly/{year}/{month}/{day}` | yes  | Materialized check-ins for one Monday-anchored week. `day` = Monday. |
-| `GET`  | `/health`                                | no   | Liveness.                                                            |
+| Method | Path                                     | Auth | Notes                                                                          |
+| ------ | ---------------------------------------- | ---- | ------------------------------------------------------------------------------ |
+| `POST` | `/events`                                | yes  | Append the past-tense events for one user intent. Idempotent on envelope `id`. |
+| `GET`  | `/events?since=<long>&limit=<int?>`      | yes  | Page of past-tense events; `limit` capped at 500.                              |
+| `GET`  | `/sync?since=<long>`                     | yes  | Pull-sync: replay (events) or snapshot (HomeBoard).                            |
+| `GET`  | `/home-board`                            | yes  | Materialized current-period view.                                              |
+| `GET`  | `/check-ins/monthly/{year}/{month}`      | yes  | Materialized check-ins for one calendar month (UTC).                           |
+| `GET`  | `/check-ins/weekly/{year}/{month}/{day}` | yes  | Materialized check-ins for one Sunday-anchored week. `day` = Sunday.           |
+| `GET`  | `/health`                                | no   | Liveness.                                                                      |
 
 In Debug builds, `/swagger` serves OpenAPI UI. In Release builds the
 Swashbuckle package is conditionally excluded from the binary.
@@ -57,14 +57,19 @@ Swashbuckle package is conditionally excluded from the binary.
 ## Wire format
 
 ```jsonc
-// POST /commands body
+// POST /events body — one envelope per user intent, carrying the
+// one-or-more past-tense events that intent produced.
 {
-  "id": "<uuid>", // client-generated; doubles as idempotency key
-  "type": "CreateHabit", // discriminator from CommandRegistry
+  "id": "<uuid>", // client-generated; doubles as the idempotency key
   "timestamp": "2026-04-24T09:15:00Z",
-  "payload": {
-    /* command-specific fields */
-  },
+  "events": [
+    {
+      "type": "HabitCreated", // discriminator from EventRegistry
+      "payload": {
+        /* event-specific fields */
+      },
+    },
+  ],
 }
 ```
 
@@ -76,31 +81,30 @@ Response:
 ```
 
 ```jsonc
-// GET /commands?since=0
+// GET /events?since=0
 {
-  "commands": [
-    { "sequence": 1, "id": "...", "type": "CreateHabit", "timestamp": "...", "payload": { ... } },
+  "events": [
+    { "sequence": 1, "id": "...", "type": "HabitCreated", "timestamp": "...", "payload": { ... } },
     ...
   ],
   "nextSince": 500   // null when caught up
 }
 ```
 
-## Commands, events & projection
+## Events & projection
 
-`Nag.Core/Commands/` defines the **inbound intent** vocabulary —
-what `POST /commands` accepts. `Nag.Core/Events/` defines the
-**past-tense fact** vocabulary the server appends to Marten and ships
-to clients on `/events` and `/sync` replays. The
-`CommandDispatcher` is the bridge: it validates a command, loads any
-prior state it needs (from `CheckInState` for moves and deletes), and
-emits one or more events. All events land on a single stream
-identified by `NagStreams.Root` (single-tenant; this becomes a
-per-user GUID when we add multi-tenancy).
+`Nag.Core/Events/` defines the **past-tense fact** vocabulary the
+client emits, the server validates and appends to Marten, and that
+the server ships back to clients on `/events` and `/sync` replays.
+Client and server share the vocabulary; the client emits events
+locally for instant UI feedback while the dispatcher (`EventDispatcher`)
+just validates and atomically appends what arrived. All events land
+on a single stream per account; cross-account isolation is enforced
+by Marten's conjoined tenancy on `account_id`.
 
 `HomeBoardProjection` is a Marten `SingleStreamProjection<HomeBoard,
 Guid>` registered with `ProjectionLifecycle.Inline`. Its `Apply(...)`
-methods consume command-events and mutate the single `HomeBoard`
+methods consume past-tense events and mutate the single `HomeBoard`
 document, which roughly mirrors the home-screen UI shape:
 
 ```csharp
@@ -146,43 +150,43 @@ fans out to **both** the source and target period docs via Marten's
 `Identities` — the source removes the stale row, the target upserts
 the new one. `CheckInDeleted` carries the timestamp at delete time
 and routes cleanly to the right period. The
-`CheckInIndexProjection` (one tiny doc per check-in, keyed by
-`CheckInId`) is what lets the dispatcher fill in `OldTimestamp` /
-`Timestamp` without a state-stream replay on every Update / Delete.
+`CheckInIndexProjection` doc per check-in is no longer needed for
+dispatcher state lookups (the client now carries `OldTimestamp` /
+`Timestamp` in the events it emits) but is kept as a server-side
+read model for diagnostic queries.
 
 ## Idempotency
 
-Each `POST /commands` carries a client-generated `id` GUID. Before
-appending, the dispatcher loads `ProcessedCommand { Id, Sequence }`
-from Marten — if present, it returns the existing sequence with
-`accepted: false` and does nothing. Otherwise it appends + saves +
-records the resulting sequence under the envelope id.
+Each `POST /events` envelope carries a client-generated `id` GUID.
+Before appending, the dispatcher loads `ProcessedCommand { Id,
+Sequence }` from Marten — if present, it returns the existing
+sequence with `accepted: false` and does nothing. Otherwise it
+appends each event in the envelope atomically + saves + records the
+resulting sequence under the envelope id.
 
 Net result: a client that retries a POST after a flaky network gets
-the same `sequence` back; the event is only appended once.
+the same `sequence` back; events are only appended once.
 
 ## Differences from the client schema
 
-The client uses integer auto-increment ids (SQLite). The server uses
-client-generated GUIDs (`HabitId`, `CheckInId` in command payloads).
-Trade-off accepted because:
+The client uses integer auto-increment ids (SQLite) for fast joins
+locally; the server-shaped events carry GUIDs (`HabitId`,
+`CheckInId` in event payloads, sourced from each row's `external_id`
+column). Trade-off accepted because:
 
 - offline-first creation works without a server round-trip;
 - idempotency is straightforward;
 - avoids id-reconciliation games when syncing across devices.
-
-The mobile client will need to switch to GUIDs as part of the sync
-work.
 
 ## Tests
 
 xUnit, in `backend/Nag.Tests/`. Folders mirror source namespaces.
 
 - `Core/Domain/PeriodCalculatorTests.cs` — pure unit tests (no DB).
-- `Core/Validation/CommandValidatorTests.cs` — FluentValidation rules.
+- `Core/Validation/EventValidatorTests.cs` — FluentValidation rules.
 - `Core/Projections/HomeBoardProjectionTests.cs` — drives the projection
   through Marten using a Testcontainers Postgres.
-- `Api/CommandsEndpointsTests.cs`, `Api/HomeBoardEndpointsTests.cs`,
+- `Api/EventsEndpointsTests.cs`, `Api/HomeBoardEndpointsTests.cs`,
   `Api/AuthTests.cs` — `WebApplicationFactory<Program>` + Testcontainers
   for end-to-end HTTP tests.
 

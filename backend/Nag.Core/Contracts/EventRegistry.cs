@@ -4,16 +4,11 @@ using Nag.Core.Events;
 namespace Nag.Core.Contracts;
 
 /// <summary>
-/// Past-tense event vocabulary. These are the immutable facts the server
-/// appends to the Marten event store and ships to clients on
-/// <c>/sync</c>. Keep parallel with the TS event types in
+/// Past-tense event vocabulary. These are the immutable facts the
+/// client emits, the server validates and appends to the Marten event
+/// store, and that the server ships back to clients on <c>/sync</c>.
+/// Keep parallel with the TS event types in
 /// <c>packages/core/src/events/</c>.
-///
-/// <para>
-/// <see cref="CommandRegistry"/> stays for the inbound write API
-/// (commands are the client-side intent representation); events are
-/// emitted by the server's command handlers as a fact of what happened.
-/// </para>
 /// </summary>
 public static class EventRegistry
 {

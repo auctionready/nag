@@ -6,8 +6,7 @@ import { withTransaction } from "../db/transaction";
 export type PendingRow = {
   id: number;
   envelopeId: string;
-  commandType: string;
-  payload: string | null;
+  events: string;
   timestamp: Date;
 };
 
@@ -43,8 +42,7 @@ export const loadPendingBatch = (
     .select({
       id: outbox.id,
       envelopeId: outbox.envelopeId,
-      commandType: outbox.commandType,
-      payload: outbox.payload,
+      events: outbox.events,
       timestamp: outbox.timestamp,
     })
     .from(outbox)

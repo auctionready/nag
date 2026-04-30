@@ -86,8 +86,9 @@ const seedOutbox = async (
   status: "pending" | "sent" | "failed",
 ) =>
   db.insert(schema.outbox).values({
-    commandType: "CreateCheckIn",
-    payload: JSON.stringify({}),
+    events: JSON.stringify([
+      { type: "CheckInRecorded", payload: { habitId: "x", checkInId: "y" } },
+    ]),
     status,
     ...(status === "sent"
       ? { sentAt: new Date(), serverSequence: 1 }

@@ -1,23 +1,14 @@
-import { eq } from "drizzle-orm";
-import { outbox, habit, checkIn } from "@nag/schema";
+import { outbox } from "@nag/schema";
 import type { AnyDb } from "../db";
-import type {
-  Command,
-  CreateHabit,
-  UpdateHabit,
-  CreateCheckIn,
-  UpdateCheckIn,
-  GoalPayload,
-} from "./schemas";
+import type { Event } from "../events";
 
 /**
- * Shape of the handler result needed by the auditor to resolve external UUIDs
- * for the server envelope. Each handler returns this in addition to whatever
- * it returns for app-side callers.
+ * Shape every handler returns: the past-tense events the user-intent
+ * produced, ready to be written to the outbox as a single envelope.
  */
-export type HandlerAuditContext = { externalId?: string };
+export type HandlerEventsContext = { events: Event[] };
 
-type ServerScheduleEntry = {
+type ScheduleEntryWire = {
   hour: number;
   minute: number;
   days: number | null;
@@ -25,135 +16,53 @@ type ServerScheduleEntry = {
   reminder: boolean | null;
 };
 
-type ServerGoalPayload = {
+type GoalPayloadWire = {
   regularity: "day" | "week" | "month";
   frequency: number | null;
-  schedules: ServerScheduleEntry[] | null;
+  schedules: ScheduleEntryWire[] | null;
 };
 
-const mapSchedules = (
-  entries: GoalPayload["schedules"],
-): ServerScheduleEntry[] | null =>
-  entries
-    ? entries.map((s) => ({
-        hour: s.hour,
-        minute: s.minute,
-        days: s.days ?? null,
-        dayOfMonth: s.dayOfMonth ?? null,
-        reminder: s.reminder ?? null,
-      }))
-    : null;
-
-const mapGoal = (g: GoalPayload): ServerGoalPayload => ({
-  regularity: g.regularity,
-  frequency: g.frequency ?? null,
-  schedules: mapSchedules(g.schedules),
-});
-
-async function lookupHabitExternalId(
-  db: AnyDb,
-  habitId: number,
-): Promise<string> {
-  const [row] = await db
-    .select({ externalId: habit.externalId })
-    .from(habit)
-    .where(eq(habit.id, habitId));
-  if (!row) {
-    throw new Error(`audit: habit id=${habitId} not found`);
-  }
-  return row.externalId;
-}
-
-async function lookupCheckInExternalId(
-  db: AnyDb,
-  checkInId: number,
-): Promise<string> {
-  const [row] = await db
-    .select({ externalId: checkIn.externalId })
-    .from(checkIn)
-    .where(eq(checkIn.id, checkInId));
-  if (!row) {
-    throw new Error(`audit: check-in id=${checkInId} not found`);
-  }
-  return row.externalId;
-}
-
-async function buildPayload(
-  db: AnyDb,
-  command: Command,
-  result: HandlerAuditContext,
-): Promise<Record<string, unknown>> {
-  switch (command.type) {
-    case "CreateHabit": {
-      const cmd = command as CreateHabit;
-      return {
-        habitId: result.externalId!,
-        title: cmd.title,
-        description: cmd.description ?? null,
-        icon: null,
-        goal: cmd.goal ? mapGoal(cmd.goal) : null,
-      };
+type EventPayload =
+  | { habitId: string; title: string }
+  | {
+      habitId: string;
+      title: string;
+      description: string | null;
+      icon: string | null;
+      goal: GoalPayloadWire | null;
     }
-    case "UpdateHabit": {
-      const cmd = command as UpdateHabit;
-      const externalId = await lookupHabitExternalId(db, cmd.habitId);
-      const payload: Record<string, unknown> = { habitId: externalId };
-      if (cmd.title !== undefined) payload.title = cmd.title;
-      if (cmd.description === null) {
-        payload.clearDescription = true;
-      } else if (cmd.description !== undefined) {
-        payload.description = cmd.description;
-      }
-      if (cmd.goal === null) {
-        payload.clearGoal = true;
-      } else if (cmd.goal !== undefined) {
-        payload.goal = mapGoal(cmd.goal);
-      }
-      return payload;
-    }
-    case "DeleteHabit": {
-      return { habitId: result.externalId! };
-    }
-    case "CreateCheckIn": {
-      const cmd = command as CreateCheckIn;
-      const habitExternalId = await lookupHabitExternalId(db, cmd.habitId);
-      return {
-        checkInId: result.externalId!,
-        habitId: habitExternalId,
-        timestamp: cmd.timestamp.toISOString(),
-        skipped: cmd.skipped ?? null,
-      };
-    }
-    case "UpdateCheckIn": {
-      const cmd = command as UpdateCheckIn;
-      const externalId = await lookupCheckInExternalId(db, cmd.checkInId);
-      const payload: Record<string, unknown> = {
-        checkInId: externalId,
-        timestamp: cmd.timestamp.toISOString(),
-      };
-      if (cmd.skipped !== undefined) payload.skipped = cmd.skipped;
-      return payload;
-    }
-    case "DeleteCheckIn": {
-      return { checkInId: result.externalId! };
-    }
-  }
-}
+  | Record<string, unknown>;
 
 /**
- * Translates a locally-committed command into the server-shaped envelope
- * payload and appends it to the `outbox` with `status='pending'`. The
- * dispatcher reads pending rows and POSTs them verbatim. `envelope_id` and
- * `timestamp` are set by the table's `$defaultFn`s.
+ * Persists the events the handler emitted as a single outbox envelope row
+ * in `pending` state. The dispatcher reads `events` (JSON-encoded
+ * `[{type, payload}, ...]`), wraps it in a `WriteEventEnvelope`, and POSTs
+ * to `/events`. `envelope_id` and `timestamp` are set by the table's
+ * `$defaultFn`s.
  */
 export async function audit(
   db: AnyDb,
-  command: Command,
-  result: HandlerAuditContext,
+  result: HandlerEventsContext,
 ): Promise<void> {
-  const payload = await buildPayload(db, command, result);
-  await db.insert(outbox).values({
-    commandType: command.type,
-    payload: JSON.stringify(payload),
-  });
+  if (result.events.length === 0) return;
+
+  const entries = result.events.map((e) => ({
+    type: e.type,
+    payload: payloadOf(e),
+  }));
+
+  await db.insert(outbox).values({ events: JSON.stringify(entries) });
+}
+
+/** Strip the discriminator and turn Date timestamps into ISO strings. */
+function payloadOf(event: Event): EventPayload {
+  // Spread copies all event-specific fields; we drop `type` (it lives at
+  // the entry level) and ISO-format any timestamp fields.
+  const { type: _type, ...rest } = event;
+  void _type;
+  const payload: Record<string, unknown> = { ...rest };
+  for (const [k, v] of Object.entries(payload)) {
+    if (v instanceof Date) payload[k] = v.toISOString();
+  }
+  return payload as EventPayload;
 }

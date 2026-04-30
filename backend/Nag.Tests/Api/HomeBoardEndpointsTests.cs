@@ -32,16 +32,22 @@ public class HomeBoardEndpointsTests : IClassFixture<HomeBoardEndpointsTests.Fac
         var envelope = new
         {
             id = Guid.NewGuid(),
-            type = "CreateHabit",
             timestamp = DateTimeOffset.UtcNow,
-            payload = new
+            events = new[]
             {
-                habitId,
-                title = "Read",
-                goal = new { regularity = "day", frequency = 1 },
+                new
+                {
+                    type = "HabitCreated",
+                    payload = new
+                    {
+                        habitId,
+                        title = "Read",
+                        goal = new { regularity = "day", frequency = 1 },
+                    },
+                },
             },
         };
-        var resp = await client.PostAsJsonAsync("/commands", envelope);
+        var resp = await client.PostAsJsonAsync("/events", envelope);
         resp.EnsureSuccessStatusCode();
 
         var board = await client.GetFromJsonAsync<HomeBoard>("/home-board", NagJsonOptions.Default);
@@ -69,33 +75,45 @@ public class HomeBoardEndpointsTests : IClassFixture<HomeBoardEndpointsTests.Fac
         var habitB = Guid.NewGuid();
 
         var respA = await clientA.PostAsJsonAsync(
-            "/commands",
+            "/events",
             new
             {
                 id = Guid.NewGuid(),
-                type = "CreateHabit",
                 timestamp = DateTimeOffset.UtcNow,
-                payload = new
+                events = new[]
                 {
-                    habitId = habitA,
-                    title = "A's habit",
-                    goal = new { regularity = "day", frequency = 1 },
+                    new
+                    {
+                        type = "HabitCreated",
+                        payload = new
+                        {
+                            habitId = habitA,
+                            title = "A's habit",
+                            goal = new { regularity = "day", frequency = 1 },
+                        },
+                    },
                 },
             }
         );
         respA.EnsureSuccessStatusCode();
         var respB = await clientB.PostAsJsonAsync(
-            "/commands",
+            "/events",
             new
             {
                 id = Guid.NewGuid(),
-                type = "CreateHabit",
                 timestamp = DateTimeOffset.UtcNow,
-                payload = new
+                events = new[]
                 {
-                    habitId = habitB,
-                    title = "B's habit",
-                    goal = new { regularity = "day", frequency = 1 },
+                    new
+                    {
+                        type = "HabitCreated",
+                        payload = new
+                        {
+                            habitId = habitB,
+                            title = "B's habit",
+                            goal = new { regularity = "day", frequency = 1 },
+                        },
+                    },
                 },
             }
         );
@@ -127,32 +145,44 @@ public class HomeBoardEndpointsTests : IClassFixture<HomeBoardEndpointsTests.Fac
         var checkInId = Guid.NewGuid();
 
         await client.PostAsJsonAsync(
-            "/commands",
+            "/events",
             new
             {
                 id = Guid.NewGuid(),
-                type = "CreateHabit",
                 timestamp = DateTimeOffset.UtcNow,
-                payload = new
+                events = new[]
                 {
-                    habitId,
-                    title = "Read",
-                    goal = new { regularity = "day", frequency = 1 },
+                    new
+                    {
+                        type = "HabitCreated",
+                        payload = new
+                        {
+                            habitId,
+                            title = "Read",
+                            goal = new { regularity = "day", frequency = 1 },
+                        },
+                    },
                 },
             }
         );
         await client.PostAsJsonAsync(
-            "/commands",
+            "/events",
             new
             {
                 id = Guid.NewGuid(),
-                type = "CreateCheckIn",
                 timestamp = DateTimeOffset.UtcNow,
-                payload = new
+                events = new[]
                 {
-                    checkInId,
-                    habitId,
-                    timestamp = DateTimeOffset.UtcNow,
+                    new
+                    {
+                        type = "CheckInRecorded",
+                        payload = new
+                        {
+                            checkInId,
+                            habitId,
+                            timestamp = DateTimeOffset.UtcNow,
+                        },
+                    },
                 },
             }
         );

@@ -1,12 +1,18 @@
-import type { CommandEnvelope, PostResult } from "@nag/api-client";
+import type {
+  EventEntry,
+  PostResult,
+  WriteEventEnvelope,
+} from "@nag/api-client";
 
 export type DispatchStatus = "idle" | "running" | "halted" | "offline";
 
 /**
  * Re-exported from `@nag/api-client` so existing consumers can keep
- * importing from `@nag/core`. The shape lives next to the HTTP wrapper
- * that produces it.
+ * importing from `@nag/core`. The shapes live next to the HTTP wrapper
+ * that produces them.
  */
-export type { CommandEnvelope, PostResult };
+export type { EventEntry, PostResult, WriteEventEnvelope };
 
-export type PostCommandsFn = (envelope: CommandEnvelope) => Promise<PostResult>;
+export type PostEventsFn = (
+  envelope: WriteEventEnvelope,
+) => Promise<PostResult>;

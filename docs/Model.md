@@ -54,16 +54,17 @@ erDiagram
         iso     created_at
     }
 
-    AUDIT_LOG {
+    OUTBOX {
         integer id PK
-        text    command_type
-        text    payload   "nullable JSON"
+        text    envelope_id "uuid, idempotency key"
+        text    events      "JSON [{type, payload}, ...]"
         iso     timestamp
     }
 ```
 
-`AUDIT_LOG` is intentionally drawn standalone — it records every command the
-domain layer processes but has no foreign keys into the rest of the model.
+`OUTBOX` is intentionally drawn standalone — it queues every committed
+user-intent envelope (one row, one-or-more past-tense events) but has
+no foreign keys into the rest of the model.
 
 ## Tables
 
@@ -157,10 +158,12 @@ Constraints:
 
 Source: [`outbox.ts`](../packages/schema/src/outbox.ts)
 
-Outbox queue for commands committed locally but not yet acknowledged by
-the server. Each `processCommand()` call appends one row with
-`status='pending'`; the dispatcher in `@nag/core` ships pending rows to
-`POST /commands` and transitions them to `sent` (with the assigned
+Outbox queue for past-tense events committed locally but not yet
+acknowledged by the server. Each `processCommand()` call appends one
+row with `status='pending'`; `events` is the JSON-encoded
+`[{type, payload}, ...]` array of events the user intent produced.
+The dispatcher in `@nag/core` ships pending rows as `WriteEventEnvelope`s
+to `POST /events` and transitions them to `sent` (with the assigned
 `server_sequence`) or `failed` (with `last_error`). `envelope_id` is the
 idempotency key the server uses to dedupe retries.
 

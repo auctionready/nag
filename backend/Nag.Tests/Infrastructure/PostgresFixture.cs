@@ -49,8 +49,6 @@ public sealed class PostgresFixture : IAsyncLifetime
             opts.Events.DatabaseSchemaName = schemaName;
             opts.Events.StreamIdentity = JasperFx.Events.StreamIdentity.AsGuid;
 
-            foreach (var t in CommandRegistry.All)
-                opts.Events.AddEventType(t);
             foreach (var t in EventRegistry.All)
                 opts.Events.AddEventType(t);
 
