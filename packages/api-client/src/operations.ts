@@ -144,9 +144,16 @@ export type { ZodiosErrorByAlias };
  * surfaces those events so the dispatcher can reconcile against its
  * optimistic local state without a follow-up GET.
  *
- * Goes through `client.axios.post` directly so we keep raw timestamp
- * strings rather than the `Date` instances Zodios's response-side zod
- * schema would coerce them into.
+ * Bypasses the typed `client.postEvents` for the response side: the
+ * generated Zodios schema models every response field as optional
+ * (openapi-zod-client emits `.partial()` for any record whose
+ * properties aren't all `[Required]` in the OpenAPI doc), so the
+ * typed return type is `{ id?: string; events?: EventEnvelope[] | null }`
+ * — every consumer would need a `body.events ?? []` dance and a cast
+ * to narrow the discriminated event union. We assert the
+ * known-non-optional shape ourselves and skip the extra runtime
+ * validation, since the request body is already validated server-side
+ * (a malformed response is a server-side bug, not a client concern).
  *
  * Never throws on HTTP or network errors — the caller (dispatcher)
  * reads `result.ok` and decides what to do.
