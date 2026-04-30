@@ -532,10 +532,10 @@ describe("audit logging", () => {
       /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/,
     );
 
-    const events = JSON.parse(logs[0].events) as Array<{
+    const events = JSON.parse(logs[0].events) as {
       type: string;
       payload: Record<string, unknown>;
-    }>;
+    }[];
     expect(events).toHaveLength(1);
     expect(events[0].type).toBe("HabitCreated");
     expect(events[0].payload.habitId).toBe(externalId);
@@ -560,14 +560,14 @@ describe("audit logging", () => {
 
     const logs = await db.select().from(schema.outbox);
     const deleteLog = logs.find((l) => {
-      const events = JSON.parse(l.events) as Array<{ type: string }>;
+      const events = JSON.parse(l.events) as { type: string }[];
       return events.some((e) => e.type === "HabitDeleted");
     });
     expect(deleteLog).toBeDefined();
-    const events = JSON.parse(deleteLog!.events) as Array<{
+    const events = JSON.parse(deleteLog!.events) as {
       type: string;
       payload: { habitId: string };
-    }>;
+    }[];
     expect(events[0].payload.habitId).toBe(externalId);
   });
 
@@ -598,7 +598,7 @@ describe("audit logging", () => {
     const logs = await db.select().from(schema.outbox);
     expect(logs).toHaveLength(3);
     const types = logs.map((l) => {
-      const events = JSON.parse(l.events) as Array<{ type: string }>;
+      const events = JSON.parse(l.events) as { type: string }[];
       return events.map((e) => e.type).join(",");
     });
     expect(types).toEqual([

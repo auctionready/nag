@@ -361,10 +361,10 @@ describe("envelope shape", () => {
     const env = capturedEnvelopes[0] as {
       id: string;
       timestamp: string;
-      events: Array<{
+      events: {
         type: string;
         payload: { habitId: string; title: string };
-      }>;
+      }[];
     };
     expect(env.id).toMatch(/^[0-9a-f-]{36}$/);
     expect(env.timestamp).toMatch(/^\d{4}-\d{2}-\d{2}T/);

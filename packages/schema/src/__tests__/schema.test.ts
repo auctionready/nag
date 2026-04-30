@@ -244,7 +244,7 @@ describe("schema", () => {
     });
 
     it("stores serialized events array", () => {
-      const parsed = JSON.parse(log.events) as Array<{ type: string }>;
+      const parsed = JSON.parse(log.events) as { type: string }[];
       expect(parsed).toHaveLength(1);
       expect(parsed[0].type).toBe("HabitCreated");
     });
