@@ -19,7 +19,7 @@ const INK_SOFT = "#2A211B";
 // so the icon stays put across the native -> JS hand-off.
 const ICON_SIZE = 280;
 
-const HOLD_MS = 1800;
+const HOLD_MS = 350; // this is number to tweak if splash is too short or long after the tagline is fully visible
 const EXIT_MS = 320;
 const TAGLINE_FADE_END_MS = 300 + 700;
 
