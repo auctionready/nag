@@ -18,7 +18,10 @@ import * as SplashScreen from "expo-splash-screen";
 
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { DatabaseProvider } from "../db/DatabaseProvider";
-import { AnimatedSplash } from "../components/AnimatedSplash";
+import {
+  AnimatedSplash,
+  SPLASH_DURATION_MS,
+} from "../components/AnimatedSplash";
 
 // Keep the native splash up until fonts load and the JS animated splash mounts;
 // then we hide it and run the reveal animation.
@@ -86,7 +89,15 @@ const RootLayout = () => {
     "JetBrainsMono-Regular": require("../../assets/fonts/JetBrainsMono-Regular.ttf"),
   });
   const [splashDone, setSplashDone] = React.useState(false);
-  const onSplashFinish = React.useCallback(() => setSplashDone(true), []);
+
+  // Timer lives here, not in AnimatedSplash, so it isn't affected by the
+  // overlay's own mount/unmount cycle. Starts when fonts are ready (the same
+  // moment AnimatedSplash first appears).
+  React.useEffect(() => {
+    if (!fontsLoaded) return;
+    const t = setTimeout(() => setSplashDone(true), SPLASH_DURATION_MS);
+    return () => clearTimeout(t);
+  }, [fontsLoaded]);
 
   React.useEffect(() => {
     if (ref) {
@@ -108,7 +119,7 @@ const RootLayout = () => {
           </SyncStatusProvider>
         </DatabaseProvider>
       </ClerkOrPassthrough>
-      {!splashDone && <AnimatedSplash onFinish={onSplashFinish} />}
+      {!splashDone && <AnimatedSplash />}
     </GestureHandlerRootView>
   );
 };
