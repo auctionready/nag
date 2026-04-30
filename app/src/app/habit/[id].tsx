@@ -62,9 +62,10 @@ const HabitScreen = () => {
   const periodStartDate = goalData
     ? periodStart(goalData.regularity)
     : undefined;
+  const periodStartKey = periodStartDate?.getTime() ?? 0;
   const { data: countRows } = useLiveQuery(
     checkInCount(db, habitId, periodStartDate),
-    [habitId, periodStartDate],
+    [habitId, periodStartKey],
   );
   const currentCount = countRows?.[0]?.value ?? 0;
   const showSkip = goalData != null && currentCount < goalData.frequency;

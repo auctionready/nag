@@ -19,13 +19,13 @@ const INK_SOFT = "#2A211B";
 // so the icon stays put across the native -> JS hand-off.
 const ICON_SIZE = 280;
 
-const HOLD_MS = 1800;
+const HOLD_MS = 350; // this is number to tweak if splash is too short or long after the tagline is fully visible
 const EXIT_MS = 320;
 const TAGLINE_FADE_END_MS = 300 + 700;
 
-type Props = { onFinish: () => void };
+export const SPLASH_DURATION_MS = TAGLINE_FADE_END_MS + HOLD_MS + EXIT_MS;
 
-export const AnimatedSplash: React.FC<Props> = ({ onFinish }) => {
+export const AnimatedSplash: React.FC = () => {
   const fadeDots = useRef(new Animated.Value(0)).current;
   const fadeDotsY = useRef(new Animated.Value(8)).current;
   const fadeText = useRef(new Animated.Value(0)).current;
@@ -100,27 +100,22 @@ export const AnimatedSplash: React.FC<Props> = ({ onFinish }) => {
         duration: EXIT_MS,
         easing: Easing.out(Easing.ease),
         useNativeDriver: true,
-      }).start(({ finished }) => {
-        if (finished) onFinish();
-      });
+      }).start();
     }, TAGLINE_FADE_END_MS + HOLD_MS);
 
     return () => {
       cancelAnimationFrame(raf);
       clearTimeout(t);
+      // Stop the looping animations so their native handles are released when
+      // React removes the component, preventing the native view from
+      // outliving the JS tree. Non-looping values (fade-in, exit) are left
+      // alone so a Strict-Mode double-invocation doesn't make the view blank.
+      dot1.stopAnimation();
+      dot2.stopAnimation();
+      dot3.stopAnimation();
+      sweep.stopAnimation();
     };
-  }, [
-    exit,
-    fadeDots,
-    fadeDotsY,
-    fadeText,
-    fadeTextY,
-    dot1,
-    dot2,
-    dot3,
-    sweep,
-    onFinish,
-  ]);
+  }, [exit, fadeDots, fadeDotsY, fadeText, fadeTextY, dot1, dot2, dot3, sweep]);
 
   const sweepX = sweep.interpolate({
     inputRange: [0, 1],

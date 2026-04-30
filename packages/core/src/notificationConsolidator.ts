@@ -341,19 +341,21 @@ export const syncAllNotifications = async (
   candidates.sort((a, b) => a.fireAt.getTime() - b.fireAt.getTime());
   const picked = candidates.slice(0, TOTAL_OCCURRENCE_CAP);
 
-  for (const { slot, fireAt, pendingIdxs } of picked) {
-    const pendingTitles = pendingIdxs.map((i) => slot.titles[i]);
-    const { title, body } = slotContent(slot, pendingTitles);
-    await scheduler.scheduleSlotNotification({
-      identifier: occurrenceIdentifier(slot, fireAt),
-      title,
-      body,
-      data: {
-        habitIds: slot.habitIds,
-        slotHour: slot.hour,
-        slotMinute: slot.minute,
-      },
-      fireAt,
-    });
-  }
+  await Promise.all(
+    picked.map(({ slot, fireAt, pendingIdxs }) => {
+      const pendingTitles = pendingIdxs.map((i) => slot.titles[i]);
+      const { title, body } = slotContent(slot, pendingTitles);
+      return scheduler.scheduleSlotNotification({
+        identifier: occurrenceIdentifier(slot, fireAt),
+        title,
+        body,
+        data: {
+          habitIds: slot.habitIds,
+          slotHour: slot.hour,
+          slotMinute: slot.minute,
+        },
+        fireAt,
+      });
+    }),
+  );
 };

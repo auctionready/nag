@@ -2,7 +2,7 @@
 // errors — notably the db module, which opens SQLite at import time.
 import { Sentry, navigationIntegration } from "../infrastructure/sentry";
 import "../db/devMenu";
-import { init } from "../infrastructure/init";
+import { init, postMigrationInit } from "../infrastructure/init";
 import { useNotificationResponseHandler } from "../infrastructure/notificationResponseHandler";
 import { useForegroundNotificationSync } from "../infrastructure/foregroundSync";
 import { SyncStatusProvider } from "../infrastructure/syncStatus";
@@ -18,7 +18,11 @@ import * as SplashScreen from "expo-splash-screen";
 
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { DatabaseProvider } from "../db/DatabaseProvider";
-import { AnimatedSplash } from "../components/AnimatedSplash";
+import {
+  AnimatedSplash,
+  SPLASH_DURATION_MS,
+} from "../components/AnimatedSplash";
+import { useShowSplash } from "../hooks/useShowSplash";
 
 // Keep the native splash up until fonts load and the JS animated splash mounts;
 // then we hide it and run the reveal animation.
@@ -27,6 +31,9 @@ SplashScreen.preventAutoHideAsync().catch(() => undefined);
 init();
 
 const InnerLayout = () => {
+  React.useEffect(() => {
+    postMigrationInit();
+  }, []);
   useNotificationResponseHandler();
   useForegroundNotificationSync();
 
@@ -82,7 +89,10 @@ const RootLayout = () => {
     "SpaceGrotesk-Bold": require("../../assets/fonts/SpaceGrotesk-Bold.otf"),
     "JetBrainsMono-Regular": require("../../assets/fonts/JetBrainsMono-Regular.ttf"),
   });
-  const [splashDone, setSplashDone] = React.useState(false);
+  const showSplash = useShowSplash({
+    fontsLoaded: fontsLoaded ?? false,
+    minShowMs: SPLASH_DURATION_MS,
+  });
 
   React.useEffect(() => {
     if (ref) {
@@ -104,7 +114,7 @@ const RootLayout = () => {
           </SyncStatusProvider>
         </DatabaseProvider>
       </ClerkOrPassthrough>
-      {!splashDone && <AnimatedSplash onFinish={() => setSplashDone(true)} />}
+      {showSplash && <AnimatedSplash />}
     </GestureHandlerRootView>
   );
 };

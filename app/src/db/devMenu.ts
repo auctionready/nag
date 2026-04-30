@@ -2,6 +2,7 @@ import { DevSettings } from "react-native";
 import { registerDevMenuItems } from "expo-dev-client";
 import { router } from "expo-router";
 import { clearAll, seedSampleData } from "./seed";
+import { devFlags } from "../infrastructure/devFlags";
 
 if (__DEV__) {
   registerDevMenuItems([
@@ -31,6 +32,15 @@ if (__DEV__) {
       name: "Scheduled notifications",
       callback: () => {
         router.navigate("/debug-notifications");
+      },
+    },
+    {
+      name: "Toggle pull sync (no reload)",
+      callback: () => {
+        devFlags.disablePullSync = !devFlags.disablePullSync;
+        console.log(
+          `[dev] pull sync ${devFlags.disablePullSync ? "DISABLED" : "enabled"}`,
+        );
       },
     },
   ]).catch(() => {}); // no-op in Expo Go (native module unavailable)

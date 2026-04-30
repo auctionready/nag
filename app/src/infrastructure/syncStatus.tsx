@@ -8,6 +8,7 @@ import React, {
   useState,
   type PropsWithChildren,
 } from "react";
+import { devFlags } from "./devFlags";
 import { AppState } from "react-native";
 import NetInfo, { type NetInfoState } from "@react-native-community/netinfo";
 import * as Sentry from "@sentry/react-native";
@@ -165,6 +166,9 @@ export const SyncStatusProvider = ({ children }: PropsWithChildren) => {
           setStatus("halted");
         } else if (pushResult === "offline") {
           setStatus("offline");
+        } else if (__DEV__ && devFlags.disablePullSync) {
+          logger.warn(`run[${runId}] pull sync disabled (devFlags)`);
+          setStatus("idle");
         } else {
           // Push succeeded — try the pull side. Order matters: drain
           // first so a snapshot doesn't wipe a pending local command.
