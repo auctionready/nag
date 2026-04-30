@@ -7,6 +7,7 @@ import {
   Text,
   View,
 } from "react-native";
+import * as SplashScreen from "expo-splash-screen";
 import Svg, { Circle } from "react-native-svg";
 
 const ORANGE = "#FF5A36";
@@ -14,13 +15,17 @@ const CREAM = "#FFF8F0";
 const INK = "#1A1410";
 const INK_SOFT = "#2A211B";
 
-const ICON_SIZE = 132;
+// Match the native splash icon (expo-splash-screen plugin imageWidth)
+// so the icon stays put across the native -> JS hand-off.
+const ICON_SIZE = 280;
+
+const HOLD_MS = 1800;
+const EXIT_MS = 320;
+const TAGLINE_FADE_END_MS = 300 + 700;
 
 type Props = { onFinish: () => void };
 
 export const AnimatedSplash: React.FC<Props> = ({ onFinish }) => {
-  const fadeIcon = useRef(new Animated.Value(0)).current;
-  const fadeIconY = useRef(new Animated.Value(8)).current;
   const fadeDots = useRef(new Animated.Value(0)).current;
   const fadeDotsY = useRef(new Animated.Value(8)).current;
   const fadeText = useRef(new Animated.Value(0)).current;
@@ -32,6 +37,12 @@ export const AnimatedSplash: React.FC<Props> = ({ onFinish }) => {
   const exit = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
+    // Hand off from native to JS on the next frame: gives the JS view a
+    // tick to mount before the native splash is hidden, so there's no flash.
+    const raf = requestAnimationFrame(() => {
+      SplashScreen.hideAsync().catch(() => undefined);
+    });
+
     const fadeUp = (val: Animated.Value, y: Animated.Value, delay: number) =>
       Animated.parallel([
         Animated.timing(val, {
@@ -50,7 +61,6 @@ export const AnimatedSplash: React.FC<Props> = ({ onFinish }) => {
         }),
       ]);
     Animated.parallel([
-      fadeUp(fadeIcon, fadeIconY, 0),
       fadeUp(fadeDots, fadeDotsY, 150),
       fadeUp(fadeText, fadeTextY, 300),
     ]).start();
@@ -87,18 +97,20 @@ export const AnimatedSplash: React.FC<Props> = ({ onFinish }) => {
     const t = setTimeout(() => {
       Animated.timing(exit, {
         toValue: 0,
-        duration: 280,
+        duration: EXIT_MS,
         easing: Easing.out(Easing.ease),
         useNativeDriver: true,
       }).start(({ finished }) => {
         if (finished) onFinish();
       });
-    }, 1400);
-    return () => clearTimeout(t);
+    }, TAGLINE_FADE_END_MS + HOLD_MS);
+
+    return () => {
+      cancelAnimationFrame(raf);
+      clearTimeout(t);
+    };
   }, [
     exit,
-    fadeIcon,
-    fadeIconY,
     fadeDots,
     fadeDotsY,
     fadeText,
@@ -120,12 +132,7 @@ export const AnimatedSplash: React.FC<Props> = ({ onFinish }) => {
       style={[styles.root, { opacity: exit }]}
       pointerEvents="none"
     >
-      <Animated.View
-        style={[
-          styles.iconWrap,
-          { opacity: fadeIcon, transform: [{ translateY: fadeIconY }] },
-        ]}
-      >
+      <View style={styles.iconWrap}>
         <CadenceIcon />
         <View style={styles.sweepClip}>
           <Animated.View
@@ -135,7 +142,7 @@ export const AnimatedSplash: React.FC<Props> = ({ onFinish }) => {
             ]}
           />
         </View>
-      </Animated.View>
+      </View>
 
       <Animated.View
         style={[
@@ -291,19 +298,19 @@ const styles = StyleSheet.create({
   },
   loadingDots: {
     flexDirection: "row",
-    marginTop: 28,
-    gap: 6,
+    marginTop: 32,
+    gap: 8,
   },
   loadingDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
+    width: 10,
+    height: 10,
+    borderRadius: 5,
     backgroundColor: ORANGE,
   },
   tagline: {
-    marginTop: 24,
+    marginTop: 28,
     fontFamily: "JetBrainsMono-Regular",
-    fontSize: 13,
+    fontSize: 14,
     color: INK_SOFT,
     letterSpacing: 0.5,
   },

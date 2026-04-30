@@ -90,12 +90,9 @@ const RootLayout = () => {
     }
   }, [ref]);
 
-  React.useEffect(() => {
-    if (fontsLoaded) {
-      SplashScreen.hideAsync().catch(() => undefined);
-    }
-  }, [fontsLoaded]);
-
+  // Native splash stays up until fonts load. Once we render
+  // <AnimatedSplash />, it calls SplashScreen.hideAsync() on its first frame
+  // so the icon stays visible across the hand-off.
   if (!fontsLoaded) return null;
 
   return (

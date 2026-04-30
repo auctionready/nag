@@ -25,7 +25,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   userInterfaceStyle: "light",
   scheme: "nag",
   splash: {
-    image: "./assets/splash.png",
+    image: "./assets/icon.png",
     resizeMode: "contain",
     backgroundColor: "#FFF8F0",
   },
@@ -53,8 +53,8 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     [
       "expo-splash-screen",
       {
-        image: "./assets/splash.png",
-        resizeMode: "contain",
+        image: "./assets/icon.png",
+        imageWidth: 280,
         backgroundColor: "#FFF8F0",
       },
     ],
