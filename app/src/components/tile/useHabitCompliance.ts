@@ -15,10 +15,15 @@ export const useHabitCompliance = (
   goal: HabitGoalSummary | null,
 ) => {
   const periodStartDate = goal ? periodStart(goal.regularity) : undefined;
+  // Keying deps by epoch ms keeps useLiveQuery's effect stable across renders
+  // — passing the Date directly produces a fresh reference each render and
+  // re-subscribes the change listener on every setData, locking the JS thread
+  // in a render-then-resubscribe loop.
+  const periodStartKey = periodStartDate?.getTime() ?? 0;
 
   const { data: countRows } = useLiveQuery(
     checkInCount(db, habitId, periodStartDate),
-    [habitId, periodStartDate],
+    [habitId, periodStartKey],
   );
 
   const count = countRows?.[0]?.value ?? 0;
@@ -30,13 +35,13 @@ export const useHabitCompliance = (
     periodStartDate
       ? checkInsInPeriod(db, habitId, periodStartDate)
       : checkInsInPeriod(db, habitId, new Date(0)),
-    [habitId, periodStartDate],
+    [habitId, periodStartKey],
   );
 
   // Display text on the tile only wants the handful most recent.
   const { data: recent } = useLiveQuery(
     recentCheckIns(db, habitId, periodStartDate, 3),
-    [habitId, periodStartDate],
+    [habitId, periodStartKey],
   );
 
   const { data: scheduleRows } = useLiveQuery(schedulesForHabit(db, habitId), [
