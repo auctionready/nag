@@ -148,11 +148,11 @@ builder
         // would 5xx with a missing-relation error.
         opts.Schema.For<Account>();
         opts.Schema.For<Device>();
-        opts.Schema.For<ProcessedCommand>().MultiTenanted();
+        opts.Schema.For<ProcessedEnvelope>().MultiTenanted();
         opts.Schema.For<HomeBoard>().MultiTenanted();
         // Past-tense event projections introduced alongside the
         // server-side switch — same per-account isolation rule as
-        // HomeBoard / ProcessedCommand.
+        // HomeBoard / ProcessedEnvelope.
         opts.Schema.For<CheckInState>().MultiTenanted();
         opts.Schema.For<MonthlyCheckInSummary>().MultiTenanted();
         opts.Schema.For<WeeklyCheckInSummary>().MultiTenanted();

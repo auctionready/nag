@@ -42,7 +42,7 @@ public sealed class EventDispatcher(
             }
         }
 
-        var existing = await session.LoadAsync<ProcessedCommand>(envelopeId, ct);
+        var existing = await session.LoadAsync<ProcessedEnvelope>(envelopeId, ct);
         if (existing is not null)
         {
             return DispatchResult.Duplicate(existing.Sequence);
@@ -50,7 +50,7 @@ public sealed class EventDispatcher(
 
         if (events.Count == 0)
         {
-            session.Store(new ProcessedCommand(envelopeId, 0, clock.GetUtcNow()));
+            session.Store(new ProcessedEnvelope(envelopeId, 0, clock.GetUtcNow()));
             await session.SaveChangesAsync(ct);
             return DispatchResult.Accepted(0);
         }
@@ -59,7 +59,7 @@ public sealed class EventDispatcher(
         await session.SaveChangesAsync(ct);
 
         var sequence = stream.Events[^1].Sequence;
-        session.Store(new ProcessedCommand(envelopeId, sequence, clock.GetUtcNow()));
+        session.Store(new ProcessedEnvelope(envelopeId, sequence, clock.GetUtcNow()));
         await session.SaveChangesAsync(ct);
 
         return DispatchResult.Accepted(sequence);

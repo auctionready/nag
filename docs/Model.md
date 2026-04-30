@@ -158,14 +158,15 @@ Constraints:
 
 Source: [`outbox.ts`](../packages/schema/src/outbox.ts)
 
-Outbox queue for past-tense events committed locally but not yet
+Outbox queue of event envelopes committed locally but not yet
 acknowledged by the server. Each `processCommand()` call appends one
-row with `status='pending'`; `events` is the JSON-encoded
-`[{type, payload}, ...]` array of events the user intent produced.
-The dispatcher in `@nag/core` ships pending rows as `WriteEventEnvelope`s
-to `POST /events` and transitions them to `sent` (with the assigned
-`server_sequence`) or `failed` (with `last_error`). `envelope_id` is the
-idempotency key the server uses to dedupe retries.
+row per user intent with `status='pending'`; `events` is the
+JSON-encoded `[{type, payload}, ...]` array of past-tense events
+that intent produced. The dispatcher in `@nag/core` ships pending
+rows as `WriteEventEnvelope`s to `POST /events` and transitions them
+to `sent` (with the assigned `server_sequence`) or `failed` (with
+`last_error`). `envelope_id` is the idempotency key the server uses
+to dedupe retries.
 
 **Sent-row retention.** Every successful `markSent` also deletes all
 but the most recent `SENT_OUTBOX_RETAIN_DEFAULT` (10) sent rows in the

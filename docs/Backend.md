@@ -158,7 +158,7 @@ read model for diagnostic queries.
 ## Idempotency
 
 Each `POST /events` envelope carries a client-generated `id` GUID.
-Before appending, the dispatcher loads `ProcessedCommand { Id,
+Before appending, the dispatcher loads `ProcessedEnvelope { Id,
 Sequence }` from Marten — if present, it returns the existing
 sequence with `accepted: false` and does nothing. Otherwise it
 appends each event in the envelope atomically + saves + records the

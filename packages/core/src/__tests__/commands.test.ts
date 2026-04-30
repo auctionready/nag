@@ -516,7 +516,7 @@ describe("DeleteCheckIn", () => {
 });
 
 describe("audit logging", () => {
-  it("records a server-shaped event envelope for each command", async () => {
+  it("records a server-shaped event envelope per processCommand call", async () => {
     const db = getDb();
     const { externalId } = await processCommand(db, {
       type: "CreateHabit",
