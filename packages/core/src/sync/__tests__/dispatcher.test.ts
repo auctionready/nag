@@ -561,3 +561,103 @@ describe("dispatcher + previously-sent rows", () => {
     expect(post).not.toHaveBeenCalled();
   });
 });
+
+describe("dispatcher reconciliation", () => {
+  it("applies the server's authoritative events to local state on success", async () => {
+    const db = getDb();
+    // Optimistic local state: CreateHabit appends a habit row + an outbox row.
+    const { habitId } = await processCommand(db, {
+      type: "CreateHabit",
+      title: "Read",
+    });
+
+    // Look up the habit's externalId — the server response carries it.
+    const [{ externalId }] = await db
+      .select({ externalId: schema.habit.externalId })
+      .from(schema.habit)
+      .where(eq(schema.habit.id, habitId));
+
+    // Server appends an event with a *normalized* title — this is the
+    // divergence the reconciliation step exists to handle. The
+    // applyServerEvent upsert overwrites the optimistic title.
+    const post = vi.fn(
+      async (env): Promise<PostResult> => ({
+        ok: true,
+        sequence: 100,
+        events: [
+          {
+            sequence: 100,
+            id: env.id,
+            type: "HabitCreated",
+            timestamp: new Date("2026-04-30T08:00:00.000Z"),
+            payload: {
+              habitId: externalId,
+              title: "read", // server lowercased it
+              description: null,
+              icon: null,
+              goal: null,
+            },
+          },
+        ],
+      }),
+    );
+
+    const status = await createDispatcher({ db, post }).run();
+    expect(status).toBe("idle");
+
+    const [row] = await db
+      .select()
+      .from(schema.habit)
+      .where(eq(schema.habit.id, habitId));
+    expect(row.title).toBe("read");
+  });
+
+  it("does not halt the batch when reconciliation throws", async () => {
+    const db = getDb();
+    await processCommand(db, { type: "CreateHabit", title: "X" });
+
+    // Server returns an event with an unknown type — applyServerEvent
+    // will throw, but reconciliation is best-effort and shouldn't
+    // wedge the dispatcher.
+    const post = vi.fn(
+      async (env): Promise<PostResult> => ({
+        ok: true,
+        sequence: 1,
+        events: [
+          {
+            sequence: 1,
+            id: env.id,
+            type: "MysteryEvent" as never,
+            timestamp: new Date(),
+            payload: {} as never,
+          },
+        ],
+      }),
+    );
+
+    const onError = vi.fn();
+    const status = await createDispatcher({ db, post, onError }).run();
+    expect(status).toBe("idle");
+    expect(onError).toHaveBeenCalled();
+
+    // Row was still marked sent — the POST itself succeeded.
+    const [row] = await db.select().from(schema.outbox);
+    expect(row.status).toBe("sent");
+  });
+
+  it("is a no-op when the response carries no events (empty envelope)", async () => {
+    const db = getDb();
+    await processCommand(db, { type: "CreateHabit", title: "Y" });
+
+    const post = vi.fn(
+      async (): Promise<PostResult> => ({
+        ok: true,
+        sequence: 0,
+        events: [],
+      }),
+    );
+
+    const status = await createDispatcher({ db, post }).run();
+    expect(status).toBe("idle");
+  });
+});

@@ -7,6 +7,7 @@ import {
   markFailedAndHalt,
   isHalted,
 } from "./outbox";
+import { applyServerEvent } from "./applyServerEvent";
 import type {
   EventEntry,
   DispatchStatus,
@@ -122,6 +123,35 @@ export const createDispatcher = ({
           error(`dispatcher: markSent threw for row id=${row.id}`, err);
           onError?.(err);
           throw err;
+        }
+
+        // Reconcile: apply the server's authoritative version of each
+        // event to local state. In the happy path these are byte-identical
+        // to the optimistic events the handler already applied — every
+        // applyServerEvent handler is keyed on externalId via upserts, so
+        // re-applying them is a no-op. On the rare divergence (server
+        // normalised something) the upsert overwrites local state with
+        // the server's version. Best-effort: a failure here doesn't
+        // halt the batch — the local DB still has the optimistic state
+        // and the next /sync pass would only re-fetch events past the
+        // already-advanced high-water mark, so we capture and move on
+        // rather than wedge sync over a transient apply error.
+        for (const event of result.events) {
+          try {
+            await applyServerEvent(db, {
+              sequence: event.sequence,
+              id: event.id,
+              type: event.type,
+              timestamp: event.timestamp,
+              payload: event.payload,
+            });
+          } catch (err) {
+            error(
+              `dispatcher: reconcile failed for row id=${row.id} event seq=${event.sequence} type=${event.type}`,
+              err,
+            );
+            onError?.(err);
+          }
         }
         continue;
       }
