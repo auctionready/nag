@@ -89,14 +89,14 @@ const RootLayout = () => {
     "JetBrainsMono-Regular": require("../../assets/fonts/JetBrainsMono-Regular.ttf"),
   });
   const [splashDone, setSplashDone] = React.useState(false);
+  const splashFired = React.useRef(false);
 
-  // Timer lives here, not in AnimatedSplash, so it isn't affected by the
-  // overlay's own mount/unmount cycle. Starts when fonts are ready (the same
-  // moment AnimatedSplash first appears).
+  // No cleanup — we never want this timer cancelled. Guard with ref so it
+  // only starts once even if fontsLoaded somehow flickers.
   React.useEffect(() => {
-    if (!fontsLoaded) return;
-    const t = setTimeout(() => setSplashDone(true), SPLASH_DURATION_MS);
-    return () => clearTimeout(t);
+    if (!fontsLoaded || splashFired.current) return;
+    splashFired.current = true;
+    setTimeout(() => setSplashDone(true), SPLASH_DURATION_MS);
   }, [fontsLoaded]);
 
   React.useEffect(() => {

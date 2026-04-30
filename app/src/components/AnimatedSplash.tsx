@@ -106,6 +106,14 @@ export const AnimatedSplash: React.FC = () => {
     return () => {
       cancelAnimationFrame(raf);
       clearTimeout(t);
+      // Stop the looping animations so their native handles are released when
+      // React removes the component, preventing the native view from
+      // outliving the JS tree. Non-looping values (fade-in, exit) are left
+      // alone so a Strict-Mode double-invocation doesn't make the view blank.
+      dot1.stopAnimation();
+      dot2.stopAnimation();
+      dot3.stopAnimation();
+      sweep.stopAnimation();
     };
   }, [exit, fadeDots, fadeDotsY, fadeText, fadeTextY, dot1, dot2, dot3, sweep]);
 
