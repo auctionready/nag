@@ -55,14 +55,64 @@ describe("operations", () => {
   });
 
   describe("postEvents", () => {
-    it("returns ok with the server-assigned sequence on 200", async () => {
-      nock(BASE_URL)
-        .post("/events")
-        .reply(200, { accepted: true, sequence: 42 });
+    const responseBody = {
+      id: "11111111-1111-4111-8111-111111111111",
+      events: [
+        {
+          sequence: 42,
+          id: "33333333-3333-4333-8333-333333333333",
+          type: "HabitCreated",
+          timestamp: "2024-05-01T10:00:00.000Z",
+          payload: {
+            habitId: "22222222-2222-4222-8222-222222222222",
+            title: "Read",
+          },
+        },
+      ],
+    };
+
+    it("returns ok with the appended events on 201", async () => {
+      nock(BASE_URL).post("/events").reply(201, responseBody, {
+        Location: "/events/by-envelope/11111111-1111-4111-8111-111111111111",
+      });
 
       const result = await postEvents(makeClient(), envelope);
 
-      expect(result).toEqual({ ok: true, sequence: 42 });
+      expect(result.ok).toBe(true);
+      if (result.ok) {
+        expect(result.sequence).toBe(42);
+        expect(result.events).toHaveLength(1);
+        expect(result.events[0].type).toBe("HabitCreated");
+      }
+    });
+
+    it("returns the same events on a 200 duplicate replay", async () => {
+      nock(BASE_URL).post("/events").reply(200, responseBody, {
+        Location: "/events/by-envelope/11111111-1111-4111-8111-111111111111",
+      });
+
+      const result = await postEvents(makeClient(), envelope);
+
+      expect(result.ok).toBe(true);
+      if (result.ok) {
+        expect(result.sequence).toBe(42);
+        expect(result.events).toHaveLength(1);
+      }
+    });
+
+    it("returns sequence=0 and empty events for an empty envelope", async () => {
+      nock(BASE_URL).post("/events").reply(201, {
+        id: "11111111-1111-4111-8111-111111111111",
+        events: [],
+      });
+
+      const result = await postEvents(makeClient(), envelope);
+
+      expect(result.ok).toBe(true);
+      if (result.ok) {
+        expect(result.sequence).toBe(0);
+        expect(result.events).toEqual([]);
+      }
     });
 
     it("classifies 400 as non-retriable", async () => {

@@ -272,16 +272,11 @@ export const WriteEventEnvelope = z
   .partial();
 export type WriteEventEnvelope = z.infer<typeof WriteEventEnvelope>;
 
-export const WriteEventAccepted = z
-  .object({ accepted: z.boolean(), sequence: z.int() })
-  .partial();
-export type WriteEventAccepted = z.infer<typeof WriteEventAccepted>;
-
 export const EventEnvelope_HabitCreated = z
   .object({
-    sequence: z.int().optional(),
-    id: z.uuid().optional(),
-    timestamp: IsoDatetime.optional(),
+    sequence: z.int(),
+    id: z.uuid(),
+    timestamp: IsoDatetime,
     type: z.literal("HabitCreated"),
     payload: HabitCreated,
   })
@@ -292,9 +287,9 @@ export type EventEnvelope_HabitCreated = z.infer<
 
 export const EventEnvelope_HabitDetailsEdited = z
   .object({
-    sequence: z.int().optional(),
-    id: z.uuid().optional(),
-    timestamp: IsoDatetime.optional(),
+    sequence: z.int(),
+    id: z.uuid(),
+    timestamp: IsoDatetime,
     type: z.literal("HabitDetailsEdited"),
     payload: HabitDetailsEdited,
   })
@@ -305,9 +300,9 @@ export type EventEnvelope_HabitDetailsEdited = z.infer<
 
 export const EventEnvelope_HabitGoalDefined = z
   .object({
-    sequence: z.int().optional(),
-    id: z.uuid().optional(),
-    timestamp: IsoDatetime.optional(),
+    sequence: z.int(),
+    id: z.uuid(),
+    timestamp: IsoDatetime,
     type: z.literal("HabitGoalDefined"),
     payload: HabitGoalDefined,
   })
@@ -318,9 +313,9 @@ export type EventEnvelope_HabitGoalDefined = z.infer<
 
 export const EventEnvelope_HabitGoalCleared = z
   .object({
-    sequence: z.int().optional(),
-    id: z.uuid().optional(),
-    timestamp: IsoDatetime.optional(),
+    sequence: z.int(),
+    id: z.uuid(),
+    timestamp: IsoDatetime,
     type: z.literal("HabitGoalCleared"),
     payload: HabitGoalCleared,
   })
@@ -331,9 +326,9 @@ export type EventEnvelope_HabitGoalCleared = z.infer<
 
 export const EventEnvelope_HabitDeleted = z
   .object({
-    sequence: z.int().optional(),
-    id: z.uuid().optional(),
-    timestamp: IsoDatetime.optional(),
+    sequence: z.int(),
+    id: z.uuid(),
+    timestamp: IsoDatetime,
     type: z.literal("HabitDeleted"),
     payload: HabitDeleted,
   })
@@ -344,9 +339,9 @@ export type EventEnvelope_HabitDeleted = z.infer<
 
 export const EventEnvelope_CheckInRecorded = z
   .object({
-    sequence: z.int().optional(),
-    id: z.uuid().optional(),
-    timestamp: IsoDatetime.optional(),
+    sequence: z.int(),
+    id: z.uuid(),
+    timestamp: IsoDatetime,
     type: z.literal("CheckInRecorded"),
     payload: CheckInRecorded,
   })
@@ -357,9 +352,9 @@ export type EventEnvelope_CheckInRecorded = z.infer<
 
 export const EventEnvelope_CheckInMoved = z
   .object({
-    sequence: z.int().optional(),
-    id: z.uuid().optional(),
-    timestamp: IsoDatetime.optional(),
+    sequence: z.int(),
+    id: z.uuid(),
+    timestamp: IsoDatetime,
     type: z.literal("CheckInMoved"),
     payload: CheckInMoved,
   })
@@ -370,9 +365,9 @@ export type EventEnvelope_CheckInMoved = z.infer<
 
 export const EventEnvelope_CheckInMarkedSkipped = z
   .object({
-    sequence: z.int().optional(),
-    id: z.uuid().optional(),
-    timestamp: IsoDatetime.optional(),
+    sequence: z.int(),
+    id: z.uuid(),
+    timestamp: IsoDatetime,
     type: z.literal("CheckInMarkedSkipped"),
     payload: CheckInMarkedSkipped,
   })
@@ -383,9 +378,9 @@ export type EventEnvelope_CheckInMarkedSkipped = z.infer<
 
 export const EventEnvelope_CheckInMarkedDone = z
   .object({
-    sequence: z.int().optional(),
-    id: z.uuid().optional(),
-    timestamp: IsoDatetime.optional(),
+    sequence: z.int(),
+    id: z.uuid(),
+    timestamp: IsoDatetime,
     type: z.literal("CheckInMarkedDone"),
     payload: CheckInMarkedDone,
   })
@@ -396,9 +391,9 @@ export type EventEnvelope_CheckInMarkedDone = z.infer<
 
 export const EventEnvelope_CheckInDeleted = z
   .object({
-    sequence: z.int().optional(),
-    id: z.uuid().optional(),
-    timestamp: IsoDatetime.optional(),
+    sequence: z.int(),
+    id: z.uuid(),
+    timestamp: IsoDatetime,
     type: z.literal("CheckInDeleted"),
     payload: CheckInDeleted,
   })
@@ -420,6 +415,12 @@ export const EventEnvelope = z.discriminatedUnion("type", [
   EventEnvelope_CheckInDeleted,
 ]);
 export type EventEnvelope = z.infer<typeof EventEnvelope>;
+
+export const EventsByEnvelope = z.object({
+  id: z.uuid(),
+  events: z.array(EventEnvelope).nullable(),
+});
+export type EventsByEnvelope = z.infer<typeof EventsByEnvelope>;
 
 export const EventsPage = z
   .object({
@@ -599,7 +600,7 @@ export const endpoints = makeApi([
     path: "/events",
     alias: "postEvents",
     parameters: [{ name: "body", type: "Body", schema: WriteEventEnvelope }],
-    response: WriteEventAccepted,
+    response: EventsByEnvelope,
     errors: [
       { status: 400, schema: ErrorResponse },
       { status: 404, schema: z.void() },
@@ -614,6 +615,14 @@ export const endpoints = makeApi([
       { name: "limit", type: "Query", schema: z.int().nullish() },
     ],
     response: EventsPage,
+    errors: [{ status: 404, schema: z.void() }],
+  },
+  {
+    method: "get",
+    path: "/events/by-envelope/:id",
+    alias: "getEventsByEnvelope",
+    parameters: [{ name: "id", type: "Path", schema: z.uuid() }],
+    response: EventsByEnvelope,
     errors: [{ status: 404, schema: z.void() }],
   },
   {

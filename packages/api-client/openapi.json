@@ -258,12 +258,22 @@
           "required": true
         },
         "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EventsByEnvelope"
+                }
+              }
+            }
+          },
           "200": {
             "description": "OK",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/WriteEventAccepted"
+                  "$ref": "#/components/schemas/EventsByEnvelope"
                 }
               }
             }
@@ -316,6 +326,42 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/EventsPage"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found"
+          }
+        }
+      }
+    },
+    "/events/by-envelope/{id}": {
+      "get": {
+        "tags": [
+          "Events"
+        ],
+        "summary": "GET_events_by_envelope_id",
+        "description": "GET_events_by_envelope_id",
+        "operationId": "getEventsByEnvelope",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EventsByEnvelope"
                 }
               }
             }
@@ -915,8 +961,11 @@
       },
       "EventEnvelope_CheckInDeleted": {
         "required": [
-          "type",
-          "payload"
+          "id",
+          "payload",
+          "sequence",
+          "timestamp",
+          "type"
         ],
         "type": "object",
         "properties": {
@@ -945,8 +994,11 @@
       },
       "EventEnvelope_CheckInMarkedDone": {
         "required": [
-          "type",
-          "payload"
+          "id",
+          "payload",
+          "sequence",
+          "timestamp",
+          "type"
         ],
         "type": "object",
         "properties": {
@@ -975,8 +1027,11 @@
       },
       "EventEnvelope_CheckInMarkedSkipped": {
         "required": [
-          "type",
-          "payload"
+          "id",
+          "payload",
+          "sequence",
+          "timestamp",
+          "type"
         ],
         "type": "object",
         "properties": {
@@ -1005,8 +1060,11 @@
       },
       "EventEnvelope_CheckInMoved": {
         "required": [
-          "type",
-          "payload"
+          "id",
+          "payload",
+          "sequence",
+          "timestamp",
+          "type"
         ],
         "type": "object",
         "properties": {
@@ -1035,8 +1093,11 @@
       },
       "EventEnvelope_CheckInRecorded": {
         "required": [
-          "type",
-          "payload"
+          "id",
+          "payload",
+          "sequence",
+          "timestamp",
+          "type"
         ],
         "type": "object",
         "properties": {
@@ -1065,8 +1126,11 @@
       },
       "EventEnvelope_HabitCreated": {
         "required": [
-          "type",
-          "payload"
+          "id",
+          "payload",
+          "sequence",
+          "timestamp",
+          "type"
         ],
         "type": "object",
         "properties": {
@@ -1095,8 +1159,11 @@
       },
       "EventEnvelope_HabitDeleted": {
         "required": [
-          "type",
-          "payload"
+          "id",
+          "payload",
+          "sequence",
+          "timestamp",
+          "type"
         ],
         "type": "object",
         "properties": {
@@ -1125,8 +1192,11 @@
       },
       "EventEnvelope_HabitDetailsEdited": {
         "required": [
-          "type",
-          "payload"
+          "id",
+          "payload",
+          "sequence",
+          "timestamp",
+          "type"
         ],
         "type": "object",
         "properties": {
@@ -1155,8 +1225,11 @@
       },
       "EventEnvelope_HabitGoalCleared": {
         "required": [
-          "type",
-          "payload"
+          "id",
+          "payload",
+          "sequence",
+          "timestamp",
+          "type"
         ],
         "type": "object",
         "properties": {
@@ -1185,8 +1258,11 @@
       },
       "EventEnvelope_HabitGoalDefined": {
         "required": [
-          "type",
-          "payload"
+          "id",
+          "payload",
+          "sequence",
+          "timestamp",
+          "type"
         ],
         "type": "object",
         "properties": {
@@ -1212,6 +1288,27 @@
             "$ref": "#/components/schemas/HabitGoalDefined"
           }
         }
+      },
+      "EventsByEnvelope": {
+        "required": [
+          "events",
+          "id"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "events": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/EventEnvelope"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
       },
       "EventsPage": {
         "type": "object",
@@ -1762,19 +1859,6 @@
               "$ref": "#/components/schemas/HabitPeriodCheckIns"
             },
             "nullable": true
-          }
-        },
-        "additionalProperties": false
-      },
-      "WriteEventAccepted": {
-        "type": "object",
-        "properties": {
-          "accepted": {
-            "type": "boolean"
-          },
-          "sequence": {
-            "type": "integer",
-            "format": "int64"
           }
         },
         "additionalProperties": false

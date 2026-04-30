@@ -16,6 +16,7 @@ export {
   getSync,
   type EventEntry,
   type WriteEventEnvelope,
+  type AppendedEvent,
   type PostResult,
   type RegisterDeviceResult,
   type UpgradeAccountResult,

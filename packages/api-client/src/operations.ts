@@ -40,8 +40,19 @@ export type WriteEventEnvelope = {
   events: EventEntry[];
 };
 
+/**
+ * One event the server appended for an envelope, mirrored back on the
+ * `POST /events` response (or fetched from
+ * `GET /events/by-envelope/{id}`). Aliased to the generated Zodios
+ * discriminated-union type — sequence + timestamp are server-assigned
+ * and Zodios coerces `timestamp` to `Date` per the schema.
+ */
+export type AppendedEvent = NonNullable<
+  ZodiosResponseByAlias<Endpoints, "postEvents">["events"]
+>[number];
+
 export type PostResult =
-  | { ok: true; sequence: number }
+  | { ok: true; sequence: number; events: AppendedEvent[] }
   | { ok: false; kind: "non-retriable"; status: number; message: string }
   | { ok: false; kind: "transient"; message: string };
 
@@ -118,18 +129,24 @@ const failureFromError = (
   return { ok: false, kind: "transient", message };
 };
 
-type PostEventsBody = ZodiosBodyByAlias<Endpoints, "postEvents">;
-type PostEventsResponse = ZodiosResponseByAlias<Endpoints, "postEvents">;
-type PostEventsError400 = ZodiosErrorByAlias<Endpoints, "postEvents", 400>;
-
 // Re-export the mapped type for downstream callers that want to peek at the
 // documented 400 body shape without re-deriving it.
 export type { ZodiosErrorByAlias };
 
+type PostEventsBody = ZodiosBodyByAlias<Endpoints, "postEvents">;
+type PostEventsResponse = ZodiosResponseByAlias<Endpoints, "postEvents">;
+type PostEventsError400 = ZodiosErrorByAlias<Endpoints, "postEvents", 400>;
+
 /**
- * POSTs a write-event envelope and translates the Zodios/axios response
- * into a `PostResult`. Never throws on HTTP or network errors — the
- * caller (dispatcher) reads `result.ok` and decides what to do.
+ * POSTs a write-event envelope and translates the response into a
+ * `PostResult`. The server returns 201 (first time) or 200 (duplicate
+ * replay) with an `EventsByEnvelope` body — the events the server
+ * actually appended, with sequence + timestamp + payload. The wrapper
+ * surfaces those events so the dispatcher can reconcile against its
+ * optimistic local state without a follow-up GET.
+ *
+ * Never throws on HTTP or network errors — the caller (dispatcher)
+ * reads `result.ok` and decides what to do.
  */
 export const postEvents = async (
   client: NagApiClient,
@@ -146,10 +163,12 @@ export const postEvents = async (
       envelope as PostEventsBody,
     );
     const elapsed = Date.now() - start;
+    const events = response.events ?? [];
+    const sequence = events.length > 0 ? events[events.length - 1].sequence : 0;
     log?.debug?.(
-      `POST /events ok (${elapsed}ms) sequence=${response.sequence} accepted=${(response as { accepted?: boolean }).accepted}`,
+      `POST /events ok (${elapsed}ms) sequence=${sequence} events=${events.length}`,
     );
-    return { ok: true, sequence: response.sequence ?? 0 };
+    return { ok: true, sequence, events };
   } catch (error: unknown) {
     return failureFromError(
       "POST /events",
@@ -158,10 +177,6 @@ export const postEvents = async (
       error,
       () => {
         if (isErrorFromAlias(endpoints, "postEvents", error)) {
-          // The endpoint documents both a 400 (ErrorResponse) and a 404
-          // (void; the latter comes from Wolverine HTTP's tenant-not-found
-          // path). Narrow to the ErrorResponse-shaped variant for the
-          // documented-message extraction.
           const data = error.response.data as PostEventsError400 | void;
           return data && typeof data === "object" && "errors" in data
             ? (data as { errors?: string[] }).errors?.[0]

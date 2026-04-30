@@ -25,14 +25,16 @@ public sealed class EventsReader(IQuerySession session, JsonSerializerOptions js
             .ToListAsync(ct);
 
         var envelopes = events
-            .Select(e => new EventEnvelope(
-                e.Sequence,
-                e.Id,
-                EventRegistry.ByName.FirstOrDefault(kv => kv.Value == e.Data!.GetType()).Key
+            .Select(e => new EventEnvelope
+            {
+                Sequence = e.Sequence,
+                Id = e.Id,
+                Type =
+                    EventRegistry.ByName.FirstOrDefault(kv => kv.Value == e.Data!.GetType()).Key
                     ?? e.EventTypeName,
-                new DateTimeOffset(e.Timestamp.UtcDateTime, TimeSpan.Zero),
-                JsonSerializer.SerializeToElement(e.Data, jsonOptions)
-            ))
+                Timestamp = new DateTimeOffset(e.Timestamp.UtcDateTime, TimeSpan.Zero),
+                Payload = JsonSerializer.SerializeToElement(e.Data, jsonOptions),
+            })
             .ToList();
 
         long? nextSince = envelopes.Count == take ? envelopes[^1].Sequence : null;

@@ -32,8 +32,8 @@ public class SyncEndpointsTests
         };
         var resp = await client.PostAsJsonAsync("/events", envelope);
         resp.EnsureSuccessStatusCode();
-        var body = await resp.Content.ReadFromJsonAsync<WriteEventAccepted>();
-        return body!.Sequence;
+        var body = await resp.Content.ReadFromJsonAsync<EventsByEnvelope>(NagJsonOptions.Default);
+        return body!.Events[^1].Sequence;
     }
 
     public class SinceZeroReturnsSnapshot

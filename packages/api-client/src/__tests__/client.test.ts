@@ -52,7 +52,7 @@ describe("nagApiClient", () => {
   });
 
   describe("postEvents", () => {
-    it("sends the envelope with bearer auth and JSON headers", async () => {
+    it("sends the envelope with bearer auth and JSON headers, returns appended events on 201", async () => {
       const scope = nock(BASE_URL, {
         reqheaders: {
           authorization: `Bearer ${API_KEY}`,
@@ -63,11 +63,40 @@ describe("nagApiClient", () => {
           expect(body).toEqual(envelope);
           return true;
         })
-        .reply(200, { accepted: true, sequence: 7 });
+        .reply(
+          201,
+          {
+            id: "11111111-1111-4111-8111-111111111111",
+            events: [
+              {
+                sequence: 7,
+                id: "44444444-4444-4444-8444-444444444444",
+                type: "HabitCreated",
+                timestamp: "2024-05-01T10:00:00.000Z",
+                payload: {
+                  habitId: "22222222-2222-4222-8222-222222222222",
+                  title: "Read",
+                },
+              },
+            ],
+          },
+          {
+            Location:
+              "/events/by-envelope/11111111-1111-4111-8111-111111111111",
+          },
+        );
 
-      const result = await makeClient().postEvents(envelope);
+      // We exercise the wire shape here directly via axios so we can
+      // assert on status + headers; the typed Zodios call is tested
+      // for its body shape under operations.test.ts.
+      const response = await makeClient().axios.post("/events", envelope);
 
-      expect(result).toEqual({ accepted: true, sequence: 7 });
+      expect(response.status).toBe(201);
+      expect(response.headers["location"]).toBe(
+        "/events/by-envelope/11111111-1111-4111-8111-111111111111",
+      );
+      expect(response.data.events).toHaveLength(1);
+      expect(response.data.events[0].sequence).toBe(7);
       expect(scope.isDone()).toBe(true);
     });
 
