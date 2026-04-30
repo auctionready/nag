@@ -50,6 +50,14 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     "expo-router",
     "expo-sqlite",
     [
+      "expo-splash-screen",
+      {
+        image: "./assets/splash.png",
+        resizeMode: "contain",
+        backgroundColor: "#FFF8F0",
+      },
+    ],
+    [
       "@sentry/react-native/expo",
       {
         url: "https://sentry.io/",
