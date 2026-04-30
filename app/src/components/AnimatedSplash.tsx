@@ -26,6 +26,10 @@ const TAGLINE_FADE_END_MS = 300 + 700;
 type Props = { onFinish: () => void };
 
 export const AnimatedSplash: React.FC<Props> = ({ onFinish }) => {
+  const onFinishRef = useRef(onFinish);
+  useEffect(() => {
+    onFinishRef.current = onFinish;
+  });
   const fadeDots = useRef(new Animated.Value(0)).current;
   const fadeDotsY = useRef(new Animated.Value(8)).current;
   const fadeText = useRef(new Animated.Value(0)).current;
@@ -94,33 +98,27 @@ export const AnimatedSplash: React.FC<Props> = ({ onFinish }) => {
       }),
     ).start();
 
-    const t = setTimeout(() => {
+    const exitAt = TAGLINE_FADE_END_MS + HOLD_MS;
+    const tAnim = setTimeout(() => {
       Animated.timing(exit, {
         toValue: 0,
         duration: EXIT_MS,
         easing: Easing.out(Easing.ease),
         useNativeDriver: true,
-      }).start(({ finished }) => {
-        if (finished) onFinish();
-      });
-    }, TAGLINE_FADE_END_MS + HOLD_MS);
+      }).start();
+    }, exitAt);
+    // Timer-based finish: don't rely on the animation callback's `finished`
+    // flag, which is false if the native animation is interrupted.
+    const tFinish = setTimeout(() => {
+      onFinishRef.current();
+    }, exitAt + EXIT_MS);
 
     return () => {
       cancelAnimationFrame(raf);
-      clearTimeout(t);
+      clearTimeout(tAnim);
+      clearTimeout(tFinish);
     };
-  }, [
-    exit,
-    fadeDots,
-    fadeDotsY,
-    fadeText,
-    fadeTextY,
-    dot1,
-    dot2,
-    dot3,
-    sweep,
-    onFinish,
-  ]);
+  }, [exit, fadeDots, fadeDotsY, fadeText, fadeTextY, dot1, dot2, dot3, sweep]);
 
   const sweepX = sweep.interpolate({
     inputRange: [0, 1],
