@@ -186,7 +186,7 @@ public static class EventsEndpoints
     )
     {
         if (lastSequence == 0)
-            return new EventsByEnvelope(envelopeId, []);
+            return new EventsByEnvelope { Id = envelopeId, Events = [] };
 
         var rawEvents = await session
             .Events.QueryAllRawEvents()
@@ -195,16 +195,18 @@ public static class EventsEndpoints
             .ToListAsync(ct);
 
         var envelopes = rawEvents.Select(ToEnvelope).ToList();
-        return new EventsByEnvelope(envelopeId, envelopes);
+        return new EventsByEnvelope { Id = envelopeId, Events = envelopes };
 
         EventEnvelope ToEnvelope(JasperFxIEvent e) =>
-            new(
-                e.Sequence,
-                e.Id,
-                EventRegistry.ByName.FirstOrDefault(kv => kv.Value == e.Data!.GetType()).Key
+            new()
+            {
+                Sequence = e.Sequence,
+                Id = e.Id,
+                Type =
+                    EventRegistry.ByName.FirstOrDefault(kv => kv.Value == e.Data!.GetType()).Key
                     ?? e.EventTypeName,
-                new DateTimeOffset(e.Timestamp.UtcDateTime, TimeSpan.Zero),
-                JsonSerializer.SerializeToElement(e.Data, jsonOptions)
-            );
+                Timestamp = new DateTimeOffset(e.Timestamp.UtcDateTime, TimeSpan.Zero),
+                Payload = JsonSerializer.SerializeToElement(e.Data, jsonOptions),
+            };
     }
 }

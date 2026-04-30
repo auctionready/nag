@@ -43,16 +43,13 @@ export type WriteEventEnvelope = {
 /**
  * One event the server appended for an envelope, mirrored back on the
  * `POST /events` response (or fetched from
- * `GET /events/by-envelope/{id}`). Sequence + timestamp are server-
- * assigned; `payload` is the same shape the client sent.
+ * `GET /events/by-envelope/{id}`). Aliased to the generated Zodios
+ * discriminated-union type — sequence + timestamp are server-assigned
+ * and Zodios coerces `timestamp` to `Date` per the schema.
  */
-export type AppendedEvent = {
-  sequence: number;
-  id: string;
-  type: string;
-  timestamp: string;
-  payload: unknown;
-};
+export type AppendedEvent = NonNullable<
+  ZodiosResponseByAlias<Endpoints, "postEvents">["events"]
+>[number];
 
 export type PostResult =
   | { ok: true; sequence: number; events: AppendedEvent[] }
@@ -136,6 +133,10 @@ const failureFromError = (
 // documented 400 body shape without re-deriving it.
 export type { ZodiosErrorByAlias };
 
+type PostEventsBody = ZodiosBodyByAlias<Endpoints, "postEvents">;
+type PostEventsResponse = ZodiosResponseByAlias<Endpoints, "postEvents">;
+type PostEventsError400 = ZodiosErrorByAlias<Endpoints, "postEvents", 400>;
+
 /**
  * POSTs a write-event envelope and translates the response into a
  * `PostResult`. The server returns 201 (first time) or 200 (duplicate
@@ -143,17 +144,6 @@ export type { ZodiosErrorByAlias };
  * actually appended, with sequence + timestamp + payload. The wrapper
  * surfaces those events so the dispatcher can reconcile against its
  * optimistic local state without a follow-up GET.
- *
- * Bypasses the typed `client.postEvents` for the response side: the
- * generated Zodios schema models every response field as optional
- * (openapi-zod-client emits `.partial()` for any record whose
- * properties aren't all `[Required]` in the OpenAPI doc), so the
- * typed return type is `{ id?: string; events?: EventEnvelope[] | null }`
- * — every consumer would need a `body.events ?? []` dance and a cast
- * to narrow the discriminated event union. We assert the
- * known-non-optional shape ourselves and skip the extra runtime
- * validation, since the request body is already validated server-side
- * (a malformed response is a server-side bug, not a client concern).
  *
  * Never throws on HTTP or network errors — the caller (dispatcher)
  * reads `result.ok` and decides what to do.
@@ -169,16 +159,14 @@ export const postEvents = async (
   );
   const start = Date.now();
   try {
-    const response = await client.axios.post("/events", envelope);
+    const response: PostEventsResponse = await client.postEvents(
+      envelope as PostEventsBody,
+    );
     const elapsed = Date.now() - start;
-    const body = response.data as {
-      id: string;
-      events: AppendedEvent[] | null;
-    };
-    const events = body.events ?? [];
+    const events = response.events ?? [];
     const sequence = events.length > 0 ? events[events.length - 1].sequence : 0;
     log?.debug?.(
-      `POST /events ok (${elapsed}ms) status=${response.status} sequence=${sequence} events=${events.length}`,
+      `POST /events ok (${elapsed}ms) sequence=${sequence} events=${events.length}`,
     );
     return { ok: true, sequence, events };
   } catch (error: unknown) {
@@ -188,11 +176,11 @@ export const postEvents = async (
       Date.now() - start,
       error,
       () => {
-        if (isAxiosError(error) && error.response?.status === 400) {
-          // 400 body is `ErrorResponse { errors: string[] }` — extract
-          // the first message for the failure summary the dispatcher logs.
-          const data = error.response.data as { errors?: string[] } | undefined;
-          return data?.errors?.[0];
+        if (isErrorFromAlias(endpoints, "postEvents", error)) {
+          const data = error.response.data as PostEventsError400 | void;
+          return data && typeof data === "object" && "errors" in data
+            ? (data as { errors?: string[] }).errors?.[0]
+            : undefined;
         }
         return undefined;
       },
