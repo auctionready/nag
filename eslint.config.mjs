@@ -16,6 +16,12 @@ export default [
     rules: {
       // Zod convention: same name for schema + inferred type
       "@typescript-eslint/no-redeclare": "off",
+      // Catch missing/stale deps in drizzle's useLiveQuery the same way
+      // exhaustive-deps catches them in useEffect/useMemo.
+      "react-hooks/exhaustive-deps": [
+        "warn",
+        { additionalHooks: "(useLiveQuery)" },
+      ],
     },
   },
   {
