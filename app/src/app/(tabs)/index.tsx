@@ -17,8 +17,6 @@ const BoardScreen = () => {
     <Board
       habits={habits}
       onAddHabit={() => router.push("/add-habit")}
-      onCalendar={() => router.push("/calendar")}
-      onProfile={() => router.push("/account")}
       renderTile={(habit) => (
         <HabitTile
           id={habit.id}

@@ -1,0 +1,206 @@
+import { Pressable, StyleSheet, Text, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import Svg, { Path, Rect } from "react-native-svg";
+import { tokens } from "./theme";
+import { SyncDot } from "./SyncDot";
+
+// Subset of `MaterialTopTabBarProps` from `@react-navigation/material-top-tabs`,
+// inlined so this file doesn't need a direct dep on the package
+// (it's transitively present via expo-router). `jumpTo` lives on the
+// SceneRendererProps part of the props, not on `navigation`.
+interface TabBarProps {
+  state: { index: number; routes: { name: string; key: string }[] };
+  jumpTo: (key: string) => void;
+}
+
+const ACTIVE_HALO = "rgba(255,90,54,0.18)";
+
+/**
+ * Top bar shared across the (tabs) navigator — Today / Calendar / Account.
+ * Avatar (left) and calendar icon (right) act as tab toggles. The active
+ * destination's button fills with brand orange and a soft halo. The
+ * centre title swaps from the `nag.` wordmark to the page name with a
+ * back chevron when not on Today.
+ */
+export const SharedTopBar = ({ state, jumpTo }: TabBarProps) => {
+  const insets = useSafeAreaInsets();
+  const active = state.routes[state.index]?.name ?? "index";
+  const onAccount = active === "account";
+  const onCalendar = active === "calendar";
+  const onToday = active === "index";
+
+  return (
+    <View style={[styles.wrap, { paddingTop: insets.top }]}>
+      <View style={styles.row}>
+        <Pressable
+          onPress={() => jumpTo("account")}
+          hitSlop={8}
+          style={({ pressed }) => [
+            styles.avatar,
+            onAccount && styles.avatarActive,
+            pressed && styles.pressed,
+          ]}
+          accessibilityLabel="Account"
+          accessibilityRole="button"
+        >
+          <Text
+            style={[styles.avatarText, onAccount && styles.avatarTextActive]}
+          >
+            JC
+          </Text>
+        </Pressable>
+
+        <View style={styles.center}>
+          <View style={styles.titleRow}>
+            {!onToday && (
+              <Pressable
+                onPress={() => jumpTo("index")}
+                hitSlop={10}
+                accessibilityLabel="Back to today"
+                accessibilityRole="button"
+                style={({ pressed }) => [pressed && styles.pressed]}
+              >
+                <Svg width={11} height={11} viewBox="0 0 11 11" fill="none">
+                  <Path
+                    d="M7 1L2.5 5.5 7 10"
+                    stroke={tokens.mute}
+                    strokeWidth={1.7}
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </Svg>
+              </Pressable>
+            )}
+            {onToday ? (
+              <View style={styles.wordmarkRow}>
+                <Text style={styles.wordmark}>nag</Text>
+                <Text style={styles.wordmarkDot}>.</Text>
+              </View>
+            ) : (
+              <Text style={styles.pageName}>{active}</Text>
+            )}
+          </View>
+          <SyncDot showLabel />
+        </View>
+
+        <Pressable
+          onPress={() => jumpTo("calendar")}
+          hitSlop={8}
+          style={({ pressed }) => [
+            styles.iconBtn,
+            onCalendar && styles.iconBtnActive,
+            pressed && styles.pressed,
+          ]}
+          accessibilityLabel="Calendar"
+          accessibilityRole="button"
+        >
+          <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
+            <Rect
+              x={3}
+              y={5}
+              width={18}
+              height={16}
+              rx={2}
+              stroke={onCalendar ? tokens.cream : tokens.ink}
+              strokeWidth={1.7}
+            />
+            <Path
+              d="M3 10h18M8 3v4M16 3v4"
+              stroke={onCalendar ? tokens.cream : tokens.ink}
+              strokeWidth={1.7}
+              strokeLinecap="round"
+            />
+          </Svg>
+        </Pressable>
+      </View>
+    </View>
+  );
+};
+
+const styles = StyleSheet.create({
+  wrap: {
+    backgroundColor: tokens.cream,
+  },
+  row: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 18,
+    paddingTop: 6,
+    paddingBottom: 14,
+  },
+  avatar: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: "rgba(26,20,16,0.06)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  avatarActive: {
+    backgroundColor: tokens.orange,
+    shadowColor: tokens.orange,
+    shadowOpacity: 0.18,
+    shadowRadius: 0,
+    shadowOffset: { width: 0, height: 0 },
+    borderWidth: 3,
+    borderColor: ACTIVE_HALO,
+  },
+  avatarText: {
+    color: tokens.ink,
+    fontSize: 12,
+    fontWeight: "600",
+    letterSpacing: 0.4,
+  },
+  avatarTextActive: {
+    color: tokens.cream,
+  },
+  center: {
+    alignItems: "center",
+    gap: 2,
+    flexShrink: 1,
+  },
+  titleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  wordmarkRow: {
+    flexDirection: "row",
+    alignItems: "baseline",
+  },
+  wordmark: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: tokens.ink,
+    letterSpacing: -0.36,
+  },
+  wordmarkDot: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: tokens.orange,
+    letterSpacing: -0.36,
+  },
+  pageName: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: tokens.ink,
+    letterSpacing: -0.36,
+  },
+  iconBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "rgba(26,20,16,0.045)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  iconBtnActive: {
+    backgroundColor: tokens.orange,
+    borderWidth: 3,
+    borderColor: ACTIVE_HALO,
+  },
+  pressed: {
+    opacity: 0.7,
+  },
+});

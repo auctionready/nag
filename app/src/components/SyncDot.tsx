@@ -67,7 +67,9 @@ export const SyncDot = ({ showLabel = false }: SyncDotProps) => {
 
   const onPress = () => {
     if (pathname === "/account") return;
-    if (isClerkConfigured()) router.push("/account");
+    // navigate (not push) so when the user is somewhere in the (tabs)
+    // navigator we switch to the account tab rather than stacking it.
+    if (isClerkConfigured()) router.navigate("/account");
   };
 
   const haloOpacity = pulse.interpolate({

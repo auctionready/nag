@@ -17,10 +17,10 @@ import {
   useUser,
 } from "@clerk/clerk-expo";
 import { loadIdentity } from "@nag/core";
-import { db } from "../db";
-import { unbindAccount, upgradeAccount } from "../infrastructure/apiClient";
-import { isClerkConfigured } from "../infrastructure/clerk";
-import { log } from "../infrastructure/log";
+import { db } from "../../db";
+import { unbindAccount, upgradeAccount } from "../../infrastructure/apiClient";
+import { isClerkConfigured } from "../../infrastructure/clerk";
+import { log } from "../../infrastructure/log";
 
 // Required by Expo Auth Session so the OAuth redirect properly closes the
 // in-app browser tab when control returns to the app.

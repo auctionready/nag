@@ -1,10 +1,9 @@
 import { useMemo } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import Svg, { Path, Rect } from "react-native-svg";
+import Svg, { Path } from "react-native-svg";
 import { tokens } from "./theme";
 import { useBoardProgress } from "./useBoardProgress";
-import { SyncDot } from "./SyncDot";
 
 interface Habit {
   id: number;
@@ -15,25 +14,16 @@ export interface BoardProps {
   habits: Habit[];
   onAddHabit: () => void;
   renderTile: (habit: Habit) => React.ReactNode;
-  onCalendar?: () => void;
-  onProfile?: () => void;
 }
 
-export const Board = ({
-  habits,
-  onAddHabit,
-  renderTile,
-  onCalendar,
-  onProfile,
-}: BoardProps) => {
+export const Board = ({ habits, onAddHabit, renderTile }: BoardProps) => {
   const insets = useSafeAreaInsets();
   const habitIds = useMemo(() => habits.map((h) => h.id), [habits]);
   const { percent, line } = useBoardProgress(habitIds);
 
   if (!habits.length) {
     return (
-      <View style={[styles.empty, { paddingTop: insets.top + 24 }]}>
-        <TopBar onProfile={onProfile} onCalendar={onCalendar} />
+      <View style={styles.empty}>
         <View style={styles.emptyBody}>
           <Text style={styles.emptyTitle}>nothing to nag yet.</Text>
           <Text style={styles.emptySubtitle}>
@@ -48,8 +38,7 @@ export const Board = ({
   }
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
-      <TopBar onProfile={onProfile} onCalendar={onCalendar} />
+    <View style={styles.container}>
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={[
@@ -73,56 +62,6 @@ export const Board = ({
     </View>
   );
 };
-
-const TopBar = ({
-  onProfile,
-  onCalendar,
-}: {
-  onProfile?: () => void;
-  onCalendar?: () => void;
-}) => (
-  <View style={styles.topBar}>
-    <Pressable
-      onPress={onProfile}
-      hitSlop={8}
-      style={({ pressed }) => [styles.avatar, pressed && styles.pressed]}
-      accessibilityLabel="Profile"
-    >
-      <Text style={styles.avatarText}>JC</Text>
-    </Pressable>
-    <View style={styles.wordmarkCol}>
-      <View style={styles.wordmarkRow}>
-        <Text style={styles.wordmark}>nag</Text>
-        <Text style={styles.wordmarkDot}>.</Text>
-      </View>
-      <SyncDot showLabel />
-    </View>
-    <Pressable
-      onPress={onCalendar}
-      hitSlop={8}
-      style={({ pressed }) => [styles.iconBtn, pressed && styles.pressed]}
-      accessibilityLabel="Calendar"
-    >
-      <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
-        <Rect
-          x={3}
-          y={5}
-          width={18}
-          height={16}
-          rx={2}
-          stroke={tokens.ink}
-          strokeWidth={1.7}
-        />
-        <Path
-          d="M3 10h18M8 3v4M16 3v4"
-          stroke={tokens.ink}
-          strokeWidth={1.7}
-          strokeLinecap="round"
-        />
-      </Svg>
-    </Pressable>
-  </View>
-);
 
 const Header = ({ percent, line }: { percent: number; line: string }) => (
   <View style={styles.header}>
@@ -162,56 +101,6 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingHorizontal: 16,
     paddingTop: 6,
-  },
-  topBar: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: 18,
-    paddingTop: 6,
-    paddingBottom: 14,
-  },
-  avatar: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: "rgba(26,20,16,0.06)",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  avatarText: {
-    color: tokens.ink,
-    fontSize: 12,
-    fontWeight: "600",
-    letterSpacing: 0.4,
-  },
-  wordmarkCol: {
-    alignItems: "center",
-    gap: 2,
-  },
-  wordmarkRow: {
-    flexDirection: "row",
-    alignItems: "baseline",
-  },
-  wordmark: {
-    fontSize: 18,
-    fontWeight: "700",
-    color: tokens.ink,
-    letterSpacing: -0.36,
-  },
-  wordmarkDot: {
-    fontSize: 18,
-    fontWeight: "700",
-    color: tokens.orange,
-    letterSpacing: -0.36,
-  },
-  iconBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: "rgba(26,20,16,0.045)",
-    alignItems: "center",
-    justifyContent: "center",
   },
   pressed: {
     opacity: 0.7,
