@@ -1,6 +1,6 @@
 import { useState, useMemo, useCallback } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
-import { useRouter } from "expo-router";
+import { useNavigation } from "expo-router";
 import {
   startOfMonth,
   endOfMonth,
@@ -22,7 +22,7 @@ import { AppHeaderShell } from "../../components/AppHeader";
 import { WeekdayNames } from "@nag/core";
 
 const CalendarScreen = () => {
-  const router = useRouter();
+  const navigation = useNavigation();
   const today = startOfDay(new Date());
   const currentMonthStart = startOfMonth(today);
 
@@ -58,7 +58,16 @@ const CalendarScreen = () => {
 
   return (
     <View style={styles.outer}>
-      <AppHeaderShell title="Calendar" onBack={() => router.replace("/")} />
+      <AppHeaderShell
+        title="Calendar"
+        onBack={() => {
+          // Parent navigator is material-top-tabs; switching to the home
+          // tab (`index`) is the "back" action from calendar.
+          (navigation as unknown as { jumpTo: (name: string) => void }).jumpTo(
+            "index",
+          );
+        }}
+      />
       <View style={styles.container}>
         {/* Month navigation */}
         <View style={styles.header}>
