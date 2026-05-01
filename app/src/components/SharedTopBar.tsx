@@ -29,11 +29,19 @@ export const SharedTopBar = ({ state, jumpTo }: TabBarProps) => {
   const onCalendar = active === "calendar";
   const onToday = active === "index";
 
+  // material-top-tabs' jumpTo (from SceneRendererProps) takes a route
+  // KEY, not a name. Look up the key by name so the swipe animation
+  // still plays.
+  const goTo = (name: string) => {
+    const route = state.routes.find((r) => r.name === name);
+    if (route) jumpTo(route.key);
+  };
+
   return (
     <View style={[styles.wrap, { paddingTop: insets.top }]}>
       <View style={styles.row}>
         <Pressable
-          onPress={() => jumpTo("account")}
+          onPress={() => goTo("account")}
           hitSlop={8}
           style={({ pressed }) => [
             styles.avatar,
@@ -54,7 +62,7 @@ export const SharedTopBar = ({ state, jumpTo }: TabBarProps) => {
           <View style={styles.titleRow}>
             {!onToday && (
               <Pressable
-                onPress={() => jumpTo("index")}
+                onPress={() => goTo("index")}
                 hitSlop={10}
                 accessibilityLabel="Back to today"
                 accessibilityRole="button"
@@ -84,7 +92,7 @@ export const SharedTopBar = ({ state, jumpTo }: TabBarProps) => {
         </View>
 
         <Pressable
-          onPress={() => jumpTo("calendar")}
+          onPress={() => goTo("calendar")}
           hitSlop={8}
           style={({ pressed }) => [
             styles.iconBtn,
