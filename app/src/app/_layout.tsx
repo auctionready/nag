@@ -45,7 +45,10 @@ const InnerLayout = () => {
           headerRight: () => <SyncStatusPill />,
         }}
       >
-        <Stack.Screen name="(tabs)" options={{ title: "Nag HQ" }} />
+        <Stack.Screen
+          name="(tabs)"
+          options={{ title: "Nag HQ", headerShown: false }}
+        />
         <Stack.Screen name="admin" options={{ title: "Admin" }} />
         <Stack.Screen
           name="account"
