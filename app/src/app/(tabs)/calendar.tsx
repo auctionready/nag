@@ -1,5 +1,6 @@
 import { useState, useMemo, useCallback } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { useRouter } from "expo-router";
 import {
   startOfMonth,
   endOfMonth,
@@ -17,9 +18,11 @@ import {
   useCalendarCheckIns,
   useSelectedDayCheckIns,
 } from "../../components/useCalendarCheckIns";
+import { AppHeaderShell } from "../../components/AppHeader";
 import { WeekdayNames } from "@nag/core";
 
 const CalendarScreen = () => {
+  const router = useRouter();
   const today = startOfDay(new Date());
   const currentMonthStart = startOfMonth(today);
 
@@ -54,117 +57,124 @@ const CalendarScreen = () => {
   );
 
   return (
-    <View style={styles.container}>
-      {/* Month navigation */}
-      <View style={styles.header}>
-        <Pressable onPress={() => changeMonth(-1)} style={styles.navButton}>
-          <Text style={styles.navButtonText}>{"<"}</Text>
-        </Pressable>
-        <Text style={styles.monthTitle}>
-          {format(currentMonth, "MMMM yyyy")}
-        </Text>
-        <Pressable
-          onPress={() => changeMonth(1)}
-          style={styles.navButton}
-          disabled={isCurrentMonth}
-        >
-          <Text
-            style={[
-              styles.navButtonText,
-              isCurrentMonth && styles.navButtonDisabled,
-            ]}
+    <View style={styles.outer}>
+      <AppHeaderShell title="Calendar" onBack={() => router.replace("/")} />
+      <View style={styles.container}>
+        {/* Month navigation */}
+        <View style={styles.header}>
+          <Pressable onPress={() => changeMonth(-1)} style={styles.navButton}>
+            <Text style={styles.navButtonText}>{"<"}</Text>
+          </Pressable>
+          <Text style={styles.monthTitle}>
+            {format(currentMonth, "MMMM yyyy")}
+          </Text>
+          <Pressable
+            onPress={() => changeMonth(1)}
+            style={styles.navButton}
+            disabled={isCurrentMonth}
           >
-            {">"}
-          </Text>
-        </Pressable>
-      </View>
-
-      {/* Weekday headers */}
-      <View style={styles.weekdayRow}>
-        {WeekdayNames.map((d) => (
-          <View key={d} style={styles.weekdayCell}>
-            <Text style={styles.weekdayText}>{d}</Text>
-          </View>
-        ))}
-      </View>
-
-      {/* Calendar grid */}
-      <View style={styles.grid}>
-        {/* Empty cells for offset */}
-        {Array.from({ length: firstDayOffset }).map((_, i) => (
-          <View key={`empty-${i}`} style={styles.dayCell} />
-        ))}
-        {days.map((day) => {
-          const key = startOfDay(day).toISOString();
-          const dayCheckIns = checkInsByDate.get(key);
-          const hasCheckIns = dayCheckIns && dayCheckIns.length > 0;
-          const isSelected = selectedDay && isSameDay(day, selectedDay);
-          const isToday = isSameDay(day, today);
-          const isFuture = isAfter(day, today);
-
-          return (
-            <Pressable
-              key={key}
-              style={[styles.dayCell, isSelected && styles.dayCellSelected]}
-              onPress={() => !isFuture && setSelectedDay(day)}
-              disabled={isFuture}
+            <Text
+              style={[
+                styles.navButtonText,
+                isCurrentMonth && styles.navButtonDisabled,
+              ]}
             >
-              <Text
-                style={[
-                  styles.dayText,
-                  isToday && styles.dayTextToday,
-                  isSelected && styles.dayTextSelected,
-                  isFuture && styles.dayTextFuture,
-                ]}
-              >
-                {format(day, "d")}
-              </Text>
-              {hasCheckIns && (
-                <View style={styles.dotRow}>
-                  <View style={styles.dot} />
-                  {dayCheckIns.length > 1 && <View style={styles.dot} />}
-                  {dayCheckIns.length > 2 && <View style={styles.dot} />}
-                </View>
-              )}
-            </Pressable>
-          );
-        })}
-      </View>
-
-      {/* Selected day detail */}
-      {selectedDay && (
-        <View style={styles.detailSection}>
-          <Text style={styles.detailTitle}>
-            {format(selectedDay, "EEEE, MMMM d")}
-          </Text>
-          {selectedDayCheckIns.length === 0 ? (
-            <Text style={styles.emptyDetail}>No check-ins this day</Text>
-          ) : (
-            <ScrollView style={styles.detailScroll}>
-              {selectedDayCheckIns.map((ci) => (
-                <View key={ci.id} style={styles.detailRow}>
-                  <View style={styles.detailDot} />
-                  <View style={styles.detailContent}>
-                    <Text style={styles.detailHabit}>{ci.habitTitle}</Text>
-                    <Text style={styles.detailTime}>
-                      {format(ci.timestamp, "h:mm a")}
-                      {ci.skipped ? " (skipped)" : ""}
-                    </Text>
-                  </View>
-                </View>
-              ))}
-            </ScrollView>
-          )}
+              {">"}
+            </Text>
+          </Pressable>
         </View>
-      )}
+
+        {/* Weekday headers */}
+        <View style={styles.weekdayRow}>
+          {WeekdayNames.map((d) => (
+            <View key={d} style={styles.weekdayCell}>
+              <Text style={styles.weekdayText}>{d}</Text>
+            </View>
+          ))}
+        </View>
+
+        {/* Calendar grid */}
+        <View style={styles.grid}>
+          {/* Empty cells for offset */}
+          {Array.from({ length: firstDayOffset }).map((_, i) => (
+            <View key={`empty-${i}`} style={styles.dayCell} />
+          ))}
+          {days.map((day) => {
+            const key = startOfDay(day).toISOString();
+            const dayCheckIns = checkInsByDate.get(key);
+            const hasCheckIns = dayCheckIns && dayCheckIns.length > 0;
+            const isSelected = selectedDay && isSameDay(day, selectedDay);
+            const isToday = isSameDay(day, today);
+            const isFuture = isAfter(day, today);
+
+            return (
+              <Pressable
+                key={key}
+                style={[styles.dayCell, isSelected && styles.dayCellSelected]}
+                onPress={() => !isFuture && setSelectedDay(day)}
+                disabled={isFuture}
+              >
+                <Text
+                  style={[
+                    styles.dayText,
+                    isToday && styles.dayTextToday,
+                    isSelected && styles.dayTextSelected,
+                    isFuture && styles.dayTextFuture,
+                  ]}
+                >
+                  {format(day, "d")}
+                </Text>
+                {hasCheckIns && (
+                  <View style={styles.dotRow}>
+                    <View style={styles.dot} />
+                    {dayCheckIns.length > 1 && <View style={styles.dot} />}
+                    {dayCheckIns.length > 2 && <View style={styles.dot} />}
+                  </View>
+                )}
+              </Pressable>
+            );
+          })}
+        </View>
+
+        {/* Selected day detail */}
+        {selectedDay && (
+          <View style={styles.detailSection}>
+            <Text style={styles.detailTitle}>
+              {format(selectedDay, "EEEE, MMMM d")}
+            </Text>
+            {selectedDayCheckIns.length === 0 ? (
+              <Text style={styles.emptyDetail}>No check-ins this day</Text>
+            ) : (
+              <ScrollView style={styles.detailScroll}>
+                {selectedDayCheckIns.map((ci) => (
+                  <View key={ci.id} style={styles.detailRow}>
+                    <View style={styles.detailDot} />
+                    <View style={styles.detailContent}>
+                      <Text style={styles.detailHabit}>{ci.habitTitle}</Text>
+                      <Text style={styles.detailTime}>
+                        {format(ci.timestamp, "h:mm a")}
+                        {ci.skipped ? " (skipped)" : ""}
+                      </Text>
+                    </View>
+                  </View>
+                ))}
+              </ScrollView>
+            )}
+          </View>
+        )}
+      </View>
     </View>
   );
 };
 
 const styles = StyleSheet.create({
+  outer: {
+    flex: 1,
+    backgroundColor: "#FFF8F0",
+  },
   container: {
     flex: 1,
-    backgroundColor: "#fff",
+    backgroundColor: "#FFF8F0",
     padding: 16,
   },
   header: {

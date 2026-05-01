@@ -5,32 +5,26 @@ import Svg, { Path } from "react-native-svg";
 import { tokens } from "./theme";
 import { SyncDot } from "./SyncDot";
 
-// Subset of `NativeStackHeaderProps` from `@react-navigation/native-stack`,
-// inlined so this app workspace doesn't need a direct dep on the package
-// (it's transitively present via expo-router).
-interface AppHeaderProps {
-  back?: { title: string | undefined };
-  options: { title?: string };
+interface AppHeaderShellProps {
+  title: string;
+  onBack?: () => void;
 }
 
 /**
- * Shared header for non-home screens. Matches the home board's visual
- * language: cream background, ink title, back button styled like the
- * top bar's icon buttons, sync indicator on the right.
+ * Pure presentational header — title, optional back button, SyncDot.
+ * Use directly when a screen needs to render its own header (e.g. tab
+ * routes whose parent navigator doesn't provide a Stack header). For
+ * Stack screens use `AppHeaderForStack`.
  */
-export const AppHeader = ({ options, back }: AppHeaderProps) => {
+export const AppHeaderShell = ({ title, onBack }: AppHeaderShellProps) => {
   const insets = useSafeAreaInsets();
-  const navigation = useNavigation();
-  const title = options.title ?? "";
-  const showBack = !!back;
-
   return (
     <View style={[styles.wrap, { paddingTop: insets.top }]}>
       <View style={styles.row}>
         <View style={styles.side}>
-          {showBack && (
+          {onBack && (
             <Pressable
-              onPress={() => navigation.goBack()}
+              onPress={onBack}
               hitSlop={8}
               style={({ pressed }) => [
                 styles.iconBtn,
@@ -59,6 +53,27 @@ export const AppHeader = ({ options, back }: AppHeaderProps) => {
         </View>
       </View>
     </View>
+  );
+};
+
+// Subset of `NativeStackHeaderProps` from `@react-navigation/native-stack`,
+// inlined so this app workspace doesn't need a direct dep on the package
+// (it's transitively present via expo-router).
+interface StackHeaderShape {
+  back?: { title: string | undefined };
+  options: { title?: string };
+}
+
+/**
+ * Adapter that lets `AppHeaderShell` slot into a Stack's `header` option.
+ */
+export const AppHeader = ({ options, back }: StackHeaderShape) => {
+  const navigation = useNavigation();
+  return (
+    <AppHeaderShell
+      title={options.title ?? ""}
+      onBack={back ? () => navigation.goBack() : undefined}
+    />
   );
 };
 
