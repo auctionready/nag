@@ -10,6 +10,10 @@ jest.mock("../useBoardProgress", () => ({
   }),
 }));
 
+jest.mock("../SyncDot", () => ({
+  SyncDot: () => null,
+}));
+
 const mockHabits = [
   { id: 1, title: "Exercise" },
   { id: 2, title: "Read" },

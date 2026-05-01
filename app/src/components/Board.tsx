@@ -4,6 +4,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Svg, { Path, Rect } from "react-native-svg";
 import { tokens } from "./theme";
 import { useBoardProgress } from "./useBoardProgress";
+import { SyncDot } from "./SyncDot";
 
 interface Habit {
   id: number;
@@ -89,9 +90,12 @@ const TopBar = ({
     >
       <Text style={styles.avatarText}>JC</Text>
     </Pressable>
-    <View style={styles.wordmarkRow}>
-      <Text style={styles.wordmark}>nag</Text>
-      <Text style={styles.wordmarkDot}>.</Text>
+    <View style={styles.wordmarkCol}>
+      <View style={styles.wordmarkRow}>
+        <Text style={styles.wordmark}>nag</Text>
+        <Text style={styles.wordmarkDot}>.</Text>
+      </View>
+      <SyncDot showLabel />
     </View>
     <Pressable
       onPress={onCalendar}
@@ -180,6 +184,10 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "600",
     letterSpacing: 0.4,
+  },
+  wordmarkCol: {
+    alignItems: "center",
+    gap: 2,
   },
   wordmarkRow: {
     flexDirection: "row",
