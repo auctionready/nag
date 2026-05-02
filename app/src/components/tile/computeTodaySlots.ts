@@ -1,6 +1,6 @@
 import { isSameDay } from "date-fns";
 import type { MatchCheckInsToSlotsResult, SlotState } from "@nag/core";
-import type { SlotDotState } from "./TodaySlots";
+import type { SlotDotState } from "./slotDotState";
 
 // "Recently missed" window: a missed slot whose scheduled time was within the
 // last 90 minutes still has emotional gravity (orange ring) — older missed

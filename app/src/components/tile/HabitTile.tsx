@@ -9,6 +9,7 @@ import { HabitTileView } from "./HabitTileView";
 import type { PeriodIndicatorsProps } from "./PeriodIndicators";
 import { computeTodaySlots } from "./computeTodaySlots";
 import { classifyDailyWeek } from "./classifyDailyWeek";
+import { hasMultipleSlotsPerDay } from "./hasMultipleSlotsPerDay";
 
 interface HabitTileProps {
   id: number;
@@ -107,9 +108,10 @@ export const HabitTile = ({ id, title, icon }: HabitTileProps) => {
       title={title}
       icon={icon}
       goal={goal}
-      checkInCount={checkInCount}
+      periodCheckInCount={checkInCount}
       recentCheckIns={recentCheckIns}
-      scheduleCount={schedules.length}
+      multiSlotPerDay={hasMultipleSlotsPerDay(schedules)}
+      hasSchedules={schedules.length > 0}
       isOffDay={snap.isAnchorOffDay}
       periodIndicators={periodIndicators}
       todaySlots={todaySlots}

@@ -14,25 +14,16 @@ const periodWordShort: Record<Regularity, string> = {
 };
 
 /**
- * Short uppercase cadence string for the tile chip — e.g. "DAILY",
- * "3× / WK", "2× / MO". Returns null when the habit has no goal yet.
+ * Lowercase cadence label for the tile chip in text mode — "daily",
+ * "2× / day", "3× / wk", "2× / mo". The chip applies uppercase via CSS.
  */
-export const cadenceLabel = (
-  goal: HabitGoalSummary | null,
-  scheduleCount?: number,
-): string | null => {
-  if (!goal) return null;
-  const f = goal.frequency;
-  if (goal.regularity === "day") {
-    return f === 1 ? "daily" : `${f}× / day`;
+export const cadenceLabel = (goal: HabitGoalSummary): string => {
+  if (goal.frequency <= 1) {
+    if (goal.regularity === "day") return "daily";
+    if (goal.regularity === "week") return "weekly";
+    return "monthly";
   }
-  if (goal.regularity === "week") {
-    if (scheduleCount && scheduleCount > 0 && f === scheduleCount) {
-      return "scheduled";
-    }
-    return `${f}× / wk`;
-  }
-  return `${f}× / ${periodWordShort[goal.regularity]}`;
+  return `${goal.frequency}× / ${periodWordShort[goal.regularity]}`;
 };
 
 const smallNumbers = [
