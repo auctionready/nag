@@ -29,6 +29,8 @@ interface RowProps {
   chevron?: boolean;
   /** Style the row in the orange "danger" colour (sign out, unlink). */
   danger?: boolean;
+  /** Greyed-out + non-interactive — used for not-yet-implemented rows. */
+  disabled?: boolean;
   onPress?: () => void;
   /** Hide the bottom hairline — used on the last row in a group. */
   last?: boolean;
@@ -40,12 +42,19 @@ export const Row = ({
   detail,
   chevron = true,
   danger = false,
+  disabled = false,
   onPress,
   last = false,
 }: RowProps) => {
   const color = danger ? tokens.orange : tokens.ink;
   const body = (
-    <View style={[rowStyles.row, !last && rowStyles.divider]}>
+    <View
+      style={[
+        rowStyles.row,
+        !last && rowStyles.divider,
+        disabled && rowStyles.disabled,
+      ]}
+    >
       {icon && (
         <View
           style={[
@@ -79,7 +88,7 @@ export const Row = ({
       )}
     </View>
   );
-  if (!onPress) return body;
+  if (!onPress || disabled) return body;
   return (
     <Pressable
       onPress={onPress}
@@ -190,6 +199,9 @@ const rowStyles = StyleSheet.create({
   },
   pressed: {
     opacity: 0.6,
+  },
+  disabled: {
+    opacity: 0.4,
   },
 });
 

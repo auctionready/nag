@@ -325,36 +325,15 @@ const SignedInView = ({
       </Group>
 
       <Group title="Habits">
-        <Row
-          icon={iconGrid()}
-          label="Manage habits"
-          detail="—"
-          onPress={() => {
-            /* placeholder */
-          }}
-        />
-        <Row
-          icon={iconClock()}
-          label="Reminders"
-          detail="On"
-          onPress={() => {
-            /* placeholder */
-          }}
-        />
-        <Row
-          icon={iconExport()}
-          label="Export data"
-          last
-          onPress={() => {
-            /* placeholder */
-          }}
-        />
+        <Row icon={iconGrid()} label="Manage habits" disabled />
+        <Row icon={iconClock()} label="Reminders" disabled />
+        <Row icon={iconExport()} label="Export data" last disabled />
       </Group>
 
       <Group title="App">
-        <Row icon={iconAppearance()} label="Appearance" detail="Light" />
-        <Row icon={iconNag()} label="Tone of nags" detail="Cheeky" />
-        <Row icon={iconAbout()} label="About" last />
+        <Row icon={iconAppearance()} label="Appearance" disabled />
+        <Row icon={iconNag()} label="Tone of nags" disabled />
+        <Row icon={iconAbout()} label="About" last disabled />
       </Group>
 
       <Group title="Danger zone">
