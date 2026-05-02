@@ -122,35 +122,36 @@ export const SharedTopBar = ({ state, jumpTo }: TabBarProps) => {
         </Pressable>
 
         <View style={styles.center}>
-          <View style={styles.titleRow}>
-            {!onToday && (
-              <Pressable
-                onPress={() => goTo("index")}
-                hitSlop={10}
-                accessibilityLabel="Back to today"
-                accessibilityRole="button"
-                style={({ pressed }) => [pressed && styles.pressed]}
-              >
-                <Svg width={11} height={11} viewBox="0 0 11 11" fill="none">
-                  <Path
-                    d="M7 1L2.5 5.5 7 10"
-                    stroke={tokens.mute}
-                    strokeWidth={1.7}
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                </Svg>
-              </Pressable>
-            )}
-            {onToday ? (
+          {onToday ? (
+            <View style={styles.titleRow}>
               <View style={styles.wordmarkRow}>
                 <Text style={styles.wordmark}>nag</Text>
                 <Text style={styles.wordmarkDot}>.</Text>
               </View>
-            ) : (
+            </View>
+          ) : (
+            <Pressable
+              onPress={() => goTo("index")}
+              hitSlop={10}
+              accessibilityLabel="Back to today"
+              accessibilityRole="button"
+              style={({ pressed }) => [
+                styles.titleRow,
+                pressed && styles.pressed,
+              ]}
+            >
+              <Svg width={11} height={11} viewBox="0 0 11 11" fill="none">
+                <Path
+                  d="M7 1L2.5 5.5 7 10"
+                  stroke={tokens.mute}
+                  strokeWidth={1.7}
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </Svg>
               <Text style={styles.pageName}>{active}</Text>
-            )}
-          </View>
+            </Pressable>
+          )}
           <SyncDot showLabel />
         </View>
 
