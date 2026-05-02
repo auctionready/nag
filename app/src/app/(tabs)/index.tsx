@@ -17,7 +17,13 @@ const BoardScreen = () => {
     <Board
       habits={habits}
       onAddHabit={() => router.push("/add-habit")}
-      renderTile={(habit) => <HabitTile id={habit.id} title={habit.title} />}
+      renderTile={(habit) => (
+        <HabitTile
+          id={habit.id}
+          title={habit.title}
+          icon={(habit as { icon?: string | null }).icon}
+        />
+      )}
     />
   );
 };

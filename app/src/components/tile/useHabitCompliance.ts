@@ -1,4 +1,5 @@
 import { useLiveQuery } from "drizzle-orm/expo-sqlite";
+import { startOfWeek } from "date-fns";
 import {
   checkInCount,
   checkInsInPeriod,
@@ -48,14 +49,29 @@ export const useHabitCompliance = (
     habitId,
   ]);
 
+  // Daily habits' periodCheckIns is just today, but the week-strip needs to
+  // paint earlier days too. Fetch this week's check-ins separately for them.
+  const weekStartKey = useStableWeekStartKey();
+  const { data: weekRows } = useLiveQuery(
+    checkInsInPeriod(db, habitId, new Date(weekStartKey)),
+    [habitId, weekStartKey],
+  );
+
   const schedules: ScheduleInfo[] = scheduleRows ?? [];
 
   return {
     checkInCount: count,
     /** Every check-in in the current period (for masks/rings/within-day). */
     periodCheckIns: periodCheckInRows ?? [],
+    /** Every check-in since this week's Monday — for the week strip. */
+    weekCheckIns: weekRows ?? [],
     /** A short list for "X minutes ago · Y hours ago" display text only. */
     recentCheckIns: recent ?? [],
     schedules,
   };
 };
+
+// Returns the epoch ms of this week's Monday, stable for the lifetime of the
+// week (so `useLiveQuery` doesn't re-subscribe on every render).
+const useStableWeekStartKey = (): number =>
+  startOfWeek(new Date(), { weekStartsOn: 1 }).getTime();

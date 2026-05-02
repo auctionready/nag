@@ -1,1 +1,10 @@
-{ "ignore_dirs": ["node_modules/.cache", ".expo", "ios/build", "android/build", "android/.gradle", ".git"] }
+{
+  "ignore_dirs": [
+    "node_modules/.cache",
+    ".expo",
+    "ios/build",
+    "android/build",
+    "android/.gradle",
+    ".git"
+  ]
+}

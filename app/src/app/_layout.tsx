@@ -7,7 +7,7 @@ import { useNotificationResponseHandler } from "../infrastructure/notificationRe
 import { useForegroundNotificationSync } from "../infrastructure/foregroundSync";
 import { SyncStatusProvider } from "../infrastructure/syncStatus";
 import { SyncHaltedBanner } from "../components/SyncHaltedBanner";
-import { SyncStatusPill } from "../components/SyncStatusPill";
+import { AppHeader } from "../components/AppHeader";
 import { getClerkPublishableKey, tokenCache } from "../infrastructure/clerk";
 import { ClerkProvider } from "@clerk/clerk-expo";
 import React from "react";
@@ -42,15 +42,15 @@ const InnerLayout = () => {
       <SyncHaltedBanner />
       <Stack
         screenOptions={{
-          headerRight: () => <SyncStatusPill />,
+          header: (props) => <AppHeader {...props} />,
+          contentStyle: { backgroundColor: "#FFF8F0" },
         }}
       >
-        <Stack.Screen name="(tabs)" options={{ title: "Nag HQ" }} />
-        <Stack.Screen name="admin" options={{ title: "Admin" }} />
         <Stack.Screen
-          name="account"
-          options={{ title: "Account", headerRight: () => null }}
+          name="(tabs)"
+          options={{ title: "Nag HQ", headerShown: false }}
         />
+        <Stack.Screen name="admin" options={{ title: "Admin" }} />
         <Stack.Screen name="add-habit" options={{ title: "Add Habit" }} />
         <Stack.Screen name="habit/[id]" options={{ title: "Habit" }} />
         <Stack.Screen

@@ -1,42 +1,44 @@
 import { useCallback, useRef } from "react";
 import { Animated, Pressable, StyleSheet, Text, View } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
-import { formatDistanceToNow } from "date-fns";
+import { formatDistanceToNowStrict } from "date-fns";
 import type { HabitGoalSummary } from "./useHabitGoalSummary";
-import { periodLabels, formatCount } from "./format";
-import { ProgressRing } from "./ProgressRing";
+import { cadenceLabel } from "./format";
 import {
   PeriodIndicators,
   type PeriodIndicatorsProps,
 } from "./PeriodIndicators";
+import { TodaySlots, type SlotDotState } from "./TodaySlots";
+import { HabitGlyph, type HabitIconKind } from "../HabitGlyph";
+import { tokens } from "../theme";
 
 export interface HabitTileViewProps {
   id: number;
   title: string;
+  icon?: string | null;
   goal: HabitGoalSummary | null;
   checkInCount: number;
   recentCheckIns: { timestamp: Date }[];
-  color: string;
-  /**
-   * Value shown by the corner donut ring (0–1). For non-scheduled habits
-   * this is the period progress; for scheduled ones it is today's progress.
-   */
-  ringProgress: number;
+  scheduleCount?: number;
   isOffDay?: boolean;
   periodIndicators?: PeriodIndicatorsProps;
+  /**
+   * Per-slot dot states for today, only when the habit has more than one
+   * slot in a day (multi-slot daily frequency or multiple scheduled times).
+   */
+  todaySlots?: SlotDotState[];
   onPress: () => void;
   onCheckIn: () => Promise<void>;
 }
 
 export const HabitTileView = ({
   title,
+  icon,
   goal,
-  checkInCount: count,
   recentCheckIns: recent,
-  color,
-  ringProgress,
-  isOffDay,
+  scheduleCount,
   periodIndicators,
+  todaySlots,
   onPress,
   onCheckIn,
 }: HabitTileViewProps) => {
@@ -44,12 +46,9 @@ export const HabitTileView = ({
   const didLongPress = useRef(false);
 
   const handleCheckIn = useCallback(() => {
-    // Animate immediately so the user sees the gesture was registered,
-    // even if the dispatch (and its post-commit notification sync) takes
-    // a moment. Errors from `onCheckIn` surface via the caller's logger.
     Animated.sequence([
       Animated.timing(scale, {
-        toValue: 1.1,
+        toValue: 1.04,
         duration: 120,
         useNativeDriver: true,
       }),
@@ -69,6 +68,10 @@ export const HabitTileView = ({
       handleCheckIn();
     });
 
+  const cadence = cadenceLabel(goal, scheduleCount);
+  const last = recent[0]?.timestamp;
+  const lastLabel = last ? `${formatDistanceToNowStrict(last)} ago` : undefined;
+
   return (
     <GestureDetector gesture={longPress}>
       <Pressable
@@ -81,39 +84,43 @@ export const HabitTileView = ({
         }}
         style={styles.wrapper}
       >
-        <Animated.View
-          style={[
-            styles.tile,
-            { backgroundColor: color, transform: [{ scale }] },
-          ]}
-        >
-          <View style={styles.progressRing}>
-            <ProgressRing
-              progress={ringProgress}
-              color={ringProgress >= 1 ? "#86EFAC" : "#fff"}
-            />
+        <Animated.View style={[styles.tile, { transform: [{ scale }] }]}>
+          <View style={styles.header}>
+            <View style={styles.iconBox}>
+              <HabitGlyph
+                kind={icon as HabitIconKind | null | undefined}
+                size={18}
+                color={tokens.ink}
+              />
+            </View>
+            {cadence && (
+              <View style={styles.cadenceChip}>
+                <Text style={styles.cadenceText} numberOfLines={1}>
+                  {cadence}
+                </Text>
+              </View>
+            )}
           </View>
-          <Text style={styles.title}>{title}</Text>
-          {goal && <Text style={styles.subtitle}>{goal.title}</Text>}
-          {goal ? (
-            <Text style={styles.periodCount}>
-              {count > 0
-                ? `${formatCount(count)} ${periodLabels[goal.regularity]}`
-                : `none ${periodLabels[goal.regularity]}`}
-            </Text>
-          ) : (
-            count === 0 && <Text style={styles.periodCount}>no check-ins</Text>
+
+          <Text style={styles.title} numberOfLines={2}>
+            {title}
+          </Text>
+
+          {lastLabel && <Text style={styles.lastCheckIn}>{lastLabel}</Text>}
+
+          <View style={styles.spacer} />
+
+          {todaySlots && todaySlots.length > 1 && (
+            <View style={styles.todaySlots}>
+              <TodaySlots slots={todaySlots} />
+            </View>
           )}
-          {recent.length > 0 && (
-            <Text style={styles.lastCheckIn}>
-              {recent
-                .map((c) =>
-                  formatDistanceToNow(c.timestamp, { addSuffix: true }),
-                )
-                .join(" · ")}
-            </Text>
+
+          {periodIndicators && (
+            <View style={styles.strip}>
+              <PeriodIndicators {...periodIndicators} />
+            </View>
           )}
-          {periodIndicators && <PeriodIndicators {...periodIndicators} />}
         </Animated.View>
       </Pressable>
     </GestureDetector>
@@ -126,37 +133,68 @@ const styles = StyleSheet.create({
   },
   tile: {
     flex: 1,
-    borderRadius: 12,
-    padding: 16,
-    justifyContent: "center",
+    backgroundColor: tokens.surface,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: tokens.border,
+    padding: 14,
+    shadowColor: tokens.ink,
+    shadowOpacity: 0.04,
+    shadowRadius: 2,
+    shadowOffset: { width: 0, height: 1 },
+    elevation: 1,
+    minHeight: 156,
+    flexDirection: "column",
+    gap: 10,
+  },
+  header: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    justifyContent: "space-between",
+    gap: 8,
+  },
+  iconBox: {
+    width: 32,
+    height: 32,
+    borderRadius: 9,
+    backgroundColor: tokens.inkTint,
     alignItems: "center",
+    justifyContent: "center",
+  },
+  cadenceChip: {
+    backgroundColor: tokens.chipTint,
+    borderRadius: 999,
+    paddingHorizontal: 7,
+    paddingVertical: 4,
+    maxWidth: "70%",
+  },
+  cadenceText: {
+    fontFamily: "JetBrainsMono",
+    fontSize: 9.5,
+    letterSpacing: 0.8,
+    color: tokens.mute,
+    textTransform: "uppercase",
   },
   title: {
     fontSize: 16,
     fontWeight: "600",
-    textAlign: "center",
-    color: "#fff",
-  },
-  subtitle: {
-    fontSize: 12,
-    color: "rgba(255, 255, 255, 0.85)",
-    marginTop: 2,
-  },
-  periodCount: {
-    fontSize: 13,
-    fontWeight: "600",
-    color: "rgba(255, 255, 255, 0.9)",
-    marginTop: 6,
+    color: tokens.ink,
+    letterSpacing: -0.16,
+    lineHeight: 19,
   },
   lastCheckIn: {
+    fontFamily: "JetBrainsMono",
     fontSize: 10,
-    color: "rgba(255, 255, 255, 0.65)",
-    marginTop: 3,
-    textAlign: "center",
+    color: tokens.mute,
+    marginTop: -4,
   },
-  progressRing: {
-    position: "absolute",
-    top: 8,
-    right: 8,
+  spacer: {
+    flex: 1,
+  },
+  todaySlots: {
+    marginBottom: 8,
+  },
+  strip: {
+    width: "100%",
   },
 });

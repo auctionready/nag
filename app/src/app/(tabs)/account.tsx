@@ -1,0 +1,1176 @@
+import React from "react";
+import {
+  ActivityIndicator,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from "react-native";
+import * as Linking from "expo-linking";
+import * as WebBrowser from "expo-web-browser";
+import Svg, { Circle, Path, Rect } from "react-native-svg";
+import {
+  useAuth,
+  useSignIn,
+  useSignUp,
+  useSSO,
+  useUser,
+} from "@clerk/clerk-expo";
+import { loadIdentity } from "@nag/core";
+import { db } from "../../db";
+import { unbindAccount, upgradeAccount } from "../../infrastructure/apiClient";
+import { isClerkConfigured } from "../../infrastructure/clerk";
+import { log } from "../../infrastructure/log";
+import { tokens } from "../../components/theme";
+import { Group, ProviderButton, Row } from "../../components/AccountUI";
+import {
+  PROVIDER_LABELS,
+  ProviderGlyph,
+  type ProviderKey,
+  providerFromClerk,
+} from "../../components/ProviderGlyph";
+
+// Required by Expo Auth Session so the OAuth redirect properly closes the
+// in-app browser tab when control returns to the app.
+WebBrowser.maybeCompleteAuthSession();
+
+const logger = log("account");
+
+type UpgradeStatus =
+  | { kind: "idle" }
+  | { kind: "in-progress" }
+  | { kind: "ok" }
+  | { kind: "fail"; message: string };
+
+type CredentialChannel = "email" | "phone";
+type CredentialMode = "sign-in" | "sign-up";
+
+type CredentialFlow =
+  | { stage: "choose" }
+  | {
+      stage: "identifier";
+      channel: CredentialChannel;
+      value: string;
+      busy: boolean;
+      error?: string;
+    }
+  | {
+      stage: "code";
+      channel: CredentialChannel;
+      mode: CredentialMode;
+      identifier: string;
+      code: string;
+      busy: boolean;
+      error?: string;
+    };
+
+type OAuthStrategy = "oauth_google" | "oauth_apple";
+
+const AccountScreen = () => {
+  if (!isClerkConfigured()) {
+    return (
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={styles.scrollContent}
+      >
+        <View style={styles.unconfigured}>
+          <Text style={styles.unconfiguredTitle}>account not configured.</Text>
+          <Text style={styles.unconfiguredBody}>
+            Sign-in is disabled in this build. Set
+            <Text style={styles.code}> EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY </Text>
+            and rebuild.
+          </Text>
+        </View>
+      </ScrollView>
+    );
+  }
+  return <SignedInOrOut />;
+};
+
+export default AccountScreen;
+
+const SignedInOrOut = () => {
+  const { isLoaded, isSignedIn, signOut, getToken } = useAuth();
+  const { user } = useUser();
+  const [status, setStatus] = React.useState<UpgradeStatus>({ kind: "idle" });
+
+  // Tracks whether we've already kicked off an upgrade for the current
+  // signed-in session. Reset when the user signs out. Using a ref instead
+  // of `status.kind` as the guard avoids feedback loops: any `setStatus`
+  // call inside the effect would otherwise change a dep, fire cleanup,
+  // and silently cancel the pending API call.
+  const upgradeStarted = React.useRef(false);
+
+  React.useEffect(() => {
+    if (!isLoaded) return;
+
+    if (!isSignedIn) {
+      upgradeStarted.current = false;
+      setStatus((current) =>
+        current.kind === "idle" ? current : { kind: "idle" },
+      );
+      return;
+    }
+
+    if (upgradeStarted.current) return;
+    upgradeStarted.current = true;
+
+    void (async () => {
+      setStatus({ kind: "in-progress" });
+      try {
+        const identity = await loadIdentity(db);
+        if (!identity) {
+          setStatus({
+            kind: "fail",
+            message: "no local device identity — restart the app",
+          });
+          return;
+        }
+        const idpToken = await getToken();
+        if (!idpToken) {
+          setStatus({ kind: "fail", message: "no IdP token from Clerk" });
+          return;
+        }
+        const result = await upgradeAccount({
+          deviceId: identity.deviceId,
+          idpToken,
+        });
+        if (result.ok) {
+          logger.info(
+            `account upgraded accountId=${result.accountId} sub=${result.idpSubject}`,
+          );
+          setStatus({ kind: "ok" });
+        } else {
+          setStatus({ kind: "fail", message: result.message });
+        }
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        logger.error("upgrade flow threw", err);
+        setStatus({ kind: "fail", message });
+      }
+    })();
+  }, [isLoaded, isSignedIn, getToken]);
+
+  if (!isLoaded) {
+    return (
+      <View style={styles.loadingScreen}>
+        <ActivityIndicator color={tokens.ink} />
+      </View>
+    );
+  }
+
+  if (!isSignedIn) {
+    return (
+      <SignInPanel
+        onFlowError={(message) => setStatus({ kind: "fail", message })}
+      />
+    );
+  }
+
+  return (
+    <SignedInView
+      user={user}
+      status={status}
+      setStatus={setStatus}
+      signOut={signOut}
+      onUnlinked={() => {
+        upgradeStarted.current = false;
+      }}
+    />
+  );
+};
+
+type UnlinkStatus =
+  | { kind: "idle" }
+  | { kind: "in-progress" }
+  | { kind: "fail"; message: string };
+
+const SignedInView = ({
+  user,
+  status,
+  setStatus,
+  signOut,
+  onUnlinked,
+}: {
+  user: ReturnType<typeof useUser>["user"];
+  status: UpgradeStatus;
+  setStatus: React.Dispatch<React.SetStateAction<UpgradeStatus>>;
+  signOut: () => Promise<void>;
+  onUnlinked: () => void;
+}) => {
+  const [unlink, setUnlink] = React.useState<UnlinkStatus>({ kind: "idle" });
+
+  const onUnlink = React.useCallback(async () => {
+    setUnlink({ kind: "in-progress" });
+    try {
+      const result = await unbindAccount();
+      if (!result.ok) {
+        setUnlink({ kind: "fail", message: result.message });
+        return;
+      }
+      logger.info(`account unbound accountId=${result.accountId}`);
+      onUnlinked();
+      setStatus({ kind: "idle" });
+      setUnlink({ kind: "idle" });
+      // Sign out of Clerk so the next attempt starts from the connector
+      // picker rather than silently re-using the stale Clerk session.
+      await signOut();
+    } catch (err) {
+      logger.error("unlink flow threw", err);
+      setUnlink({
+        kind: "fail",
+        message: err instanceof Error ? err.message : "unlink failed",
+      });
+    }
+  }, [onUnlinked, setStatus, signOut]);
+
+  const busy = unlink.kind === "in-progress";
+
+  // Display info derived from Clerk's UserResource.
+  const provider: ProviderKey =
+    providerFromClerk(user?.externalAccounts?.[0]?.provider) ??
+    (user?.primaryEmailAddress ? "email" : "phone");
+  const email =
+    user?.primaryEmailAddress?.emailAddress ??
+    user?.primaryPhoneNumber?.phoneNumber ??
+    "";
+  const name =
+    user?.fullName ||
+    [user?.firstName, user?.lastName].filter(Boolean).join(" ").trim() ||
+    user?.username ||
+    email ||
+    "Signed in";
+  const initials = computeInitials(name);
+
+  return (
+    <ScrollView
+      style={styles.scroll}
+      contentContainerStyle={styles.scrollContent}
+    >
+      {/* Profile header */}
+      <View style={styles.profileHeader}>
+        <View style={styles.avatarWrap}>
+          <View style={styles.avatar}>
+            <Text style={styles.avatarText}>{initials}</Text>
+          </View>
+          <View style={styles.providerBadge}>
+            <View style={styles.providerBadgeInner}>
+              <ProviderGlyph
+                provider={provider}
+                size={12}
+                color={tokens.cream}
+              />
+            </View>
+          </View>
+        </View>
+        <Text style={styles.name} numberOfLines={1}>
+          {name}
+        </Text>
+        {email ? (
+          <Text style={styles.email} numberOfLines={1}>
+            {email}
+          </Text>
+        ) : null}
+      </View>
+
+      {/* Stats strip — placeholders for now (streak / habits / this-mo) */}
+      <View style={styles.statsStrip}>
+        {[
+          { v: "—", l: "streak" },
+          { v: "—", l: "habits" },
+          { v: "—", l: "this mo" },
+        ].map((s) => (
+          <View key={s.l} style={styles.statCell}>
+            <Text style={styles.statValue}>{s.v}</Text>
+            <Text style={styles.statLabel}>{s.l}</Text>
+          </View>
+        ))}
+      </View>
+
+      <UpgradeStatusLine status={status} />
+
+      <Group title="Linked account">
+        <Row
+          icon={
+            <ProviderGlyph provider={provider} size={14} color={tokens.ink} />
+          }
+          label={`Signed in with ${PROVIDER_LABELS[provider]}`}
+          detail={email || undefined}
+          chevron={false}
+        />
+        <Row
+          icon={
+            <Svg
+              width={14}
+              height={14}
+              viewBox="0 0 14 14"
+              fill="none"
+              stroke={tokens.orange}
+              strokeWidth={1.7}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <Path d="M5 2L2 2L2 12L5 12" />
+              <Path d="M9 4L12 7L9 10" />
+              <Path d="M12 7L6 7" />
+            </Svg>
+          }
+          label="Sign out"
+          chevron={false}
+          danger
+          last
+          onPress={busy ? undefined : () => void signOut()}
+        />
+      </Group>
+
+      <Group title="Habits">
+        <Row icon={iconGrid()} label="Manage habits" disabled />
+        <Row icon={iconClock()} label="Reminders" disabled />
+        <Row icon={iconExport()} label="Export data" last disabled />
+      </Group>
+
+      <Group title="App">
+        <Row icon={iconAppearance()} label="Appearance" disabled />
+        <Row icon={iconNag()} label="Tone of nags" disabled />
+        <Row icon={iconAbout()} label="About" last disabled />
+      </Group>
+
+      <Group title="Danger zone">
+        {unlink.kind === "fail" && (
+          <View style={styles.unlinkError}>
+            <Text style={styles.unlinkErrorText} numberOfLines={4}>
+              Could not unlink: {unlink.message}
+            </Text>
+          </View>
+        )}
+        <Row
+          icon={
+            <Svg
+              width={14}
+              height={14}
+              viewBox="0 0 14 14"
+              fill="none"
+              stroke={tokens.orange}
+              strokeWidth={1.7}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <Path d="M3 4h8M5 4V2.5A1 1 0 016 1.5h2a1 1 0 011 1V4M4 4l.5 8a1 1 0 001 1h3a1 1 0 001-1L10 4" />
+            </Svg>
+          }
+          label={busy ? "Unlinking…" : "Unlink identity (keeps your data)"}
+          danger
+          chevron={false}
+          last
+          onPress={busy ? undefined : () => void onUnlink()}
+        />
+      </Group>
+
+      <View style={{ height: 32 }} />
+    </ScrollView>
+  );
+};
+
+const SignInPanel = ({
+  onFlowError,
+}: {
+  onFlowError: (message: string) => void;
+}) => {
+  const { startSSOFlow } = useSSO();
+  const signInHook = useSignIn();
+  const signUpHook = useSignUp();
+  const [flow, setFlow] = React.useState<CredentialFlow>({ stage: "choose" });
+
+  const onOAuth = React.useCallback(
+    async (strategy: OAuthStrategy) => {
+      try {
+        const result = await startSSOFlow({
+          strategy,
+          redirectUrl: Linking.createURL("/oauth-redirect"),
+        });
+
+        const sessionId =
+          result.createdSessionId ??
+          result.signIn?.createdSessionId ??
+          result.signUp?.createdSessionId ??
+          null;
+
+        if (sessionId && result.setActive) {
+          await result.setActive({ session: sessionId });
+          return;
+        }
+
+        const missing = result.signUp?.missingFields ?? [];
+        const unverified = result.signUp?.unverifiedFields ?? [];
+        logger.warn(
+          `SSO completed without a session — strategy=${strategy} signIn.status=${result.signIn?.status} signUp.status=${result.signUp?.status} missing=${JSON.stringify(missing)} unverified=${JSON.stringify(unverified)}`,
+        );
+        const reason =
+          missing.length > 0
+            ? `Clerk requires ${missing.join(", ")} — relax sign-up requirements in the Clerk dashboard`
+            : "sign-in completed but no session was created";
+        onFlowError(reason);
+      } catch (err) {
+        logger.error(`SSO flow threw strategy=${strategy}`, err);
+        onFlowError(err instanceof Error ? err.message : "sign-in failed");
+      }
+    },
+    [startSSOFlow, onFlowError],
+  );
+
+  const startCredentialFlow = (channel: CredentialChannel) => {
+    setFlow({ stage: "identifier", channel, value: "", busy: false });
+  };
+
+  const submitIdentifier = async () => {
+    if (flow.stage !== "identifier") return;
+    if (!signInHook.isLoaded || !signUpHook.isLoaded) return;
+    const identifier = flow.value.trim();
+    if (!identifier) {
+      setFlow({ ...flow, error: requiredFieldMessage(flow.channel) });
+      return;
+    }
+    setFlow({ ...flow, busy: true, error: undefined });
+    try {
+      const mode = await prepareCredentialFlow({
+        channel: flow.channel,
+        identifier,
+        signIn: signInHook.signIn,
+        signUp: signUpHook.signUp,
+      });
+      setFlow({
+        stage: "code",
+        channel: flow.channel,
+        mode,
+        identifier,
+        code: "",
+        busy: false,
+      });
+    } catch (err) {
+      logger.error(`credential prep failed channel=${flow.channel}`, err);
+      setFlow({
+        ...flow,
+        busy: false,
+        error: err instanceof Error ? err.message : "could not start sign-in",
+      });
+    }
+  };
+
+  const submitCode = async () => {
+    if (flow.stage !== "code") return;
+    if (!signInHook.isLoaded || !signUpHook.isLoaded) return;
+    const code = flow.code.trim();
+    if (!code) {
+      setFlow({ ...flow, error: "Enter the verification code" });
+      return;
+    }
+    setFlow({ ...flow, busy: true, error: undefined });
+    try {
+      await verifyCredentialCode({
+        channel: flow.channel,
+        mode: flow.mode,
+        code,
+        signIn: signInHook.signIn,
+        signUp: signUpHook.signUp,
+        setActive: signInHook.setActive,
+      });
+    } catch (err) {
+      logger.error(
+        `credential verify failed channel=${flow.channel} mode=${flow.mode}`,
+        err,
+      );
+      setFlow({
+        ...flow,
+        busy: false,
+        error: err instanceof Error ? err.message : "verification failed",
+      });
+    }
+  };
+
+  if (flow.stage === "identifier") {
+    return (
+      <CredentialIdentifierForm
+        flow={flow}
+        onChange={(value) => setFlow({ ...flow, value, error: undefined })}
+        onSubmit={() => void submitIdentifier()}
+        onBack={() => setFlow({ stage: "choose" })}
+      />
+    );
+  }
+  if (flow.stage === "code") {
+    return (
+      <CredentialCodeForm
+        flow={flow}
+        onChange={(code) => setFlow({ ...flow, code, error: undefined })}
+        onSubmit={() => void submitCode()}
+        onBack={() =>
+          setFlow({
+            stage: "identifier",
+            channel: flow.channel,
+            value: flow.identifier,
+            busy: false,
+          })
+        }
+      />
+    );
+  }
+
+  return (
+    <ScrollView
+      style={styles.scroll}
+      contentContainerStyle={styles.scrollContent}
+    >
+      <View style={styles.unlinkedHeader}>
+        <View style={styles.unlinkedAvatar}>
+          <Svg
+            width={32}
+            height={32}
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke={tokens.mute}
+            strokeWidth={1.6}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <Circle cx={12} cy={9} r={3.5} />
+            <Path d="M5 20c1-3.5 4-5 7-5s6 1.5 7 5" />
+          </Svg>
+        </View>
+        <Text style={styles.unlinkedTitle}>No account linked</Text>
+        <Text style={styles.unlinkedBody}>
+          Link an account to back up habits and sync across devices. Your data
+          stays local until you do.
+        </Text>
+      </View>
+
+      <View style={styles.providerStack}>
+        <ProviderButton
+          primary
+          label="Continue with Apple"
+          icon={
+            <ProviderGlyph provider="apple" size={16} color={tokens.cream} />
+          }
+          onPress={() => void onOAuth("oauth_apple")}
+        />
+        <ProviderButton
+          label="Continue with Google"
+          icon={<ProviderGlyph provider="google" size={16} />}
+          onPress={() => void onOAuth("oauth_google")}
+        />
+        <ProviderButton
+          label="Continue with Email"
+          icon={<ProviderGlyph provider="email" size={16} color={tokens.ink} />}
+          onPress={() => startCredentialFlow("email")}
+        />
+        <ProviderButton
+          label="Continue with Phone"
+          icon={<ProviderGlyph provider="phone" size={16} color={tokens.ink} />}
+          onPress={() => startCredentialFlow("phone")}
+        />
+      </View>
+
+      <Text style={styles.disclaimer}>
+        we never post or read your contacts.
+      </Text>
+
+      <View style={{ height: 32 }} />
+    </ScrollView>
+  );
+};
+
+const CredentialIdentifierForm = ({
+  flow,
+  onChange,
+  onSubmit,
+  onBack,
+}: {
+  flow: Extract<CredentialFlow, { stage: "identifier" }>;
+  onChange: (value: string) => void;
+  onSubmit: () => void;
+  onBack: () => void;
+}) => (
+  <ScrollView
+    style={styles.scroll}
+    contentContainerStyle={styles.scrollContent}
+  >
+    <View style={styles.formHeader}>
+      <Text style={styles.formTitle}>
+        {flow.channel === "email" ? "sign in with email" : "sign in with phone"}
+      </Text>
+      <Text style={styles.formBody}>
+        {flow.channel === "email"
+          ? "Enter your email address. We'll send a one-time code."
+          : "Enter your phone number in international format (e.g. +14155550123). We'll send a code by SMS."}
+      </Text>
+    </View>
+    <View style={styles.formCard}>
+      <TextInput
+        style={styles.input}
+        value={flow.value}
+        onChangeText={onChange}
+        autoCapitalize="none"
+        autoCorrect={false}
+        keyboardType={flow.channel === "email" ? "email-address" : "phone-pad"}
+        textContentType={
+          flow.channel === "email" ? "emailAddress" : "telephoneNumber"
+        }
+        placeholder={
+          flow.channel === "email" ? "you@example.com" : "+14155550123"
+        }
+        placeholderTextColor={tokens.mute}
+        editable={!flow.busy}
+        accessibilityLabel={
+          flow.channel === "email" ? "Email address" : "Phone number"
+        }
+      />
+      {flow.error && <Text style={styles.formError}>{flow.error}</Text>}
+    </View>
+    <View style={styles.formActions}>
+      <ProviderButton
+        primary
+        label={flow.busy ? "Sending…" : "Send code"}
+        icon={<View />}
+        onPress={onSubmit}
+        busy={flow.busy}
+      />
+      <ProviderButton
+        label="Back"
+        icon={<View />}
+        onPress={onBack}
+        disabled={flow.busy}
+      />
+    </View>
+  </ScrollView>
+);
+
+const CredentialCodeForm = ({
+  flow,
+  onChange,
+  onSubmit,
+  onBack,
+}: {
+  flow: Extract<CredentialFlow, { stage: "code" }>;
+  onChange: (value: string) => void;
+  onSubmit: () => void;
+  onBack: () => void;
+}) => (
+  <ScrollView
+    style={styles.scroll}
+    contentContainerStyle={styles.scrollContent}
+  >
+    <View style={styles.formHeader}>
+      <Text style={styles.formTitle}>enter verification code</Text>
+      <Text style={styles.formBody}>
+        We sent a code to <Text style={styles.bold}>{flow.identifier}</Text>.
+        Enter it below to finish signing in.
+      </Text>
+    </View>
+    <View style={styles.formCard}>
+      <TextInput
+        style={styles.input}
+        value={flow.code}
+        onChangeText={onChange}
+        autoCapitalize="none"
+        autoCorrect={false}
+        keyboardType="number-pad"
+        textContentType="oneTimeCode"
+        placeholder="123456"
+        placeholderTextColor={tokens.mute}
+        editable={!flow.busy}
+        accessibilityLabel="Verification code"
+      />
+      {flow.error && <Text style={styles.formError}>{flow.error}</Text>}
+    </View>
+    <View style={styles.formActions}>
+      <ProviderButton
+        primary
+        label={flow.busy ? "Verifying…" : "Verify"}
+        icon={<View />}
+        onPress={onSubmit}
+        busy={flow.busy}
+      />
+      <ProviderButton
+        label="Back"
+        icon={<View />}
+        onPress={onBack}
+        disabled={flow.busy}
+      />
+    </View>
+  </ScrollView>
+);
+
+type MaybeClerkError = {
+  errors?: { code?: string; longMessage?: string; message?: string }[];
+};
+
+const clerkErrorCode = (err: unknown): string | undefined => {
+  const e = err as MaybeClerkError;
+  return e?.errors?.[0]?.code;
+};
+
+const clerkErrorMessage = (err: unknown): string | undefined => {
+  const e = err as MaybeClerkError;
+  return e?.errors?.[0]?.longMessage ?? e?.errors?.[0]?.message;
+};
+
+type ClerkSignIn = any;
+type ClerkSignUp = any;
+type ClerkSetActive = (params: { session: string }) => Promise<void>;
+
+const prepareCredentialFlow = async ({
+  channel,
+  identifier,
+  signIn,
+  signUp,
+}: {
+  channel: CredentialChannel;
+  identifier: string;
+  signIn: ClerkSignIn;
+  signUp: ClerkSignUp;
+}): Promise<CredentialMode> => {
+  const strategy = channel === "email" ? "email_code" : "phone_code";
+  try {
+    await signIn.create({ identifier });
+    const factor = signIn.supportedFirstFactors?.find(
+      (f: { strategy: string }) => f.strategy === strategy,
+    );
+    if (!factor) {
+      throw new Error(
+        `${strategy} is not enabled for this Clerk instance — enable it in the Clerk dashboard`,
+      );
+    }
+    await signIn.prepareFirstFactor(factor);
+    return "sign-in";
+  } catch (err) {
+    if (clerkErrorCode(err) === "form_identifier_not_found") {
+      // No account yet — fall through to sign-up.
+    } else {
+      throw new Error(clerkErrorMessage(err) ?? (err as Error).message);
+    }
+  }
+
+  if (channel === "email") {
+    await signUp.create({ emailAddress: identifier });
+    await signUp.prepareEmailAddressVerification({ strategy: "email_code" });
+  } else {
+    await signUp.create({ phoneNumber: identifier });
+    await signUp.preparePhoneNumberVerification({ strategy: "phone_code" });
+  }
+  return "sign-up";
+};
+
+const verifyCredentialCode = async ({
+  channel,
+  mode,
+  code,
+  signIn,
+  signUp,
+  setActive,
+}: {
+  channel: CredentialChannel;
+  mode: CredentialMode;
+  code: string;
+  signIn: ClerkSignIn;
+  signUp: ClerkSignUp;
+  setActive: ClerkSetActive;
+}): Promise<void> => {
+  if (mode === "sign-in") {
+    const strategy = channel === "email" ? "email_code" : "phone_code";
+    const result = await signIn.attemptFirstFactor({ strategy, code });
+    if (result.status !== "complete" || !result.createdSessionId) {
+      throw new Error(`sign-in incomplete (status=${result.status})`);
+    }
+    await setActive({ session: result.createdSessionId });
+    return;
+  }
+
+  const result =
+    channel === "email"
+      ? await signUp.attemptEmailAddressVerification({ code })
+      : await signUp.attemptPhoneNumberVerification({ code });
+  if (result.status !== "complete" || !result.createdSessionId) {
+    const missing = result.missingFields ?? [];
+    const reason =
+      missing.length > 0
+        ? `Clerk requires ${missing.join(", ")} — relax sign-up requirements in the Clerk dashboard`
+        : `sign-up incomplete (status=${result.status})`;
+    throw new Error(reason);
+  }
+  await setActive({ session: result.createdSessionId });
+};
+
+const requiredFieldMessage = (channel: CredentialChannel) =>
+  channel === "email" ? "Enter your email address" : "Enter your phone number";
+
+const UpgradeStatusLine = ({ status }: { status: UpgradeStatus }) => {
+  switch (status.kind) {
+    case "idle":
+      return null;
+    case "in-progress":
+      return (
+        <View style={styles.statusRow}>
+          <ActivityIndicator color={tokens.ink} />
+          <Text style={styles.statusText}>linking your account…</Text>
+        </View>
+      );
+    case "ok":
+      return null;
+    case "fail":
+      return (
+        <View style={styles.statusErrorBox}>
+          <Text style={styles.statusErrorText} numberOfLines={4}>
+            Could not link account: {status.message}
+          </Text>
+        </View>
+      );
+  }
+};
+
+const computeInitials = (name: string): string => {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return "•";
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+};
+
+// ── Inline icon factories for placeholder rows ───────────────────
+const iconGrid = () => (
+  <Svg
+    width={14}
+    height={14}
+    viewBox="0 0 14 14"
+    fill="none"
+    stroke={tokens.ink}
+    strokeWidth={1.7}
+  >
+    <Rect x={2} y={2} width={4} height={4} rx={1} />
+    <Rect x={8} y={2} width={4} height={4} rx={1} />
+    <Rect x={2} y={8} width={4} height={4} rx={1} />
+    <Rect x={8} y={8} width={4} height={4} rx={1} />
+  </Svg>
+);
+const iconClock = () => (
+  <Svg
+    width={14}
+    height={14}
+    viewBox="0 0 14 14"
+    fill="none"
+    stroke={tokens.ink}
+    strokeWidth={1.7}
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <Circle cx={7} cy={7} r={5} />
+    <Path d="M7 4v3l2 2" />
+  </Svg>
+);
+const iconExport = () => (
+  <Svg
+    width={14}
+    height={14}
+    viewBox="0 0 14 14"
+    fill="none"
+    stroke={tokens.ink}
+    strokeWidth={1.7}
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <Path d="M3 5h8M3 8h8M3 5v6h8V5" />
+    <Path d="M5 2v3M9 2v3" />
+  </Svg>
+);
+const iconAppearance = () => (
+  <Svg
+    width={14}
+    height={14}
+    viewBox="0 0 14 14"
+    fill="none"
+    stroke={tokens.ink}
+    strokeWidth={1.7}
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <Circle cx={7} cy={7} r={3} />
+    <Path d="M7 1v1.5M7 11.5V13M1 7h1.5M11.5 7H13" />
+  </Svg>
+);
+const iconNag = () => (
+  <Svg
+    width={14}
+    height={14}
+    viewBox="0 0 14 14"
+    fill="none"
+    stroke={tokens.ink}
+    strokeWidth={1.7}
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <Path d="M2 4h10M2 7h6M2 10h8" />
+  </Svg>
+);
+const iconAbout = () => (
+  <Svg
+    width={14}
+    height={14}
+    viewBox="0 0 14 14"
+    fill="none"
+    stroke={tokens.ink}
+    strokeWidth={1.7}
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <Circle cx={7} cy={7} r={5} />
+    <Path d="M7 6.5v3M7 4.5v.5" />
+  </Svg>
+);
+
+const styles = StyleSheet.create({
+  scroll: {
+    flex: 1,
+    backgroundColor: tokens.cream,
+  },
+  scrollContent: {
+    paddingTop: 8,
+    paddingBottom: 16,
+  },
+  loadingScreen: {
+    flex: 1,
+    backgroundColor: tokens.cream,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  unconfigured: {
+    padding: 24,
+    gap: 10,
+  },
+  unconfiguredTitle: {
+    fontSize: 22,
+    fontWeight: "600",
+    color: tokens.ink,
+    letterSpacing: -0.4,
+  },
+  unconfiguredBody: {
+    fontSize: 14,
+    lineHeight: 20,
+    color: tokens.mute,
+  },
+  code: {
+    fontFamily: "JetBrainsMono",
+    fontSize: 12,
+  },
+  // Profile header (signed in)
+  profileHeader: {
+    paddingHorizontal: 20,
+    paddingTop: 8,
+    paddingBottom: 18,
+    alignItems: "center",
+    gap: 10,
+  },
+  avatarWrap: {
+    position: "relative",
+  },
+  avatar: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: "rgba(26,20,16,0.06)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  avatarText: {
+    fontSize: 26,
+    fontWeight: "600",
+    color: tokens.ink,
+    letterSpacing: 0.4,
+  },
+  providerBadge: {
+    position: "absolute",
+    right: -2,
+    bottom: -2,
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: tokens.cream,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  providerBadgeInner: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: tokens.ink,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  name: {
+    fontSize: 20,
+    fontWeight: "600",
+    color: tokens.ink,
+    letterSpacing: -0.4,
+    marginTop: 2,
+  },
+  email: {
+    fontFamily: "JetBrainsMono",
+    fontSize: 11,
+    color: tokens.mute,
+  },
+  // Stats strip
+  statsStrip: {
+    marginHorizontal: 16,
+    marginTop: 4,
+    padding: 14,
+    backgroundColor: tokens.surface,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: tokens.border,
+    flexDirection: "row",
+  },
+  statCell: {
+    flex: 1,
+    alignItems: "center",
+    gap: 2,
+  },
+  statValue: {
+    fontSize: 22,
+    fontWeight: "700",
+    color: tokens.ink,
+    letterSpacing: -0.5,
+  },
+  statLabel: {
+    fontFamily: "JetBrainsMono",
+    fontSize: 9.5,
+    color: tokens.mute,
+    letterSpacing: 1,
+    textTransform: "uppercase",
+  },
+  // Status / errors
+  statusRow: {
+    marginHorizontal: 16,
+    marginTop: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    backgroundColor: tokens.surface,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: tokens.border,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  statusText: {
+    fontSize: 13,
+    color: tokens.mute,
+  },
+  statusErrorBox: {
+    marginHorizontal: 16,
+    marginTop: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    backgroundColor: "rgba(255,90,54,0.1)",
+    borderRadius: 12,
+  },
+  statusErrorText: {
+    fontSize: 13,
+    color: tokens.orange,
+  },
+  unlinkError: {
+    paddingHorizontal: 14,
+    paddingTop: 10,
+    paddingBottom: 6,
+  },
+  unlinkErrorText: {
+    fontSize: 13,
+    color: tokens.orange,
+  },
+  // Unlinked / sign-in
+  unlinkedHeader: {
+    paddingHorizontal: 24,
+    paddingVertical: 22,
+    alignItems: "center",
+    gap: 12,
+  },
+  unlinkedAvatar: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: "rgba(26,20,16,0.04)",
+    borderWidth: 1.5,
+    borderStyle: "dashed",
+    borderColor: "rgba(26,20,16,0.18)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  unlinkedTitle: {
+    fontSize: 20,
+    fontWeight: "600",
+    color: tokens.ink,
+    letterSpacing: -0.4,
+  },
+  unlinkedBody: {
+    fontSize: 13,
+    lineHeight: 19,
+    color: tokens.mute,
+    textAlign: "center",
+    maxWidth: 260,
+  },
+  providerStack: {
+    paddingHorizontal: 16,
+    gap: 8,
+  },
+  disclaimer: {
+    paddingHorizontal: 24,
+    paddingTop: 14,
+    fontFamily: "JetBrainsMono",
+    fontSize: 10,
+    color: tokens.mute,
+    letterSpacing: 1,
+    textAlign: "center",
+  },
+  // Credential forms (identifier / code)
+  formHeader: {
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    paddingBottom: 12,
+    gap: 8,
+  },
+  formTitle: {
+    fontSize: 22,
+    fontWeight: "700",
+    color: tokens.ink,
+    letterSpacing: -0.4,
+  },
+  formBody: {
+    fontSize: 14,
+    lineHeight: 20,
+    color: tokens.mute,
+  },
+  formCard: {
+    marginHorizontal: 16,
+    backgroundColor: tokens.surface,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: tokens.border,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  input: {
+    fontSize: 16,
+    color: tokens.ink,
+    paddingVertical: 12,
+  },
+  formError: {
+    fontSize: 13,
+    color: tokens.orange,
+    paddingVertical: 6,
+  },
+  formActions: {
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    gap: 8,
+  },
+  bold: {
+    fontWeight: "600",
+    color: tokens.ink,
+  },
+});

@@ -7,19 +7,27 @@ import { useHabitGoalSummary } from "./useHabitGoalSummary";
 import { useHabitCompliance } from "./useHabitCompliance";
 import { HabitTileView } from "./HabitTileView";
 import type { PeriodIndicatorsProps } from "./PeriodIndicators";
+import { computeTodaySlots } from "./computeTodaySlots";
+import { classifyDailyWeek } from "./classifyDailyWeek";
 
 interface HabitTileProps {
   id: number;
   title: string;
+  icon?: string | null;
 }
 
-const OFF_DAY_COLOR = "#8E8E93";
+const ALL_DAYS_MASK = 0x7f; // Sun..Sat all set — every day "scheduled" for daily habits.
 
-export const HabitTile = ({ id, title }: HabitTileProps) => {
+export const HabitTile = ({ id, title, icon }: HabitTileProps) => {
   const router = useRouter();
   const goal = useHabitGoalSummary(id);
-  const { checkInCount, periodCheckIns, recentCheckIns, schedules } =
-    useHabitCompliance(id, goal);
+  const {
+    checkInCount,
+    periodCheckIns,
+    weekCheckIns,
+    recentCheckIns,
+    schedules,
+  } = useHabitCompliance(id, goal);
 
   const now = new Date();
   const snap = habitProgressSnapshot({
@@ -31,10 +39,9 @@ export const HabitTile = ({ id, title }: HabitTileProps) => {
     colors: complianceColors,
   });
 
+  const isDaily = goal?.regularity === "day";
   const isWeekly = goal?.regularity === "week";
   const isMonthly = goal?.regularity === "month";
-  // A weekly habit with no day-of-week schedule still shows day indicators,
-  // but painted from the check-in mask rather than the (empty) schedule.
   const hasSchedule = isWeekly && snap.scheduledDaysMask !== 0;
 
   const effectiveScheduledMask = hasSchedule
@@ -43,26 +50,44 @@ export const HabitTile = ({ id, title }: HabitTileProps) => {
   const effectiveCheckedInMask = hasSchedule
     ? snap.completedDaysMask
     : snap.unscheduledWeeklyMask;
-  // Check-ins on *unscheduled* days still need to light up their letter so
-  // the user sees them. Only meaningful for scheduled habits — the
-  // unscheduled-weekly branch already fills every check-in day via
-  // `unscheduledWeeklyMask`.
   const effectiveAnyCheckInMask = hasSchedule ? snap.anyCheckInDaysMask : 0;
+
+  // Daily habits show a 7-day strip with every day "scheduled". Each day's
+  // cell is "done" once the user hits goal.frequency check-ins, "partial"
+  // when they've checked in but haven't yet, and "missed"/"future" when
+  // empty — driven by classifyDailyWeek over this week's check-ins.
+  const dailyMasks =
+    isDaily && goal ? classifyDailyWeek(weekCheckIns, goal.frequency) : null;
+
+  // Today's slot pips — only shown when there's >1 slot in a day. For
+  // scheduled habits we map matchCheckInsToSlots' result; for daily-frequency
+  // habits with frequency > 1 we synthesise pips from today's check-in count.
+  const todaySlots = computeTodaySlots(
+    goal,
+    snap.slots,
+    weekCheckIns,
+    schedules.length,
+    now,
+  );
 
   const periodIndicators: PeriodIndicatorsProps | undefined = isMonthly
     ? { regularity: "month", checkIns: periodCheckIns, now }
-    : effectiveScheduledMask
+    : dailyMasks
       ? {
-          regularity: "week",
-          scheduledDaysMask: effectiveScheduledMask,
-          checkedInDaysMask: effectiveCheckedInMask,
-          partialDaysMask: hasSchedule ? snap.partialDaysMask : 0,
-          anyCheckInDaysMask: effectiveAnyCheckInMask,
-          todayColor: hasSchedule ? snap.anchorColor : undefined,
-          partialColor: hasSchedule ? complianceColors.partial : undefined,
-          missedColor: hasSchedule ? complianceColors.failing : undefined,
+          regularity: "day",
+          scheduledDaysMask: ALL_DAYS_MASK,
+          checkedInDaysMask: dailyMasks.completedDaysMask,
+          partialDaysMask: dailyMasks.partialDaysMask,
         }
-      : undefined;
+      : effectiveScheduledMask
+        ? {
+            regularity: "week",
+            scheduledDaysMask: effectiveScheduledMask,
+            checkedInDaysMask: effectiveCheckedInMask,
+            partialDaysMask: hasSchedule ? snap.partialDaysMask : 0,
+            anyCheckInDaysMask: effectiveAnyCheckInMask,
+          }
+        : undefined;
 
   const handlePress = useCallback(() => {
     router.push(`/habit/${id}`);
@@ -80,13 +105,14 @@ export const HabitTile = ({ id, title }: HabitTileProps) => {
     <HabitTileView
       id={id}
       title={title}
+      icon={icon}
       goal={goal}
       checkInCount={checkInCount}
       recentCheckIns={recentCheckIns}
-      color={snap.isAnchorOffDay ? OFF_DAY_COLOR : snap.periodColor}
-      ringProgress={snap.isAnchorOffDay ? 0 : snap.ring}
+      scheduleCount={schedules.length}
       isOffDay={snap.isAnchorOffDay}
       periodIndicators={periodIndicators}
+      todaySlots={todaySlots}
       onPress={handlePress}
       onCheckIn={handleCheckIn}
     />
