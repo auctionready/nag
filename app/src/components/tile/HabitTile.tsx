@@ -1,19 +1,14 @@
 import { useCallback } from "react";
 import { useRouter } from "expo-router";
-import {
-  Day,
-  habitProgressSnapshot,
-  type SlotState,
-  type MatchCheckInsToSlotsResult,
-} from "@nag/core";
-import { isSameDay } from "date-fns";
+import { habitProgressSnapshot } from "@nag/core";
 import { dispatch } from "../../infrastructure/dispatch";
 import { complianceColors } from "../getComplianceColor";
 import { useHabitGoalSummary } from "./useHabitGoalSummary";
 import { useHabitCompliance } from "./useHabitCompliance";
 import { HabitTileView } from "./HabitTileView";
 import type { PeriodIndicatorsProps } from "./PeriodIndicators";
-import type { SlotDotState } from "./TodaySlots";
+import { computeTodaySlots } from "./computeTodaySlots";
+import { classifyDailyWeek } from "./classifyDailyWeek";
 
 interface HabitTileProps {
   id: number;
@@ -122,97 +117,4 @@ export const HabitTile = ({ id, title, icon }: HabitTileProps) => {
       onCheckIn={handleCheckIn}
     />
   );
-};
-
-/**
- * Builds today's slot pip states for the tile's TodaySlots row. Returns
- * undefined when the habit doesn't have multiple slots in a day —
- * single-slot habits don't need the pip strip.
- *
- * Two modes:
- * - Scheduled habits with multiple timed slots today: map snap.slots'
- *   per-slot status (`done`/`upcoming`/`missed`/`skipped`) to dot states.
- *   A slot whose time is past but very recent → `behind`; older → `missed`.
- * - Daily-frequency habits with `frequency > 1` and no schedules: synthesise
- *   `frequency` pips from today's check-in count — first N done, rest pending.
- */
-const computeTodaySlots = (
-  goal: { regularity: string; frequency: number } | null,
-  slots: MatchCheckInsToSlotsResult | null,
-  weekCheckIns: { timestamp: Date }[],
-  scheduleCount: number,
-  now: Date,
-): SlotDotState[] | undefined => {
-  if (!goal) return undefined;
-
-  // Scheduled habits with multiple timed slots today.
-  if (slots && slots.total > 1) {
-    return slots.slots.map((s) => mapSlotStatus(s, now));
-  }
-
-  // Daily frequency > 1 with no schedules → synthesise pips from today's
-  // check-in count.
-  if (goal.regularity === "day" && goal.frequency > 1 && scheduleCount === 0) {
-    const todayCount = weekCheckIns.filter((c) =>
-      isSameDay(c.timestamp, now),
-    ).length;
-    const total = goal.frequency;
-    const done = Math.min(todayCount, total);
-    const ahead = Math.max(0, todayCount - total);
-    const out: SlotDotState[] = [];
-    for (let i = 0; i < done; i++) out.push("done");
-    for (let i = 0; i < total - done; i++) out.push("pending");
-    for (let i = 0; i < ahead; i++) out.push("ahead");
-    return out;
-  }
-
-  return undefined;
-};
-
-// "Recently missed" window: a missed slot whose scheduled time was within the
-// last 90 minutes still has emotional gravity (orange ring) — older missed
-// slots fade to a muted dot.
-const RECENT_MISS_WINDOW_MIN = 90;
-
-const mapSlotStatus = (slot: SlotState, now: Date): SlotDotState => {
-  if (slot.status === "done" || slot.status === "skipped") return "done";
-  if (slot.status === "upcoming") return "pending";
-  // status === "missed"
-  const slotMinutes = slot.hour * 60 + slot.minute;
-  const nowMinutes = now.getHours() * 60 + now.getMinutes();
-  const elapsed = nowMinutes - slotMinutes;
-  return elapsed <= RECENT_MISS_WINDOW_MIN ? "behind" : "missed";
-};
-
-/**
- * For daily habits with `frequency` slots-per-day, classify each day of the
- * current week as done (>= frequency check-ins) or partial (1..frequency-1).
- * `frequency = 1` collapses to "done if any check-in".
- */
-const classifyDailyWeek = (
-  weekCheckIns: { timestamp: Date }[],
-  frequency: number,
-): { completedDaysMask: number; partialDaysMask: number } => {
-  const counts = [0, 0, 0, 0, 0, 0, 0];
-  for (const c of weekCheckIns) {
-    counts[c.timestamp.getDay()] += 1;
-  }
-  let completedDaysMask = 0;
-  let partialDaysMask = 0;
-  const target = Math.max(1, frequency);
-  const dayBits = [
-    Day.Sun,
-    Day.Mon,
-    Day.Tue,
-    Day.Wed,
-    Day.Thu,
-    Day.Fri,
-    Day.Sat,
-  ];
-  for (let dow = 0; dow < 7; dow++) {
-    const n = counts[dow];
-    if (n >= target) completedDaysMask |= dayBits[dow];
-    else if (n > 0) partialDaysMask |= dayBits[dow];
-  }
-  return { completedDaysMask, partialDaysMask };
 };
