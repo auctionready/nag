@@ -17,9 +17,11 @@ export interface HabitTileViewProps {
   title: string;
   icon?: string | null;
   goal: HabitGoalSummary | null;
-  checkInCount: number;
+  /** Total check-ins in the goal's current period (week or month). */
+  periodCheckInCount: number;
   recentCheckIns: { timestamp: Date }[];
-  weekCheckInCount: number;
+  /** Schedule has 2+ slots on at least one day-of-week. */
+  multiSlotPerDay: boolean;
   isOffDay?: boolean;
   periodIndicators?: PeriodIndicatorsProps;
   /**
@@ -35,9 +37,9 @@ export const HabitTileView = ({
   title,
   icon,
   goal,
-  checkInCount,
+  periodCheckInCount,
   recentCheckIns: recent,
-  weekCheckInCount,
+  multiSlotPerDay,
   periodIndicators,
   todaySlots,
   onPress,
@@ -69,13 +71,12 @@ export const HabitTileView = ({
       handleCheckIn();
     });
 
-  const monthCheckInCount = goal?.regularity === "month" ? checkInCount : 0;
-  const chipState = computeChipState(
+  const chipState = computeChipState({
     goal,
     todaySlots,
-    weekCheckInCount,
-    monthCheckInCount,
-  );
+    periodCheckInCount,
+    multiSlotPerDay,
+  });
   const last = recent[0]?.timestamp;
   const lastLabel = last ? `${formatDistanceToNowStrict(last)} ago` : undefined;
 

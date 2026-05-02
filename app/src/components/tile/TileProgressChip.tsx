@@ -13,23 +13,38 @@ const labelByRegularity: Record<HabitGoalSummary["regularity"], string> = {
   month: "monthly",
 };
 
+interface ChipInputs {
+  goal: HabitGoalSummary | null;
+  /** Today's slot dot states — present when today has 1+ scheduled slots. */
+  todaySlots: SlotDotState[] | undefined;
+  /** Total check-ins in the goal's current period (week or month). */
+  periodCheckInCount: number;
+  /**
+   * True when the habit's schedule has more than one slot on at least one
+   * day of the week (e.g. "8am and 6pm on Mon/Wed/Fri"). Determines whether
+   * weekly habits collapse to today-only progress.
+   */
+  multiSlotPerDay: boolean;
+}
+
 /**
  * Builds the top-right chip state for a habit tile.
  *
  * Cases:
  * - frequency=1 → text label ("daily" | "weekly" | "monthly")
  * - daily multi-frequency → today's slot dots (with "today" prefix)
- * - weekly with multi-slot-per-day schedules → today's slot dots (with prefix)
- * - weekly with single-slot-per-day or unscheduled → N=frequency dots filled
- *   from this week's check-in count (specific scheduled days are a guide)
+ * - weekly with multi-slot-per-day schedules → today's slot dots (with prefix);
+ *   when today is an off day with no slots, falls back to an "off today" label
+ * - weekly otherwise → N=frequency dots filled from this week's check-in count
+ *   (specific scheduled days act as a guide, not a gate)
  * - monthly multi-frequency → N=frequency dots filled from this month's count
  */
-export const computeChipState = (
-  goal: HabitGoalSummary | null,
-  todaySlots: SlotDotState[] | undefined,
-  weekCheckInCount: number,
-  monthCheckInCount: number,
-): TileChipState | null => {
+export const computeChipState = ({
+  goal,
+  todaySlots,
+  periodCheckInCount,
+  multiSlotPerDay,
+}: ChipInputs): TileChipState | null => {
   if (!goal) return null;
 
   if (goal.frequency <= 1) {
@@ -41,20 +56,16 @@ export const computeChipState = (
     return { kind: "dots", slots, prefixToday: true };
   }
 
-  if (goal.regularity === "week") {
-    if (todaySlots && todaySlots.length > 1) {
+  if (goal.regularity === "week" && multiSlotPerDay) {
+    if (todaySlots && todaySlots.length > 0) {
       return { kind: "dots", slots: todaySlots, prefixToday: true };
     }
-    return {
-      kind: "dots",
-      slots: buildPeriodSlots(goal.frequency, weekCheckInCount),
-      prefixToday: false,
-    };
+    return { kind: "label", text: "off today" };
   }
 
   return {
     kind: "dots",
-    slots: buildPeriodSlots(goal.frequency, monthCheckInCount),
+    slots: buildPeriodSlots(goal.frequency, periodCheckInCount),
     prefixToday: false,
   };
 };
