@@ -1,12 +1,19 @@
 import { useCallback } from "react";
 import { useRouter } from "expo-router";
-import { Day, habitProgressSnapshot } from "@nag/core";
+import {
+  Day,
+  habitProgressSnapshot,
+  type SlotState,
+  type MatchCheckInsToSlotsResult,
+} from "@nag/core";
+import { isSameDay } from "date-fns";
 import { dispatch } from "../../infrastructure/dispatch";
 import { complianceColors } from "../getComplianceColor";
 import { useHabitGoalSummary } from "./useHabitGoalSummary";
 import { useHabitCompliance } from "./useHabitCompliance";
 import { HabitTileView } from "./HabitTileView";
 import type { PeriodIndicatorsProps } from "./PeriodIndicators";
+import type { SlotDotState } from "./TodaySlots";
 
 interface HabitTileProps {
   id: number;
@@ -57,6 +64,17 @@ export const HabitTile = ({ id, title, icon }: HabitTileProps) => {
   const dailyMasks =
     isDaily && goal ? classifyDailyWeek(weekCheckIns, goal.frequency) : null;
 
+  // Today's slot pips — only shown when there's >1 slot in a day. For
+  // scheduled habits we map matchCheckInsToSlots' result; for daily-frequency
+  // habits with frequency > 1 we synthesise pips from today's check-in count.
+  const todaySlots = computeTodaySlots(
+    goal,
+    snap.slots,
+    weekCheckIns,
+    schedules.length,
+    now,
+  );
+
   const periodIndicators: PeriodIndicatorsProps | undefined = isMonthly
     ? { regularity: "month", checkIns: periodCheckIns, now }
     : dailyMasks
@@ -99,10 +117,71 @@ export const HabitTile = ({ id, title, icon }: HabitTileProps) => {
       scheduleCount={schedules.length}
       isOffDay={snap.isAnchorOffDay}
       periodIndicators={periodIndicators}
+      todaySlots={todaySlots}
       onPress={handlePress}
       onCheckIn={handleCheckIn}
     />
   );
+};
+
+/**
+ * Builds today's slot pip states for the tile's TodaySlots row. Returns
+ * undefined when the habit doesn't have multiple slots in a day —
+ * single-slot habits don't need the pip strip.
+ *
+ * Two modes:
+ * - Scheduled habits with multiple timed slots today: map snap.slots'
+ *   per-slot status (`done`/`upcoming`/`missed`/`skipped`) to dot states.
+ *   A slot whose time is past but very recent → `behind`; older → `missed`.
+ * - Daily-frequency habits with `frequency > 1` and no schedules: synthesise
+ *   `frequency` pips from today's check-in count — first N done, rest pending.
+ */
+const computeTodaySlots = (
+  goal: { regularity: string; frequency: number } | null,
+  slots: MatchCheckInsToSlotsResult | null,
+  weekCheckIns: { timestamp: Date }[],
+  scheduleCount: number,
+  now: Date,
+): SlotDotState[] | undefined => {
+  if (!goal) return undefined;
+
+  // Scheduled habits with multiple timed slots today.
+  if (slots && slots.total > 1) {
+    return slots.slots.map((s) => mapSlotStatus(s, now));
+  }
+
+  // Daily frequency > 1 with no schedules → synthesise pips from today's
+  // check-in count.
+  if (goal.regularity === "day" && goal.frequency > 1 && scheduleCount === 0) {
+    const todayCount = weekCheckIns.filter((c) =>
+      isSameDay(c.timestamp, now),
+    ).length;
+    const total = goal.frequency;
+    const done = Math.min(todayCount, total);
+    const ahead = Math.max(0, todayCount - total);
+    const out: SlotDotState[] = [];
+    for (let i = 0; i < done; i++) out.push("done");
+    for (let i = 0; i < total - done; i++) out.push("pending");
+    for (let i = 0; i < ahead; i++) out.push("ahead");
+    return out;
+  }
+
+  return undefined;
+};
+
+// "Recently missed" window: a missed slot whose scheduled time was within the
+// last 90 minutes still has emotional gravity (orange ring) — older missed
+// slots fade to a muted dot.
+const RECENT_MISS_WINDOW_MIN = 90;
+
+const mapSlotStatus = (slot: SlotState, now: Date): SlotDotState => {
+  if (slot.status === "done" || slot.status === "skipped") return "done";
+  if (slot.status === "upcoming") return "pending";
+  // status === "missed"
+  const slotMinutes = slot.hour * 60 + slot.minute;
+  const nowMinutes = now.getHours() * 60 + now.getMinutes();
+  const elapsed = nowMinutes - slotMinutes;
+  return elapsed <= RECENT_MISS_WINDOW_MIN ? "behind" : "missed";
 };
 
 /**

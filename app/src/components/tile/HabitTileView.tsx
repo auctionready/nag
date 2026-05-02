@@ -8,6 +8,7 @@ import {
   PeriodIndicators,
   type PeriodIndicatorsProps,
 } from "./PeriodIndicators";
+import { TodaySlots, type SlotDotState } from "./TodaySlots";
 import { HabitGlyph, type HabitIconKind } from "../HabitGlyph";
 import { tokens } from "../theme";
 
@@ -21,6 +22,11 @@ export interface HabitTileViewProps {
   scheduleCount?: number;
   isOffDay?: boolean;
   periodIndicators?: PeriodIndicatorsProps;
+  /**
+   * Per-slot dot states for today, only when the habit has more than one
+   * slot in a day (multi-slot daily frequency or multiple scheduled times).
+   */
+  todaySlots?: SlotDotState[];
   onPress: () => void;
   onCheckIn: () => Promise<void>;
 }
@@ -32,6 +38,7 @@ export const HabitTileView = ({
   recentCheckIns: recent,
   scheduleCount,
   periodIndicators,
+  todaySlots,
   onPress,
   onCheckIn,
 }: HabitTileViewProps) => {
@@ -102,6 +109,12 @@ export const HabitTileView = ({
           {lastLabel && <Text style={styles.lastCheckIn}>{lastLabel}</Text>}
 
           <View style={styles.spacer} />
+
+          {todaySlots && todaySlots.length > 1 && (
+            <View style={styles.todaySlots}>
+              <TodaySlots slots={todaySlots} />
+            </View>
+          )}
 
           {periodIndicators && (
             <View style={styles.strip}>
@@ -177,6 +190,9 @@ const styles = StyleSheet.create({
   },
   spacer: {
     flex: 1,
+  },
+  todaySlots: {
+    marginBottom: 8,
   },
   strip: {
     width: "100%",
