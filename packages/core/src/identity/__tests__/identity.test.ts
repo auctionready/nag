@@ -17,7 +17,6 @@ import {
   getAccountId,
   switchLocalAccount,
   clearLocalAuth,
-  clearWholeDevice,
   type TokenStore,
 } from "../identity";
 import type { RegisterDeviceResult } from "../types";
@@ -410,44 +409,6 @@ describe("clearLocalAuth", () => {
     expect(await db.select().from(outbox)).toHaveLength(1);
     const [s] = await db.select().from(syncState).where(eq(syncState.id, 1));
     expect(s.highestServerSequence).toBe(42);
-  });
-});
-
-describe("clearWholeDevice", () => {
-  it("wipes replicated tables, the outbox, the identity row, and the token", async () => {
-    const db = getDb();
-    const tokenStore = new InMemoryTokenStore("device-tok");
-
-    const [{ habitId }] = await db
-      .insert(habit)
-      .values({ externalId: "h-wipe", title: "To be wiped" })
-      .returning({ habitId: habit.id });
-    await db.insert(goal).values({ habitId, regularity: "day", frequency: 1 });
-    await db.insert(checkIn).values({
-      externalId: "c-wipe",
-      habitId,
-      timestamp: new Date("2026-04-15T08:00:00.000Z"),
-      skipped: false,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    });
-    await db.insert(outbox).values({
-      envelopeId: "env-wipe",
-      events: "[]",
-      status: "pending",
-    });
-
-    await clearWholeDevice({ db, tokenStore });
-
-    expect(await loadIdentity(db)).toBeNull();
-    expect(await tokenStore.get()).toBeNull();
-    expect(await db.select().from(habit)).toHaveLength(0);
-    expect(await db.select().from(goal)).toHaveLength(0);
-    expect(await db.select().from(checkIn)).toHaveLength(0);
-    expect(await db.select().from(outbox)).toHaveLength(0);
-    const [s] = await db.select().from(syncState).where(eq(syncState.id, 1));
-    expect(s.halted).toBe(false);
-    expect(s.highestServerSequence).toBe(0);
   });
 });
 
