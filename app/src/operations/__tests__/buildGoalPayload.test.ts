@@ -4,6 +4,7 @@ import type { HabitFormData } from "../../components/HabitForm";
 const baseData: HabitFormData = {
   title: "Exercise",
   description: "",
+  icon: null,
   regularity: "none",
   frequency: "1",
   schedules: [],

@@ -11,11 +11,12 @@ const AddHabitScreen = () => {
       type: "CreateHabit",
       title: values.title,
       description: values.description || undefined,
+      icon: values.icon ?? undefined,
       goal: buildGoalPayload(values) ?? undefined,
     });
     router.back();
   };
 
-  return <HabitForm onSubmit={onSubmit} />;
+  return <HabitForm onSubmit={onSubmit} mode="create" />;
 };
 export default AddHabitScreen;

@@ -39,13 +39,18 @@ export async function handleUpdateHabit(
   const set: Record<string, unknown> = { updatedAt: new Date() };
   if (command.title !== undefined) set.title = command.title;
   if (command.description !== undefined) set.description = command.description;
+  if (command.icon !== undefined) set.icon = command.icon;
 
   await db.update(habit).set(set).where(eq(habit.id, command.habitId));
 
   const events: Event[] = [];
 
   // Emit a HabitDetailsEdited iff any editorial field is in the command.
-  if (command.title !== undefined || command.description !== undefined) {
+  if (
+    command.title !== undefined ||
+    command.description !== undefined ||
+    command.icon !== undefined
+  ) {
     const edited: HabitDetailsEdited = {
       type: "HabitDetailsEdited",
       habitId: existing.externalId,
@@ -55,6 +60,11 @@ export async function handleUpdateHabit(
       edited.clearDescription = true;
     } else if (command.description !== undefined) {
       edited.description = command.description;
+    }
+    if (command.icon === null) {
+      edited.clearIcon = true;
+    } else if (command.icon !== undefined) {
+      edited.icon = command.icon;
     }
     events.push(edited);
   }

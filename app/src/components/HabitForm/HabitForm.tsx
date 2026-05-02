@@ -1,33 +1,31 @@
-import {
-  Alert,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from "react-native";
+import { Alert, ScrollView, StyleSheet, View } from "react-native";
 import { useForm, Controller, useFieldArray } from "react-hook-form";
 import { useEffect, useState } from "react";
+import { tokens } from "../theme";
 import {
   defaultValues,
-  formRegularityValues,
-  regularityLabels,
   type FormRegularity,
   type HabitFormData,
   type HabitFormProps,
   type ScheduleEntry,
 } from "./shared";
 import { AllDays } from "@nag/core";
-import { ScheduleEntrySummary } from "./ScheduleEntrySummary";
-import { ScheduleEditorModal } from "./ScheduleEditorModal";
+import { AdHocCard } from "./AdHocCard";
+import { CadencePills } from "./CadencePills";
+import { DangerZoneCard } from "./DangerZoneCard";
 import { ErrorText } from "./ErrorText";
+import { FrequencyCard } from "./FrequencyCard";
+import { IdentityCard } from "./IdentityCard";
 import { SaveButton } from "./SaveButton";
+import { ScheduledList } from "./ScheduledList";
+import { ScheduleEditorModal } from "./ScheduleEditorModal";
+import { SectionLabel } from "./SectionLabel";
 
 export const HabitForm = ({
   initialValues,
   onSubmit,
   onDelete,
+  mode = "create",
 }: HabitFormProps) => {
   const {
     control,
@@ -119,7 +117,11 @@ export const HabitForm = ({
     setEditingIndex(fields.length);
   };
 
-  const isFrequency = ["day", "week", "month"].includes(watchedRegularity);
+  const isFrequency =
+    watchedRegularity === "day" ||
+    watchedRegularity === "week" ||
+    watchedRegularity === "month";
+  const saveLabel = mode === "edit" ? "save changes" : "start nagging me";
 
   return (
     <View style={styles.outer}>
@@ -127,162 +129,54 @@ export const HabitForm = ({
         style={styles.container}
         contentContainerStyle={styles.content}
       >
-        <Controller
-          control={control}
-          name="title"
-          rules={{ required: "Title is required" }}
-          render={({ field: { onChange, onBlur, value } }) => (
-            <TextInput
-              style={[styles.input, errors.title && styles.inputError]}
-              onBlur={onBlur}
-              onChangeText={onChange}
-              value={value}
-              placeholder="e.g. Exercise"
-            />
-          )}
-        />
-        {errors.title && <ErrorText>{errors.title.message}</ErrorText>}
+        <IdentityCard control={control} titleError={errors.title?.message} />
 
-        <Controller
-          control={control}
-          name="description"
-          rules={{}}
-          render={({ field: { onChange, onBlur, value } }) => (
-            <TextInput
-              style={[
-                styles.input,
-                styles.multilineInput,
-                errors.description && styles.inputError,
-              ]}
-              onBlur={onBlur}
-              onChangeText={onChange}
-              value={value}
-              placeholder="Describe the habit"
-              multiline
-              textAlignVertical="top"
-            />
-          )}
-        />
-        {errors.description && (
-          <ErrorText>{errors.description.message}</ErrorText>
-        )}
-
-        <View style={styles.goalSection}>
+        <View style={styles.section}>
+          <SectionLabel hint="how often you'll do it">cadence</SectionLabel>
           <Controller
             control={control}
             name="regularity"
             render={({ field: { onChange, value } }) => (
-              <View style={styles.segmentedRow}>
-                {formRegularityValues.map((r) => (
-                  <Pressable
-                    key={r}
-                    style={[
-                      styles.segmentButton,
-                      value === r && styles.segmentButtonActive,
-                    ]}
-                    onPress={() => changeRegularity(r, onChange)}
-                  >
-                    <Text
-                      style={[
-                        styles.segmentText,
-                        value === r && styles.segmentTextActive,
-                      ]}
-                    >
-                      {regularityLabels[r]}
-                    </Text>
-                  </Pressable>
-                ))}
-              </View>
+              <CadencePills
+                value={value}
+                onChange={(next) => changeRegularity(next, onChange)}
+              />
             )}
           />
 
+          {watchedRegularity === "none" && <AdHocCard />}
+
           {isFrequency && (
-            <View style={styles.frequencyRow}>
-              <Controller
-                control={control}
-                name="frequency"
-                rules={{
-                  validate: (v) => {
-                    if (!isFrequency) return true;
-                    const n = Number(v);
-                    return (
-                      (Number.isInteger(n) && n >= 1) || "Must be at least 1"
-                    );
-                  },
-                }}
-                render={({ field: { onChange, onBlur, value } }) => (
-                  <TextInput
-                    style={[
-                      styles.input,
-                      styles.frequencyInput,
-                      errors.frequency && styles.inputError,
-                    ]}
-                    onBlur={onBlur}
-                    onChangeText={onChange}
-                    value={value}
-                    keyboardType="number-pad"
-                    placeholder="1"
-                  />
-                )}
-              />
-              <Text style={styles.frequencySuffix}>
-                per {watchedRegularity}
-              </Text>
-            </View>
+            <FrequencyCard
+              control={control}
+              errors={errors}
+              regularity={watchedRegularity}
+            />
+          )}
+          {errors.frequency && (
+            <ErrorText>{errors.frequency.message}</ErrorText>
           )}
 
           {watchedRegularity === "scheduled" && (
-            <>
-              {fields
-                .map((field, index) => ({ field, index }))
-                .sort((a, b) => {
-                  const as = watchedSchedules?.[a.index];
-                  const bs = watchedSchedules?.[b.index];
-                  const aMins =
-                    (Number(as?.hour) || 0) * 60 + (Number(as?.minute) || 0);
-                  const bMins =
-                    (Number(bs?.hour) || 0) * 60 + (Number(bs?.minute) || 0);
-                  return aMins - bMins;
-                })
-                .map(({ field, index }) => (
-                  <ScheduleEntrySummary
-                    key={field.id}
-                    index={index}
-                    watch={watch}
-                    onEdit={() => openEditor(index)}
-                  />
-                ))}
-              <Pressable style={styles.addTimeButton} onPress={addEntry}>
-                <Text style={styles.addTimeButtonText}>+ Add Time</Text>
-              </Pressable>
-            </>
+            <ScheduledList
+              fields={fields}
+              schedules={watchedSchedules}
+              watch={watch}
+              onEdit={openEditor}
+              onAdd={addEntry}
+            />
           )}
         </View>
+
+        {onDelete && <DangerZoneCard onDelete={onDelete} />}
       </ScrollView>
 
-      <View style={styles.bottomButtons}>
+      <View style={styles.footer}>
         <SaveButton
           onPress={handleSubmit(onSubmit)}
           disabled={!isValid || isSubmitting}
+          label={saveLabel}
         />
-
-        {onDelete && (
-          <Pressable
-            style={styles.deleteButton}
-            onPress={() => {
-              Alert.alert(
-                "Delete Habit",
-                "Are you sure? This will also delete all check-ins and goals for this habit.",
-                [
-                  { text: "Cancel", style: "cancel" },
-                  { text: "Delete", style: "destructive", onPress: onDelete },
-                ],
-              );
-            }}
-          >
-            <Text style={styles.deleteButtonText}>Delete Habit</Text>
-          </Pressable>
-        )}
       </View>
 
       {(editingIndex >= 0 || isNewEntry) && (
@@ -310,98 +204,26 @@ export const HabitForm = ({
 const styles = StyleSheet.create({
   outer: {
     flex: 1,
-    backgroundColor: "#fff",
+    backgroundColor: tokens.cream,
   },
   container: {
     flex: 1,
   },
   content: {
     padding: 16,
+    gap: 22,
+  },
+  section: {
     gap: 12,
   },
-  input: {
-    borderWidth: 1,
-    borderColor: "#ccc",
-    borderRadius: 8,
-    padding: 12,
-    fontSize: 16,
-  },
-  multilineInput: {
-    minHeight: 120,
-  },
-  frequencyRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-  },
-  frequencyInput: {
-    width: 80,
-  },
-  frequencySuffix: {
-    fontSize: 14,
-    color: "#666",
-  },
-  inputError: {
-    borderColor: "#ff3b30",
-  },
-  goalSection: {
-    marginTop: 8,
-    gap: 12,
-  },
-  segmentedRow: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 8,
-  },
-  segmentButton: {
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: "#ccc",
-    alignItems: "center",
-  },
-  segmentButtonActive: {
-    backgroundColor: "#007AFF",
-    borderColor: "#007AFF",
-  },
-  segmentText: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#333",
-  },
-  segmentTextActive: {
-    color: "#fff",
-  },
-  bottomButtons: {
-    padding: 16,
-    gap: 12,
+  footer: {
+    paddingHorizontal: 16,
+    paddingTop: 10,
+    paddingBottom: 28,
+    backgroundColor: tokens.cream,
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: "#ccc",
-  },
-  deleteButton: {
-    padding: 16,
-    borderRadius: 8,
-    alignItems: "center",
-    borderWidth: 1,
-    borderColor: "#ff3b30",
-  },
-  deleteButtonText: {
-    color: "#ff3b30",
-    fontSize: 16,
-    fontWeight: "600",
-  },
-  addTimeButton: {
-    marginTop: 4,
-    padding: 12,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: "#007AFF",
-    alignItems: "center",
-  },
-  addTimeButtonText: {
-    color: "#007AFF",
-    fontSize: 14,
-    fontWeight: "600",
+    borderTopColor: tokens.border,
+    flexDirection: "row",
+    gap: 10,
   },
 });

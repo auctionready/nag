@@ -1,4 +1,5 @@
 import { Modal, StyleSheet, Text, View } from "react-native";
+import { tokens } from "../theme";
 import { type ScheduleEntry } from "./shared";
 import { ScheduleEntryForm } from "./ScheduleEntryForm";
 
@@ -20,10 +21,11 @@ export const ScheduleEditorModal = ({
   onRemove,
 }: ScheduleEditorModalProps) => {
   return (
-    <Modal visible animationType="slide" transparent>
+    <Modal visible animationType="slide" transparent onRequestClose={onCancel}>
       <View style={styles.overlay}>
-        <View style={styles.content}>
-          <Text style={styles.title}>Edit Schedule</Text>
+        <View style={styles.sheet}>
+          <View style={styles.handle} />
+          <Text style={styles.title}>edit time-slot</Text>
           <ScheduleEntryForm
             initialValues={initialValues}
             isNew={isNew}
@@ -41,19 +43,30 @@ export const ScheduleEditorModal = ({
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: "rgba(0,0,0,0.4)",
+    backgroundColor: "rgba(26,20,16,0.4)",
     justifyContent: "flex-end",
   },
-  content: {
-    backgroundColor: "#fff",
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
+  sheet: {
+    backgroundColor: tokens.cream,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
     padding: 20,
+    paddingBottom: 28,
     gap: 16,
   },
+  handle: {
+    alignSelf: "center",
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: tokens.faint,
+  },
   title: {
-    fontSize: 17,
-    fontWeight: "600",
+    fontFamily: "JetBrainsMono-Regular",
+    fontSize: 10,
+    color: tokens.mute,
+    letterSpacing: 1.4,
+    textTransform: "uppercase",
     textAlign: "center",
   },
 });
