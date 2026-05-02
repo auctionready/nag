@@ -14,10 +14,12 @@ const inputs = (overrides: {
   todaySlots?: SlotDotState[];
   periodCheckInCount?: number;
   multiSlotPerDay?: boolean;
+  hasSchedules?: boolean;
 }) => ({
   todaySlots: undefined,
   periodCheckInCount: 0,
   multiSlotPerDay: false,
+  hasSchedules: false,
   ...overrides,
 });
 
@@ -52,7 +54,7 @@ describe("computeChipState", () => {
   });
 
   describe("daily, frequency > 1", () => {
-    it("uses provided todaySlots with today prefix", () => {
+    it("uses provided todaySlots with today eyebrow", () => {
       const slots: SlotDotState[] = ["done", "pending", "pending"];
       expect(
         computeChipState(inputs({ goal: goal("day", 3), todaySlots: slots })),
@@ -68,9 +70,8 @@ describe("computeChipState", () => {
     });
   });
 
-  describe("weekly, frequency > 1", () => {
-    it("with multi-slot-per-day uses todaySlots and 'today' prefix", () => {
-      // Schedule has 2+ slots on at least one day-of-week → today mode.
+  describe("weekly, frequency > 1, multi-slot-per-day", () => {
+    it("uses todaySlots with today eyebrow", () => {
       const slots: SlotDotState[] = ["done", "pending", "pending"];
       expect(
         computeChipState(
@@ -78,38 +79,37 @@ describe("computeChipState", () => {
             goal: goal("week", 9),
             todaySlots: slots,
             multiSlotPerDay: true,
+            hasSchedules: true,
           }),
         ),
       ).toEqual({ kind: "dots", slots, prefixToday: true });
     });
 
-    it("with multi-slot-per-day shows just one dot when today has one slot", () => {
-      // Detection comes from the schedule shape, not today's slot count, so
-      // a one-slot day under a multi-slot-per-day schedule still uses today
-      // mode (one dot) rather than collapsing to N=frequency week dots.
-      const slots: SlotDotState[] = ["done"];
+    it("shows 'off today' label when today has no slots", () => {
       expect(
         computeChipState(
           inputs({
             goal: goal("week", 9),
-            todaySlots: slots,
             multiSlotPerDay: true,
+            hasSchedules: true,
           }),
-        ),
-      ).toEqual({ kind: "dots", slots, prefixToday: true });
-    });
-
-    it("with multi-slot-per-day on an off day shows 'off today' label", () => {
-      // No slots today (off day) under a multi-slot-per-day schedule —
-      // dots wouldn't make sense, so fall back to a clear label.
-      expect(
-        computeChipState(
-          inputs({ goal: goal("week", 9), multiSlotPerDay: true }),
         ),
       ).toEqual({ kind: "label", text: "off today" });
     });
+  });
 
-    it("with single-slot-per-day shows N=frequency dots from week count", () => {
+  describe("weekly, frequency > 1, scheduled (single-slot-per-day)", () => {
+    it("renders text label like '3× / wk' — week-strip carries the day detail", () => {
+      // Schedule has specific days (e.g. M·W·F) at one slot each. Dots
+      // would be redundant with the week-strip below.
+      expect(
+        computeChipState(inputs({ goal: goal("week", 3), hasSchedules: true })),
+      ).toEqual({ kind: "label", text: "3× / wk" });
+    });
+  });
+
+  describe("weekly, frequency > 1, unscheduled", () => {
+    it("renders N=frequency dots filled from week count", () => {
       expect(
         computeChipState(
           inputs({ goal: goal("week", 3), periodCheckInCount: 2 }),
@@ -122,9 +122,9 @@ describe("computeChipState", () => {
     });
 
     it("emits all-pending when no check-ins this week yet", () => {
-      expect(computeChipState(inputs({ goal: goal("week", 3) }))).toEqual({
+      expect(computeChipState(inputs({ goal: goal("week", 4) }))).toEqual({
         kind: "dots",
-        slots: ["pending", "pending", "pending"],
+        slots: ["pending", "pending", "pending", "pending"],
         prefixToday: false,
       });
     });
@@ -152,50 +152,27 @@ describe("computeChipState", () => {
         prefixToday: false,
       });
     });
-
-    it("with single-slot-per-day ignores todaySlots", () => {
-      // Today happens to have a slot but the schedule isn't multi-slot/day.
-      // Specific scheduled days are a guide — dots track week progress.
-      const slots: SlotDotState[] = ["done"];
-      expect(
-        computeChipState(
-          inputs({
-            goal: goal("week", 3),
-            todaySlots: slots,
-            periodCheckInCount: 1,
-          }),
-        ),
-      ).toEqual({
-        kind: "dots",
-        slots: ["done", "pending", "pending"],
-        prefixToday: false,
-      });
-    });
   });
 
   describe("monthly, frequency > 1", () => {
-    it("shows N=frequency dots from period count", () => {
+    it("renders text label like '4× / mo' — month-strip carries detail", () => {
       expect(
         computeChipState(
           inputs({ goal: goal("month", 4), periodCheckInCount: 1 }),
         ),
-      ).toEqual({
-        kind: "dots",
-        slots: ["done", "pending", "pending", "pending"],
-        prefixToday: false,
-      });
+      ).toEqual({ kind: "label", text: "4× / mo" });
     });
 
-    it("appends ahead pips when count exceeds frequency", () => {
+    it("ignores schedule shape (still text label)", () => {
       expect(
         computeChipState(
-          inputs({ goal: goal("month", 2), periodCheckInCount: 3 }),
+          inputs({
+            goal: goal("month", 2),
+            periodCheckInCount: 1,
+            hasSchedules: true,
+          }),
         ),
-      ).toEqual({
-        kind: "dots",
-        slots: ["done", "done", "ahead"],
-        prefixToday: false,
-      });
+      ).toEqual({ kind: "label", text: "2× / mo" });
     });
   });
 });

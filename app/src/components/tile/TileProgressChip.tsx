@@ -1,30 +1,23 @@
 import { StyleSheet, Text, View, type ViewStyle } from "react-native";
 import type { HabitGoalSummary } from "./useHabitGoalSummary";
 import type { SlotDotState } from "./slotDotState";
+import { cadenceLabel } from "./format";
 import { tokens } from "../theme";
 
 export type TileChipState =
   | { kind: "label"; text: string }
   | { kind: "dots"; slots: SlotDotState[]; prefixToday: boolean };
 
-const labelByRegularity: Record<HabitGoalSummary["regularity"], string> = {
-  day: "daily",
-  week: "weekly",
-  month: "monthly",
-};
-
 interface ChipInputs {
   goal: HabitGoalSummary | null;
   /** Today's slot dot states — present when today has 1+ scheduled slots. */
   todaySlots: SlotDotState[] | undefined;
-  /** Total check-ins in the goal's current period (week or month). */
+  /** Total check-ins in the goal's current period. */
   periodCheckInCount: number;
-  /**
-   * True when the habit's schedule has more than one slot on at least one
-   * day of the week (e.g. "8am and 6pm on Mon/Wed/Fri"). Determines whether
-   * weekly habits collapse to today-only progress.
-   */
+  /** Schedule has 2+ slots on at least one day-of-week. */
   multiSlotPerDay: boolean;
+  /** Habit has at least one schedule row (specific days/times). */
+  hasSchedules: boolean;
 }
 
 /**
@@ -32,23 +25,28 @@ interface ChipInputs {
  *
  * Cases:
  * - frequency=1 → text label ("daily" | "weekly" | "monthly")
- * - daily multi-frequency → today's slot dots (with "today" prefix)
- * - weekly with multi-slot-per-day schedules → today's slot dots (with prefix);
- *   when today is an off day with no slots, falls back to an "off today" label
- * - weekly otherwise → N=frequency dots filled from this week's check-in count
- *   (specific scheduled days act as a guide, not a gate)
- * - monthly multi-frequency → N=frequency dots filled from this month's count
+ * - daily multi-frequency → today's slot dots (with "today" eyebrow)
+ * - weekly + multi-slot-per-day → today's slot dots (with eyebrow); off-day
+ *   fallback shows "off today"
+ * - weekly + scheduled (single-slot-per-day) → text label "Nx / wk".
+ *   The week-strip already paints the specific days, so dots would be
+ *   redundant.
+ * - weekly + unscheduled (no schedule rows) → N=frequency dots filled from
+ *   this week's check-in count
+ * - monthly multi-frequency → text label "Nx / mo". The month-strip carries
+ *   the per-day detail.
  */
 export const computeChipState = ({
   goal,
   todaySlots,
   periodCheckInCount,
   multiSlotPerDay,
+  hasSchedules,
 }: ChipInputs): TileChipState | null => {
   if (!goal) return null;
 
   if (goal.frequency <= 1) {
-    return { kind: "label", text: labelByRegularity[goal.regularity] };
+    return { kind: "label", text: cadenceLabel(goal) };
   }
 
   if (goal.regularity === "day") {
@@ -56,18 +54,24 @@ export const computeChipState = ({
     return { kind: "dots", slots, prefixToday: true };
   }
 
-  if (goal.regularity === "week" && multiSlotPerDay) {
-    if (todaySlots && todaySlots.length > 0) {
-      return { kind: "dots", slots: todaySlots, prefixToday: true };
+  if (goal.regularity === "week") {
+    if (multiSlotPerDay) {
+      if (todaySlots && todaySlots.length > 0) {
+        return { kind: "dots", slots: todaySlots, prefixToday: true };
+      }
+      return { kind: "label", text: "off today" };
     }
-    return { kind: "label", text: "off today" };
+    if (hasSchedules) {
+      return { kind: "label", text: cadenceLabel(goal) };
+    }
+    return {
+      kind: "dots",
+      slots: buildPeriodSlots(goal.frequency, periodCheckInCount),
+      prefixToday: false,
+    };
   }
 
-  return {
-    kind: "dots",
-    slots: buildPeriodSlots(goal.frequency, periodCheckInCount),
-    prefixToday: false,
-  };
+  return { kind: "label", text: cadenceLabel(goal) };
 };
 
 const buildPeriodSlots = (frequency: number, count: number): SlotDotState[] => {
@@ -87,17 +91,15 @@ interface TileProgressChipProps {
 export const TileProgressChip = ({ state }: TileProgressChipProps) => {
   if (state.kind === "label") {
     return (
-      <View style={styles.chip}>
-        <Text style={styles.text} numberOfLines={1}>
-          {state.text}
-        </Text>
-      </View>
+      <Text style={styles.text} numberOfLines={1}>
+        {state.text}
+      </Text>
     );
   }
 
   return (
-    <View style={[styles.chip, styles.chipDots]}>
-      {state.prefixToday && <Text style={styles.todayLabel}>today</Text>}
+    <View style={styles.row}>
+      {state.prefixToday && <Text style={styles.todayEyebrow}>today</Text>}
       <View style={styles.dots}>
         {state.slots.map((s, i) => (
           <Dot key={i} state={s} />
@@ -129,41 +131,33 @@ const Dot = ({ state }: { state: SlotDotState }) => {
   return <View style={style} />;
 };
 
-const SIZE = 7;
+const SIZE = 6;
 
 const styles = StyleSheet.create({
-  chip: {
-    backgroundColor: tokens.chipTint,
-    borderRadius: 999,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    maxWidth: "75%",
+  row: {
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
   },
-  chipDots: {
-    paddingVertical: 5,
-  },
   text: {
     fontFamily: "JetBrainsMono",
-    fontSize: 9.5,
-    letterSpacing: 0.8,
+    fontSize: 9,
+    letterSpacing: 0.72,
     color: tokens.mute,
     textTransform: "uppercase",
   },
-  todayLabel: {
+  todayEyebrow: {
     fontFamily: "JetBrainsMono",
-    fontSize: 9,
-    fontWeight: "600",
-    letterSpacing: 0.7,
+    fontSize: 8.5,
+    fontWeight: "700",
+    letterSpacing: 0.85,
     textTransform: "uppercase",
     color: tokens.orange,
   },
   dots: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 4,
+    gap: 3,
   },
   dot: {
     width: SIZE,

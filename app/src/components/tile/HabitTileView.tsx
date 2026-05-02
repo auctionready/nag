@@ -22,6 +22,8 @@ export interface HabitTileViewProps {
   recentCheckIns: { timestamp: Date }[];
   /** Schedule has 2+ slots on at least one day-of-week. */
   multiSlotPerDay: boolean;
+  /** Habit has at least one schedule row. */
+  hasSchedules: boolean;
   isOffDay?: boolean;
   periodIndicators?: PeriodIndicatorsProps;
   /**
@@ -40,6 +42,7 @@ export const HabitTileView = ({
   periodCheckInCount,
   recentCheckIns: recent,
   multiSlotPerDay,
+  hasSchedules,
   periodIndicators,
   todaySlots,
   onPress,
@@ -76,6 +79,7 @@ export const HabitTileView = ({
     todaySlots,
     periodCheckInCount,
     multiSlotPerDay,
+    hasSchedules,
   });
   const last = recent[0]?.timestamp;
   const lastLabel = last ? `${formatDistanceToNowStrict(last)} ago` : undefined;
