@@ -122,6 +122,7 @@ export const registerDevice: RegisterDeviceFn = registerDeviceRaw;
 export const upgradeAccount = (request: {
   deviceId: string;
   idpToken: string;
+  force?: boolean;
 }): Promise<UpgradeAccountResult> =>
   apiUpgradeAccount(getApiClient(), request, logger);
 

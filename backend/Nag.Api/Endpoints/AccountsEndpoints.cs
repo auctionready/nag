@@ -17,6 +17,15 @@ public static class AccountsEndpoints
     /// The caller supplies its <c>deviceId</c> (issued at registration) and
     /// a Clerk-issued <c>idpToken</c>; on success the account stores the
     /// JWT's <c>sub</c> as <c>IdpSubject</c> and stamps <c>UpgradedAt</c>.
+    ///
+    /// The default behaviour returns 409 if some other account already
+    /// claims the verified identity — the caller is expected to fall back
+    /// to <c>/devices/pair</c> so the device joins the existing account.
+    /// Setting <c>Force=true</c> opts into the inverse: unbind the
+    /// existing account and bind this device's account to the identity
+    /// instead. Used by the "use this device's data" sign-in flow when
+    /// the user wants their local data to be canonical over whatever
+    /// the server has on the other account.
     /// </summary>
     [AllowAnonymous]
     [NotTenanted]
@@ -83,15 +92,27 @@ public static class AccountsEndpoints
 
         // Reject if some other account already claims this sub. Without this
         // check, two anonymous accounts could end up sharing one identity.
+        // The Force=true escape hatch is the "use this device's data" flow:
+        // the user has chosen to move the identity from the existing account
+        // onto this device's account, so we unbind the loser inline.
         var existingForSub = await session
             .Query<Account>()
             .Where(a => a.IdpSubject == sub)
             .FirstOrDefaultAsync(ct);
         if (existingForSub is not null && existingForSub.Id != account.Id)
         {
-            return Results.Conflict(
-                new ErrorResponse(["this identity is already bound to a different account"])
-            );
+            if (!request.Force)
+            {
+                return Results.Conflict(
+                    new ErrorResponse(["this identity is already bound to a different account"])
+                );
+            }
+            existingForSub.IdpSubject = null;
+            existingForSub.UpgradedAt = null;
+            session.Store(existingForSub);
+            // Drop any cached resolution so the next request keyed by sub
+            // doesn't keep pointing at the now-orphaned account.
+            resolver.Invalidate(sub);
         }
 
         var now = clock.GetUtcNow();
