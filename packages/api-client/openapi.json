@@ -1816,6 +1816,9 @@
           "idpToken": {
             "type": "string",
             "nullable": true
+          },
+          "force": {
+            "type": "boolean"
           }
         },
         "additionalProperties": false

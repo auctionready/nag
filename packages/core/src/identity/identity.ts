@@ -1,6 +1,15 @@
 import { eq } from "drizzle-orm";
-import { identity } from "@nag/schema";
+import {
+  identity,
+  habit,
+  goal,
+  schedule,
+  checkIn,
+  outbox,
+  syncState,
+} from "@nag/schema";
 import type { AnyDb } from "../db";
+import { withTransaction } from "../db/transaction";
 import type { RegisterDeviceFn, RegisterDeviceResult } from "./types";
 
 export type IdentityRow = {
@@ -197,4 +206,103 @@ export const refreshDeviceToken = async ({
 
   info(`identity: token refreshed accountId=${result.accountId}`);
   return result.deviceToken;
+};
+
+export type SwitchLocalAccountOptions = {
+  db: AnyDb;
+  tokenStore: TokenStore;
+  newAccountId: string;
+  newDeviceToken: string;
+  registeredAt: Date;
+  log?: EnsureDeviceRegisteredOptions["log"];
+};
+
+/**
+ * Re-points the local install at a different `accountId` after the user
+ * signs in on a device that had previously been registered as its own
+ * anonymous account (the typical second-device flow). Replicated tables
+ * (`habit`/`goal`/`schedule`/`checkIn`) and the outbox are wiped, and
+ * `sync_state` is reset to `since=0` so the next pull-sync requests a
+ * fresh snapshot from the new account.
+ *
+ * The `deviceId` is intentionally left untouched: the server's
+ * `/devices/pair` call re-parents the existing Device row rather than
+ * issuing a new id, so the local id stays valid. The new device token
+ * (signed for the new accountId) is written to `tokenStore` *after* the
+ * SQLite transaction commits — secure-store writes aren't transactional,
+ * but this ordering means a crash leaves us with a stale token plus
+ * fresh data, which `apiClient.onUnauthorized` already heals via
+ * `refreshDeviceToken`.
+ */
+export const switchLocalAccount = async ({
+  db,
+  tokenStore,
+  newAccountId,
+  newDeviceToken,
+  registeredAt,
+  log,
+}: SwitchLocalAccountOptions): Promise<void> => {
+  const info = log?.info ?? (() => {});
+
+  await withTransaction(db, async () => {
+    await db.delete(checkIn);
+    await db.delete(schedule);
+    await db.delete(goal);
+    await db.delete(habit);
+    await db.delete(outbox);
+    await db
+      .update(syncState)
+      .set({ halted: false, highestServerSequence: 0 })
+      .where(eq(syncState.id, 1));
+    await db
+      .update(identity)
+      .set({ accountId: newAccountId, registeredAt })
+      .where(eq(identity.id, 1));
+  });
+
+  await tokenStore.set(newDeviceToken);
+  info(`identity: switched local account to accountId=${newAccountId}`);
+};
+
+export type ClearLocalAuthOptions = {
+  db: AnyDb;
+  tokenStore: TokenStore;
+  log?: EnsureDeviceRegisteredOptions["log"];
+};
+
+/**
+ * Tears down the local "I'm registered with the server" state when the
+ * user signs out, while keeping every locally-replicated row in place.
+ *
+ * Clears:
+ *   - `identity.accountId` / `identity.registeredAt` (so dispatcher and
+ *     pull-sync no-op until the next sign-in re-registers the device)
+ *   - the secure-store device token (so a stale token can't keep talking
+ *     to the server in the background)
+ *
+ * Preserves:
+ *   - `identity.deviceId` — so the next sign-in calls `POST /devices/register`
+ *     with the same id, hits the server's idempotent re-registration path,
+ *     and rejoins the same Account
+ *   - `habit`/`goal`/`schedule`/`checkIn` — the user's data survives sign-out
+ *   - `outbox` and `syncState` — pending events stay queued and resume
+ *     shipping once the user re-signs-in (or stay forever if they never do,
+ *     which is fine: dispatcher just never runs)
+ *
+ * Distinct from `switchLocalAccount` which *moves* the device to a
+ * different account and therefore wipes the replicated tables to avoid
+ * leaking the previous account's data.
+ */
+export const clearLocalAuth = async ({
+  db,
+  tokenStore,
+  log,
+}: ClearLocalAuthOptions): Promise<void> => {
+  const info = log?.info ?? (() => {});
+  await db
+    .update(identity)
+    .set({ accountId: null, registeredAt: null })
+    .where(eq(identity.id, 1));
+  await tokenStore.clear();
+  info("identity: cleared local auth — sign-in will re-register");
 };

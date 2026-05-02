@@ -27,7 +27,7 @@ type DotStatus = keyof typeof PALETTE;
  * pressables.
  */
 export const SyncDot = ({ showLabel = false }: SyncDotProps) => {
-  const { status, pendingCount } = useSyncStatus();
+  const { status, pendingCount, isAnonymous } = useSyncStatus();
 
   const dotStatus = mapStatus(status);
 
@@ -55,7 +55,7 @@ export const SyncDot = ({ showLabel = false }: SyncDotProps) => {
     return () => loop.stop();
   }, [dotStatus, pulse]);
 
-  if (!isApiConfigured() || status === "disabled") return null;
+  if (!isApiConfigured() || status === "disabled" || isAnonymous) return null;
 
   const palette = PALETTE[dotStatus];
   const label =

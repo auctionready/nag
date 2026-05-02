@@ -1,12 +1,22 @@
 import { describe, it, expect, vi } from "vitest";
 import { eq } from "drizzle-orm";
-import { identity } from "@nag/schema";
+import {
+  identity,
+  habit,
+  goal,
+  schedule,
+  checkIn,
+  outbox,
+  syncState,
+} from "@nag/schema";
 import { setupTestDb } from "../../__tests__/testDb";
 import {
   ensureDeviceRegistered,
   refreshDeviceToken,
   loadIdentity,
   getAccountId,
+  switchLocalAccount,
+  clearLocalAuth,
   type TokenStore,
 } from "../identity";
 import type { RegisterDeviceResult } from "../types";
@@ -278,6 +288,127 @@ describe("refreshDeviceToken", () => {
 
     expect(newToken).toBeNull();
     expect(register).not.toHaveBeenCalled();
+  });
+});
+
+describe("switchLocalAccount", () => {
+  it("rewires identity to the new accountId, wipes replicated tables and outbox, and resets sync state", async () => {
+    const db = getDb();
+    const tokenStore = new InMemoryTokenStore("old-tok");
+
+    // Seed some local data that should be discarded on switch.
+    const [{ habitId }] = await db
+      .insert(habit)
+      .values({ externalId: "h-1", title: "Old habit" })
+      .returning({ habitId: habit.id });
+    const [{ goalId }] = await db
+      .insert(goal)
+      .values({ habitId, regularity: "day", frequency: 1 })
+      .returning({ goalId: goal.id });
+    await db.insert(schedule).values({
+      goalId,
+      hour: 9,
+      minute: 0,
+      days: 0b0111110,
+      dayOfMonth: null,
+      reminder: true,
+    });
+    await db.insert(checkIn).values({
+      externalId: "c-1",
+      habitId,
+      timestamp: new Date("2026-04-01T08:00:00.000Z"),
+      skipped: false,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+    await db.insert(outbox).values({
+      envelopeId: "env-pending",
+      events: "[]",
+      status: "pending",
+    });
+    await db
+      .update(syncState)
+      .set({ halted: true, highestServerSequence: 99 })
+      .where(eq(syncState.id, 1));
+
+    await switchLocalAccount({
+      db,
+      tokenStore,
+      newAccountId: "00000000-0000-4000-8000-0000000000bb",
+      newDeviceToken: "new-tok",
+      registeredAt: new Date("2026-05-02T12:00:00.000Z"),
+    });
+
+    const after = await loadIdentity(db);
+    expect(after?.accountId).toBe("00000000-0000-4000-8000-0000000000bb");
+    expect(after?.registeredAt?.toISOString()).toBe("2026-05-02T12:00:00.000Z");
+    // deviceId is intentionally preserved — server's /devices/pair just
+    // re-parents the existing Device row.
+    expect(after?.deviceId).toBe("00000000-0000-4000-8000-000000000001");
+
+    expect(await db.select().from(habit)).toHaveLength(0);
+    expect(await db.select().from(goal)).toHaveLength(0);
+    expect(await db.select().from(schedule)).toHaveLength(0);
+    expect(await db.select().from(checkIn)).toHaveLength(0);
+    expect(await db.select().from(outbox)).toHaveLength(0);
+
+    const [s] = await db.select().from(syncState).where(eq(syncState.id, 1));
+    expect(s.halted).toBe(false);
+    expect(s.highestServerSequence).toBe(0);
+
+    expect(await tokenStore.get()).toBe("new-tok");
+  });
+});
+
+describe("clearLocalAuth", () => {
+  it("nulls accountId/registeredAt and clears the tokenStore but keeps deviceId and replicated data", async () => {
+    const db = getDb();
+    const tokenStore = new InMemoryTokenStore("device-tok");
+
+    // Seed user data that must survive sign-out.
+    const [{ habitId }] = await db
+      .insert(habit)
+      .values({ externalId: "h-keep", title: "Surviving habit" })
+      .returning({ habitId: habit.id });
+    await db.insert(goal).values({ habitId, regularity: "day", frequency: 1 });
+    await db.insert(checkIn).values({
+      externalId: "c-keep",
+      habitId,
+      timestamp: new Date("2026-04-15T08:00:00.000Z"),
+      skipped: false,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+    await db.insert(outbox).values({
+      envelopeId: "env-keep",
+      events: "[]",
+      status: "pending",
+    });
+    await db
+      .update(syncState)
+      .set({ halted: false, highestServerSequence: 42 })
+      .where(eq(syncState.id, 1));
+
+    const before = await loadIdentity(db);
+    expect(before?.deviceId).toBe("00000000-0000-4000-8000-000000000001");
+    expect(before?.accountId).toBe("00000000-0000-4000-8000-0000000000aa");
+
+    await clearLocalAuth({ db, tokenStore });
+
+    const after = await loadIdentity(db);
+    expect(after?.deviceId).toBe("00000000-0000-4000-8000-000000000001");
+    expect(after?.accountId).toBeNull();
+    expect(after?.registeredAt).toBeNull();
+    expect(await tokenStore.get()).toBeNull();
+
+    // Local data and the unflushed outbox row are intentionally preserved
+    // — the user is still expected to see their habits after signing out.
+    expect(await db.select().from(habit)).toHaveLength(1);
+    expect(await db.select().from(goal)).toHaveLength(1);
+    expect(await db.select().from(checkIn)).toHaveLength(1);
+    expect(await db.select().from(outbox)).toHaveLength(1);
+    const [s] = await db.select().from(syncState).where(eq(syncState.id, 1));
+    expect(s.highestServerSequence).toBe(42);
   });
 });
 

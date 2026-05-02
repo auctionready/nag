@@ -174,6 +174,23 @@ describe("createPullSync", () => {
     expect(getSync).toHaveBeenCalledTimes(3);
   });
 
+  it("returns offline without calling getSync when accountId is null (anonymous mode)", async () => {
+    const db = getDb();
+    // Simulate anonymous-as-local: identity row exists with a deviceId
+    // but no accountId yet (or after sign-out's clearLocalAuth).
+    await db
+      .update(schema.identity)
+      .set({ accountId: null, registeredAt: null })
+      .where(eq(schema.identity.id, 1));
+    const getSync = vi
+      .fn<GetSyncFn>()
+      .mockRejectedValue(new Error("must not be called"));
+
+    const status = await createPullSync({ db, getSync }).run();
+    expect(status).toBe("offline");
+    expect(getSync).not.toHaveBeenCalled();
+  });
+
   it("returns offline on transient failure without applying anything", async () => {
     const db = getDb();
     const getSync = vi.fn<GetSyncFn>().mockResolvedValue({

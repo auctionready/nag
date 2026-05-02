@@ -1,6 +1,7 @@
 import React from "react";
 import {
   ActivityIndicator,
+  Alert,
   ScrollView,
   StyleSheet,
   Text,
@@ -17,11 +18,22 @@ import {
   useSSO,
   useUser,
 } from "@clerk/clerk-expo";
-import { loadIdentity } from "@nag/core";
+import {
+  clearLocalAuth,
+  ensureDeviceRegistered,
+  switchLocalAccount,
+} from "@nag/core";
+import { habit } from "@nag/schema";
 import { db } from "../../db";
-import { unbindAccount, upgradeAccount } from "../../infrastructure/apiClient";
+import {
+  pairDevice,
+  registerDevice,
+  upgradeAccount,
+} from "../../infrastructure/apiClient";
 import { isClerkConfigured } from "../../infrastructure/clerk";
 import { log } from "../../infrastructure/log";
+import { useSyncStatus } from "../../infrastructure/syncStatus";
+import { deviceTokenStore } from "../../infrastructure/tokenStore";
 import { tokens } from "../../components/theme";
 import { Group, ProviderButton, Row } from "../../components/AccountUI";
 import {
@@ -93,6 +105,7 @@ export default AccountScreen;
 const SignedInOrOut = () => {
   const { isLoaded, isSignedIn, signOut, getToken } = useAuth();
   const { user } = useUser();
+  const { kickSync } = useSyncStatus();
   const [status, setStatus] = React.useState<UpgradeStatus>({ kind: "idle" });
 
   // Tracks whether we've already kicked off an upgrade for the current
@@ -119,21 +132,32 @@ const SignedInOrOut = () => {
     void (async () => {
       setStatus({ kind: "in-progress" });
       try {
-        const identity = await loadIdentity(db);
-        if (!identity) {
-          setStatus({
-            kind: "fail",
-            message: "no local device identity — restart the app",
-          });
-          return;
-        }
         const idpToken = await getToken();
         if (!idpToken) {
           setStatus({ kind: "fail", message: "no IdP token from Clerk" });
           return;
         }
+
+        // Sign-in is the moment the app first contacts the server in the
+        // anonymous-as-local model. Make sure the device is registered
+        // (idempotent on `deviceId` — replays succeed) before the upgrade
+        // call, which needs an existing Device row to bind to.
+        const registration = await ensureDeviceRegistered({
+          db,
+          tokenStore: deviceTokenStore,
+          register: registerDevice,
+          log: logger,
+        });
+        if (!registration.accountId) {
+          setStatus({
+            kind: "fail",
+            message: "device registration failed — try again",
+          });
+          return;
+        }
+
         const result = await upgradeAccount({
-          deviceId: identity.deviceId,
+          deviceId: registration.deviceId,
           idpToken,
         });
         if (result.ok) {
@@ -141,16 +165,64 @@ const SignedInOrOut = () => {
             `account upgraded accountId=${result.accountId} sub=${result.idpSubject}`,
           );
           setStatus({ kind: "ok" });
-        } else {
-          setStatus({ kind: "fail", message: result.message });
+          // Kick the sync loop now so the user sees their data immediately
+          // rather than waiting on the safety timer (especially relevant
+          // for devices where this is a fresh upgrade and pull-sync's
+          // since=0 will fetch a snapshot).
+          kickSync("post-upgrade");
+          return;
         }
+
+        // 409 = "this identity is already bound to a different account":
+        // the user has signed in on this device with a Clerk identity that
+        // already owns an account elsewhere. Fall back to the conflict
+        // resolution flow (pair into the existing account, or
+        // force-claim with this device's data).
+        if (result.kind === "non-retriable" && result.status === 409) {
+          logger.info(
+            `upgrade conflicted (${result.message}) — falling back to conflict resolution`,
+          );
+          await runPairFallback({
+            deviceId: registration.deviceId,
+            idpToken,
+            kickSync,
+            signOut,
+            setStatus,
+            onCancelled: () => {
+              upgradeStarted.current = false;
+            },
+          });
+          return;
+        }
+
+        setStatus({ kind: "fail", message: result.message });
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
         logger.error("upgrade flow threw", err);
         setStatus({ kind: "fail", message });
       }
     })();
-  }, [isLoaded, isSignedIn, getToken]);
+  }, [isLoaded, isSignedIn, getToken, kickSync, signOut]);
+
+  // Wrapping signOut so the local auth state is torn down *before* the
+  // Clerk session ends. Order matters: clearing the secure-store token
+  // and identity.accountId stops the dispatcher / pull-sync from
+  // attempting another request under the dying credentials, and the
+  // !isSignedIn effect above resets the rest of the React state
+  // automatically once Clerk reports signed-out. Declared up here, ahead
+  // of the early returns below, to keep the hook order stable across
+  // renders. The trailing kickSync nudges SyncStatusProvider to
+  // re-evaluate `isAnonymous` immediately so the sync dot disappears
+  // without waiting on the next safety-timer tick.
+  const signOutLocal = React.useCallback(async () => {
+    try {
+      await clearLocalAuth({ db, tokenStore: deviceTokenStore });
+    } catch (err) {
+      logger.error("clearLocalAuth threw — continuing with signOut", err);
+    }
+    kickSync("post-signout");
+    await signOut();
+  }, [signOut, kickSync]);
 
   if (!isLoaded) {
     return (
@@ -168,65 +240,167 @@ const SignedInOrOut = () => {
     );
   }
 
-  return (
-    <SignedInView
-      user={user}
-      status={status}
-      setStatus={setStatus}
-      signOut={signOut}
-      onUnlinked={() => {
-        upgradeStarted.current = false;
-      }}
-    />
-  );
+  return <SignedInView user={user} status={status} signOut={signOutLocal} />;
 };
 
-type UnlinkStatus =
-  | { kind: "idle" }
-  | { kind: "in-progress" }
-  | { kind: "fail"; message: string };
+/**
+ * Handles the case where /accounts/upgrade returned 409 because the Clerk
+ * identity is already bound to another account. The behaviour depends on
+ * what's on this device:
+ *
+ *   - No local habits → silently pair into the existing account and let
+ *     pull-sync hydrate the local DB. There's nothing to lose, so no
+ *     prompt.
+ *   - Local habits exist → ask the user to choose between replacing the
+ *     local data with the server's, replacing the server's data with
+ *     this device's (force-upgrade — the "use this device's data"
+ *     flow), or cancelling the sign-in.
+ */
+const runPairFallback = async ({
+  deviceId,
+  idpToken,
+  kickSync,
+  signOut,
+  setStatus,
+  onCancelled,
+}: {
+  deviceId: string;
+  idpToken: string;
+  kickSync: (source: string) => void;
+  signOut: () => Promise<void>;
+  setStatus: React.Dispatch<React.SetStateAction<UpgradeStatus>>;
+  onCancelled: () => void;
+}): Promise<void> => {
+  const localHabits = await db.select({ id: habit.id }).from(habit).limit(1);
+
+  if (localHabits.length === 0) {
+    await runReplaceLocal({ deviceId, idpToken, kickSync, setStatus });
+    return;
+  }
+
+  const choice = await chooseConflictResolution();
+  if (choice === "cancel") {
+    logger.info("sign-in conflict cancelled by user — signing out of Clerk");
+    try {
+      await signOut();
+    } catch (err) {
+      logger.warn("signOut after sign-in-cancel failed", err);
+    }
+    onCancelled();
+    setStatus({ kind: "idle" });
+    return;
+  }
+
+  if (choice === "use-server") {
+    await runReplaceLocal({ deviceId, idpToken, kickSync, setStatus });
+    return;
+  }
+
+  await runReplaceServer({ deviceId, idpToken, kickSync, setStatus });
+};
+
+/**
+ * "Use server data" path — pair this device into the existing account
+ * and wipe local replicated tables so pull-sync rehydrates from the
+ * server snapshot.
+ */
+const runReplaceLocal = async ({
+  deviceId,
+  idpToken,
+  kickSync,
+  setStatus,
+}: {
+  deviceId: string;
+  idpToken: string;
+  kickSync: (source: string) => void;
+  setStatus: React.Dispatch<React.SetStateAction<UpgradeStatus>>;
+}): Promise<void> => {
+  const paired = await pairDevice({ deviceId, idpToken });
+  if (!paired.ok) {
+    setStatus({ kind: "fail", message: paired.message });
+    return;
+  }
+
+  await switchLocalAccount({
+    db,
+    tokenStore: deviceTokenStore,
+    newAccountId: paired.accountId,
+    newDeviceToken: paired.deviceToken,
+    registeredAt: paired.registeredAt,
+  });
+  logger.info(
+    `device paired into existing accountId=${paired.accountId} — local data wiped, kicking sync`,
+  );
+  setStatus({ kind: "ok" });
+  kickSync("post-pair");
+};
+
+/**
+ * "Use this device's data" path — force-upgrade this device's anonymous
+ * account, which moves the Clerk identity from the other account onto
+ * this one. Local data is preserved as-is; the existing outbox flushes
+ * the device's local events to the server normally afterwards.
+ */
+const runReplaceServer = async ({
+  deviceId,
+  idpToken,
+  kickSync,
+  setStatus,
+}: {
+  deviceId: string;
+  idpToken: string;
+  kickSync: (source: string) => void;
+  setStatus: React.Dispatch<React.SetStateAction<UpgradeStatus>>;
+}): Promise<void> => {
+  const claimed = await upgradeAccount({ deviceId, idpToken, force: true });
+  if (!claimed.ok) {
+    setStatus({ kind: "fail", message: claimed.message });
+    return;
+  }
+  logger.info(
+    `identity force-claimed onto local accountId=${claimed.accountId} — kicking sync`,
+  );
+  setStatus({ kind: "ok" });
+  kickSync("post-force-upgrade");
+};
+
+type ConflictChoice = "cancel" | "use-server" | "use-device";
+
+const chooseConflictResolution = (): Promise<ConflictChoice> =>
+  new Promise((resolve) => {
+    Alert.alert(
+      "You're already signed in elsewhere",
+      "This account already has data on the server, and this device has habits of its own. Which copy should be kept?",
+      [
+        {
+          text: "Cancel",
+          style: "cancel",
+          onPress: () => resolve("cancel"),
+        },
+        {
+          text: "Use server data",
+          style: "destructive",
+          onPress: () => resolve("use-server"),
+        },
+        {
+          text: "Use this device's data",
+          style: "destructive",
+          onPress: () => resolve("use-device"),
+        },
+      ],
+      { cancelable: true, onDismiss: () => resolve("cancel") },
+    );
+  });
 
 const SignedInView = ({
   user,
   status,
-  setStatus,
   signOut,
-  onUnlinked,
 }: {
   user: ReturnType<typeof useUser>["user"];
   status: UpgradeStatus;
-  setStatus: React.Dispatch<React.SetStateAction<UpgradeStatus>>;
   signOut: () => Promise<void>;
-  onUnlinked: () => void;
 }) => {
-  const [unlink, setUnlink] = React.useState<UnlinkStatus>({ kind: "idle" });
-
-  const onUnlink = React.useCallback(async () => {
-    setUnlink({ kind: "in-progress" });
-    try {
-      const result = await unbindAccount();
-      if (!result.ok) {
-        setUnlink({ kind: "fail", message: result.message });
-        return;
-      }
-      logger.info(`account unbound accountId=${result.accountId}`);
-      onUnlinked();
-      setStatus({ kind: "idle" });
-      setUnlink({ kind: "idle" });
-      // Sign out of Clerk so the next attempt starts from the connector
-      // picker rather than silently re-using the stale Clerk session.
-      await signOut();
-    } catch (err) {
-      logger.error("unlink flow threw", err);
-      setUnlink({
-        kind: "fail",
-        message: err instanceof Error ? err.message : "unlink failed",
-      });
-    }
-  }, [onUnlinked, setStatus, signOut]);
-
-  const busy = unlink.kind === "in-progress";
-
   // Display info derived from Clerk's UserResource.
   const provider: ProviderKey =
     providerFromClerk(user?.externalAccounts?.[0]?.provider) ??
@@ -320,7 +494,7 @@ const SignedInView = ({
           chevron={false}
           danger
           last
-          onPress={busy ? undefined : () => void signOut()}
+          onPress={() => void signOut()}
         />
       </Group>
 
@@ -334,37 +508,6 @@ const SignedInView = ({
         <Row icon={iconAppearance()} label="Appearance" disabled />
         <Row icon={iconNag()} label="Tone of nags" disabled />
         <Row icon={iconAbout()} label="About" last disabled />
-      </Group>
-
-      <Group title="Danger zone">
-        {unlink.kind === "fail" && (
-          <View style={styles.unlinkError}>
-            <Text style={styles.unlinkErrorText} numberOfLines={4}>
-              Could not unlink: {unlink.message}
-            </Text>
-          </View>
-        )}
-        <Row
-          icon={
-            <Svg
-              width={14}
-              height={14}
-              viewBox="0 0 14 14"
-              fill="none"
-              stroke={tokens.orange}
-              strokeWidth={1.7}
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <Path d="M3 4h8M5 4V2.5A1 1 0 016 1.5h2a1 1 0 011 1V4M4 4l.5 8a1 1 0 001 1h3a1 1 0 001-1L10 4" />
-            </Svg>
-          }
-          label={busy ? "Unlinking…" : "Unlink identity (keeps your data)"}
-          danger
-          chevron={false}
-          last
-          onPress={busy ? undefined : () => void onUnlink()}
-        />
       </Group>
 
       <View style={{ height: 32 }} />
@@ -1071,15 +1214,6 @@ const styles = StyleSheet.create({
     borderRadius: 12,
   },
   statusErrorText: {
-    fontSize: 13,
-    color: tokens.orange,
-  },
-  unlinkError: {
-    paddingHorizontal: 14,
-    paddingTop: 10,
-    paddingBottom: 6,
-  },
-  unlinkErrorText: {
     fontSize: 13,
     color: tokens.orange,
   },

@@ -133,8 +133,42 @@ public static class DevicesEndpoints
                     )
                 );
             }
-            return Results.Conflict(
-                new ErrorResponse(["deviceId is already paired with a different account"])
+
+            // Device currently belongs to a different account. If that
+            // account is anonymous (never upgraded), this is the typical
+            // second-device flow: the device auto-registered an anonymous
+            // account at boot, and now its user is signing in. Re-parent
+            // the device to the upgraded account that owns the verified
+            // identity, leaving the orphaned anonymous account in place.
+            // Refusing to re-parent when the source account itself owns
+            // a real identity keeps the cross-user case loud.
+            var sourceAccount = await session.LoadAsync<Account>(existing.AccountId, ct);
+            if (sourceAccount is null || !string.IsNullOrEmpty(sourceAccount.IdpSubject))
+            {
+                return Results.Conflict(
+                    new ErrorResponse(["deviceId is already paired with a different account"])
+                );
+            }
+
+            // Device.AccountId is init-only; replace the row in-place via
+            // Marten's upsert-on-Id semantics rather than mutating.
+            var rebound = new Device
+            {
+                Id = existing.Id,
+                AccountId = account.Id,
+                Label = request.Label ?? existing.Label,
+                RegisteredAt = existing.RegisteredAt,
+            };
+            session.Store(rebound);
+            await session.SaveChangesAsync(ct);
+
+            return Results.Ok(
+                new PairDeviceResponse(
+                    account.Id,
+                    rebound.Id,
+                    rebound.RegisteredAt,
+                    tokens.Issue(account.Id, rebound.Id)
+                )
             );
         }
 

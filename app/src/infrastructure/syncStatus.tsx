@@ -19,6 +19,7 @@ import {
   resumeDispatch,
   countPending,
   countFailed,
+  getAccountId,
   isHalted,
   type DispatchStatus,
 } from "@nag/core";
@@ -47,6 +48,21 @@ export type SyncStatusContextValue = {
   failedCount: number;
   lastError: string | null;
   resume: () => Promise<void>;
+  /**
+   * Imperative trigger for the sync loop. Use after non-event-driven
+   * state changes (e.g. swapping the local account on second-device
+   * sign-in) so the user sees data without waiting on the safety timer.
+   * No-op when sync is disabled.
+   */
+  kickSync: (source: string) => void;
+  /**
+   * True when no `accountId` is persisted yet — i.e. the user has never
+   * signed in on this install, or has just signed out via
+   * `clearLocalAuth`. The dispatcher / pull-sync are deliberately not
+   * running, so sync UI (dot, pill, panel) should hide rather than
+   * misleadingly render an "offline" state.
+   */
+  isAnonymous: boolean;
 };
 
 const SAFETY_TIMER_MS = 60_000;
@@ -57,6 +73,10 @@ const SyncStatusContext = createContext<SyncStatusContextValue>({
   failedCount: 0,
   lastError: null,
   resume: async () => {},
+  kickSync: () => {},
+  // Default true so the sync indicators stay hidden during the brief
+  // pre-mount window where the real state hasn't been resolved yet.
+  isAnonymous: true,
 });
 
 export const useSyncStatus = () => useContext(SyncStatusContext);
@@ -66,6 +86,7 @@ export const SyncStatusProvider = ({ children }: PropsWithChildren) => {
   const [pendingCount, setPendingCount] = useState(0);
   const [failedCount, setFailedCount] = useState(0);
   const [lastError, setLastError] = useState<string | null>(null);
+  const [isAnonymous, setIsAnonymous] = useState(true);
 
   // Keep a ref to the latest online state so the dispatcher can bail out
   // immediately if we go offline mid-run.
@@ -73,14 +94,18 @@ export const SyncStatusProvider = ({ children }: PropsWithChildren) => {
 
   const refreshCounts = useCallback(async () => {
     try {
-      const [p, f, h] = await Promise.all([
+      const [accountId, p, f, h] = await Promise.all([
+        getAccountId(db),
         countPending(db),
         countFailed(db),
         isHalted(db),
       ]);
-      logger.debug(`counts pending=${p} failed=${f} halted=${h}`);
+      logger.debug(
+        `counts pending=${p} failed=${f} halted=${h} anonymous=${!accountId}`,
+      );
       setPendingCount(p);
       setFailedCount(f);
+      setIsAnonymous(!accountId);
       if (h) {
         setStatus("halted");
       }
@@ -132,6 +157,17 @@ export const SyncStatusProvider = ({ children }: PropsWithChildren) => {
       const runId = ++runIdRef.current;
       activeRunRef.current = runId;
       logger.debug(`run[${runId}] enter`);
+      // Anonymous gate: no accountId means the user has never signed in
+      // (or just signed out). Don't fire a sync run that would no-op
+      // anyway and don't flash "syncing"/"offline" through the UI —
+      // refreshCounts will mark this as anonymous so indicators hide.
+      const accountId = await getAccountId(db);
+      if (!accountId) {
+        logger.debug(`run[${runId}] skipped — anonymous (no accountId)`);
+        await refreshCounts();
+        activeRunRef.current = null;
+        return;
+      }
       if (!onlineRef.current) {
         logger.debug(`run[${runId}] skipped — offline`);
         setStatus("offline");
@@ -304,8 +340,19 @@ export const SyncStatusProvider = ({ children }: PropsWithChildren) => {
       failedCount,
       lastError,
       resume,
+      kickSync: kick,
+      isAnonymous,
     }),
-    [enabled, status, pendingCount, failedCount, lastError, resume],
+    [
+      enabled,
+      status,
+      pendingCount,
+      failedCount,
+      lastError,
+      resume,
+      kick,
+      isAnonymous,
+    ],
   );
 
   return (

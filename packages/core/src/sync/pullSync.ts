@@ -1,4 +1,5 @@
 import type { AnyDb } from "../db";
+import { getAccountId } from "../identity/identity";
 import { applyServerEvent, type ServerEvent } from "./applyServerEvent";
 import { installSnapshot, type ServerSnapshot } from "./installSnapshot";
 import { getHighestServerSequence, isHalted } from "./outbox";
@@ -66,6 +67,18 @@ export const createPullSync = ({
   const error = log?.error ?? (() => {});
 
   const run = async (): Promise<PullStatus> => {
+    // Mirror the dispatcher's gate: when the user is signed out (no
+    // accountId yet, or just cleared via clearLocalAuth), don't fire a
+    // GET /sync — it would either 401 or hit a retired token. Treat
+    // anonymous as "offline" so the existing safety-timer/AppState
+    // machinery resumes pulling automatically once sign-in restores
+    // the accountId.
+    const accountId = await getAccountId(db);
+    if (!accountId) {
+      debug("pullSync.run: no accountId — anonymous, treating as offline");
+      return "offline";
+    }
+
     if (await isHalted(db)) {
       debug("pullSync.run: halted — skipping");
       return "halted";

@@ -141,6 +141,50 @@ public class DevicesPairTests : IClassFixture<DevicesPairTests.Factory>
     }
 
     [Fact]
+    public async Task pairing_re_parents_a_device_whose_current_account_is_anonymous()
+    {
+        // The typical second-device flow: a fresh install auto-registered an
+        // anonymous account at boot, the user then signs in with a Clerk
+        // identity that already owns an upgraded account. /accounts/upgrade
+        // refuses (sub already bound elsewhere) — the app falls back to
+        // /devices/pair, which must re-parent this device onto the existing
+        // account so subsequent /sync calls return that account's data.
+        var client = _factory.CreateClient();
+        var (existingAccountId, sub) = await SeedUpgradedAccountAsync(client);
+
+        var newDeviceId = Guid.NewGuid();
+        var registerResp = await client.PostAsJsonAsync(
+            "/devices/register",
+            new RegisterDeviceRequest(newDeviceId, "second-phone")
+        );
+        registerResp.StatusCode.ShouldBe(HttpStatusCode.OK);
+        var registered = await registerResp.Content.ReadFromJsonAsync<RegisterDeviceResponse>();
+        var anonymousAccountId = registered!.AccountId;
+        anonymousAccountId.ShouldNotBe(existingAccountId);
+
+        _factory.ClerkVerifier.Behavior = _ => ClerkTokenVerificationResult.Success(sub);
+        var pairResp = await client.PostAsJsonAsync(
+            "/devices/pair",
+            new PairDeviceRequest(newDeviceId, "any-token", null)
+        );
+
+        pairResp.StatusCode.ShouldBe(HttpStatusCode.OK);
+        var paired = await pairResp.Content.ReadFromJsonAsync<PairDeviceResponse>();
+        paired!.AccountId.ShouldBe(existingAccountId);
+        paired.DeviceId.ShouldBe(newDeviceId);
+        paired.DeviceToken.ShouldNotBeNullOrWhiteSpace();
+
+        // Re-pairing is idempotent now that the device sits on the new account.
+        var second = await client.PostAsJsonAsync(
+            "/devices/pair",
+            new PairDeviceRequest(newDeviceId, "any-token", null)
+        );
+        second.StatusCode.ShouldBe(HttpStatusCode.OK);
+        var secondBody = await second.Content.ReadFromJsonAsync<PairDeviceResponse>();
+        secondBody!.AccountId.ShouldBe(existingAccountId);
+    }
+
+    [Fact]
     public async Task an_invalid_idp_token_returns_401()
     {
         var client = _factory.CreateClient();

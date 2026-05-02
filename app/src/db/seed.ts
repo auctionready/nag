@@ -18,6 +18,7 @@ import {
   setNotificationScheduler,
   syncAllNotifications,
   type CreateHabit,
+  type TokenStore,
 } from "@nag/core";
 import { db } from "./index";
 
@@ -165,13 +166,27 @@ const sampleData: SeedEntry[] = [
 // ── Functions ────────────────────────────────────────────────────────
 
 /**
- * Wipes all replicated data + the outbox and resets sync bookkeeping,
- * leaving the `identity` row (device + account ID) intact. After this
- * runs, the next pull-sync sees `since=0` and so exercises the snapshot
- * install path — useful for end-to-end testing the "fresh install with
- * the same device" flow without re-registering.
+ * Wipes all replicated data + the outbox and resets sync bookkeeping.
+ * Behaviour gated by `opts`:
+ *
+ *   - `keepDeviceInfo: true` — leaves the `identity` row alone, so the
+ *     next pull-sync sees `since=0` against the same accountId and
+ *     exercises the snapshot install path. Useful for end-to-end
+ *     testing the "fresh install with the same device" flow without
+ *     re-registering.
+ *   - default (`keepDeviceInfo: false`) — additionally drops the
+ *     `identity` row, so the next launch generates a fresh `deviceId`
+ *     and re-registers from scratch.
+ *   - `tokenStore` — when supplied alongside the default behaviour,
+ *     also wipes the secure-store device token. Combine with the
+ *     identity row drop to fully simulate a clean reinstall — what the
+ *     "Clear whole device" dev menu item uses. No-op when
+ *     `keepDeviceInfo: true` (the existing accountId still needs the
+ *     token to authenticate).
  */
-export const clearAll = async (opts: { keepDeviceInfo?: boolean } = {}) => {
+export const clearAll = async (
+  opts: { keepDeviceInfo?: boolean; tokenStore?: TokenStore } = {},
+) => {
   await db.delete(checkIn);
   await db.delete(schedule);
   await db.delete(goal);
@@ -183,6 +198,9 @@ export const clearAll = async (opts: { keepDeviceInfo?: boolean } = {}) => {
     .where(eq(syncState.id, 1));
   if (!opts.keepDeviceInfo) {
     await db.delete(identity);
+    if (opts.tokenStore) {
+      await opts.tokenStore.clear();
+    }
   }
 };
 

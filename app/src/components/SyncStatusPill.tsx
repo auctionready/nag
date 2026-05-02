@@ -21,11 +21,14 @@ const COLORS: Record<string, { bg: string; fg: string }> = {
 export const SyncStatusPill = () => {
   const router = useRouter();
   const pathname = usePathname();
-  const { status, pendingCount } = useSyncStatus();
+  const { status, pendingCount, isAnonymous } = useSyncStatus();
 
   // Hide entirely when sync isn't wired in this build (no API config),
   // even if the upstream context drifts from the "disabled" status.
-  if (!isApiConfigured() || status === "disabled") return null;
+  // Also hide while anonymous — the dispatcher/pull-sync are intentionally
+  // not running, and the user already sees a "sign in" affordance on the
+  // account screen rather than a sync state for an account they don't have.
+  if (!isApiConfigured() || status === "disabled" || isAnonymous) return null;
 
   // Already on the Account screen — pressing the pill there would push
   // another /account entry onto the stack. Hide instead.

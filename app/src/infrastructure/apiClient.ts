@@ -4,11 +4,11 @@ import {
   postEvents as apiPostEvents,
   registerDevice as apiRegisterDevice,
   upgradeAccount as apiUpgradeAccount,
-  unbindAccount as apiUnbindAccount,
+  pairDevice as apiPairDevice,
   getSync as apiGetSync,
   type NagApiClient,
   type UpgradeAccountResult,
-  type UnbindAccountResult,
+  type PairDeviceResult,
   type GetSyncResult,
 } from "@nag/api-client";
 import {
@@ -120,11 +120,15 @@ export const registerDevice: RegisterDeviceFn = registerDeviceRaw;
 export const upgradeAccount = (request: {
   deviceId: string;
   idpToken: string;
+  force?: boolean;
 }): Promise<UpgradeAccountResult> =>
   apiUpgradeAccount(getApiClient(), request, logger);
 
-export const unbindAccount = (): Promise<UnbindAccountResult> =>
-  apiUnbindAccount(getApiClient(), logger);
+export const pairDevice = (request: {
+  deviceId: string;
+  idpToken: string;
+  label?: string | null;
+}): Promise<PairDeviceResult> => apiPairDevice(getApiClient(), request, logger);
 
 /**
  * Adapter from `@nag/api-client.getSync` (returns a Zodios-typed body)

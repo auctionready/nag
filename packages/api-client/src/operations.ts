@@ -88,6 +88,13 @@ const failureFromError = (
   elapsedMs: number,
   error: unknown,
   extractDocumentedMessage: () => string | undefined,
+  /**
+   * HTTP statuses the caller knows about and intends to handle (e.g. 409
+   * from /accounts/upgrade, which the conflict-resolution flow expects).
+   * Logged at INFO instead of ERROR so the dev console doesn't surface a
+   * scary "ERROR" line for a documented control-flow response.
+   */
+  expectedStatuses: readonly number[] = [],
 ): Failure => {
   if (isAxiosError(error)) {
     if (error.response) {
@@ -109,10 +116,17 @@ const failureFromError = (
           message: `${status}: ${message}`,
         };
       }
-      log?.error?.(
-        `${label} non-retriable (${elapsedMs}ms) status=${status}`,
-        data,
-      );
+      if (expectedStatuses.includes(status)) {
+        log?.info?.(
+          `${label} expected non-retriable (${elapsedMs}ms) status=${status}`,
+          data,
+        );
+      } else {
+        log?.error?.(
+          `${label} non-retriable (${elapsedMs}ms) status=${status}`,
+          data,
+        );
+      }
       return { ok: false, kind: "non-retriable", status, message };
     }
     log?.warn?.(
@@ -284,7 +298,7 @@ type UpgradeAccountError400 = ZodiosErrorByAlias<
 
 const upgradeAccountOnce = async (
   client: NagApiClient,
-  request: { deviceId: string; idpToken: string },
+  request: { deviceId: string; idpToken: string; force?: boolean },
   log: WrapperLog | undefined,
 ): Promise<UpgradeAccountResult> => {
   const start = Date.now();
@@ -333,6 +347,10 @@ const upgradeAccountOnce = async (
         }
         return undefined;
       },
+      // 409 is the documented "identity already bound to a different
+      // account" / "account already bound to a different identity"
+      // response; the conflict-resolution flow in account.tsx handles it.
+      [409],
     );
   }
 };
@@ -390,10 +408,12 @@ export const getSync = async (
  */
 export const upgradeAccount = async (
   client: NagApiClient,
-  request: { deviceId: string; idpToken: string },
+  request: { deviceId: string; idpToken: string; force?: boolean },
   log?: WrapperLog,
 ): Promise<UpgradeAccountResult> => {
-  log?.debug?.(`POST /accounts/upgrade deviceId=${request.deviceId}`);
+  log?.debug?.(
+    `POST /accounts/upgrade deviceId=${request.deviceId}${request.force ? " force=true" : ""}`,
+  );
 
   const maxAttempts = 3;
   let last: UpgradeAccountResult = {
@@ -415,6 +435,90 @@ export const upgradeAccount = async (
     }
   }
   return last;
+};
+
+export type PairDeviceResult =
+  | {
+      ok: true;
+      accountId: string;
+      deviceId: string;
+      registeredAt: Date;
+      deviceToken: string;
+    }
+  | { ok: false; kind: "non-retriable"; status: number; message: string }
+  | { ok: false; kind: "transient"; message: string };
+
+type PairDeviceBody = ZodiosBodyByAlias<Endpoints, "postDevicesPair">;
+type PairDeviceResponse = ZodiosResponseByAlias<Endpoints, "postDevicesPair">;
+type PairDeviceError400 = ZodiosErrorByAlias<Endpoints, "postDevicesPair", 400>;
+
+/**
+ * POSTs a device-pair request — attaches the calling device to an account
+ * already bound to the verified Clerk identity. Used as the second-device
+ * fallback when `/accounts/upgrade` returns 409 ("identity already bound to
+ * a different account"): the app calls this to re-parent the device's
+ * anonymous registration onto the existing account, then wipes local data
+ * and pulls a fresh snapshot. Idempotent server-side on
+ * `(deviceId, account)`, so retrying after a transient failure is safe.
+ *
+ * Never throws on HTTP/network errors — caller reads `result.ok`.
+ */
+export const pairDevice = async (
+  client: NagApiClient,
+  request: { deviceId: string; idpToken: string; label?: string | null },
+  log?: WrapperLog,
+): Promise<PairDeviceResult> => {
+  log?.debug?.(`POST /devices/pair deviceId=${request.deviceId}`);
+  const start = Date.now();
+  try {
+    const response: PairDeviceResponse = await client.postDevicesPair(
+      request as PairDeviceBody,
+    );
+    const elapsed = Date.now() - start;
+    if (
+      !response.accountId ||
+      !response.deviceId ||
+      !response.registeredAt ||
+      !response.deviceToken
+    ) {
+      log?.error?.(
+        `POST /devices/pair ok (${elapsed}ms) but response missing fields`,
+        response,
+      );
+      return {
+        ok: false,
+        kind: "non-retriable",
+        status: 200,
+        message: "server returned an incomplete PairDeviceResponse",
+      };
+    }
+    log?.info?.(
+      `POST /devices/pair ok (${elapsed}ms) accountId=${response.accountId}`,
+    );
+    return {
+      ok: true,
+      accountId: response.accountId,
+      deviceId: response.deviceId,
+      registeredAt: response.registeredAt,
+      deviceToken: response.deviceToken,
+    };
+  } catch (error: unknown) {
+    return failureFromError(
+      "POST /devices/pair",
+      log,
+      Date.now() - start,
+      error,
+      () => {
+        if (isErrorFromAlias(endpoints, "postDevicesPair", error)) {
+          const data = error.response.data as PairDeviceError400 | void;
+          return data && typeof data === "object" && "errors" in data
+            ? (data as { errors?: string[] }).errors?.[0]
+            : undefined;
+        }
+        return undefined;
+      },
+    );
+  }
 };
 
 export type UnbindAccountResult =

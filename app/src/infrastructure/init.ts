@@ -1,20 +1,12 @@
 import * as Sentry from "@sentry/react-native";
-import {
-  setNotificationScheduler,
-  setConsolidatedScheduler,
-  ensureDeviceRegistered,
-} from "@nag/core";
-import { db } from "../db";
+import { setNotificationScheduler, setConsolidatedScheduler } from "@nag/core";
 import { expoNotificationScheduler } from "./expoNotificationScheduler";
 import { expoConsolidatedScheduler } from "./expoConsolidatedScheduler";
 import { installCryptoPolyfill } from "./cryptoPolyfill";
 import { installGlobalErrorHandlers } from "./globalErrorHandlers";
-import { registerDevice } from "./apiClient";
-import { deviceTokenStore } from "./tokenStore";
 import { log } from "./log";
 
 const logger = log("init");
-const identityLogger = log("identity");
 
 export const init = () => {
   logger.info("app init");
@@ -29,15 +21,14 @@ export const init = () => {
   });
 };
 
-// Must be called after migrations have run — identity table is created by the
-// initial migration and won't exist if this fires before DatabaseProvider is ready.
+/**
+ * Hook for any work that must wait until the local SQLite migrations
+ * have finished. Today there's nothing — device registration used to
+ * live here, but moved into the Clerk sign-in effect now that
+ * anonymous mode means "no server contact at all". Kept as a stable
+ * extension point so callers in `_layout.tsx` don't need to change
+ * shape if startup work returns.
+ */
 export const postMigrationInit = () => {
-  void ensureDeviceRegistered({
-    db,
-    tokenStore: deviceTokenStore,
-    register: registerDevice,
-    log: identityLogger,
-  }).catch((error) => {
-    identityLogger.error("ensureDeviceRegistered threw unexpectedly", error);
-  });
+  // intentionally empty — see docstring.
 };
