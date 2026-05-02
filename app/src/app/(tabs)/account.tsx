@@ -211,15 +211,18 @@ const SignedInOrOut = () => {
   // !isSignedIn effect above resets the rest of the React state
   // automatically once Clerk reports signed-out. Declared up here, ahead
   // of the early returns below, to keep the hook order stable across
-  // renders.
+  // renders. The trailing kickSync nudges SyncStatusProvider to
+  // re-evaluate `isAnonymous` immediately so the sync dot disappears
+  // without waiting on the next safety-timer tick.
   const signOutLocal = React.useCallback(async () => {
     try {
       await clearLocalAuth({ db, tokenStore: deviceTokenStore });
     } catch (err) {
       logger.error("clearLocalAuth threw — continuing with signOut", err);
     }
+    kickSync("post-signout");
     await signOut();
-  }, [signOut]);
+  }, [signOut, kickSync]);
 
   if (!isLoaded) {
     return (

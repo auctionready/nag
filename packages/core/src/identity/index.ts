@@ -5,6 +5,7 @@ export {
   getAccountId,
   switchLocalAccount,
   clearLocalAuth,
+  clearWholeDevice,
   type IdentityRow,
   type TokenStore,
   type EnsureDeviceRegisteredOptions,
@@ -12,5 +13,6 @@ export {
   type RefreshDeviceTokenOptions,
   type SwitchLocalAccountOptions,
   type ClearLocalAuthOptions,
+  type ClearWholeDeviceOptions,
 } from "./identity";
 export { type RegisterDeviceFn, type RegisterDeviceResult } from "./types";
