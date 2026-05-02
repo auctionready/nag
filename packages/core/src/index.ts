@@ -95,11 +95,13 @@ export {
   refreshDeviceToken,
   loadIdentity,
   getAccountId,
+  switchLocalAccount,
   type IdentityRow,
   type TokenStore,
   type EnsureDeviceRegisteredOptions,
   type EnsureDeviceRegisteredResult,
   type RefreshDeviceTokenOptions,
+  type SwitchLocalAccountOptions,
   type RegisterDeviceFn,
   type RegisterDeviceResult,
 } from "./identity";

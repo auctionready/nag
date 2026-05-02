@@ -4,10 +4,12 @@ import {
   postEvents as apiPostEvents,
   registerDevice as apiRegisterDevice,
   upgradeAccount as apiUpgradeAccount,
+  pairDevice as apiPairDevice,
   unbindAccount as apiUnbindAccount,
   getSync as apiGetSync,
   type NagApiClient,
   type UpgradeAccountResult,
+  type PairDeviceResult,
   type UnbindAccountResult,
   type GetSyncResult,
 } from "@nag/api-client";
@@ -122,6 +124,12 @@ export const upgradeAccount = (request: {
   idpToken: string;
 }): Promise<UpgradeAccountResult> =>
   apiUpgradeAccount(getApiClient(), request, logger);
+
+export const pairDevice = (request: {
+  deviceId: string;
+  idpToken: string;
+  label?: string | null;
+}): Promise<PairDeviceResult> => apiPairDevice(getApiClient(), request, logger);
 
 export const unbindAccount = (): Promise<UnbindAccountResult> =>
   apiUnbindAccount(getApiClient(), logger);

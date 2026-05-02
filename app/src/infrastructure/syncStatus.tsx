@@ -47,6 +47,13 @@ export type SyncStatusContextValue = {
   failedCount: number;
   lastError: string | null;
   resume: () => Promise<void>;
+  /**
+   * Imperative trigger for the sync loop. Use after non-event-driven
+   * state changes (e.g. swapping the local account on second-device
+   * sign-in) so the user sees data without waiting on the safety timer.
+   * No-op when sync is disabled.
+   */
+  kickSync: (source: string) => void;
 };
 
 const SAFETY_TIMER_MS = 60_000;
@@ -57,6 +64,7 @@ const SyncStatusContext = createContext<SyncStatusContextValue>({
   failedCount: 0,
   lastError: null,
   resume: async () => {},
+  kickSync: () => {},
 });
 
 export const useSyncStatus = () => useContext(SyncStatusContext);
@@ -304,8 +312,9 @@ export const SyncStatusProvider = ({ children }: PropsWithChildren) => {
       failedCount,
       lastError,
       resume,
+      kickSync: kick,
     }),
-    [enabled, status, pendingCount, failedCount, lastError, resume],
+    [enabled, status, pendingCount, failedCount, lastError, resume, kick],
   );
 
   return (
