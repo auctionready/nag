@@ -5,6 +5,7 @@ import { db } from "../../db";
 import { habitById, goalForHabitFull, schedulesForGoal } from "@nag/core";
 import { dispatch } from "../../infrastructure/dispatch";
 import { HabitForm, type HabitFormData } from "../../components/HabitForm";
+import type { HabitIconKind } from "../../components/HabitGlyph";
 import { buildGoalPayload } from "../../operations";
 
 const EditHabitScreen = () => {
@@ -37,6 +38,7 @@ const EditHabitScreen = () => {
     return {
       title: habitData.title,
       description: habitData.description ?? "",
+      icon: (habitData.icon ?? null) as HabitIconKind | null,
       regularity: isScheduled ? "scheduled" : (goalData?.regularity ?? "none"),
       frequency: goalData ? String(goalData.frequency) : "1",
       schedules: hasSchedules
@@ -57,6 +59,7 @@ const EditHabitScreen = () => {
       habitId,
       title: values.title,
       description: values.description || null,
+      icon: values.icon ?? null,
       goal: goal ?? null,
     });
     router.back();
@@ -73,6 +76,7 @@ const EditHabitScreen = () => {
 
   return (
     <HabitForm
+      mode="edit"
       initialValues={initialValues}
       onSubmit={onSubmit}
       onDelete={onDelete}

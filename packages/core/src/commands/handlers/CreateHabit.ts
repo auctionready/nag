@@ -28,6 +28,7 @@ export async function handleCreateHabit(
     .values({
       title: command.title,
       description: command.description ?? null,
+      icon: command.icon ?? null,
     })
     .returning({ id: habit.id, externalId: habit.externalId });
 
@@ -75,7 +76,7 @@ export async function handleCreateHabit(
     habitId: inserted.externalId,
     title: command.title,
     description: command.description ?? null,
-    icon: null,
+    icon: command.icon ?? null,
     goal: command.goal
       ? {
           regularity: command.goal.regularity,

@@ -86,6 +86,7 @@ export const CreateHabit = z.object({
   type: z.literal("CreateHabit"),
   title: z.string().min(1),
   description: z.string().optional(),
+  icon: z.string().optional(),
   goal: GoalPayload.optional(),
 });
 
@@ -94,6 +95,7 @@ export const UpdateHabit = z.object({
   habitId: z.int().positive(),
   title: z.string().min(1).optional(),
   description: z.string().nullable().optional(),
+  icon: z.string().nullable().optional(),
   goal: GoalPayload.nullable().optional(),
 });
 

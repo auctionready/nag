@@ -4,10 +4,10 @@ import DateTimePicker, {
 } from "@react-native-community/datetimepicker";
 import { useEffect, useMemo } from "react";
 import { useForm, Controller } from "react-hook-form";
+import { tokens } from "../theme";
 import { timeFromStrings, type ScheduleEntry } from "./shared";
 import { NoDays, weekDayEntries } from "@nag/core";
 import { ErrorText } from "./ErrorText";
-import { RemoveButton } from "./RemoveButton";
 
 interface ScheduleEntryFormProps {
   initialValues: ScheduleEntry;
@@ -73,68 +73,95 @@ export const ScheduleEntryForm = ({
 
   return (
     <View style={styles.container}>
-      <View style={styles.daysRow}>
-        {weekDayEntries.map(({ day, label }) => {
-          const checked = (days ?? NoDays) & day;
-          return (
-            <Pressable
-              key={day}
-              style={[styles.dayTile, checked ? styles.dayTileActive : null]}
-              onPress={() => toggleDay(day)}
-            >
-              <Text
-                style={[
-                  styles.dayTileText,
-                  checked ? styles.dayTileTextActive : null,
-                ]}
+      <View style={styles.section}>
+        <Text style={styles.fieldLabel}>days</Text>
+        <View style={styles.daysRow}>
+          {weekDayEntries.map(({ day, label }) => {
+            const checked = ((days ?? NoDays) & day) !== 0;
+            return (
+              <Pressable
+                key={day}
+                style={[styles.dayTile, checked && styles.dayTileActive]}
+                onPress={() => toggleDay(day)}
               >
-                {label}
-              </Text>
-            </Pressable>
-          );
-        })}
+                <Text
+                  style={[
+                    styles.dayTileText,
+                    checked && styles.dayTileTextActive,
+                  ]}
+                >
+                  {label[0]}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
+        {errors.days && <ErrorText>{errors.days.message}</ErrorText>}
       </View>
 
-      {errors.days && <ErrorText>{errors.days.message}</ErrorText>}
+      <View style={styles.divider} />
+
+      <View style={styles.timeSection}>
+        <Text style={styles.fieldLabel}>time</Text>
+        <DateTimePicker
+          value={timeValue}
+          mode="time"
+          display="spinner"
+          onChange={onTimeChange}
+          style={styles.timePicker}
+        />
+      </View>
+
+      <View style={styles.divider} />
 
       <Controller
         control={control}
         name="reminder"
         render={({ field: { value, onChange } }) => (
           <View style={styles.reminderRow}>
-            <Text style={styles.reminderLabel}>Reminder</Text>
-            <Switch value={value !== false} onValueChange={onChange} />
+            <View style={styles.reminderText}>
+              <Text style={styles.reminderLabel}>reminder</Text>
+              <Text style={styles.reminderSub}>
+                push notification at this time
+              </Text>
+            </View>
+            <Switch
+              value={value !== false}
+              onValueChange={onChange}
+              trackColor={{ false: tokens.faint, true: tokens.orange }}
+              thumbColor="#FFFFFF"
+            />
           </View>
         )}
-      />
-
-      <DateTimePicker
-        value={timeValue}
-        mode="time"
-        display="spinner"
-        onChange={onTimeChange}
-        style={styles.timePicker}
       />
 
       <View style={styles.actions}>
-        <Pressable
-          style={[
-            styles.doneButton,
-            (!isValid || (!isNew && !isDirty)) && styles.doneButtonDisabled,
-          ]}
-          onPress={handleSubmit(onSubmit)}
-          disabled={!isValid || (!isNew && !isDirty)}
-        >
-          <Text style={styles.doneButtonText}>Done</Text>
-        </Pressable>
-        <Pressable style={styles.cancelButton} onPress={onCancel}>
-          <Text style={styles.cancelButtonText}>Cancel</Text>
-        </Pressable>
-        {canRemove && (
-          <View style={{ marginLeft: "auto" }}>
-            <RemoveButton onPress={onRemove} />
-          </View>
+        {canRemove ? (
+          <Pressable
+            style={styles.removeButton}
+            onPress={onRemove}
+            accessibilityRole="button"
+          >
+            <Text style={styles.removeText}>remove</Text>
+          </Pressable>
+        ) : (
+          <View style={styles.removeSpacer} />
         )}
+        <View style={styles.actionsRight}>
+          <Pressable style={styles.cancelButton} onPress={onCancel}>
+            <Text style={styles.cancelButtonText}>cancel</Text>
+          </Pressable>
+          <Pressable
+            style={[
+              styles.doneButton,
+              (!isValid || (!isNew && !isDirty)) && styles.doneButtonDisabled,
+            ]}
+            onPress={handleSubmit(onSubmit)}
+            disabled={!isValid || (!isNew && !isDirty)}
+          >
+            <Text style={styles.doneButtonText}>done</Text>
+          </Pressable>
+        </View>
       </View>
     </View>
   );
@@ -142,69 +169,123 @@ export const ScheduleEntryForm = ({
 
 const styles = StyleSheet.create({
   container: {
-    gap: 16,
+    gap: 0,
   },
-  actions: {
+  section: {
+    gap: 8,
+    paddingHorizontal: 4,
+  },
+  fieldLabel: {
+    fontFamily: "JetBrainsMono-Regular",
+    fontSize: 9,
+    color: tokens.mute,
+    letterSpacing: 1.3,
+    textTransform: "uppercase",
+  },
+  daysRow: {
     flexDirection: "row",
+    gap: 6,
+  },
+  dayTile: {
+    flex: 1,
+    height: 38,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: tokens.border,
     alignItems: "center",
-    gap: 12,
+    justifyContent: "center",
+    backgroundColor: "transparent",
+  },
+  dayTileActive: {
+    backgroundColor: tokens.ink,
+    borderColor: tokens.ink,
+  },
+  dayTileText: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: tokens.mute,
+  },
+  dayTileTextActive: {
+    color: tokens.cream,
+  },
+  divider: {
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: tokens.border,
+    marginVertical: 16,
+  },
+  timeSection: {
+    gap: 4,
+    paddingHorizontal: 4,
   },
   timePicker: {
     height: 150,
-  },
-  doneButton: {
-    backgroundColor: "#007AFF",
-    borderRadius: 8,
-    paddingVertical: 10,
-    paddingHorizontal: 24,
-  },
-  doneButtonDisabled: {
-    opacity: 0.4,
-  },
-  doneButtonText: {
-    color: "#fff",
-    fontSize: 16,
-    fontWeight: "600",
-  },
-  cancelButton: {
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-  },
-  cancelButtonText: {
-    color: "#666",
-    fontSize: 16,
   },
   reminderRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
+    paddingHorizontal: 4,
+  },
+  reminderText: {
+    flex: 1,
+    gap: 2,
   },
   reminderLabel: {
-    fontSize: 15,
-    color: "#333",
-  },
-  daysRow: {
-    flexDirection: "row",
-    gap: 4,
-  },
-  dayTile: {
-    flex: 1,
-    paddingVertical: 8,
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: "#ccc",
-    alignItems: "center",
-  },
-  dayTileActive: {
-    backgroundColor: "#007AFF",
-    borderColor: "#007AFF",
-  },
-  dayTileText: {
-    fontSize: 12,
+    fontSize: 14,
     fontWeight: "600",
-    color: "#333",
+    color: tokens.ink,
   },
-  dayTileTextActive: {
-    color: "#fff",
+  reminderSub: {
+    fontFamily: "JetBrainsMono-Regular",
+    fontSize: 11,
+    color: tokens.mute,
+  },
+  actions: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginTop: 16,
+  },
+  removeButton: {
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+  },
+  removeSpacer: {
+    width: 1,
+  },
+  removeText: {
+    color: tokens.orange,
+    fontSize: 13,
+    fontWeight: "600",
+  },
+  actionsRight: {
+    flexDirection: "row",
+    gap: 6,
+  },
+  cancelButton: {
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: tokens.border,
+  },
+  cancelButtonText: {
+    color: tokens.ink,
+    fontSize: 13,
+    fontWeight: "600",
+  },
+  doneButton: {
+    backgroundColor: tokens.ink,
+    paddingVertical: 10,
+    paddingHorizontal: 18,
+    borderRadius: 10,
+  },
+  doneButtonDisabled: {
+    opacity: 0.4,
+  },
+  doneButtonText: {
+    color: tokens.cream,
+    fontSize: 13,
+    fontWeight: "600",
   },
 });

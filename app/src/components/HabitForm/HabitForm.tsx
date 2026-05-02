@@ -7,11 +7,14 @@ import {
   TextInput,
   View,
 } from "react-native";
+import Svg, { Path } from "react-native-svg";
 import { useForm, Controller, useFieldArray } from "react-hook-form";
 import { useEffect, useState } from "react";
+import { tokens } from "../theme";
 import {
   defaultValues,
   formRegularityValues,
+  frequencySuffix,
   regularityLabels,
   type FormRegularity,
   type HabitFormData,
@@ -19,6 +22,7 @@ import {
   type ScheduleEntry,
 } from "./shared";
 import { AllDays } from "@nag/core";
+import { IdentityCard } from "./IdentityCard";
 import { ScheduleEntrySummary } from "./ScheduleEntrySummary";
 import { ScheduleEditorModal } from "./ScheduleEditorModal";
 import { ErrorText } from "./ErrorText";
@@ -28,6 +32,7 @@ export const HabitForm = ({
   initialValues,
   onSubmit,
   onDelete,
+  mode = "create",
 }: HabitFormProps) => {
   const {
     control,
@@ -120,6 +125,7 @@ export const HabitForm = ({
   };
 
   const isFrequency = ["day", "week", "month"].includes(watchedRegularity);
+  const saveLabel = mode === "edit" ? "save changes" : "start nagging me";
 
   return (
     <View style={styles.outer}>
@@ -127,77 +133,66 @@ export const HabitForm = ({
         style={styles.container}
         contentContainerStyle={styles.content}
       >
-        <Controller
-          control={control}
-          name="title"
-          rules={{ required: "Title is required" }}
-          render={({ field: { onChange, onBlur, value } }) => (
-            <TextInput
-              style={[styles.input, errors.title && styles.inputError]}
-              onBlur={onBlur}
-              onChangeText={onChange}
-              value={value}
-              placeholder="e.g. Exercise"
-            />
-          )}
-        />
-        {errors.title && <ErrorText>{errors.title.message}</ErrorText>}
+        <IdentityCard control={control} titleError={errors.title?.message} />
 
-        <Controller
-          control={control}
-          name="description"
-          rules={{}}
-          render={({ field: { onChange, onBlur, value } }) => (
-            <TextInput
-              style={[
-                styles.input,
-                styles.multilineInput,
-                errors.description && styles.inputError,
-              ]}
-              onBlur={onBlur}
-              onChangeText={onChange}
-              value={value}
-              placeholder="Describe the habit"
-              multiline
-              textAlignVertical="top"
-            />
-          )}
-        />
-        {errors.description && (
-          <ErrorText>{errors.description.message}</ErrorText>
-        )}
-
-        <View style={styles.goalSection}>
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionLabel}>cadence</Text>
+            <Text style={styles.sectionHint}>how often you&apos;ll do it</Text>
+          </View>
           <Controller
             control={control}
             name="regularity"
             render={({ field: { onChange, value } }) => (
-              <View style={styles.segmentedRow}>
-                {formRegularityValues.map((r) => (
-                  <Pressable
-                    key={r}
-                    style={[
-                      styles.segmentButton,
-                      value === r && styles.segmentButtonActive,
-                    ]}
-                    onPress={() => changeRegularity(r, onChange)}
-                  >
-                    <Text
+              <View style={styles.cadenceRow}>
+                {formRegularityValues.map((r) => {
+                  const on = value === r;
+                  return (
+                    <Pressable
+                      key={r}
                       style={[
-                        styles.segmentText,
-                        value === r && styles.segmentTextActive,
+                        styles.cadencePill,
+                        on && styles.cadencePillActive,
                       ]}
+                      onPress={() => changeRegularity(r, onChange)}
                     >
-                      {regularityLabels[r]}
-                    </Text>
-                  </Pressable>
-                ))}
+                      <Text
+                        style={[
+                          styles.cadencePillText,
+                          on && styles.cadencePillTextActive,
+                        ]}
+                      >
+                        {regularityLabels[r]}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
               </View>
             )}
           />
 
+          {watchedRegularity === "none" && (
+            <View style={styles.adHocCard}>
+              <Text style={styles.adHocText}>
+                log it whenever — no schedule, no nags. just a streak counter.
+              </Text>
+            </View>
+          )}
+
           {isFrequency && (
-            <View style={styles.frequencyRow}>
+            <View style={styles.frequencyCard}>
+              <View style={styles.frequencyText}>
+                <Text style={styles.frequencyLabel}>
+                  {
+                    frequencySuffix[
+                      watchedRegularity as "day" | "week" | "month"
+                    ]
+                  }
+                </Text>
+                <Text style={styles.frequencyHint}>
+                  how often are you aiming for
+                </Text>
+              </View>
               <Controller
                 control={control}
                 name="frequency"
@@ -213,7 +208,6 @@ export const HabitForm = ({
                 render={({ field: { onChange, onBlur, value } }) => (
                   <TextInput
                     style={[
-                      styles.input,
                       styles.frequencyInput,
                       errors.frequency && styles.inputError,
                     ]}
@@ -222,17 +216,18 @@ export const HabitForm = ({
                     value={value}
                     keyboardType="number-pad"
                     placeholder="1"
+                    placeholderTextColor={tokens.faint}
                   />
                 )}
               />
-              <Text style={styles.frequencySuffix}>
-                per {watchedRegularity}
-              </Text>
             </View>
+          )}
+          {errors.frequency && (
+            <ErrorText>{errors.frequency.message}</ErrorText>
           )}
 
           {watchedRegularity === "scheduled" && (
-            <>
+            <View style={styles.scheduledList}>
               {fields
                 .map((field, index) => ({ field, index }))
                 .sort((a, b) => {
@@ -253,36 +248,66 @@ export const HabitForm = ({
                   />
                 ))}
               <Pressable style={styles.addTimeButton} onPress={addEntry}>
-                <Text style={styles.addTimeButtonText}>+ Add Time</Text>
+                <Text style={styles.addTimePlus}>+</Text>
+                <Text style={styles.addTimeText}>add time</Text>
               </Pressable>
-            </>
+            </View>
           )}
         </View>
+
+        {onDelete && (
+          <View style={styles.section}>
+            <Text style={styles.sectionLabel}>danger zone</Text>
+            <Pressable
+              style={styles.dangerCard}
+              onPress={() => {
+                Alert.alert(
+                  "Delete Habit",
+                  "Are you sure? This will also delete all check-ins and goals for this habit.",
+                  [
+                    { text: "Cancel", style: "cancel" },
+                    { text: "Delete", style: "destructive", onPress: onDelete },
+                  ],
+                );
+              }}
+            >
+              <View style={styles.dangerIcon}>
+                <Svg width={14} height={14} viewBox="0 0 14 14" fill="none">
+                  <Path
+                    d="M2.5 3.5h9M5 3.5V2.5h4v1M3.5 3.5L4 12h6l.5-8.5M5.5 6v4M8.5 6v4"
+                    stroke={tokens.orange}
+                    strokeWidth={1.7}
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </Svg>
+              </View>
+              <View style={styles.dangerText}>
+                <Text style={styles.dangerTitle}>delete habit</Text>
+                <Text style={styles.dangerSub}>
+                  history is kept for 30 days
+                </Text>
+              </View>
+              <Svg width={6} height={11} viewBox="0 0 6 11" fill="none">
+                <Path
+                  d="M1 1l4 4.5L1 10"
+                  stroke={tokens.orange}
+                  strokeWidth={1.5}
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </Svg>
+            </Pressable>
+          </View>
+        )}
       </ScrollView>
 
-      <View style={styles.bottomButtons}>
+      <View style={styles.footer}>
         <SaveButton
           onPress={handleSubmit(onSubmit)}
           disabled={!isValid || isSubmitting}
+          label={saveLabel}
         />
-
-        {onDelete && (
-          <Pressable
-            style={styles.deleteButton}
-            onPress={() => {
-              Alert.alert(
-                "Delete Habit",
-                "Are you sure? This will also delete all check-ins and goals for this habit.",
-                [
-                  { text: "Cancel", style: "cancel" },
-                  { text: "Delete", style: "destructive", onPress: onDelete },
-                ],
-              );
-            }}
-          >
-            <Text style={styles.deleteButtonText}>Delete Habit</Text>
-          </Pressable>
-        )}
       </View>
 
       {(editingIndex >= 0 || isNewEntry) && (
@@ -310,98 +335,186 @@ export const HabitForm = ({
 const styles = StyleSheet.create({
   outer: {
     flex: 1,
-    backgroundColor: "#fff",
+    backgroundColor: tokens.cream,
   },
   container: {
     flex: 1,
   },
   content: {
     padding: 16,
+    gap: 22,
+  },
+  section: {
     gap: 12,
   },
-  input: {
-    borderWidth: 1,
-    borderColor: "#ccc",
-    borderRadius: 8,
-    padding: 12,
-    fontSize: 16,
-  },
-  multilineInput: {
-    minHeight: 120,
-  },
-  frequencyRow: {
+  sectionHeader: {
     flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
+    alignItems: "baseline",
+    justifyContent: "space-between",
+    paddingHorizontal: 4,
   },
-  frequencyInput: {
-    width: 80,
+  sectionLabel: {
+    fontFamily: "JetBrainsMono-Regular",
+    fontSize: 10,
+    color: tokens.mute,
+    letterSpacing: 1.4,
+    textTransform: "uppercase",
+    paddingHorizontal: 4,
   },
-  frequencySuffix: {
-    fontSize: 14,
-    color: "#666",
+  sectionHint: {
+    fontFamily: "JetBrainsMono-Regular",
+    fontSize: 10,
+    color: tokens.mute,
+    letterSpacing: 0.8,
   },
-  inputError: {
-    borderColor: "#ff3b30",
-  },
-  goalSection: {
-    marginTop: 8,
-    gap: 12,
-  },
-  segmentedRow: {
+  cadenceRow: {
     flexDirection: "row",
     flexWrap: "wrap",
     gap: 8,
   },
-  segmentButton: {
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    borderRadius: 8,
+  cadencePill: {
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderRadius: 999,
+    backgroundColor: tokens.surface,
     borderWidth: 1,
-    borderColor: "#ccc",
+    borderColor: tokens.border,
+  },
+  cadencePillActive: {
+    backgroundColor: tokens.ink,
+    borderColor: tokens.ink,
+  },
+  cadencePillText: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: tokens.ink,
+    letterSpacing: -0.2,
+  },
+  cadencePillTextActive: {
+    color: tokens.cream,
+  },
+  adHocCard: {
+    backgroundColor: tokens.surface,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: tokens.border,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+  },
+  adHocText: {
+    fontSize: 13,
+    lineHeight: 19,
+    color: tokens.mute,
+  },
+  frequencyCard: {
+    backgroundColor: tokens.surface,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: tokens.border,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    flexDirection: "row",
     alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12,
   },
-  segmentButtonActive: {
-    backgroundColor: "#007AFF",
-    borderColor: "#007AFF",
+  frequencyText: {
+    flex: 1,
+    gap: 2,
   },
-  segmentText: {
+  frequencyLabel: {
     fontSize: 14,
     fontWeight: "600",
-    color: "#333",
+    color: tokens.ink,
   },
-  segmentTextActive: {
-    color: "#fff",
+  frequencyHint: {
+    fontFamily: "JetBrainsMono-Regular",
+    fontSize: 11,
+    color: tokens.mute,
   },
-  bottomButtons: {
-    padding: 16,
-    gap: 12,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: "#ccc",
-  },
-  deleteButton: {
-    padding: 16,
-    borderRadius: 8,
-    alignItems: "center",
+  frequencyInput: {
+    width: 64,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    borderRadius: 10,
     borderWidth: 1,
-    borderColor: "#ff3b30",
+    borderColor: tokens.border,
+    fontSize: 15,
+    fontWeight: "700",
+    color: tokens.ink,
+    textAlign: "center",
+    backgroundColor: tokens.cream,
   },
-  deleteButtonText: {
-    color: "#ff3b30",
-    fontSize: 16,
-    fontWeight: "600",
+  inputError: {
+    borderColor: tokens.orange,
+  },
+  scheduledList: {
+    gap: 10,
   },
   addTimeButton: {
-    marginTop: 4,
-    padding: 12,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: "#007AFF",
+    flexDirection: "row",
     alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderStyle: "dashed",
+    borderColor: tokens.faint,
+    paddingVertical: 13,
   },
-  addTimeButtonText: {
-    color: "#007AFF",
+  addTimePlus: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: tokens.ink,
+    lineHeight: 18,
+  },
+  addTimeText: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: tokens.ink,
+    letterSpacing: -0.1,
+  },
+  dangerCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    backgroundColor: tokens.surface,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: tokens.border,
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+  },
+  dangerIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 9,
+    backgroundColor: "rgba(255,90,54,0.12)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  dangerText: {
+    flex: 1,
+    gap: 2,
+  },
+  dangerTitle: {
     fontSize: 14,
     fontWeight: "600",
+    color: tokens.orange,
+  },
+  dangerSub: {
+    fontFamily: "JetBrainsMono-Regular",
+    fontSize: 11,
+    color: tokens.mute,
+  },
+  footer: {
+    paddingHorizontal: 16,
+    paddingTop: 10,
+    paddingBottom: 28,
+    backgroundColor: tokens.cream,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: tokens.border,
+    flexDirection: "row",
+    gap: 10,
   },
 });

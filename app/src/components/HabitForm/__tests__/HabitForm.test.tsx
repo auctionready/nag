@@ -38,20 +38,25 @@ describe("rendering", () => {
     await act(async () => {});
   });
 
-  it("renders title input and Save button", () => {
-    expect(view.getByPlaceholderText("e.g. Exercise")).toBeTruthy();
-    expect(view.getByText("Save")).toBeTruthy();
+  it("renders title input and primary action", () => {
+    expect(view.getByPlaceholderText("morning run")).toBeTruthy();
+    expect(view.getByText("start nagging me")).toBeTruthy();
   });
 
-  it("does not render Delete button without onDelete", () => {
-    expect(view.queryByText("Delete Habit")).toBeNull();
+  it("does not render delete card without onDelete", () => {
+    expect(view.queryByText("delete habit")).toBeNull();
   });
 
-  it("renders Delete button when onDelete is provided", () => {
+  it("renders delete card when onDelete is provided", () => {
     const { getByText } = render(
       <HabitForm onSubmit={onSubmit} onDelete={() => {}} />,
     );
-    expect(getByText("Delete Habit")).toBeTruthy();
+    expect(getByText("delete habit")).toBeTruthy();
+  });
+
+  it("renders 'save changes' label in edit mode", () => {
+    const { getByText } = render(<HabitForm onSubmit={onSubmit} mode="edit" />);
+    expect(getByText("save changes")).toBeTruthy();
   });
 
   it("pre-fills title from initialValues", async () => {
@@ -71,11 +76,11 @@ describe("submission", () => {
       <HabitForm onSubmit={onSubmit} />,
     );
     await act(async () => {
-      fireEvent.changeText(getByPlaceholderText("e.g. Exercise"), "Meditation");
+      fireEvent.changeText(getByPlaceholderText("morning run"), "Meditation");
       await flush();
     });
     await act(async () => {
-      fireEvent.press(getByText("Save"));
+      fireEvent.press(getByText("start nagging me"));
       await flush();
     });
     expect(onSubmit).toHaveBeenCalledTimes(1);
@@ -90,16 +95,16 @@ describe("validation", () => {
     );
     // Trigger onChange validation by typing then clearing
     await act(async () => {
-      fireEvent.changeText(getByPlaceholderText("e.g. Exercise"), "x");
+      fireEvent.changeText(getByPlaceholderText("morning run"), "x");
       await flush();
     });
     await act(async () => {
-      fireEvent.changeText(getByPlaceholderText("e.g. Exercise"), "");
+      fireEvent.changeText(getByPlaceholderText("morning run"), "");
       await flush();
     });
     await waitFor(() => expect(getByText("Title is required")).toBeTruthy());
     await act(async () => {
-      fireEvent.press(getByText("Save"));
+      fireEvent.press(getByText("start nagging me"));
       await flush();
     });
     expect(onSubmit).not.toHaveBeenCalled();
@@ -111,11 +116,11 @@ describe("validation", () => {
     beforeEach(async () => {
       view = render(<HabitForm onSubmit={onSubmit} />);
       await act(async () => {
-        fireEvent.press(view.getByText("Daily"));
+        fireEvent.press(view.getByText("daily"));
       });
       await act(async () => {
         fireEvent.changeText(
-          view.getByPlaceholderText("e.g. Exercise"),
+          view.getByPlaceholderText("morning run"),
           "Exercise",
         );
         await flush();
@@ -127,7 +132,7 @@ describe("validation", () => {
       async (value) => {
         await act(async () => {
           fireEvent.changeText(view.getByPlaceholderText("1"), value);
-          fireEvent.press(view.getByText("Save"));
+          fireEvent.press(view.getByText("start nagging me"));
           await flush();
         });
         await waitFor(() => expect(onSubmit).not.toHaveBeenCalled());
@@ -137,7 +142,7 @@ describe("validation", () => {
     it("submits when frequency is a valid integer", async () => {
       await act(async () => {
         fireEvent.changeText(view.getByPlaceholderText("1"), "3");
-        fireEvent.press(view.getByText("Save"));
+        fireEvent.press(view.getByText("start nagging me"));
         await flush();
       });
       await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1));
@@ -146,42 +151,42 @@ describe("validation", () => {
 });
 
 describe("regularity", () => {
-  it("shows frequency input when Daily is selected", async () => {
+  it("shows frequency input when daily is selected", async () => {
     const { getByText, getByPlaceholderText } = render(
       <HabitForm onSubmit={onSubmit} />,
     );
     await act(async () => {
-      fireEvent.press(getByText("Daily"));
+      fireEvent.press(getByText("daily"));
     });
     expect(getByPlaceholderText("1")).toBeTruthy();
-    expect(getByText("per day")).toBeTruthy();
+    expect(getByText("times per day")).toBeTruthy();
   });
 
-  it("hides frequency input for Ad-hoc", () => {
+  it("hides frequency input for ad-hoc", () => {
     const { queryByPlaceholderText } = render(
       <HabitForm onSubmit={onSubmit} />,
     );
     expect(queryByPlaceholderText("1")).toBeNull();
   });
 
-  it("shows Add Time button when Scheduled is selected", async () => {
+  it("shows add time button when scheduled is selected", async () => {
     const { getByText } = render(<HabitForm onSubmit={onSubmit} />);
     await act(async () => {
-      fireEvent.press(getByText("Scheduled"));
+      fireEvent.press(getByText("scheduled"));
     });
-    expect(getByText("+ Add Time")).toBeTruthy();
+    expect(getByText("add time")).toBeTruthy();
   });
 
-  it("does not prompt when switching to Scheduled", async () => {
+  it("does not prompt when switching to scheduled", async () => {
     jest.spyOn(Alert, "alert");
     const { getByText } = render(<HabitForm onSubmit={onSubmit} />);
     await act(async () => {
-      fireEvent.press(getByText("Scheduled"));
+      fireEvent.press(getByText("scheduled"));
     });
     expect(Alert.alert).not.toHaveBeenCalled();
   });
 
-  describe("switching away from Scheduled with entries", () => {
+  describe("switching away from scheduled with entries", () => {
     let view: ReturnType<typeof render>;
 
     beforeEach(async () => {
@@ -196,7 +201,7 @@ describe("regularity", () => {
         />,
       );
       await act(async () => {
-        fireEvent.press(view.getByText("Daily"));
+        fireEvent.press(view.getByText("daily"));
       });
     });
 
@@ -208,17 +213,17 @@ describe("regularity", () => {
       );
     });
 
-    it("keeps Scheduled when cancel is chosen", () => {
+    it("keeps scheduled when cancel is chosen", () => {
       // Cancel button has no onPress — state unchanged
-      expect(view.getByText("+ Add Time")).toBeTruthy();
+      expect(view.getByText("add time")).toBeTruthy();
     });
 
-    it("switches to Daily when continue is chosen", async () => {
+    it("switches to daily when continue is chosen", async () => {
       const buttons = (Alert.alert as jest.Mock).mock.calls[0][2];
       await act(async () => {
         buttons.find((b: any) => b.text === "Continue").onPress();
       });
-      expect(view.getByText("per day")).toBeTruthy();
+      expect(view.getByText("times per day")).toBeTruthy();
     });
   });
 });
@@ -233,23 +238,25 @@ describe("description", () => {
     });
 
     it("renders description input", () => {
-      expect(view.getByPlaceholderText("Describe the habit")).toBeTruthy();
+      expect(
+        view.getByPlaceholderText("a short reason — why does this matter?"),
+      ).toBeTruthy();
     });
 
     it("includes description in submitted data", async () => {
       await act(async () => {
-        fireEvent.changeText(view.getByPlaceholderText("e.g. Exercise"), "Run");
+        fireEvent.changeText(view.getByPlaceholderText("morning run"), "Run");
         await flush();
       });
       await act(async () => {
         fireEvent.changeText(
-          view.getByPlaceholderText("Describe the habit"),
+          view.getByPlaceholderText("a short reason — why does this matter?"),
           "Go for a run",
         );
         await flush();
       });
       await act(async () => {
-        fireEvent.press(view.getByText("Save"));
+        fireEvent.press(view.getByText("start nagging me"));
         await flush();
       });
       expect(onSubmit).toHaveBeenCalledTimes(1);
@@ -285,7 +292,7 @@ describe("delete", () => {
     jest.spyOn(Alert, "alert");
     view = render(<HabitForm onSubmit={onSubmit} onDelete={onDelete} />);
     await act(async () => {
-      fireEvent.press(view.getByText("Delete Habit"));
+      fireEvent.press(view.getByText("delete habit"));
     });
   });
 
@@ -316,10 +323,10 @@ describe("schedule editor", () => {
   beforeEach(async () => {
     view = render(<HabitForm onSubmit={onSubmit} />);
     await act(async () => {
-      fireEvent.press(view.getByText("Scheduled"));
+      fireEvent.press(view.getByText("scheduled"));
     });
     await act(async () => {
-      fireEvent.press(view.getByText("+ Add Time"));
+      fireEvent.press(view.getByText("add time"));
     });
   });
 
@@ -343,5 +350,45 @@ describe("schedule editor", () => {
     await waitFor(() =>
       expect(view.queryByTestId("schedule-editor-modal")).toBeNull(),
     );
+  });
+});
+
+describe("icon picker", () => {
+  let view: ReturnType<typeof render>;
+
+  beforeEach(async () => {
+    view = render(<HabitForm onSubmit={onSubmit} />);
+    await act(async () => {});
+  });
+
+  it("includes icon: null in submitted data by default", async () => {
+    await act(async () => {
+      fireEvent.changeText(view.getByPlaceholderText("morning run"), "Run");
+      await flush();
+    });
+    await act(async () => {
+      fireEvent.press(view.getByText("start nagging me"));
+      await flush();
+    });
+    expect(onSubmit.mock.calls[0][0]).toMatchObject({ icon: null });
+  });
+
+  it("submits selected icon when picker is opened and a glyph is tapped", async () => {
+    await act(async () => {
+      fireEvent.changeText(view.getByPlaceholderText("morning run"), "Run");
+      await flush();
+    });
+    await act(async () => {
+      fireEvent.press(view.getByLabelText("Choose icon"));
+    });
+    await act(async () => {
+      fireEvent.press(view.getByLabelText("Icon run"));
+      await flush();
+    });
+    await act(async () => {
+      fireEvent.press(view.getByText("start nagging me"));
+      await flush();
+    });
+    expect(onSubmit.mock.calls[0][0]).toMatchObject({ icon: "run" });
   });
 });
