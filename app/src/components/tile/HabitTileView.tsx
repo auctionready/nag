@@ -3,12 +3,12 @@ import { Animated, Pressable, StyleSheet, Text, View } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import { formatDistanceToNowStrict } from "date-fns";
 import type { HabitGoalSummary } from "./useHabitGoalSummary";
-import { cadenceLabel } from "./format";
 import {
   PeriodIndicators,
   type PeriodIndicatorsProps,
 } from "./PeriodIndicators";
-import { TodaySlots, type SlotDotState } from "./TodaySlots";
+import type { SlotDotState } from "./slotDotState";
+import { TileProgressChip, computeChipState } from "./TileProgressChip";
 import { HabitGlyph, type HabitIconKind } from "../HabitGlyph";
 import { tokens } from "../theme";
 
@@ -19,7 +19,7 @@ export interface HabitTileViewProps {
   goal: HabitGoalSummary | null;
   checkInCount: number;
   recentCheckIns: { timestamp: Date }[];
-  scheduleCount?: number;
+  weekCheckInCount: number;
   isOffDay?: boolean;
   periodIndicators?: PeriodIndicatorsProps;
   /**
@@ -35,8 +35,9 @@ export const HabitTileView = ({
   title,
   icon,
   goal,
+  checkInCount,
   recentCheckIns: recent,
-  scheduleCount,
+  weekCheckInCount,
   periodIndicators,
   todaySlots,
   onPress,
@@ -68,7 +69,13 @@ export const HabitTileView = ({
       handleCheckIn();
     });
 
-  const cadence = cadenceLabel(goal, scheduleCount);
+  const monthCheckInCount = goal?.regularity === "month" ? checkInCount : 0;
+  const chipState = computeChipState(
+    goal,
+    todaySlots,
+    weekCheckInCount,
+    monthCheckInCount,
+  );
   const last = recent[0]?.timestamp;
   const lastLabel = last ? `${formatDistanceToNowStrict(last)} ago` : undefined;
 
@@ -93,13 +100,7 @@ export const HabitTileView = ({
                 color={tokens.ink}
               />
             </View>
-            {cadence && (
-              <View style={styles.cadenceChip}>
-                <Text style={styles.cadenceText} numberOfLines={1}>
-                  {cadence}
-                </Text>
-              </View>
-            )}
+            {chipState && <TileProgressChip state={chipState} />}
           </View>
 
           <Text style={styles.title} numberOfLines={2}>
@@ -109,12 +110,6 @@ export const HabitTileView = ({
           {lastLabel && <Text style={styles.lastCheckIn}>{lastLabel}</Text>}
 
           <View style={styles.spacer} />
-
-          {todaySlots && todaySlots.length > 1 && (
-            <View style={styles.todaySlots}>
-              <TodaySlots slots={todaySlots} />
-            </View>
-          )}
 
           {periodIndicators && (
             <View style={styles.strip}>
@@ -161,20 +156,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  cadenceChip: {
-    backgroundColor: tokens.chipTint,
-    borderRadius: 999,
-    paddingHorizontal: 7,
-    paddingVertical: 4,
-    maxWidth: "70%",
-  },
-  cadenceText: {
-    fontFamily: "JetBrainsMono",
-    fontSize: 9.5,
-    letterSpacing: 0.8,
-    color: tokens.mute,
-    textTransform: "uppercase",
-  },
   title: {
     fontSize: 16,
     fontWeight: "600",
@@ -190,9 +171,6 @@ const styles = StyleSheet.create({
   },
   spacer: {
     flex: 1,
-  },
-  todaySlots: {
-    marginBottom: 8,
   },
   strip: {
     width: "100%",
