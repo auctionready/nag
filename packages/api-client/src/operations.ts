@@ -88,6 +88,13 @@ const failureFromError = (
   elapsedMs: number,
   error: unknown,
   extractDocumentedMessage: () => string | undefined,
+  /**
+   * HTTP statuses the caller knows about and intends to handle (e.g. 409
+   * from /accounts/upgrade, which the conflict-resolution flow expects).
+   * Logged at INFO instead of ERROR so the dev console doesn't surface a
+   * scary "ERROR" line for a documented control-flow response.
+   */
+  expectedStatuses: readonly number[] = [],
 ): Failure => {
   if (isAxiosError(error)) {
     if (error.response) {
@@ -109,10 +116,17 @@ const failureFromError = (
           message: `${status}: ${message}`,
         };
       }
-      log?.error?.(
-        `${label} non-retriable (${elapsedMs}ms) status=${status}`,
-        data,
-      );
+      if (expectedStatuses.includes(status)) {
+        log?.info?.(
+          `${label} expected non-retriable (${elapsedMs}ms) status=${status}`,
+          data,
+        );
+      } else {
+        log?.error?.(
+          `${label} non-retriable (${elapsedMs}ms) status=${status}`,
+          data,
+        );
+      }
       return { ok: false, kind: "non-retriable", status, message };
     }
     log?.warn?.(
@@ -333,6 +347,10 @@ const upgradeAccountOnce = async (
         }
         return undefined;
       },
+      // 409 is the documented "identity already bound to a different
+      // account" / "account already bound to a different identity"
+      // response; the conflict-resolution flow in account.tsx handles it.
+      [409],
     );
   }
 };
