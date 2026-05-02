@@ -26,10 +26,9 @@ export const PeriodIndicators = (props: PeriodIndicatorsProps) => {
   if (props.regularity === "month") {
     return <MonthIndicators checkIns={props.checkIns} now={props.now} />;
   }
-  if (!props.scheduledDaysMask) return null;
   return (
     <DayIndicators
-      scheduledDaysMask={props.scheduledDaysMask}
+      scheduledDaysMask={props.scheduledDaysMask ?? 0}
       checkedInDaysMask={props.checkedInDaysMask ?? 0}
       partialDaysMask={props.partialDaysMask}
       anyCheckInDaysMask={props.anyCheckInDaysMask}

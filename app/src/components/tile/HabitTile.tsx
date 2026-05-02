@@ -80,7 +80,7 @@ export const HabitTile = ({ id, title, icon }: HabitTileProps) => {
           checkedInDaysMask: dailyMasks.completedDaysMask,
           partialDaysMask: dailyMasks.partialDaysMask,
         }
-      : effectiveScheduledMask
+      : isWeekly
         ? {
             regularity: "week",
             scheduledDaysMask: effectiveScheduledMask,

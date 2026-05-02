@@ -55,33 +55,33 @@ before=$(git rev-parse HEAD)
 git fetch --quiet origin "$BRANCH"
 target=$(git rev-parse "origin/$BRANCH")
 
-if [ "$before" = "$target" ]; then
-  exit 0
+if [ "$before" != "$target" ]; then
+  # Guard 2: refuse to reset if the target tree doesn't contain this
+  # script. A branch without ops/ would otherwise be reset into, wiping
+  # the hosting files and stranding the next deploy.
+  if ! git cat-file -e "$target:ops/deploy.sh" 2>/dev/null; then
+    echo "deploy.sh: refusing to reset to $target (origin/$BRANCH)." >&2
+    echo "deploy.sh: that commit has no ops/deploy.sh — resetting would" >&2
+    echo "deploy.sh: wipe the VPS hosting files. Deploy a branch that" >&2
+    echo "deploy.sh: carries the ops/ directory." >&2
+    exit 2
+  fi
+
+  git reset --hard --quiet "$target"
+
+  # Only reinstall dependencies if the lockfile actually moved — saves a minute
+  # or two per deploy in the common case.
+  if ! git diff --quiet "$before" "$target" -- pnpm-lock.yaml; then
+    pnpm install --frozen-lockfile
+  fi
 fi
 
-# Guard 2: refuse to reset if the target tree doesn't contain this
-# script. A branch without ops/ would otherwise be reset into, wiping
-# the hosting files and stranding the next deploy.
-if ! git cat-file -e "$target:ops/deploy.sh" 2>/dev/null; then
-  echo "deploy.sh: refusing to reset to $target (origin/$BRANCH)." >&2
-  echo "deploy.sh: that commit has no ops/deploy.sh — resetting would" >&2
-  echo "deploy.sh: wipe the VPS hosting files. Deploy a branch that" >&2
-  echo "deploy.sh: carries the ops/ directory." >&2
-  exit 2
-fi
-
-git reset --hard --quiet "$target"
 after=$(git rev-parse HEAD)
 
-# Only reinstall dependencies if the lockfile actually moved — saves a minute
-# or two per deploy in the common case.
-if ! git diff --quiet "$before" "$after" -- pnpm-lock.yaml; then
-  pnpm install --frozen-lockfile
-fi
-
-# Metro's file watcher will notice the reset, but restarting is cleaner: a
-# hard reset can fire thousands of watcher events at once, and the dev client
-# will reconnect automatically.
+# Always restart on deploy — lets a re-run of the workflow recover a wedged
+# service even when HEAD didn't move. Metro's file watcher would notice a
+# reset anyway, but a clean restart avoids the thundering-herd of watcher
+# events; the dev client reconnects automatically.
 systemctl --user restart "$SERVICE"
 
 printf 'nag: deployed %s -> %s\n' "$before" "$after"
