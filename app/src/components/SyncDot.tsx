@@ -1,9 +1,7 @@
 import { useEffect, useRef } from "react";
-import { Animated, Pressable, StyleSheet, Text, View } from "react-native";
-import { useRouter, usePathname } from "expo-router";
+import { Animated, StyleSheet, Text, View } from "react-native";
 import { useSyncStatus } from "../infrastructure/syncStatus";
 import { isApiConfigured } from "../infrastructure/apiClient";
-import { isClerkConfigured } from "../infrastructure/clerk";
 import { tokens } from "./theme";
 
 interface SyncDotProps {
@@ -23,12 +21,12 @@ type DotStatus = keyof typeof PALETTE;
 /**
  * Compact sync indicator for the home board top bar — a 7px dot in
  * green/blue/grey/red, optionally labelled. Pulses while syncing.
- * Wraps the app's `useSyncStatus` and tapping opens the Account screen
- * (matches the legacy SyncStatusPill behaviour).
+ * Purely presentational — pairs with the top bar's avatar button
+ * which is the canonical "open account" affordance, so we don't put
+ * a tap target here that would steal touches from neighbouring
+ * pressables.
  */
 export const SyncDot = ({ showLabel = false }: SyncDotProps) => {
-  const router = useRouter();
-  const pathname = usePathname();
   const { status, pendingCount } = useSyncStatus();
 
   const dotStatus = mapStatus(status);
@@ -65,13 +63,6 @@ export const SyncDot = ({ showLabel = false }: SyncDotProps) => {
       ? `${pendingCount} pending`
       : palette.text;
 
-  const onPress = () => {
-    if (pathname === "/account") return;
-    // navigate (not push) so when the user is somewhere in the (tabs)
-    // navigator we switch to the account tab rather than stacking it.
-    if (isClerkConfigured()) router.navigate("/account");
-  };
-
   const haloOpacity = pulse.interpolate({
     inputRange: [0, 1],
     outputRange: [0, 0.35],
@@ -81,8 +72,12 @@ export const SyncDot = ({ showLabel = false }: SyncDotProps) => {
     outputRange: [1, 1.9],
   });
 
-  const content = (
-    <View style={styles.row}>
+  return (
+    <View
+      style={styles.row}
+      accessibilityRole="text"
+      accessibilityLabel={`Sync status: ${palette.text}`}
+    >
       <View style={styles.dotWrap}>
         {dotStatus === "syncing" && (
           <Animated.View
@@ -100,17 +95,6 @@ export const SyncDot = ({ showLabel = false }: SyncDotProps) => {
       </View>
       {showLabel && <Text style={styles.label}>{label}</Text>}
     </View>
-  );
-
-  return (
-    <Pressable
-      onPress={onPress}
-      hitSlop={10}
-      accessibilityRole="button"
-      accessibilityLabel={`Sync status: ${palette.text}`}
-    >
-      {content}
-    </Pressable>
   );
 };
 
