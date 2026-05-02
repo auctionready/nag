@@ -555,7 +555,7 @@ const SignInPanel = ({
         />
         <ProviderButton
           label="Continue with Google"
-          icon={<ProviderGlyph provider="google" size={16} branded />}
+          icon={<ProviderGlyph provider="google" size={16} />}
           onPress={() => void onOAuth("oauth_google")}
         />
         <ProviderButton

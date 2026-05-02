@@ -45,15 +45,12 @@ interface ProviderGlyphProps {
   provider: ProviderKey;
   size?: number;
   color?: string;
-  /** When true, render the brand-coloured Google "G" instead of mono. */
-  branded?: boolean;
 }
 
 export const ProviderGlyph = ({
   provider,
   size = 16,
   color = "currentColor",
-  branded = false,
 }: ProviderGlyphProps) => {
   switch (provider) {
     case "apple":
@@ -63,31 +60,26 @@ export const ProviderGlyph = ({
         </Svg>
       );
     case "google":
-      if (branded) {
-        return (
-          <Svg width={size} height={size} viewBox="0 0 24 24">
-            <Path
-              fill="#4285F4"
-              d="M22.5 12.2c0-.7-.1-1.4-.2-2H12v3.8h5.9c-.3 1.4-1 2.5-2.2 3.3v2.7h3.5c2-1.9 3.3-4.7 3.3-7.8z"
-            />
-            <Path
-              fill="#34A853"
-              d="M12 23c3 0 5.5-1 7.3-2.7l-3.5-2.7c-1 .6-2.2 1-3.7 1-2.9 0-5.3-2-6.2-4.6H2.2v2.9C4 20.4 7.7 23 12 23z"
-            />
-            <Path
-              fill="#FBBC05"
-              d="M5.7 14c-.2-.6-.4-1.3-.4-2s.1-1.4.4-2V7H2.2C1.4 8.5 1 10.2 1 12s.4 3.5 1.2 5l3.5-3z"
-            />
-            <Path
-              fill="#EA4335"
-              d="M12 5.4c1.6 0 3.1.6 4.2 1.7l3.1-3.1C17.5 2.2 15 1 12 1 7.7 1 4 3.6 2.2 7l3.5 2.9C6.7 7.4 9 5.4 12 5.4z"
-            />
-          </Svg>
-        );
-      }
+      // Always render Google's brand-coloured G — a single-fill silhouette
+      // reads as a half-eaten letter and is the source of bug reports.
       return (
-        <Svg width={size} height={size} viewBox="0 0 24 24" fill={color}>
-          <Path d="M22.5 12.2c0-.7-.1-1.4-.2-2H12v3.8h5.9c-.3 1.4-1 2.5-2.2 3.3v2.7h3.5c2-1.9 3.3-4.7 3.3-7.8zM12 23c3 0 5.5-1 7.3-2.7l-3.5-2.7c-1 .6-2.2 1-3.7 1-2.9 0-5.3-2-6.2-4.6H2.2v2.9C4 20.4 7.7 23 12 23z" />
+        <Svg width={size} height={size} viewBox="0 0 24 24">
+          <Path
+            fill="#4285F4"
+            d="M22.5 12.2c0-.7-.1-1.4-.2-2H12v3.8h5.9c-.3 1.4-1 2.5-2.2 3.3v2.7h3.5c2-1.9 3.3-4.7 3.3-7.8z"
+          />
+          <Path
+            fill="#34A853"
+            d="M12 23c3 0 5.5-1 7.3-2.7l-3.5-2.7c-1 .6-2.2 1-3.7 1-2.9 0-5.3-2-6.2-4.6H2.2v2.9C4 20.4 7.7 23 12 23z"
+          />
+          <Path
+            fill="#FBBC05"
+            d="M5.7 14c-.2-.6-.4-1.3-.4-2s.1-1.4.4-2V7H2.2C1.4 8.5 1 10.2 1 12s.4 3.5 1.2 5l3.5-3z"
+          />
+          <Path
+            fill="#EA4335"
+            d="M12 5.4c1.6 0 3.1.6 4.2 1.7l3.1-3.1C17.5 2.2 15 1 12 1 7.7 1 4 3.6 2.2 7l3.5 2.9C6.7 7.4 9 5.4 12 5.4z"
+          />
         </Svg>
       );
     case "github":
