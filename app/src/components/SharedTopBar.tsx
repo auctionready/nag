@@ -1,8 +1,10 @@
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import Svg, { Path, Rect } from "react-native-svg";
+import Svg, { Circle, Path, Rect } from "react-native-svg";
+import { useUser } from "@clerk/clerk-expo";
 import { tokens } from "./theme";
 import { SyncDot } from "./SyncDot";
+import { isClerkConfigured } from "../infrastructure/clerk";
 
 // Subset of `MaterialTopTabBarProps` from `@react-navigation/material-top-tabs`,
 // inlined so this file doesn't need a direct dep on the package
@@ -14,6 +16,71 @@ interface TabBarProps {
 }
 
 const ACTIVE_HALO = "rgba(255,90,54,0.18)";
+
+/**
+ * Avatar content: initials when signed in, person silhouette otherwise.
+ * Splits into a separate component so we can call `useUser` conditionally
+ * — `isClerkConfigured()` is stable across the app's lifetime (driven by
+ * env at startup) so a per-render branch on it doesn't violate hook
+ * rules.
+ */
+const AvatarContent = ({ active }: { active: boolean }) =>
+  isClerkConfigured() ? (
+    <ClerkAvatar active={active} />
+  ) : (
+    <PersonSilhouette active={active} />
+  );
+
+const ClerkAvatar = ({ active }: { active: boolean }) => {
+  const { user } = useUser();
+  const initials = computeInitials(user);
+  if (!initials) return <PersonSilhouette active={active} />;
+  return (
+    <Text style={[styles.avatarText, active && styles.avatarTextActive]}>
+      {initials}
+    </Text>
+  );
+};
+
+const PersonSilhouette = ({ active }: { active: boolean }) => (
+  <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
+    <Circle
+      cx={12}
+      cy={9}
+      r={3.5}
+      stroke={active ? tokens.cream : tokens.ink}
+      strokeWidth={1.7}
+    />
+    <Path
+      d="M5 20c1-3.5 4-5 7-5s6 1.5 7 5"
+      stroke={active ? tokens.cream : tokens.ink}
+      strokeWidth={1.7}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </Svg>
+);
+
+const computeInitials = (
+  user: ReturnType<typeof useUser>["user"],
+): string | null => {
+  if (!user) return null;
+  const source =
+    user.fullName ||
+    [user.firstName, user.lastName].filter(Boolean).join(" ").trim() ||
+    user.username ||
+    user.primaryEmailAddress?.emailAddress ||
+    user.primaryPhoneNumber?.phoneNumber ||
+    "";
+  const cleaned = source.trim();
+  if (!cleaned) return null;
+  const parts = cleaned.split(/\s+/).filter(Boolean);
+  if (parts.length >= 2) {
+    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+  }
+  // Single-word source (e.g. an email): use first 2 letters.
+  return cleaned.slice(0, 2).toUpperCase();
+};
 
 /**
  * Top bar shared across the (tabs) navigator — Today / Calendar / Account.
@@ -51,11 +118,7 @@ export const SharedTopBar = ({ state, jumpTo }: TabBarProps) => {
           accessibilityLabel="Account"
           accessibilityRole="button"
         >
-          <Text
-            style={[styles.avatarText, onAccount && styles.avatarTextActive]}
-          >
-            JC
-          </Text>
+          <AvatarContent active={onAccount} />
         </Pressable>
 
         <View style={styles.center}>
