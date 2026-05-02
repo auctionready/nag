@@ -3,6 +3,7 @@ import { registerDevMenuItems } from "expo-dev-client";
 import { router } from "expo-router";
 import { clearAll, seedSampleData } from "./seed";
 import { devFlags } from "../infrastructure/devFlags";
+import { clearAllClerkTokens } from "../infrastructure/clerk";
 import { deviceTokenStore } from "../infrastructure/tokenStore";
 
 if (__DEV__) {
@@ -25,10 +26,14 @@ if (__DEV__) {
       name: "Clear whole device",
       callback: async () => {
         // Like "Clear database (no refetch from server)" but also clears
-        // the secure-store device token, so the next launch is a true
-        // first-install (new deviceId, no leftover token, no accountId).
-        // Server-side state is untouched.
+        // the secure-store device token *and* Clerk's persisted session,
+        // so the next launch is a true first-install: new deviceId, no
+        // leftover device token, no accountId, and no signed-in Clerk
+        // user (otherwise the post-Clerk-sign-in effect would immediately
+        // re-register the just-wiped device). Server-side state is
+        // untouched.
         await clearAll({ tokenStore: deviceTokenStore });
+        await clearAllClerkTokens();
         DevSettings.reload();
       },
     },
