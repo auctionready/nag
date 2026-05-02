@@ -1,5 +1,5 @@
 import { StyleSheet, Text, View, type ViewStyle } from "react-native";
-import Svg, { Path } from "react-native-svg";
+import Svg, { Line, Path } from "react-native-svg";
 import { mondayFirstDayLetters } from "@nag/core";
 import { tokens } from "../theme";
 
@@ -13,7 +13,25 @@ interface DayIndicatorsProps {
   missedColor?: string;
 }
 
-type CellState = "done" | "partial" | "today" | "missed" | "future" | "off";
+// State language for week-strip cells, mirroring the design:
+//   done           — ink fill + check
+//   today-done     — done + orange ring around it
+//   today          — scheduled today, not done — orange ring, empty inside
+//   partial        — some-of-many slots done — bottom portion ink-filled,
+//                    faint ring
+//   today-partial  — partial + orange ring
+//   missed         — past scheduled day with no check-in — faint ring + slash
+//   future         — upcoming scheduled day — faint ring
+//   skip           — not scheduled — faint dot, no border
+type CellState =
+  | "done"
+  | "today-done"
+  | "today"
+  | "partial"
+  | "today-partial"
+  | "missed"
+  | "future"
+  | "skip";
 
 interface Cell {
   letter: string;
@@ -42,13 +60,14 @@ const buildCells = (
     const isToday = day === todayBit;
     const isPast = i < todayIndex;
     let state: CellState;
-    if (scheduled && checkedIn) state = "done";
+    if (scheduled && checkedIn) state = isToday ? "today-done" : "done";
     else if (!scheduled && anyCheckIn) state = "done";
+    else if (scheduled && partial)
+      state = isToday ? "today-partial" : "partial";
     else if (isToday && scheduled) state = "today";
-    else if (scheduled && partial) state = "partial";
     else if (scheduled && isPast) state = "missed";
     else if (scheduled) state = "future";
-    else state = "off";
+    else state = "skip";
     return { letter, state, isToday };
   });
 };
@@ -64,52 +83,91 @@ export const DayIndicators = (props: DayIndicatorsProps) => {
   );
 };
 
+// Default partial fill — caller doesn't supply per-day ratios so use a
+// neutral half-fill that reads as "partial" without implying a specific
+// completion fraction.
+const DEFAULT_PARTIAL_RATIO = 0.5;
+
 const Cell = ({ letter, state, isToday }: Cell) => {
   const cellStyle: ViewStyle[] = [styles.cell];
-  let icon: React.ReactNode = null;
+  let inner: React.ReactNode = null;
+
   switch (state) {
     case "done":
-      cellStyle.push(styles.cellDone);
-      icon = (
-        <Svg width={9} height={9} viewBox="0 0 9 9" fill="none">
-          <Path
-            d="M2 4.5L4 6.5L7.5 2.5"
-            stroke={tokens.cream}
-            strokeWidth={1.5}
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-        </Svg>
-      );
+      cellStyle.push(styles.cellInk);
+      inner = <CheckGlyph />;
+      break;
+    case "today-done":
+      cellStyle.push(styles.cellInk, styles.cellTodayRing);
+      inner = <CheckGlyph />;
       break;
     case "today":
-      cellStyle.push(styles.cellToday);
-      icon = <View style={styles.todayDot} />;
+      cellStyle.push(styles.cellTodayRing);
       break;
     case "partial":
-      cellStyle.push(styles.cellToday);
-      icon = <View style={styles.todayDot} />;
+      cellStyle.push(styles.cellFaintRing);
+      inner = <PartialFill ratio={DEFAULT_PARTIAL_RATIO} />;
+      break;
+    case "today-partial":
+      cellStyle.push(styles.cellTodayRing);
+      inner = <PartialFill ratio={DEFAULT_PARTIAL_RATIO} />;
       break;
     case "missed":
-      cellStyle.push(styles.cellMissed);
-      icon = <View style={styles.missedDot} />;
+      cellStyle.push(styles.cellFaintRing);
+      inner = <SlashGlyph />;
       break;
     case "future":
-      cellStyle.push(styles.cellFuture);
+      cellStyle.push(styles.cellFaintRing);
       break;
-    case "off":
-      cellStyle.push(styles.cellOff);
+    case "skip":
+      inner = <View style={styles.skipDot} />;
       break;
   }
+
   return (
     <View style={styles.col}>
       <Text style={[styles.letter, isToday && styles.letterToday]}>
         {letter}
       </Text>
-      <View style={cellStyle}>{icon}</View>
+      <View style={cellStyle}>{inner}</View>
     </View>
   );
 };
+
+const CheckGlyph = () => (
+  <Svg width={9} height={9} viewBox="0 0 9 9" fill="none">
+    <Path
+      d="M2 4.5L4 6.5L7.5 2.5"
+      stroke={tokens.cream}
+      strokeWidth={1.5}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </Svg>
+);
+
+const SlashGlyph = () => (
+  <Svg width={CELL} height={CELL} viewBox="0 0 22 22" fill="none">
+    <Line
+      x1={6}
+      y1={16}
+      x2={16}
+      y2={6}
+      stroke={tokens.mute}
+      strokeWidth={1.4}
+      strokeLinecap="round"
+    />
+  </Svg>
+);
+
+const PartialFill = ({ ratio }: { ratio: number }) => (
+  <View
+    style={[
+      styles.partialFill,
+      { height: `${Math.max(0, Math.min(1, ratio)) * 100}%` },
+    ]}
+  />
+);
 
 const CELL = 22;
 
@@ -141,36 +199,31 @@ const styles = StyleSheet.create({
     borderRadius: 6,
     alignItems: "center",
     justifyContent: "center",
+    overflow: "hidden",
+    position: "relative",
   },
-  cellDone: {
+  cellInk: {
     backgroundColor: tokens.ink,
   },
-  cellToday: {
-    backgroundColor: tokens.orange,
+  cellTodayRing: {
+    borderWidth: 1.5,
+    borderColor: tokens.orange,
   },
-  cellMissed: {
-    borderWidth: 1,
-    borderStyle: "dashed",
-    borderColor: tokens.faint,
-  },
-  cellFuture: {
+  cellFaintRing: {
     borderWidth: 1,
     borderColor: tokens.faint,
   },
-  cellOff: {
-    borderWidth: 1,
-    borderColor: tokens.veryFaint,
-  },
-  todayDot: {
-    width: 5,
-    height: 5,
-    borderRadius: 2.5,
-    backgroundColor: tokens.cream,
-  },
-  missedDot: {
+  skipDot: {
     width: 3,
     height: 3,
     borderRadius: 1.5,
     backgroundColor: tokens.faint,
+  },
+  partialFill: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: tokens.ink,
   },
 });
