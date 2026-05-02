@@ -219,10 +219,16 @@ const SignedInOrOut = () => {
 
 /**
  * Handles the case where /accounts/upgrade returned 409 because the Clerk
- * identity is already bound to another account. Pairs this device into the
- * existing account, but first warns the user — and aborts the sign-in
- * entirely on cancel — if there's local anonymous data on the device that
- * the swap would discard.
+ * identity is already bound to another account. The behaviour depends on
+ * what's on this device:
+ *
+ *   - No local habits → silently pair into the existing account and let
+ *     pull-sync hydrate the local DB. There's nothing to lose, so no
+ *     prompt.
+ *   - Local habits exist → ask the user to choose between replacing the
+ *     local data with the server's, replacing the server's data with
+ *     this device's (force-upgrade — the "use this device's data"
+ *     flow), or cancelling the sign-in.
  */
 const runPairFallback = async ({
   deviceId,
@@ -240,21 +246,49 @@ const runPairFallback = async ({
   onCancelled: () => void;
 }): Promise<void> => {
   const localHabits = await db.select({ id: habit.id }).from(habit).limit(1);
-  if (localHabits.length > 0) {
-    const proceed = await confirmReplaceLocalData();
-    if (!proceed) {
-      logger.info("pair fallback cancelled by user — signing out of Clerk");
-      try {
-        await signOut();
-      } catch (err) {
-        logger.warn("signOut after pair-cancel failed", err);
-      }
-      onCancelled();
-      setStatus({ kind: "idle" });
-      return;
-    }
+
+  if (localHabits.length === 0) {
+    await runReplaceLocal({ deviceId, idpToken, kickSync, setStatus });
+    return;
   }
 
+  const choice = await chooseConflictResolution();
+  if (choice === "cancel") {
+    logger.info("sign-in conflict cancelled by user — signing out of Clerk");
+    try {
+      await signOut();
+    } catch (err) {
+      logger.warn("signOut after sign-in-cancel failed", err);
+    }
+    onCancelled();
+    setStatus({ kind: "idle" });
+    return;
+  }
+
+  if (choice === "use-server") {
+    await runReplaceLocal({ deviceId, idpToken, kickSync, setStatus });
+    return;
+  }
+
+  await runReplaceServer({ deviceId, idpToken, kickSync, setStatus });
+};
+
+/**
+ * "Use server data" path — pair this device into the existing account
+ * and wipe local replicated tables so pull-sync rehydrates from the
+ * server snapshot.
+ */
+const runReplaceLocal = async ({
+  deviceId,
+  idpToken,
+  kickSync,
+  setStatus,
+}: {
+  deviceId: string;
+  idpToken: string;
+  kickSync: (source: string) => void;
+  setStatus: React.Dispatch<React.SetStateAction<UpgradeStatus>>;
+}): Promise<void> => {
   const paired = await pairDevice({ deviceId, idpToken });
   if (!paired.ok) {
     setStatus({ kind: "fail", message: paired.message });
@@ -275,24 +309,60 @@ const runPairFallback = async ({
   kickSync("post-pair");
 };
 
-const confirmReplaceLocalData = (): Promise<boolean> =>
+/**
+ * "Use this device's data" path — force-upgrade this device's anonymous
+ * account, which moves the Clerk identity from the other account onto
+ * this one. Local data is preserved as-is; the existing outbox flushes
+ * the device's local events to the server normally afterwards.
+ */
+const runReplaceServer = async ({
+  deviceId,
+  idpToken,
+  kickSync,
+  setStatus,
+}: {
+  deviceId: string;
+  idpToken: string;
+  kickSync: (source: string) => void;
+  setStatus: React.Dispatch<React.SetStateAction<UpgradeStatus>>;
+}): Promise<void> => {
+  const claimed = await upgradeAccount({ deviceId, idpToken, force: true });
+  if (!claimed.ok) {
+    setStatus({ kind: "fail", message: claimed.message });
+    return;
+  }
+  logger.info(
+    `identity force-claimed onto local accountId=${claimed.accountId} — kicking sync`,
+  );
+  setStatus({ kind: "ok" });
+  kickSync("post-force-upgrade");
+};
+
+type ConflictChoice = "cancel" | "use-server" | "use-device";
+
+const chooseConflictResolution = (): Promise<ConflictChoice> =>
   new Promise((resolve) => {
     Alert.alert(
-      "Switch to your signed-in account?",
-      "Habits and check-ins on this device will be replaced with the data from your account. This can't be undone.",
+      "You're already signed in elsewhere",
+      "This account already has data on the server, and this device has habits of its own. Which copy should be kept?",
       [
         {
           text: "Cancel",
           style: "cancel",
-          onPress: () => resolve(false),
+          onPress: () => resolve("cancel"),
         },
         {
-          text: "Replace",
+          text: "Use server data",
           style: "destructive",
-          onPress: () => resolve(true),
+          onPress: () => resolve("use-server"),
+        },
+        {
+          text: "Use this device's data",
+          style: "destructive",
+          onPress: () => resolve("use-device"),
         },
       ],
-      { cancelable: true, onDismiss: () => resolve(false) },
+      { cancelable: true, onDismiss: () => resolve("cancel") },
     );
   });
 

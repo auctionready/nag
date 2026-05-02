@@ -12,7 +12,11 @@ const IsoDatetime = z.iso
   .transform((s) => new Date(s));
 
 export const UpgradeAccountRequest = z
-  .object({ deviceId: z.uuid(), idpToken: z.string().nullable() })
+  .object({
+    deviceId: z.uuid(),
+    idpToken: z.string().nullable(),
+    force: z.boolean(),
+  })
   .partial();
 export type UpgradeAccountRequest = z.infer<typeof UpgradeAccountRequest>;
 

@@ -284,7 +284,7 @@ type UpgradeAccountError400 = ZodiosErrorByAlias<
 
 const upgradeAccountOnce = async (
   client: NagApiClient,
-  request: { deviceId: string; idpToken: string },
+  request: { deviceId: string; idpToken: string; force?: boolean },
   log: WrapperLog | undefined,
 ): Promise<UpgradeAccountResult> => {
   const start = Date.now();
@@ -390,10 +390,12 @@ export const getSync = async (
  */
 export const upgradeAccount = async (
   client: NagApiClient,
-  request: { deviceId: string; idpToken: string },
+  request: { deviceId: string; idpToken: string; force?: boolean },
   log?: WrapperLog,
 ): Promise<UpgradeAccountResult> => {
-  log?.debug?.(`POST /accounts/upgrade deviceId=${request.deviceId}`);
+  log?.debug?.(
+    `POST /accounts/upgrade deviceId=${request.deviceId}${request.force ? " force=true" : ""}`,
+  );
 
   const maxAttempts = 3;
   let last: UpgradeAccountResult = {

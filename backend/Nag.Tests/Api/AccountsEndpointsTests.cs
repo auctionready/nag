@@ -137,6 +137,63 @@ public class AccountsEndpointsTests : IClassFixture<AccountsEndpointsTests.Facto
     }
 
     [Fact]
+    public async Task force_upgrade_moves_the_identity_from_the_other_account_to_this_one()
+    {
+        var client = _factory.CreateClient();
+        var (firstAccountId, firstDeviceId) = await RegisterDeviceAsync(client);
+        var (secondAccountId, secondDeviceId) = await RegisterDeviceAsync(client);
+
+        _factory.ClerkVerifier.Behavior = _ =>
+            ClerkTokenVerificationResult.Success("user_force_take_over");
+        var first = await client.PostAsJsonAsync(
+            "/accounts/upgrade",
+            new UpgradeAccountRequest(firstDeviceId, "token-a")
+        );
+        first.StatusCode.ShouldBe(HttpStatusCode.OK);
+
+        // Second device, same Clerk identity, with Force=true. Without
+        // Force this would be 409; with it, the identity moves and the
+        // first account is left orphaned (rows kept, IdpSubject cleared).
+        var second = await client.PostAsJsonAsync(
+            "/accounts/upgrade",
+            new UpgradeAccountRequest(secondDeviceId, "token-b", Force: true)
+        );
+
+        second.StatusCode.ShouldBe(HttpStatusCode.OK);
+        var body = await second.Content.ReadFromJsonAsync<UpgradeAccountResponse>();
+        body!.AccountId.ShouldBe(secondAccountId);
+        body.IdpSubject.ShouldBe("user_force_take_over");
+
+        using var scope = _factory.Services.CreateScope();
+        var session = scope.ServiceProvider.GetRequiredService<IDocumentSession>();
+        var loser = await session.LoadAsync<Account>(firstAccountId);
+        loser!.IdpSubject.ShouldBeNull();
+        loser.UpgradedAt.ShouldBeNull();
+        var winner = await session.LoadAsync<Account>(secondAccountId);
+        winner!.IdpSubject.ShouldBe("user_force_take_over");
+        winner.UpgradedAt.ShouldNotBeNull();
+    }
+
+    [Fact]
+    public async Task force_upgrade_without_an_existing_claim_behaves_like_a_normal_upgrade()
+    {
+        var client = _factory.CreateClient();
+        var (accountId, deviceId) = await RegisterDeviceAsync(client);
+        _factory.ClerkVerifier.Behavior = _ =>
+            ClerkTokenVerificationResult.Success("user_force_no_op");
+
+        var response = await client.PostAsJsonAsync(
+            "/accounts/upgrade",
+            new UpgradeAccountRequest(deviceId, "any-token", Force: true)
+        );
+
+        response.StatusCode.ShouldBe(HttpStatusCode.OK);
+        var body = await response.Content.ReadFromJsonAsync<UpgradeAccountResponse>();
+        body!.AccountId.ShouldBe(accountId);
+        body.IdpSubject.ShouldBe("user_force_no_op");
+    }
+
+    [Fact]
     public async Task an_invalid_idp_token_returns_401()
     {
         var client = _factory.CreateClient();
