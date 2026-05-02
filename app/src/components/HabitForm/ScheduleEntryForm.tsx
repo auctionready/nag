@@ -6,8 +6,9 @@ import { useEffect, useMemo } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { tokens } from "../theme";
 import { timeFromStrings, type ScheduleEntry } from "./shared";
-import { NoDays, weekDayEntries } from "@nag/core";
+import { NoDays } from "@nag/core";
 import { ErrorText } from "./ErrorText";
+import { WeekdayPills } from "./WeekdayPills";
 
 interface ScheduleEntryFormProps {
   initialValues: ScheduleEntry;
@@ -49,7 +50,7 @@ export const ScheduleEntryForm = ({
     void trigger("days");
   }, [trigger]);
 
-  const days = watch("days");
+  const days = watch("days") ?? NoDays;
   const hour = watch("hour");
   const minute = watch("minute");
 
@@ -59,7 +60,7 @@ export const ScheduleEntryForm = ({
   );
 
   const toggleDay = (day: number) => {
-    const newDays = (days ?? NoDays) ^ day;
+    const newDays = days ^ day;
     setValue("days", newDays, { shouldDirty: true, shouldValidate: true });
   };
 
@@ -75,27 +76,7 @@ export const ScheduleEntryForm = ({
     <View style={styles.container}>
       <View style={styles.section}>
         <Text style={styles.fieldLabel}>days</Text>
-        <View style={styles.daysRow}>
-          {weekDayEntries.map(({ day, label }) => {
-            const checked = ((days ?? NoDays) & day) !== 0;
-            return (
-              <Pressable
-                key={day}
-                style={[styles.dayTile, checked && styles.dayTileActive]}
-                onPress={() => toggleDay(day)}
-              >
-                <Text
-                  style={[
-                    styles.dayTileText,
-                    checked && styles.dayTileTextActive,
-                  ]}
-                >
-                  {label[0]}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </View>
+        <WeekdayPills days={days} onToggle={toggleDay} size="md" />
         {errors.days && <ErrorText>{errors.days.message}</ErrorText>}
       </View>
 
@@ -181,32 +162,6 @@ const styles = StyleSheet.create({
     color: tokens.mute,
     letterSpacing: 1.3,
     textTransform: "uppercase",
-  },
-  daysRow: {
-    flexDirection: "row",
-    gap: 6,
-  },
-  dayTile: {
-    flex: 1,
-    height: 38,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: tokens.border,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "transparent",
-  },
-  dayTileActive: {
-    backgroundColor: tokens.ink,
-    borderColor: tokens.ink,
-  },
-  dayTileText: {
-    fontSize: 13,
-    fontWeight: "600",
-    color: tokens.mute,
-  },
-  dayTileTextActive: {
-    color: tokens.cream,
   },
   divider: {
     height: StyleSheet.hairlineWidth,

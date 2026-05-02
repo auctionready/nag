@@ -1,10 +1,12 @@
 import { useState } from "react";
-import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { StyleSheet, Text, TextInput, View } from "react-native";
 import { Controller, type Control } from "react-hook-form";
 import { tokens } from "../theme";
-import { HabitGlyph, type HabitIconKind } from "../HabitGlyph";
 import { ErrorText } from "./ErrorText";
-import { HABIT_ICON_KINDS, type HabitFormData } from "./shared";
+import { IconPickerGrid } from "./IconPickerGrid";
+import { IconSwatch } from "./IconSwatch";
+import { SectionLabel } from "./SectionLabel";
+import { type HabitFormData } from "./shared";
 
 interface IdentityCardProps {
   control: Control<HabitFormData>;
@@ -24,27 +26,12 @@ export const IdentityCard = ({ control, titleError }: IdentityCardProps) => {
             name="icon"
             render={({ field: { value, onChange } }) => (
               <>
-                <Pressable
+                <IconSwatch
+                  icon={value}
+                  open={pickerOpen}
                   onPress={() => setPickerOpen((v) => !v)}
-                  style={styles.iconSwatch}
-                  accessibilityRole="button"
-                  accessibilityLabel="Choose icon"
-                >
-                  <HabitGlyph
-                    kind={value ?? "check"}
-                    size={22}
-                    color={tokens.cream}
-                  />
-                  <View
-                    style={[
-                      styles.iconChevron,
-                      pickerOpen && styles.iconChevronActive,
-                    ]}
-                  >
-                    <Text style={styles.iconChevronGlyph}>v</Text>
-                  </View>
-                </Pressable>
-                <View style={styles.identityNameCol}>
+                />
+                <View style={styles.nameCol}>
                   <Text style={styles.fieldLabel}>name</Text>
                   <Controller
                     control={control}
@@ -69,32 +56,7 @@ export const IdentityCard = ({ control, titleError }: IdentityCardProps) => {
                   />
                 </View>
                 {pickerOpen && (
-                  <View style={styles.iconPicker}>
-                    <Text style={styles.fieldLabel}>pick icon</Text>
-                    <View style={styles.iconGrid}>
-                      {HABIT_ICON_KINDS.map((kind) => {
-                        const on = kind === value;
-                        return (
-                          <Pressable
-                            key={kind}
-                            onPress={() => onChange(on ? null : kind)}
-                            style={[
-                              styles.iconCell,
-                              on && styles.iconCellActive,
-                            ]}
-                            accessibilityRole="button"
-                            accessibilityLabel={`Icon ${kind}`}
-                          >
-                            <HabitGlyph
-                              kind={kind as HabitIconKind}
-                              size={20}
-                              color={on ? tokens.cream : tokens.ink}
-                            />
-                          </Pressable>
-                        );
-                      })}
-                    </View>
-                  </View>
+                  <IconPickerGrid selected={value} onSelect={onChange} />
                 )}
               </>
             )}
@@ -128,20 +90,7 @@ export const IdentityCard = ({ control, titleError }: IdentityCardProps) => {
   );
 };
 
-const SectionLabel = ({ children }: { children: string }) => (
-  <Text style={styles.sectionLabel}>{children}</Text>
-);
-
 const styles = StyleSheet.create({
-  sectionLabel: {
-    fontFamily: "JetBrainsMono-Regular",
-    fontSize: 10,
-    color: tokens.mute,
-    letterSpacing: 1.4,
-    textTransform: "uppercase",
-    paddingHorizontal: 4,
-    paddingBottom: 8,
-  },
   card: {
     backgroundColor: tokens.surface,
     borderRadius: 16,
@@ -157,37 +106,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 12,
   },
-  iconSwatch: {
-    width: 44,
-    height: 44,
-    borderRadius: 12,
-    backgroundColor: tokens.ink,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  iconChevron: {
-    position: "absolute",
-    right: -4,
-    bottom: -4,
-    width: 16,
-    height: 16,
-    borderRadius: 8,
-    backgroundColor: tokens.ink,
-    alignItems: "center",
-    justifyContent: "center",
-    borderWidth: 1.5,
-    borderColor: tokens.cream,
-  },
-  iconChevronActive: {
-    backgroundColor: tokens.orange,
-  },
-  iconChevronGlyph: {
-    color: tokens.cream,
-    fontSize: 9,
-    fontWeight: "700",
-    lineHeight: 10,
-  },
-  identityNameCol: {
+  nameCol: {
     flex: 1,
     minWidth: 0,
     gap: 2,
@@ -209,29 +128,6 @@ const styles = StyleSheet.create({
     height: StyleSheet.hairlineWidth,
     backgroundColor: tokens.border,
     marginHorizontal: 14,
-  },
-  iconPicker: {
-    flexBasis: "100%",
-    gap: 8,
-    paddingTop: 4,
-  },
-  iconGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 6,
-  },
-  iconCell: {
-    width: "15.4%",
-    aspectRatio: 1,
-    borderRadius: 10,
-    backgroundColor: tokens.inkTint,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  iconCellActive: {
-    backgroundColor: tokens.ink,
-    borderWidth: 2,
-    borderColor: tokens.orange,
   },
   descriptionRow: {
     paddingHorizontal: 14,
