@@ -1,6 +1,7 @@
 import React from "react";
 import {
   ActivityIndicator,
+  Alert,
   ScrollView,
   StyleSheet,
   Text,
@@ -17,11 +18,18 @@ import {
   useSSO,
   useUser,
 } from "@clerk/clerk-expo";
-import { loadIdentity } from "@nag/core";
+import { loadIdentity, switchLocalAccount } from "@nag/core";
+import { habit } from "@nag/schema";
 import { db } from "../../db";
-import { unbindAccount, upgradeAccount } from "../../infrastructure/apiClient";
+import {
+  pairDevice,
+  unbindAccount,
+  upgradeAccount,
+} from "../../infrastructure/apiClient";
 import { isClerkConfigured } from "../../infrastructure/clerk";
 import { log } from "../../infrastructure/log";
+import { useSyncStatus } from "../../infrastructure/syncStatus";
+import { deviceTokenStore } from "../../infrastructure/tokenStore";
 import { tokens } from "../../components/theme";
 import { Group, ProviderButton, Row } from "../../components/AccountUI";
 import {
@@ -93,6 +101,7 @@ export default AccountScreen;
 const SignedInOrOut = () => {
   const { isLoaded, isSignedIn, signOut, getToken } = useAuth();
   const { user } = useUser();
+  const { kickSync } = useSyncStatus();
   const [status, setStatus] = React.useState<UpgradeStatus>({ kind: "idle" });
 
   // Tracks whether we've already kicked off an upgrade for the current
@@ -141,16 +150,43 @@ const SignedInOrOut = () => {
             `account upgraded accountId=${result.accountId} sub=${result.idpSubject}`,
           );
           setStatus({ kind: "ok" });
-        } else {
-          setStatus({ kind: "fail", message: result.message });
+          // Kick the sync loop now so the user sees their data immediately
+          // rather than waiting on the safety timer (especially relevant
+          // for devices where this is a fresh upgrade and pull-sync's
+          // since=0 will fetch a snapshot).
+          kickSync("post-upgrade");
+          return;
         }
+
+        // 409 = "this identity is already bound to a different account":
+        // the user has signed in on this device with a Clerk identity that
+        // already owns an account elsewhere. Fall back to /devices/pair
+        // to attach this device to that account.
+        if (result.kind === "non-retriable" && result.status === 409) {
+          logger.info(
+            `upgrade conflicted (${result.message}) — falling back to pair`,
+          );
+          await runPairFallback({
+            deviceId: identity.deviceId,
+            idpToken,
+            kickSync,
+            signOut,
+            setStatus,
+            onCancelled: () => {
+              upgradeStarted.current = false;
+            },
+          });
+          return;
+        }
+
+        setStatus({ kind: "fail", message: result.message });
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
         logger.error("upgrade flow threw", err);
         setStatus({ kind: "fail", message });
       }
     })();
-  }, [isLoaded, isSignedIn, getToken]);
+  }, [isLoaded, isSignedIn, getToken, kickSync, signOut]);
 
   if (!isLoaded) {
     return (
@@ -180,6 +216,85 @@ const SignedInOrOut = () => {
     />
   );
 };
+
+/**
+ * Handles the case where /accounts/upgrade returned 409 because the Clerk
+ * identity is already bound to another account. Pairs this device into the
+ * existing account, but first warns the user — and aborts the sign-in
+ * entirely on cancel — if there's local anonymous data on the device that
+ * the swap would discard.
+ */
+const runPairFallback = async ({
+  deviceId,
+  idpToken,
+  kickSync,
+  signOut,
+  setStatus,
+  onCancelled,
+}: {
+  deviceId: string;
+  idpToken: string;
+  kickSync: (source: string) => void;
+  signOut: () => Promise<void>;
+  setStatus: React.Dispatch<React.SetStateAction<UpgradeStatus>>;
+  onCancelled: () => void;
+}): Promise<void> => {
+  const localHabits = await db.select({ id: habit.id }).from(habit).limit(1);
+  if (localHabits.length > 0) {
+    const proceed = await confirmReplaceLocalData();
+    if (!proceed) {
+      logger.info("pair fallback cancelled by user — signing out of Clerk");
+      try {
+        await signOut();
+      } catch (err) {
+        logger.warn("signOut after pair-cancel failed", err);
+      }
+      onCancelled();
+      setStatus({ kind: "idle" });
+      return;
+    }
+  }
+
+  const paired = await pairDevice({ deviceId, idpToken });
+  if (!paired.ok) {
+    setStatus({ kind: "fail", message: paired.message });
+    return;
+  }
+
+  await switchLocalAccount({
+    db,
+    tokenStore: deviceTokenStore,
+    newAccountId: paired.accountId,
+    newDeviceToken: paired.deviceToken,
+    registeredAt: paired.registeredAt,
+  });
+  logger.info(
+    `device paired into existing accountId=${paired.accountId} — local data wiped, kicking sync`,
+  );
+  setStatus({ kind: "ok" });
+  kickSync("post-pair");
+};
+
+const confirmReplaceLocalData = (): Promise<boolean> =>
+  new Promise((resolve) => {
+    Alert.alert(
+      "Switch to your signed-in account?",
+      "Habits and check-ins on this device will be replaced with the data from your account. This can't be undone.",
+      [
+        {
+          text: "Cancel",
+          style: "cancel",
+          onPress: () => resolve(false),
+        },
+        {
+          text: "Replace",
+          style: "destructive",
+          onPress: () => resolve(true),
+        },
+      ],
+      { cancelable: true, onDismiss: () => resolve(false) },
+    );
+  });
 
 type UnlinkStatus =
   | { kind: "idle" }
