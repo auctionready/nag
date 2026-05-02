@@ -18,12 +18,16 @@ import {
   useSSO,
   useUser,
 } from "@clerk/clerk-expo";
-import { loadIdentity, switchLocalAccount } from "@nag/core";
+import {
+  clearLocalAuth,
+  ensureDeviceRegistered,
+  switchLocalAccount,
+} from "@nag/core";
 import { habit } from "@nag/schema";
 import { db } from "../../db";
 import {
   pairDevice,
-  unbindAccount,
+  registerDevice,
   upgradeAccount,
 } from "../../infrastructure/apiClient";
 import { isClerkConfigured } from "../../infrastructure/clerk";
@@ -128,21 +132,32 @@ const SignedInOrOut = () => {
     void (async () => {
       setStatus({ kind: "in-progress" });
       try {
-        const identity = await loadIdentity(db);
-        if (!identity) {
-          setStatus({
-            kind: "fail",
-            message: "no local device identity — restart the app",
-          });
-          return;
-        }
         const idpToken = await getToken();
         if (!idpToken) {
           setStatus({ kind: "fail", message: "no IdP token from Clerk" });
           return;
         }
+
+        // Sign-in is the moment the app first contacts the server in the
+        // anonymous-as-local model. Make sure the device is registered
+        // (idempotent on `deviceId` — replays succeed) before the upgrade
+        // call, which needs an existing Device row to bind to.
+        const registration = await ensureDeviceRegistered({
+          db,
+          tokenStore: deviceTokenStore,
+          register: registerDevice,
+          log: logger,
+        });
+        if (!registration.accountId) {
+          setStatus({
+            kind: "fail",
+            message: "device registration failed — try again",
+          });
+          return;
+        }
+
         const result = await upgradeAccount({
-          deviceId: identity.deviceId,
+          deviceId: registration.deviceId,
           idpToken,
         });
         if (result.ok) {
@@ -160,14 +175,15 @@ const SignedInOrOut = () => {
 
         // 409 = "this identity is already bound to a different account":
         // the user has signed in on this device with a Clerk identity that
-        // already owns an account elsewhere. Fall back to /devices/pair
-        // to attach this device to that account.
+        // already owns an account elsewhere. Fall back to the conflict
+        // resolution flow (pair into the existing account, or
+        // force-claim with this device's data).
         if (result.kind === "non-retriable" && result.status === 409) {
           logger.info(
-            `upgrade conflicted (${result.message}) — falling back to pair`,
+            `upgrade conflicted (${result.message}) — falling back to conflict resolution`,
           );
           await runPairFallback({
-            deviceId: identity.deviceId,
+            deviceId: registration.deviceId,
             idpToken,
             kickSync,
             signOut,
@@ -188,6 +204,23 @@ const SignedInOrOut = () => {
     })();
   }, [isLoaded, isSignedIn, getToken, kickSync, signOut]);
 
+  // Wrapping signOut so the local auth state is torn down *before* the
+  // Clerk session ends. Order matters: clearing the secure-store token
+  // and identity.accountId stops the dispatcher / pull-sync from
+  // attempting another request under the dying credentials, and the
+  // !isSignedIn effect above resets the rest of the React state
+  // automatically once Clerk reports signed-out. Declared up here, ahead
+  // of the early returns below, to keep the hook order stable across
+  // renders.
+  const signOutLocal = React.useCallback(async () => {
+    try {
+      await clearLocalAuth({ db, tokenStore: deviceTokenStore });
+    } catch (err) {
+      logger.error("clearLocalAuth threw — continuing with signOut", err);
+    }
+    await signOut();
+  }, [signOut]);
+
   if (!isLoaded) {
     return (
       <View style={styles.loadingScreen}>
@@ -204,17 +237,7 @@ const SignedInOrOut = () => {
     );
   }
 
-  return (
-    <SignedInView
-      user={user}
-      status={status}
-      setStatus={setStatus}
-      signOut={signOut}
-      onUnlinked={() => {
-        upgradeStarted.current = false;
-      }}
-    />
-  );
+  return <SignedInView user={user} status={status} signOut={signOutLocal} />;
 };
 
 /**
@@ -366,52 +389,15 @@ const chooseConflictResolution = (): Promise<ConflictChoice> =>
     );
   });
 
-type UnlinkStatus =
-  | { kind: "idle" }
-  | { kind: "in-progress" }
-  | { kind: "fail"; message: string };
-
 const SignedInView = ({
   user,
   status,
-  setStatus,
   signOut,
-  onUnlinked,
 }: {
   user: ReturnType<typeof useUser>["user"];
   status: UpgradeStatus;
-  setStatus: React.Dispatch<React.SetStateAction<UpgradeStatus>>;
   signOut: () => Promise<void>;
-  onUnlinked: () => void;
 }) => {
-  const [unlink, setUnlink] = React.useState<UnlinkStatus>({ kind: "idle" });
-
-  const onUnlink = React.useCallback(async () => {
-    setUnlink({ kind: "in-progress" });
-    try {
-      const result = await unbindAccount();
-      if (!result.ok) {
-        setUnlink({ kind: "fail", message: result.message });
-        return;
-      }
-      logger.info(`account unbound accountId=${result.accountId}`);
-      onUnlinked();
-      setStatus({ kind: "idle" });
-      setUnlink({ kind: "idle" });
-      // Sign out of Clerk so the next attempt starts from the connector
-      // picker rather than silently re-using the stale Clerk session.
-      await signOut();
-    } catch (err) {
-      logger.error("unlink flow threw", err);
-      setUnlink({
-        kind: "fail",
-        message: err instanceof Error ? err.message : "unlink failed",
-      });
-    }
-  }, [onUnlinked, setStatus, signOut]);
-
-  const busy = unlink.kind === "in-progress";
-
   // Display info derived from Clerk's UserResource.
   const provider: ProviderKey =
     providerFromClerk(user?.externalAccounts?.[0]?.provider) ??
@@ -505,7 +491,7 @@ const SignedInView = ({
           chevron={false}
           danger
           last
-          onPress={busy ? undefined : () => void signOut()}
+          onPress={() => void signOut()}
         />
       </Group>
 
@@ -519,37 +505,6 @@ const SignedInView = ({
         <Row icon={iconAppearance()} label="Appearance" disabled />
         <Row icon={iconNag()} label="Tone of nags" disabled />
         <Row icon={iconAbout()} label="About" last disabled />
-      </Group>
-
-      <Group title="Danger zone">
-        {unlink.kind === "fail" && (
-          <View style={styles.unlinkError}>
-            <Text style={styles.unlinkErrorText} numberOfLines={4}>
-              Could not unlink: {unlink.message}
-            </Text>
-          </View>
-        )}
-        <Row
-          icon={
-            <Svg
-              width={14}
-              height={14}
-              viewBox="0 0 14 14"
-              fill="none"
-              stroke={tokens.orange}
-              strokeWidth={1.7}
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <Path d="M3 4h8M5 4V2.5A1 1 0 016 1.5h2a1 1 0 011 1V4M4 4l.5 8a1 1 0 001 1h3a1 1 0 001-1L10 4" />
-            </Svg>
-          }
-          label={busy ? "Unlinking…" : "Unlink identity (keeps your data)"}
-          danger
-          chevron={false}
-          last
-          onPress={busy ? undefined : () => void onUnlink()}
-        />
       </Group>
 
       <View style={{ height: 32 }} />
@@ -1256,15 +1211,6 @@ const styles = StyleSheet.create({
     borderRadius: 12,
   },
   statusErrorText: {
-    fontSize: 13,
-    color: tokens.orange,
-  },
-  unlinkError: {
-    paddingHorizontal: 14,
-    paddingTop: 10,
-    paddingBottom: 6,
-  },
-  unlinkErrorText: {
     fontSize: 13,
     color: tokens.orange,
   },

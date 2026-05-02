@@ -263,3 +263,46 @@ export const switchLocalAccount = async ({
   await tokenStore.set(newDeviceToken);
   info(`identity: switched local account to accountId=${newAccountId}`);
 };
+
+export type ClearLocalAuthOptions = {
+  db: AnyDb;
+  tokenStore: TokenStore;
+  log?: EnsureDeviceRegisteredOptions["log"];
+};
+
+/**
+ * Tears down the local "I'm registered with the server" state when the
+ * user signs out, while keeping every locally-replicated row in place.
+ *
+ * Clears:
+ *   - `identity.accountId` / `identity.registeredAt` (so dispatcher and
+ *     pull-sync no-op until the next sign-in re-registers the device)
+ *   - the secure-store device token (so a stale token can't keep talking
+ *     to the server in the background)
+ *
+ * Preserves:
+ *   - `identity.deviceId` — so the next sign-in calls `POST /devices/register`
+ *     with the same id, hits the server's idempotent re-registration path,
+ *     and rejoins the same Account
+ *   - `habit`/`goal`/`schedule`/`checkIn` — the user's data survives sign-out
+ *   - `outbox` and `syncState` — pending events stay queued and resume
+ *     shipping once the user re-signs-in (or stay forever if they never do,
+ *     which is fine: dispatcher just never runs)
+ *
+ * Distinct from `switchLocalAccount` which *moves* the device to a
+ * different account and therefore wipes the replicated tables to avoid
+ * leaking the previous account's data.
+ */
+export const clearLocalAuth = async ({
+  db,
+  tokenStore,
+  log,
+}: ClearLocalAuthOptions): Promise<void> => {
+  const info = log?.info ?? (() => {});
+  await db
+    .update(identity)
+    .set({ accountId: null, registeredAt: null })
+    .where(eq(identity.id, 1));
+  await tokenStore.clear();
+  info("identity: cleared local auth — sign-in will re-register");
+};
