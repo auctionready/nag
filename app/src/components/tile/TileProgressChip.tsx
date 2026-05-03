@@ -1,7 +1,9 @@
 import { StyleSheet, Text, View, type ViewStyle } from "react-native";
+import type { ScheduleInfo } from "@nag/core";
 import type { HabitGoalSummary } from "./useHabitGoalSummary";
 import type { SlotDotState } from "./slotDotState";
 import { cadenceLabel } from "./format";
+import { formatSlotTime } from "../HabitDetail/formatSlotTime";
 import { tokens } from "../theme";
 
 export type TileChipState =
@@ -16,9 +18,24 @@ interface ChipInputs {
   periodCheckInCount: number;
   /** Schedule has 2+ slots on at least one day-of-week. */
   multiSlotPerDay: boolean;
-  /** Habit has at least one schedule row (specific days/times). */
-  hasSchedules: boolean;
+  /** All schedule rows for the habit (specific days/times). */
+  schedules: ScheduleInfo[];
 }
+
+const ALL_DAYS_MASK = 0x7f;
+
+/**
+ * If the habit has exactly one schedule row that fires every day at a
+ * specific time, return a concise "7:30 PM daily" label — more useful on
+ * the tile than the cadence-derived "7× / wk".
+ */
+const everyDayTimeLabel = (schedules: ScheduleInfo[]): string | null => {
+  if (schedules.length !== 1) return null;
+  const s = schedules[0];
+  if (s.days !== ALL_DAYS_MASK) return null;
+  if (s.hour == null || s.minute == null) return null;
+  return `${formatSlotTime(s.hour, s.minute)} daily`;
+};
 
 /**
  * Builds the top-right chip state for a habit tile.
@@ -41,12 +58,14 @@ export const computeChipState = ({
   todaySlots,
   periodCheckInCount,
   multiSlotPerDay,
-  hasSchedules,
+  schedules,
 }: ChipInputs): TileChipState | null => {
   if (!goal) return null;
 
+  const dailyTime = everyDayTimeLabel(schedules);
+
   if (goal.frequency <= 1) {
-    return { kind: "label", text: cadenceLabel(goal) };
+    return { kind: "label", text: dailyTime ?? cadenceLabel(goal) };
   }
 
   if (goal.regularity === "day") {
@@ -61,8 +80,8 @@ export const computeChipState = ({
       }
       return { kind: "label", text: "off today" };
     }
-    if (hasSchedules) {
-      return { kind: "label", text: cadenceLabel(goal) };
+    if (schedules.length > 0) {
+      return { kind: "label", text: dailyTime ?? cadenceLabel(goal) };
     }
     return {
       kind: "dots",

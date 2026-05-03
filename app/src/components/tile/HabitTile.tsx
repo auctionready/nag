@@ -111,7 +111,7 @@ export const HabitTile = ({ id, title, icon }: HabitTileProps) => {
       periodCheckInCount={checkInCount}
       recentCheckIns={recentCheckIns}
       multiSlotPerDay={hasMultipleSlotsPerDay(schedules)}
-      hasSchedules={schedules.length > 0}
+      schedules={schedules}
       isOffDay={snap.isAnchorOffDay}
       periodIndicators={periodIndicators}
       todaySlots={todaySlots}

@@ -1,4 +1,5 @@
 import type { Regularity } from "@nag/schema";
+import type { ScheduleInfo } from "@nag/core";
 import type { SlotDotState } from "../slotDotState";
 import { computeChipState } from "../TileProgressChip";
 
@@ -9,19 +10,42 @@ const goal = (regularity: Regularity, frequency: number) => ({
   createdAt: new Date(),
 });
 
+const everyDayAt = (hour: number, minute: number): ScheduleInfo => ({
+  days: 0x7f,
+  dayOfMonth: null,
+  hour,
+  minute,
+});
+
+const someDaysAt = (
+  days: number,
+  hour: number,
+  minute: number,
+): ScheduleInfo => ({
+  days,
+  dayOfMonth: null,
+  hour,
+  minute,
+});
+
 const inputs = (overrides: {
   goal: ReturnType<typeof goal> | null;
   todaySlots?: SlotDotState[];
   periodCheckInCount?: number;
   multiSlotPerDay?: boolean;
+  schedules?: ScheduleInfo[];
+  /** Convenience: equivalent to `schedules: [someDaysAt(0b0101010, 9, 0)]`. */
   hasSchedules?: boolean;
-}) => ({
-  todaySlots: undefined,
-  periodCheckInCount: 0,
-  multiSlotPerDay: false,
-  hasSchedules: false,
-  ...overrides,
-});
+}) => {
+  const { hasSchedules, schedules, ...rest } = overrides;
+  return {
+    todaySlots: undefined,
+    periodCheckInCount: 0,
+    multiSlotPerDay: false,
+    schedules: schedules ?? (hasSchedules ? [someDaysAt(0b0101010, 9, 0)] : []),
+    ...rest,
+  };
+};
 
 describe("computeChipState", () => {
   describe("returns null", () => {
@@ -151,6 +175,71 @@ describe("computeChipState", () => {
         slots: ["done", "done", "ahead", "ahead"],
         prefixToday: false,
       });
+    });
+  });
+
+  describe("single schedule every day at fixed time", () => {
+    it("replaces 'Nx / wk' with '<time> daily' for weekly habits", () => {
+      expect(
+        computeChipState(
+          inputs({
+            goal: goal("week", 7),
+            schedules: [everyDayAt(19, 30)],
+          }),
+        ),
+      ).toEqual({ kind: "label", text: "7:30 PM daily" });
+    });
+
+    it("replaces 'daily' with '<time> daily' for daily/freq=1 habits", () => {
+      expect(
+        computeChipState(
+          inputs({
+            goal: goal("day", 1),
+            schedules: [everyDayAt(7, 0)],
+          }),
+        ),
+      ).toEqual({ kind: "label", text: "7:00 AM daily" });
+    });
+
+    it("does not apply when the schedule covers fewer than 7 days", () => {
+      expect(
+        computeChipState(
+          inputs({
+            goal: goal("week", 3),
+            schedules: [someDaysAt(0b0101010, 19, 30)],
+          }),
+        ),
+      ).toEqual({ kind: "label", text: "3× / wk" });
+    });
+
+    it("does not apply when there are multiple schedule rows", () => {
+      expect(
+        computeChipState(
+          inputs({
+            goal: goal("week", 7),
+            schedules: [everyDayAt(7, 0), everyDayAt(19, 30)],
+            multiSlotPerDay: true,
+            todaySlots: ["done", "pending"],
+          }),
+        ),
+      ).toEqual({
+        kind: "dots",
+        slots: ["done", "pending"],
+        prefixToday: true,
+      });
+    });
+
+    it("does not apply when the schedule has no time", () => {
+      expect(
+        computeChipState(
+          inputs({
+            goal: goal("week", 7),
+            schedules: [
+              { days: 0x7f, dayOfMonth: null, hour: null, minute: null },
+            ],
+          }),
+        ),
+      ).toEqual({ kind: "label", text: "7× / wk" });
     });
   });
 
