@@ -1,7 +1,6 @@
 using System.Text.Json;
 using Marten;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Routing;
 using Nag.Core.Contracts;
 using Nag.Core.Handlers;
 using Nag.Core.Idempotency;
