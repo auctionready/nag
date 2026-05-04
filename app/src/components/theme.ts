@@ -11,6 +11,7 @@ export const tokens = {
   inkSoft: "#2A211B",
   mute: "#8A7E72",
   faint: "rgba(26,20,16,0.18)",
+  midFaint: "rgba(26,20,16,0.12)",
   veryFaint: "rgba(26,20,16,0.06)",
   inkTint: "rgba(26,20,16,0.04)",
   chipTint: "rgba(26,20,16,0.035)",

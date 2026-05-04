@@ -214,7 +214,7 @@ const styles = StyleSheet.create({
     borderColor: tokens.faint,
   },
   cellEmptyPast: {
-    backgroundColor: tokens.veryFaint,
+    backgroundColor: tokens.midFaint,
   },
   cellEmptyFuture: {
     backgroundColor: tokens.inkTint,

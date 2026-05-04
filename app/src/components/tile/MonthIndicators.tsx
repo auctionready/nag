@@ -99,7 +99,7 @@ const styles = StyleSheet.create({
     borderColor: tokens.orange,
   },
   cellEmptyPast: {
-    backgroundColor: tokens.veryFaint,
+    backgroundColor: tokens.midFaint,
   },
   cellEmptyFuture: {
     backgroundColor: tokens.inkTint,
