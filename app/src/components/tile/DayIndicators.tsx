@@ -22,7 +22,7 @@ interface DayIndicatorsProps {
 //   today-partial  — partial + orange ring
 //   missed         — past scheduled day with no check-in — faint ring + slash
 //   future         — upcoming scheduled day — faint ring
-//   skip           — not scheduled — faint dot, no border
+//   skip           — not scheduled — very-faint fill (calendar negative space)
 type CellState =
   | "done"
   | "today-done"
@@ -120,7 +120,7 @@ const Cell = ({ letter, state, isToday }: Cell) => {
       cellStyle.push(styles.cellFaintRing);
       break;
     case "skip":
-      inner = <View style={styles.skipDot} />;
+      cellStyle.push(styles.cellEmpty);
       break;
   }
 
@@ -213,11 +213,8 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: tokens.faint,
   },
-  skipDot: {
-    width: 3,
-    height: 3,
-    borderRadius: 1.5,
-    backgroundColor: tokens.faint,
+  cellEmpty: {
+    backgroundColor: tokens.veryFaint,
   },
   partialFill: {
     position: "absolute",
