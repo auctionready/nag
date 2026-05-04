@@ -8,7 +8,8 @@ import { tokens } from "../theme";
 
 export type TileChipState =
   | { kind: "label"; text: string }
-  | { kind: "dots"; slots: SlotDotState[]; prefixToday: boolean };
+  | { kind: "dots"; slots: SlotDotState[]; prefixToday: boolean }
+  | { kind: "labelDots"; text: string; slots: SlotDotState[] };
 
 interface ChipInputs {
   goal: HabitGoalSummary | null;
@@ -41,17 +42,19 @@ const everyDayTimeLabel = (schedules: ScheduleInfo[]): string | null => {
  * Builds the top-right chip state for a habit tile.
  *
  * Cases:
- * - frequency=1 → text label ("daily" | "weekly" | "monthly")
  * - daily multi-frequency → today's slot dots (with "today" eyebrow)
  * - weekly + multi-slot-per-day → today's slot dots (with eyebrow); off-day
  *   fallback shows "off today"
+ * - weekly/monthly + unscheduled (no schedule rows) → cadence label with
+ *   N=frequency dots stacked beneath, filled from period check-in count.
+ *   We always show at least one dot (even at frequency=1) so the tile
+ *   communicates period completion at a glance.
  * - weekly + scheduled (single-slot-per-day) → text label "Nx / wk".
  *   The week-strip already paints the specific days, so dots would be
  *   redundant.
- * - weekly + unscheduled (no schedule rows) → N=frequency dots filled from
- *   this week's check-in count
- * - monthly multi-frequency → text label "Nx / mo". The month-strip carries
+ * - monthly + scheduled → text label "Nx / mo". The month-strip carries
  *   the per-day detail.
+ * - frequency=1 with schedules → text label ("daily" | "weekly" | "monthly")
  */
 export const computeChipState = ({
   goal,
@@ -63,34 +66,36 @@ export const computeChipState = ({
   if (!goal) return null;
 
   const dailyTime = everyDayTimeLabel(schedules);
+  const isUnscheduled = schedules.length === 0;
+
+  if (goal.regularity === "day" && goal.frequency > 1) {
+    const slots = todaySlots ?? buildPeriodSlots(goal.frequency, 0);
+    return { kind: "dots", slots, prefixToday: true };
+  }
+
+  if (
+    isUnscheduled &&
+    (goal.regularity === "week" || goal.regularity === "month")
+  ) {
+    return {
+      kind: "labelDots",
+      text: cadenceLabel(goal),
+      slots: buildPeriodSlots(goal.frequency, periodCheckInCount),
+    };
+  }
 
   if (goal.frequency <= 1) {
     return { kind: "label", text: dailyTime ?? cadenceLabel(goal) };
   }
 
-  if (goal.regularity === "day") {
-    const slots = todaySlots ?? buildPeriodSlots(goal.frequency, 0);
-    return { kind: "dots", slots, prefixToday: true };
+  if (goal.regularity === "week" && multiSlotPerDay) {
+    if (todaySlots && todaySlots.length > 0) {
+      return { kind: "dots", slots: todaySlots, prefixToday: true };
+    }
+    return { kind: "label", text: "off today" };
   }
 
-  if (goal.regularity === "week") {
-    if (multiSlotPerDay) {
-      if (todaySlots && todaySlots.length > 0) {
-        return { kind: "dots", slots: todaySlots, prefixToday: true };
-      }
-      return { kind: "label", text: "off today" };
-    }
-    if (schedules.length > 0) {
-      return { kind: "label", text: dailyTime ?? cadenceLabel(goal) };
-    }
-    return {
-      kind: "dots",
-      slots: buildPeriodSlots(goal.frequency, periodCheckInCount),
-      prefixToday: false,
-    };
-  }
-
-  return { kind: "label", text: cadenceLabel(goal) };
+  return { kind: "label", text: dailyTime ?? cadenceLabel(goal) };
 };
 
 const buildPeriodSlots = (frequency: number, count: number): SlotDotState[] => {
@@ -113,6 +118,21 @@ export const TileProgressChip = ({ state }: TileProgressChipProps) => {
       <Text style={styles.text} numberOfLines={1}>
         {state.text}
       </Text>
+    );
+  }
+
+  if (state.kind === "labelDots") {
+    return (
+      <View style={styles.column}>
+        <Text style={styles.text} numberOfLines={1}>
+          {state.text}
+        </Text>
+        <View style={styles.dots}>
+          {state.slots.map((s, i) => (
+            <Dot key={i} state={s} />
+          ))}
+        </View>
+      </View>
     );
   }
 
@@ -157,6 +177,11 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
+  },
+  column: {
+    flexDirection: "column",
+    alignItems: "flex-end",
+    gap: 4,
   },
   text: {
     fontFamily: "JetBrainsMono",
