@@ -87,6 +87,8 @@ const styles = StyleSheet.create({
     flex: 1,
     aspectRatio: 1,
     borderRadius: 4,
+    borderWidth: 1.5,
+    borderColor: "transparent",
     alignItems: "center",
     justifyContent: "center",
     overflow: "hidden",
@@ -95,7 +97,6 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.ink,
   },
   cellTodayRing: {
-    borderWidth: 1.5,
     borderColor: tokens.orange,
   },
   cellEmptyPast: {
