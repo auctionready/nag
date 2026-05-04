@@ -8,12 +8,12 @@ interface MonthIndicatorsProps {
   now?: Date;
 }
 
-// Mirrors the design's MonthStrip cell language:
+// Cell language for the monthly strip. Monthly habits don't carry a per-day
+// schedule, so past unchecked days are calendar negative space (not "missed"):
 //   today-done — ink fill + check + orange ring
-//   today      — orange ring, empty
+//   today      — orange ring, empty inside
 //   done       — ink fill + check
-//   missed     — faint ring, transparent (calendar negative space)
-//   future     — very-faint fill, no border
+//   empty      — very-faint fill (any other day, past or future)
 const COLUMNS = 10;
 
 export const MonthIndicators = ({ checkIns, now }: MonthIndicatorsProps) => {
@@ -26,7 +26,12 @@ export const MonthIndicators = ({ checkIns, now }: MonthIndicatorsProps) => {
     <View style={styles.grid}>
       {rows.map((row, rowIndex) => (
         <View key={rowIndex} style={styles.row}>
-          {row.map(({ dayNumber, hasCheckIn, isToday, isFuture }) => {
+          {Array.from({ length: COLUMNS }).map((_, colIndex) => {
+            const day = row[colIndex];
+            if (!day) {
+              return <View key={`pad-${colIndex}`} style={styles.cell} />;
+            }
+            const { dayNumber, hasCheckIn, isToday } = day;
             const cellStyle: ViewStyle[] = [styles.cell];
             let inner: React.ReactNode = null;
 
@@ -38,10 +43,8 @@ export const MonthIndicators = ({ checkIns, now }: MonthIndicatorsProps) => {
             } else if (hasCheckIn) {
               cellStyle.push(styles.cellInk);
               inner = <CheckGlyph />;
-            } else if (isFuture) {
-              cellStyle.push(styles.cellFuture);
             } else {
-              cellStyle.push(styles.cellMissed);
+              cellStyle.push(styles.cellEmpty);
             }
 
             return (
@@ -50,11 +53,6 @@ export const MonthIndicators = ({ checkIns, now }: MonthIndicatorsProps) => {
               </View>
             );
           })}
-          {/* Pad short trailing rows so cells stay aligned with the 10-col grid. */}
-          {row.length < COLUMNS &&
-            Array.from({ length: COLUMNS - row.length }).map((_, i) => (
-              <View key={`pad-${i}`} style={styles.cellSpacer} />
-            ))}
         </View>
       ))}
     </View>
@@ -90,10 +88,6 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     overflow: "hidden",
   },
-  cellSpacer: {
-    flex: 1,
-    aspectRatio: 1,
-  },
   cellInk: {
     backgroundColor: tokens.ink,
   },
@@ -101,11 +95,7 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderColor: tokens.orange,
   },
-  cellMissed: {
-    borderWidth: 1,
-    borderColor: tokens.faint,
-  },
-  cellFuture: {
+  cellEmpty: {
     backgroundColor: tokens.veryFaint,
   },
 });
