@@ -170,7 +170,7 @@ const Dot = ({ state }: { state: SlotDotState }) => {
   return <View style={style} />;
 };
 
-const SIZE = 6;
+const SIZE = 7;
 
 const styles = StyleSheet.create({
   row: {
