@@ -2,6 +2,7 @@ import { useCallback, useRef } from "react";
 import { Animated, Pressable, StyleSheet, Text, View } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import { formatDistanceToNowStrict } from "date-fns";
+import type { ScheduleInfo } from "@nag/core";
 import type { HabitGoalSummary } from "./useHabitGoalSummary";
 import {
   PeriodIndicators,
@@ -22,8 +23,8 @@ export interface HabitTileViewProps {
   recentCheckIns: { timestamp: Date }[];
   /** Schedule has 2+ slots on at least one day-of-week. */
   multiSlotPerDay: boolean;
-  /** Habit has at least one schedule row. */
-  hasSchedules: boolean;
+  /** All schedule rows for the habit. */
+  schedules: ScheduleInfo[];
   isOffDay?: boolean;
   periodIndicators?: PeriodIndicatorsProps;
   /**
@@ -42,7 +43,7 @@ export const HabitTileView = ({
   periodCheckInCount,
   recentCheckIns: recent,
   multiSlotPerDay,
-  hasSchedules,
+  schedules,
   periodIndicators,
   todaySlots,
   onPress,
@@ -79,7 +80,7 @@ export const HabitTileView = ({
     todaySlots,
     periodCheckInCount,
     multiSlotPerDay,
-    hasSchedules,
+    schedules,
   });
   const last = recent[0]?.timestamp;
   const lastLabel = last ? `${formatDistanceToNowStrict(last)} ago` : undefined;

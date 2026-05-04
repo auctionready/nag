@@ -1,6 +1,5 @@
 using Marten;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Routing;
 using Nag.Core.ReadModels;
 using Wolverine.Http;
 
