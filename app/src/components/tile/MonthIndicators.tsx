@@ -1,6 +1,6 @@
 import { StyleSheet, View, type ViewStyle } from "react-native";
 import Svg, { Path } from "react-native-svg";
-import { buildMonthCells } from "@nag/core";
+import { buildMonthCells, type MonthDayCell } from "@nag/core";
 import { tokens } from "../theme";
 
 interface MonthIndicatorsProps {
@@ -19,7 +19,7 @@ const COLUMNS = 10;
 
 export const MonthIndicators = ({ checkIns, now }: MonthIndicatorsProps) => {
   const cells = buildMonthCells(checkIns, now);
-  const rows: (typeof cells)[] = [];
+  const rows: MonthDayCell[][] = [];
   for (let i = 0; i < cells.length; i += COLUMNS) {
     rows.push(cells.slice(i, i + COLUMNS));
   }
@@ -29,37 +29,38 @@ export const MonthIndicators = ({ checkIns, now }: MonthIndicatorsProps) => {
         <View key={rowIndex} style={styles.row}>
           {Array.from({ length: COLUMNS }).map((_, colIndex) => {
             const day = row[colIndex];
-            if (!day) {
-              return <View key={`pad-${colIndex}`} style={styles.cell} />;
-            }
-            const { dayNumber, hasCheckIn, isToday, isFuture } = day;
-            const cellStyle: ViewStyle[] = [styles.cell];
-            let inner: React.ReactNode = null;
-
-            if (isToday && hasCheckIn) {
-              cellStyle.push(styles.cellInk, styles.cellTodayRing);
-              inner = <CheckGlyph />;
-            } else if (isToday) {
-              cellStyle.push(styles.cellTodayRing);
-            } else if (hasCheckIn) {
-              cellStyle.push(styles.cellInk);
-              inner = <CheckGlyph />;
-            } else if (isFuture) {
-              cellStyle.push(styles.cellEmptyFuture);
-            } else {
-              cellStyle.push(styles.cellEmptyPast);
-            }
-
-            return (
-              <View key={dayNumber} style={cellStyle}>
-                {inner}
-              </View>
+            return day ? (
+              <MonthCell key={day.dayNumber} day={day} />
+            ) : (
+              <View key={`pad-${colIndex}`} style={styles.cell} />
             );
           })}
         </View>
       ))}
     </View>
   );
+};
+
+const MonthCell = ({ day }: { day: MonthDayCell }) => {
+  const { hasCheckIn, isToday, isFuture } = day;
+  const cellStyle: ViewStyle[] = [styles.cell];
+  let inner: React.ReactNode = null;
+
+  if (isToday && hasCheckIn) {
+    cellStyle.push(styles.cellInk, styles.cellTodayRing);
+    inner = <CheckGlyph />;
+  } else if (isToday) {
+    cellStyle.push(styles.cellTodayRing);
+  } else if (hasCheckIn) {
+    cellStyle.push(styles.cellInk);
+    inner = <CheckGlyph />;
+  } else if (isFuture) {
+    cellStyle.push(styles.cellEmptyFuture);
+  } else {
+    cellStyle.push(styles.cellEmptyPast);
+  }
+
+  return <View style={cellStyle}>{inner}</View>;
 };
 
 const CheckGlyph = () => (
