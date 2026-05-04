@@ -142,6 +142,7 @@ export {
   mondayFirstDayLetters,
   isSameCalendarDay,
 } from "./days";
+export { formatSlotTime, formatTimeOfDay } from "./format";
 export {
   setNotificationScheduler,
   getNotificationScheduler,

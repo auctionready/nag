@@ -4,6 +4,8 @@ import { useLiveQuery } from "drizzle-orm/expo-sqlite";
 import { db } from "../db";
 import {
   checkInsForHabitsOnDay,
+  formatSlotTime,
+  formatTimeOfDay,
   habitsByIds,
   matchCheckInsToSlots,
   schedulesForHabits,
@@ -95,9 +97,9 @@ const CheckInSlotScreen = () => {
       id: h.id,
       title: h.title,
       icon: (h.icon as HabitIconKind | null) ?? null,
-      slotMeta: slotMetaLine(slot),
+      slotMeta: slot ? formatSlotTime(slot.hour, slot.minute) : undefined,
       initialState,
-      loggedAt: slot?.matchedAt ? formatTime12(slot.matchedAt) : undefined,
+      loggedAt: slot?.matchedAt ? formatTimeOfDay(slot.matchedAt) : undefined,
     };
   });
 
@@ -144,22 +146,6 @@ const pickSlot = (
   });
 };
 
-const slotMetaLine = (slot: SlotState | undefined): string | undefined => {
-  if (!slot) return undefined;
-  return formatTime12(slot.hour, slot.minute);
-};
-
-function formatTime12(date: Date): string;
-function formatTime12(hour: number, minute: number): string;
-function formatTime12(a: Date | number, b?: number): string {
-  const hour = typeof a === "number" ? a : a.getHours();
-  const minute = typeof a === "number" ? (b ?? 0) : a.getMinutes();
-  const suffix = hour < 12 ? "am" : "pm";
-  const h12 = ((hour + 11) % 12) + 1;
-  const m = minute.toString().padStart(2, "0");
-  return `${h12}:${m} ${suffix}`;
-}
-
 const formatGroupTime = (
   slotHour: number | undefined,
   slotMinute: number | undefined,
@@ -171,7 +157,7 @@ const formatGroupTime = (
     !isNaN(slotHour) &&
     !isNaN(slotMinute)
   ) {
-    return formatTime12(slotHour, slotMinute);
+    return formatSlotTime(slotHour, slotMinute);
   }
   // Fall back to the first row's slot meta if all rows share it.
   const first = items[0]?.slotMeta;

@@ -235,15 +235,7 @@ const CheckInRow = ({ habit, state, locked, onPress }: CheckInRowProps) => {
         ]}
       >
         {isDone ? (
-          <Svg width={14} height={14} viewBox="0 0 14 14" fill="none">
-            <Path
-              d="M3 7.5L6 10L11 4"
-              stroke={tokens.cream}
-              strokeWidth={1.8}
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </Svg>
+          <CheckGlyph size={14} color={tokens.cream} />
         ) : (
           <HabitGlyph
             kind={habit.icon ?? "check"}
@@ -272,15 +264,7 @@ const StatePill = ({ state }: { state: SlotCheckInState }) => {
   if (state === "done") {
     return (
       <View style={pillStyles.done}>
-        <Svg width={9} height={9} viewBox="0 0 9 9" fill="none">
-          <Path
-            d="M2 4.5L4 6.5L7.5 2.5"
-            stroke={tokens.cream}
-            strokeWidth={1.8}
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-        </Svg>
+        <CheckGlyph size={9} color={tokens.cream} />
         <Text style={pillStyles.doneLabel}>done</Text>
       </View>
     );
@@ -294,6 +278,27 @@ const StatePill = ({ state }: { state: SlotCheckInState }) => {
   }
   return <View style={pillStyles.pending} />;
 };
+
+interface CheckGlyphProps {
+  size: number;
+  color: string;
+}
+
+/**
+ * The compact check-mark stroke used in row icons and the "done" pill.
+ * Path is normalised to a 0–9 viewBox; scale via `size`.
+ */
+const CheckGlyph = ({ size, color }: CheckGlyphProps) => (
+  <Svg width={size} height={size} viewBox="0 0 9 9" fill="none">
+    <Path
+      d="M2 4.5L4 6.5L7.5 2.5"
+      stroke={color}
+      strokeWidth={1.8}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </Svg>
+);
 
 const NagBadge = ({ size = 22 }: { size?: number }) => (
   <View
