@@ -54,26 +54,34 @@ describe("computeChipState", () => {
     });
   });
 
-  describe("frequency = 1 → text label", () => {
-    it("renders 'daily' for daily/freq=1", () => {
+  describe("frequency = 1", () => {
+    it("renders 'daily' label for daily/freq=1 (no schedules)", () => {
       expect(computeChipState(inputs({ goal: goal("day", 1) }))).toEqual({
         kind: "label",
         text: "daily",
       });
     });
 
-    it("renders 'weekly' for weekly/freq=1", () => {
+    it("renders 'weekly' with one dot for unscheduled weekly/freq=1", () => {
       expect(computeChipState(inputs({ goal: goal("week", 1) }))).toEqual({
-        kind: "label",
+        kind: "labelDots",
         text: "weekly",
+        slots: ["pending"],
       });
     });
 
-    it("renders 'monthly' for monthly/freq=1", () => {
+    it("renders 'monthly' with one dot for unscheduled monthly/freq=1", () => {
       expect(computeChipState(inputs({ goal: goal("month", 1) }))).toEqual({
-        kind: "label",
+        kind: "labelDots",
         text: "monthly",
+        slots: ["pending"],
       });
+    });
+
+    it("renders 'weekly' label for scheduled weekly/freq=1", () => {
+      expect(
+        computeChipState(inputs({ goal: goal("week", 1), hasSchedules: true })),
+      ).toEqual({ kind: "label", text: "weekly" });
     });
   });
 
@@ -133,23 +141,23 @@ describe("computeChipState", () => {
   });
 
   describe("weekly, frequency > 1, unscheduled", () => {
-    it("renders N=frequency dots filled from week count", () => {
+    it("renders cadence label with N=frequency dots filled from week count", () => {
       expect(
         computeChipState(
           inputs({ goal: goal("week", 3), periodCheckInCount: 2 }),
         ),
       ).toEqual({
-        kind: "dots",
+        kind: "labelDots",
+        text: "3× / wk",
         slots: ["done", "done", "pending"],
-        prefixToday: false,
       });
     });
 
     it("emits all-pending when no check-ins this week yet", () => {
       expect(computeChipState(inputs({ goal: goal("week", 4) }))).toEqual({
-        kind: "dots",
+        kind: "labelDots",
+        text: "4× / wk",
         slots: ["pending", "pending", "pending", "pending"],
-        prefixToday: false,
       });
     });
 
@@ -159,9 +167,9 @@ describe("computeChipState", () => {
           inputs({ goal: goal("week", 3), periodCheckInCount: 3 }),
         ),
       ).toEqual({
-        kind: "dots",
+        kind: "labelDots",
+        text: "3× / wk",
         slots: ["done", "done", "done"],
-        prefixToday: false,
       });
     });
 
@@ -171,9 +179,9 @@ describe("computeChipState", () => {
           inputs({ goal: goal("week", 2), periodCheckInCount: 4 }),
         ),
       ).toEqual({
-        kind: "dots",
+        kind: "labelDots",
+        text: "2× / wk",
         slots: ["done", "done", "ahead", "ahead"],
-        prefixToday: false,
       });
     });
   });
@@ -244,15 +252,19 @@ describe("computeChipState", () => {
   });
 
   describe("monthly, frequency > 1", () => {
-    it("renders text label like '4× / mo' — month-strip carries detail", () => {
+    it("renders cadence label with N=frequency dots when unscheduled", () => {
       expect(
         computeChipState(
           inputs({ goal: goal("month", 4), periodCheckInCount: 1 }),
         ),
-      ).toEqual({ kind: "label", text: "4× / mo" });
+      ).toEqual({
+        kind: "labelDots",
+        text: "4× / mo",
+        slots: ["done", "pending", "pending", "pending"],
+      });
     });
 
-    it("ignores schedule shape (still text label)", () => {
+    it("renders plain label when scheduled (month-strip carries detail)", () => {
       expect(
         computeChipState(
           inputs({
