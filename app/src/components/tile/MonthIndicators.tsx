@@ -13,7 +13,8 @@ interface MonthIndicatorsProps {
 //   today-done — ink fill + check + orange ring
 //   today      — orange ring, empty inside
 //   done       — ink fill + check
-//   empty      — very-faint fill (any other day, past or future)
+//   past empty — faint fill (slightly stronger than future, to signal history)
+//   future     — very subtle fill
 const COLUMNS = 10;
 
 export const MonthIndicators = ({ checkIns, now }: MonthIndicatorsProps) => {
@@ -31,7 +32,7 @@ export const MonthIndicators = ({ checkIns, now }: MonthIndicatorsProps) => {
             if (!day) {
               return <View key={`pad-${colIndex}`} style={styles.cell} />;
             }
-            const { dayNumber, hasCheckIn, isToday } = day;
+            const { dayNumber, hasCheckIn, isToday, isFuture } = day;
             const cellStyle: ViewStyle[] = [styles.cell];
             let inner: React.ReactNode = null;
 
@@ -43,8 +44,10 @@ export const MonthIndicators = ({ checkIns, now }: MonthIndicatorsProps) => {
             } else if (hasCheckIn) {
               cellStyle.push(styles.cellInk);
               inner = <CheckGlyph />;
+            } else if (isFuture) {
+              cellStyle.push(styles.cellEmptyFuture);
             } else {
-              cellStyle.push(styles.cellEmpty);
+              cellStyle.push(styles.cellEmptyPast);
             }
 
             return (
@@ -95,7 +98,10 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderColor: tokens.orange,
   },
-  cellEmpty: {
+  cellEmptyPast: {
     backgroundColor: tokens.veryFaint,
+  },
+  cellEmptyFuture: {
+    backgroundColor: tokens.inkTint,
   },
 });

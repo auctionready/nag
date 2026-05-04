@@ -22,7 +22,9 @@ interface DayIndicatorsProps {
 //   today-partial  — partial + orange ring
 //   missed         — past scheduled day with no check-in — faint ring + slash
 //   future         — upcoming scheduled day — faint ring
-//   skip           — not scheduled — very-faint fill (calendar negative space)
+//   skip           — not scheduled — past gets a faint fill, future a lighter
+//                    fill (calendar negative space, with a subtle past/future
+//                    shade difference)
 type CellState =
   | "done"
   | "today-done"
@@ -37,6 +39,7 @@ interface Cell {
   letter: string;
   state: CellState;
   isToday: boolean;
+  isPast: boolean;
 }
 
 const buildCells = (
@@ -68,7 +71,7 @@ const buildCells = (
     else if (scheduled && isPast) state = "missed";
     else if (scheduled) state = "future";
     else state = "skip";
-    return { letter, state, isToday };
+    return { letter, state, isToday, isPast };
   });
 };
 
@@ -88,7 +91,7 @@ export const DayIndicators = (props: DayIndicatorsProps) => {
 // completion fraction.
 const DEFAULT_PARTIAL_RATIO = 0.5;
 
-const Cell = ({ letter, state, isToday }: Cell) => {
+const Cell = ({ letter, state, isToday, isPast }: Cell) => {
   const cellStyle: ViewStyle[] = [styles.cell];
   let inner: React.ReactNode = null;
 
@@ -120,7 +123,7 @@ const Cell = ({ letter, state, isToday }: Cell) => {
       cellStyle.push(styles.cellFaintRing);
       break;
     case "skip":
-      cellStyle.push(styles.cellEmpty);
+      cellStyle.push(isPast ? styles.cellEmptyPast : styles.cellEmptyFuture);
       break;
   }
 
@@ -147,7 +150,7 @@ const CheckGlyph = () => (
 );
 
 const SlashGlyph = () => (
-  <Svg width={CELL} height={CELL} viewBox="0 0 22 22" fill="none">
+  <Svg width="100%" height="100%" viewBox="0 0 22 22" fill="none">
     <Line
       x1={6}
       y1={16}
@@ -169,17 +172,14 @@ const PartialFill = ({ ratio }: { ratio: number }) => (
   />
 );
 
-const CELL = 22;
-
 const styles = StyleSheet.create({
   row: {
     flexDirection: "row",
-    justifyContent: "space-between",
     gap: 4,
   },
   col: {
     flex: 1,
-    alignItems: "center",
+    alignItems: "stretch",
     gap: 4,
   },
   letter: {
@@ -188,14 +188,14 @@ const styles = StyleSheet.create({
     letterSpacing: 0.6,
     color: tokens.mute,
     fontWeight: "400",
+    textAlign: "center",
   },
   letterToday: {
     color: tokens.orange,
     fontWeight: "700",
   },
   cell: {
-    width: CELL,
-    height: CELL,
+    aspectRatio: 1,
     borderRadius: 6,
     alignItems: "center",
     justifyContent: "center",
@@ -213,8 +213,11 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: tokens.faint,
   },
-  cellEmpty: {
+  cellEmptyPast: {
     backgroundColor: tokens.veryFaint,
+  },
+  cellEmptyFuture: {
+    backgroundColor: tokens.inkTint,
   },
   partialFill: {
     position: "absolute",
