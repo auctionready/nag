@@ -114,7 +114,7 @@ export function allActiveSchedules(db: AnyDb) {
 
 export function habitsByIds(db: AnyDb, habitIds: number[]) {
   return db
-    .select({ id: habit.id, title: habit.title })
+    .select({ id: habit.id, title: habit.title, icon: habit.icon })
     .from(habit)
     .where(inArray(habit.id, habitIds.length > 0 ? habitIds : [-1]));
 }
