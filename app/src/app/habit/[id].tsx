@@ -15,6 +15,7 @@ import {
 } from "@nag/core";
 import { dispatch } from "../../infrastructure/dispatch";
 import { HabitDetail } from "../../components/HabitDetail";
+import { ComplianceHistory } from "../../components/HabitDetail/ComplianceHistory";
 import { complianceColors } from "../../components/getComplianceColor";
 
 const DAY_PARAM_FORMAT = "yyyy-MM-dd";
@@ -124,6 +125,11 @@ const HabitScreen = () => {
   return (
     <HabitDetail
       loading={!habitData}
+      complianceHistorySlot={
+        habitData?.externalId ? (
+          <ComplianceHistory habitExternalId={habitData.externalId} />
+        ) : null
+      }
       title={habitData?.title ?? ""}
       description={habitData?.description ?? null}
       goalText={goalText}

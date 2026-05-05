@@ -472,6 +472,43 @@ export const WeeklyCheckInSummary = z
   .partial();
 export type WeeklyCheckInSummary = z.infer<typeof WeeklyCheckInSummary>;
 
+export const GoalEpoch = z
+  .object({
+    effectiveFrom: IsoDatetime,
+    regularity: Regularity.nullable(),
+    frequency: z.int().nullable(),
+  })
+  .partial();
+export type GoalEpoch = z.infer<typeof GoalEpoch>;
+
+export const ComplianceStatus = z.enum([
+  "noGoal",
+  "logged",
+  "missed",
+  "partial",
+  "onTrack",
+]);
+export type ComplianceStatus = z.infer<typeof ComplianceStatus>;
+
+export const DailyCompliance = z
+  .object({
+    date: z.string().nullable(),
+    done: z.int(),
+    target: z.int(),
+    status: ComplianceStatus,
+  })
+  .partial();
+export type DailyCompliance = z.infer<typeof DailyCompliance>;
+
+export const HabitComplianceHistory = z
+  .object({
+    id: z.uuid(),
+    goalTimeline: z.array(GoalEpoch).nullable(),
+    days: z.array(DailyCompliance).nullable(),
+  })
+  .partial();
+export type HabitComplianceHistory = z.infer<typeof HabitComplianceHistory>;
+
 export const HomeGoal = z
   .object({ regularity: Regularity, frequency: z.int().nullable() })
   .partial();
@@ -627,6 +664,14 @@ export const endpoints = makeApi([
     alias: "getEventsByEnvelope",
     parameters: [{ name: "id", type: "Path", schema: z.uuid() }],
     response: EventsByEnvelope,
+    errors: [{ status: 404, schema: z.void() }],
+  },
+  {
+    method: "get",
+    path: "/habits/:habitId/compliance",
+    alias: "getHabitCompliance",
+    parameters: [{ name: "habitId", type: "Path", schema: z.uuid() }],
+    response: HabitComplianceHistory,
     errors: [{ status: 404, schema: z.void() }],
   },
   {

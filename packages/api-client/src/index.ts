@@ -15,6 +15,7 @@ export {
   pairDevice,
   unbindAccount,
   getSync,
+  getHabitCompliance,
   type EventEntry,
   type WriteEventEnvelope,
   type AppendedEvent,
@@ -24,6 +25,7 @@ export {
   type PairDeviceResult,
   type UnbindAccountResult,
   type GetSyncResult,
+  type GetHabitComplianceResult,
   type WrapperLog,
   type Endpoints,
 } from "./operations";

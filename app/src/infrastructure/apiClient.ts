@@ -6,10 +6,12 @@ import {
   upgradeAccount as apiUpgradeAccount,
   pairDevice as apiPairDevice,
   getSync as apiGetSync,
+  getHabitCompliance as apiGetHabitCompliance,
   type NagApiClient,
   type UpgradeAccountResult,
   type PairDeviceResult,
   type GetSyncResult,
+  type GetHabitComplianceResult,
 } from "@nag/api-client";
 import {
   refreshDeviceToken,
@@ -136,6 +138,11 @@ export const pairDevice = (request: {
  * orchestrator works with). The cast is safe because the Zodios schema
  * mirrors `SyncResult` field-for-field.
  */
+export const getHabitCompliance = (
+  habitId: string,
+): Promise<GetHabitComplianceResult> =>
+  apiGetHabitCompliance(getApiClient(), habitId, logger);
+
 export const getSync: GetSyncFn = async (since) => {
   const result: GetSyncResult = await apiGetSync(getApiClient(), since, logger);
   if (result.ok) {
