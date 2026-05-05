@@ -12,6 +12,7 @@ import {
 } from "react-native";
 import { router } from "expo-router";
 import * as Linking from "expo-linking";
+import * as Sentry from "@sentry/react-native";
 import * as WebBrowser from "expo-web-browser";
 import * as Sentry from "@sentry/react-native";
 import Svg, { Circle, Path, Rect } from "react-native-svg";
@@ -36,7 +37,10 @@ import {
 } from "../../infrastructure/apiClient";
 import { isClerkConfigured } from "../../infrastructure/clerk";
 import { log } from "../../infrastructure/log";
-import { useSyncStatus } from "../../infrastructure/syncStatus";
+import {
+  useSyncStatus,
+  type DrainOutboxStatus,
+} from "../../infrastructure/syncStatus";
 import { deviceTokenStore } from "../../infrastructure/tokenStore";
 import { tokens } from "../../components/theme";
 import { Group, ProviderButton, Row } from "../../components/AccountUI";
@@ -109,7 +113,7 @@ export default AccountScreen;
 const SignedInOrOut = () => {
   const { isLoaded, isSignedIn, signOut, getToken } = useAuth();
   const { user } = useUser();
-  const { kickSync } = useSyncStatus();
+  const { kickSync, drainOutbox } = useSyncStatus();
   const [status, setStatus] = React.useState<UpgradeStatus>({ kind: "idle" });
 
   // Tracks whether we've already kicked off an upgrade for the current
@@ -228,6 +232,7 @@ const SignedInOrOut = () => {
             deviceId: registration.deviceId,
             idpToken,
             kickSync,
+            drainOutbox,
             signOut,
             setStatus,
             onCancelled: () => {
@@ -244,7 +249,7 @@ const SignedInOrOut = () => {
         setStatus({ kind: "fail", message });
       }
     })();
-  }, [isLoaded, isSignedIn, getToken, kickSync, signOut]);
+  }, [isLoaded, isSignedIn, getToken, kickSync, drainOutbox, signOut]);
 
   // Wrapping signOut so the local auth state is torn down *before* the
   // Clerk session ends. Order matters: clearing the secure-store token
@@ -302,6 +307,7 @@ const runPairFallback = async ({
   deviceId,
   idpToken,
   kickSync,
+  drainOutbox,
   signOut,
   setStatus,
   onCancelled,
@@ -309,6 +315,7 @@ const runPairFallback = async ({
   deviceId: string;
   idpToken: string;
   kickSync: (source: string) => void;
+  drainOutbox: () => Promise<DrainOutboxStatus>;
   signOut: () => Promise<void>;
   setStatus: React.Dispatch<React.SetStateAction<UpgradeStatus>>;
   onCancelled: () => void;
@@ -338,7 +345,13 @@ const runPairFallback = async ({
     return;
   }
 
-  await runReplaceServer({ deviceId, idpToken, kickSync, setStatus });
+  await runReplaceServer({
+    deviceId,
+    idpToken,
+    kickSync,
+    drainOutbox,
+    setStatus,
+  });
 };
 
 /**
@@ -375,23 +388,52 @@ const runReplaceLocal = async ({
   );
   setStatus({ kind: "ok" });
   kickSync("post-pair");
+
+  // Observability for "paired but server is empty" — typically the origin
+  // device's force-upgrade flow shipped before the outbox-drain fix and
+  // left the just-claimed account empty on the server. Without this
+  // signal it looks like a silent client bug. The 10s window is a rough
+  // upper bound for one push+pull round-trip; if data hasn't landed by
+  // then, it's almost certainly not coming.
+  setTimeout(() => {
+    void (async () => {
+      try {
+        const rows = await db.select({ id: habit.id }).from(habit).limit(1);
+        if (rows.length === 0) {
+          logger.warn(
+            `paired into accountId=${paired.accountId} but local DB still empty after 10s — server snapshot was empty`,
+          );
+          Sentry.captureMessage(
+            "second-device pair: empty server snapshot",
+            "warning",
+          );
+        }
+      } catch (err) {
+        logger.warn("post-pair empty-snapshot probe threw", err);
+      }
+    })();
+  }, 10_000);
 };
 
 /**
  * "Use this device's data" path — force-upgrade this device's anonymous
  * account, which moves the Clerk identity from the other account onto
- * this one. Local data is preserved as-is; the existing outbox flushes
- * the device's local events to the server normally afterwards.
+ * this one. Local data is preserved as-is; the existing outbox is drained
+ * inline so the data is canonical on the server before reporting success
+ * — otherwise the user could sign in on a second device immediately and
+ * pull an empty snapshot from the just-claimed account.
  */
 const runReplaceServer = async ({
   deviceId,
   idpToken,
   kickSync,
+  drainOutbox,
   setStatus,
 }: {
   deviceId: string;
   idpToken: string;
   kickSync: (source: string) => void;
+  drainOutbox: () => Promise<DrainOutboxStatus>;
   setStatus: React.Dispatch<React.SetStateAction<UpgradeStatus>>;
 }): Promise<void> => {
   const claimed = await upgradeAccount({ deviceId, idpToken, force: true });
@@ -400,8 +442,29 @@ const runReplaceServer = async ({
     return;
   }
   logger.info(
-    `identity force-claimed onto local accountId=${claimed.accountId} — kicking sync`,
+    `identity force-claimed onto local accountId=${claimed.accountId} — draining outbox`,
   );
+  const drain = await drainOutbox();
+  if (drain === "halted") {
+    setStatus({
+      kind: "fail",
+      message:
+        "couldn't upload your data — open the sync panel and tap Resume to retry",
+    });
+    return;
+  }
+  if (drain === "offline") {
+    setStatus({
+      kind: "fail",
+      message:
+        "couldn't upload your data — check your connection and try again",
+    });
+    return;
+  }
+  // "anonymous" / "disabled" shouldn't be reachable here (we just bound
+  // an identity and the API is configured), but treat them as success
+  // and let kickSync recover if the dispatcher gating disagrees.
+  logger.info(`outbox drained (${drain}) — kicking pull-sync`);
   setStatus({ kind: "ok" });
   kickSync("post-force-upgrade");
 };
