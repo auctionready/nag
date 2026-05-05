@@ -3,13 +3,18 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PKG_DIR="$(dirname "$SCRIPT_DIR")"
-DEFAULT_INPUT="$PKG_DIR/openapi.json"
+REPO_ROOT="$(cd "$PKG_DIR/../.." && pwd)"
+DEFAULT_INPUT="$REPO_ROOT/backend/Nag.Api/OpenApi/openapi.json"
 URL="${OPENAPI_URL:-$DEFAULT_INPUT}"
 OUTPUT="$PKG_DIR/src/endpoint-definition.ts"
 TEMPLATE="$SCRIPT_DIR/endpoint-template.hbs"
 
 echo "Generating from $URL"
-pnpx openapi-zod-client "$URL" \
+# Use `pnpm exec` (not `pnpx`/`pnpm dlx`) so the pinned devDependency
+# version is used. `pnpm dlx` resolves from the registry on each run,
+# which can produce drift between local generation and CI when a new
+# version of openapi-zod-client is published.
+pnpm exec openapi-zod-client "$URL" \
   -o "$OUTPUT" \
   --template "$TEMPLATE" \
   --with-alias \
@@ -28,5 +33,9 @@ sed -i.bak -E \
   -e 's/z\.record\(z\.array\(z\.string\(\)\)\)/z.record(z.string(), z.array(z.string()))/g' \
   "$OUTPUT"
 rm -f "$OUTPUT.bak"
+
+# openapi-zod-client bundles its own prettier; re-format with the repo's
+# pinned prettier so output matches what lefthook/`pnpm format` produce.
+pnpm exec prettier --write "$OUTPUT"
 
 echo "Done."

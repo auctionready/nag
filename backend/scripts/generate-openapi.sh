@@ -17,8 +17,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 BACKEND_DIR="$(dirname "$SCRIPT_DIR")"
-REPO_ROOT="$(dirname "$BACKEND_DIR")"
-OUTPUT="${OUTPUT:-$REPO_ROOT/packages/api-client/openapi.json}"
+OUTPUT="${OUTPUT:-$BACKEND_DIR/Nag.Api/OpenApi/openapi.json}"
 
 cd "$BACKEND_DIR"
 
