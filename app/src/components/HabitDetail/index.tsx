@@ -26,6 +26,12 @@ import { CheckInDatePickerModal } from "./CheckInDatePickerModal";
 
 export interface HabitDetailProps {
   loading?: boolean;
+  /**
+   * Optional slot for the "How am I doing" card — rendered after the
+   * recent check-ins list. Passed in by the screen so this component
+   * stays free of API/DB imports and remains trivially testable.
+   */
+  complianceHistorySlot?: React.ReactNode;
   title: string;
   description: string | null;
   goalText: string | null;
@@ -78,6 +84,7 @@ const periodTitle = (regularity: Regularity | null): string => {
 
 export const HabitDetail = ({
   loading,
+  complianceHistorySlot,
   title,
   description,
   goalText,
@@ -380,6 +387,8 @@ export const HabitDetail = ({
             })
           }
         />
+
+        {complianceHistorySlot}
       </ScrollView>
 
       <View

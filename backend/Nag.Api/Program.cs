@@ -156,11 +156,13 @@ builder
         opts.Schema.For<CheckInState>().MultiTenanted();
         opts.Schema.For<MonthlyCheckInSummary>().MultiTenanted();
         opts.Schema.For<WeeklyCheckInSummary>().MultiTenanted();
+        opts.Schema.For<HabitComplianceHistory>().MultiTenanted();
 
         opts.Projections.Add<HomeBoardProjection>(ProjectionLifecycle.Inline);
         opts.Projections.Add<CheckInIndexProjection>(ProjectionLifecycle.Inline);
         opts.Projections.Add<MonthlyCheckInSummaryProjection>(ProjectionLifecycle.Inline);
         opts.Projections.Add<WeeklyCheckInSummaryProjection>(ProjectionLifecycle.Inline);
+        opts.Projections.Add<HabitComplianceHistoryProjection>(ProjectionLifecycle.Inline);
     })
     .UseLightweightSessions();
 

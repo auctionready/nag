@@ -56,6 +56,7 @@ public sealed class PostgresFixture : IAsyncLifetime
             opts.Projections.Add<CheckInIndexProjection>(ProjectionLifecycle.Inline);
             opts.Projections.Add<MonthlyCheckInSummaryProjection>(ProjectionLifecycle.Inline);
             opts.Projections.Add<WeeklyCheckInSummaryProjection>(ProjectionLifecycle.Inline);
+            opts.Projections.Add<HabitComplianceHistoryProjection>(ProjectionLifecycle.Inline);
         });
     }
 }

@@ -506,6 +506,42 @@
         }
       }
     },
+    "/habits/{habitId}/compliance": {
+      "get": {
+        "tags": [
+          "Read Models"
+        ],
+        "summary": "GET_habits_habitId_compliance",
+        "description": "GET_habits_habitId_compliance",
+        "operationId": "getHabitCompliance",
+        "parameters": [
+          {
+            "name": "habitId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HabitComplianceHistory"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found"
+          }
+        }
+      }
+    },
     "/home-board": {
       "get": {
         "tags": [
@@ -662,6 +698,50 @@
           },
           "skipped": {
             "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
+      "ComplianceStatus": {
+        "enum": [
+          "noGoal",
+          "logged",
+          "missed",
+          "partial",
+          "onTrack"
+        ],
+        "type": "string",
+        "format": "int32"
+      },
+      "DailyCompliance": {
+        "type": "object",
+        "properties": {
+          "date": {
+            "type": "string",
+            "nullable": true
+          },
+          "done": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "target": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "status": {
+            "enum": [
+              "noGoal",
+              "logged",
+              "missed",
+              "partial",
+              "onTrack"
+            ],
+            "type": "string",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ComplianceStatus"
+              }
+            ]
           }
         },
         "additionalProperties": false
@@ -1328,6 +1408,29 @@
         },
         "additionalProperties": false
       },
+      "GoalEpoch": {
+        "type": "object",
+        "properties": {
+          "effectiveFrom": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "regularity": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/Regularity"
+              }
+            ],
+            "nullable": true
+          },
+          "frequency": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
       "GoalPayload": {
         "type": "object",
         "properties": {
@@ -1353,6 +1456,30 @@
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/ScheduleEntry"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "HabitComplianceHistory": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "goalTimeline": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GoalEpoch"
+            },
+            "nullable": true
+          },
+          "days": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DailyCompliance"
             },
             "nullable": true
           }
