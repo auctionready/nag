@@ -3,14 +3,12 @@ import { ScrollView, StyleSheet, Text, View } from "react-native";
 import Constants from "expo-constants";
 import { loadIdentity, countPending, countFailed } from "@nag/core";
 import { db } from "../db";
-import { deviceTokenStore } from "../infrastructure/tokenStore";
 import { tokens } from "../components/theme";
 
 type AboutData = {
   accountId: string | null;
   deviceId: string | null;
   registeredAt: Date | null;
-  deviceToken: string | null;
   apiBaseUrl: string;
   pendingEvents: number;
   failedEvents: number;
@@ -21,9 +19,8 @@ const AboutScreen = () => {
 
   useEffect(() => {
     const load = async () => {
-      const [identity, token, pending, failed] = await Promise.all([
+      const [identity, pending, failed] = await Promise.all([
         loadIdentity(db),
-        deviceTokenStore.get(),
         countPending(db),
         countFailed(db),
       ]);
@@ -34,7 +31,6 @@ const AboutScreen = () => {
         accountId: identity?.accountId ?? null,
         deviceId: identity?.deviceId ?? null,
         registeredAt: identity?.registeredAt ?? null,
-        deviceToken: token,
         apiBaseUrl,
         pendingEvents: pending,
         failedEvents: failed,
@@ -54,8 +50,8 @@ const AboutScreen = () => {
         <InfoRow
           label="Registered"
           value={data?.registeredAt?.toISOString() ?? null}
+          last
         />
-        <InfoRow label="Device token" value={data?.deviceToken ?? null} last />
       </InfoGroup>
 
       <InfoGroup title="Server">
