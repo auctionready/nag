@@ -34,4 +34,8 @@ sed -i.bak -E \
   "$OUTPUT"
 rm -f "$OUTPUT.bak"
 
+# openapi-zod-client bundles its own prettier; re-format with the repo's
+# pinned prettier so output matches what lefthook/`pnpm format` produce.
+pnpm exec prettier --write "$OUTPUT"
+
 echo "Done."
