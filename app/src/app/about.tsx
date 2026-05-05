@@ -77,16 +77,21 @@ const AboutScreen = () => {
         <InfoRow
           label="Total"
           value={data != null ? String(data.totalEvents) : null}
+          last={!registered}
         />
-        <InfoRow
-          label="Sent"
-          value={data != null ? String(data.sentEvents) : null}
-        />
-        <InfoRow
-          label="Unsent"
-          value={data != null ? String(data.unsentEvents) : null}
-          last
-        />
+        {registered && (
+          <>
+            <InfoRow
+              label="Sent"
+              value={String(data.sentEvents)}
+            />
+            <InfoRow
+              label="Unsent"
+              value={String(data.unsentEvents)}
+              last
+            />
+          </>
+        )}
       </InfoGroup>
 
       <View style={{ height: 32 }} />
