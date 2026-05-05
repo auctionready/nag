@@ -10,7 +10,11 @@ OUTPUT="$PKG_DIR/src/endpoint-definition.ts"
 TEMPLATE="$SCRIPT_DIR/endpoint-template.hbs"
 
 echo "Generating from $URL"
-pnpx openapi-zod-client "$URL" \
+# Use `pnpm exec` (not `pnpx`/`pnpm dlx`) so the pinned devDependency
+# version is used. `pnpm dlx` resolves from the registry on each run,
+# which can produce drift between local generation and CI when a new
+# version of openapi-zod-client is published.
+pnpm exec openapi-zod-client "$URL" \
   -o "$OUTPUT" \
   --template "$TEMPLATE" \
   --with-alias \
