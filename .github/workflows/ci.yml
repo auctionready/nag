@@ -4,7 +4,40 @@ on:
   push:
 
 jobs:
-  check:
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      frontend: ${{ steps.filter.outputs.frontend }}
+      backend: ${{ steps.filter.outputs.backend }}
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            frontend:
+              - 'app/**'
+              - 'packages/**'
+              - 'tools/**'
+              - 'patches/**'
+              - 'docs/**'
+              - 'package.json'
+              - 'pnpm-lock.yaml'
+              - 'pnpm-workspace.yaml'
+              - 'tsconfig.json'
+              - 'eslint.config.mjs'
+              - '.prettierrc'
+              - '.prettierignore'
+              - '.github/workflows/ci.yml'
+            backend:
+              - 'backend/**'
+              - 'packages/api-client/**'
+              - '.github/workflows/ci.yml'
+
+  frontend-checks:
+    needs: changes
+    if: needs.changes.outputs.frontend == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -26,7 +59,9 @@ jobs:
 
       - run: pnpm prettier --check .
 
-  build-app:
+  frontend-build:
+    needs: changes
+    if: needs.changes.outputs.frontend == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -45,7 +80,9 @@ jobs:
       - run: npx expo export --platform ios
         working-directory: app
 
-  test:
+  frontend-test:
+    needs: changes
+    if: needs.changes.outputs.frontend == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -75,7 +112,9 @@ jobs:
           path: app/junit/results.xml
           reporter: jest-junit
 
-  backend:
+  backend-build-test:
+    needs: changes
+    if: needs.changes.outputs.backend == 'true'
     runs-on: ubuntu-latest
     defaults:
       run:
