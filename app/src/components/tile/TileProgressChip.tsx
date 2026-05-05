@@ -170,7 +170,7 @@ const Dot = ({ state }: { state: SlotDotState }) => {
   return <View style={style} />;
 };
 
-const SIZE = 6;
+const SIZE = 9;
 
 const styles = StyleSheet.create({
   row: {
@@ -185,14 +185,14 @@ const styles = StyleSheet.create({
   },
   text: {
     fontFamily: "JetBrainsMono",
-    fontSize: 9,
+    fontSize: 11,
     letterSpacing: 0.72,
     color: tokens.mute,
     textTransform: "uppercase",
   },
   todayEyebrow: {
     fontFamily: "JetBrainsMono",
-    fontSize: 8.5,
+    fontSize: 10.5,
     fontWeight: "700",
     letterSpacing: 0.85,
     textTransform: "uppercase",
