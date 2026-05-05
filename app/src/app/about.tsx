@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
 import Constants from "expo-constants";
-import { sql } from "drizzle-orm";
+import { sql, eq } from "drizzle-orm";
 import { loadIdentity } from "@nag/core";
 import { outbox } from "@nag/schema";
 import { db } from "../db";
@@ -11,8 +11,10 @@ type AboutData = {
   accountId: string | null;
   deviceId: string | null;
   registeredAt: Date | null;
-  apiBaseUrl: string;
+  apiBaseUrl: string | null;
   totalEvents: number;
+  sentEvents: number;
+  unsentEvents: number;
 };
 
 const AboutScreen = () => {
@@ -20,47 +22,69 @@ const AboutScreen = () => {
 
   useEffect(() => {
     const load = async () => {
-      const [identity, [countRow]] = await Promise.all([
+      const [identity, [totalRow], [sentRow]] = await Promise.all([
         loadIdentity(db),
         db.select({ count: sql<number>`count(*)` }).from(outbox),
+        db
+          .select({ count: sql<number>`count(*)` })
+          .from(outbox)
+          .where(eq(outbox.status, "sent")),
       ]);
       const apiBaseUrl =
         (Constants.expoConfig?.extra as { apiBaseUrl?: string })?.apiBaseUrl ??
-        "<missing>";
+        null;
+      const total = Number(totalRow?.count ?? 0);
+      const sent = Number(sentRow?.count ?? 0);
       setData({
         accountId: identity?.accountId ?? null,
         deviceId: identity?.deviceId ?? null,
         registeredAt: identity?.registeredAt ?? null,
         apiBaseUrl,
-        totalEvents: Number(countRow?.count ?? 0),
+        totalEvents: total,
+        sentEvents: sent,
+        unsentEvents: total - sent,
       });
     };
     void load();
   }, []);
+
+  const registered = data != null && data.accountId != null;
 
   return (
     <ScrollView
       style={styles.scroll}
       contentContainerStyle={styles.scrollContent}
     >
-      <InfoGroup title="Identity">
-        <InfoRow label="Account ID" value={data?.accountId ?? null} />
-        <InfoRow label="Device ID" value={data?.deviceId ?? null} />
-        <InfoRow
-          label="Registered"
-          value={data?.registeredAt?.toISOString() ?? null}
-          last
-        />
-      </InfoGroup>
+      {registered && (
+        <InfoGroup title="Identity">
+          <InfoRow label="Account ID" value={data.accountId} />
+          <InfoRow label="Device ID" value={data.deviceId} />
+          <InfoRow
+            label="Registered"
+            value={data.registeredAt?.toISOString() ?? null}
+            last
+          />
+        </InfoGroup>
+      )}
 
-      <InfoGroup title="Server">
-        <InfoRow label="API URL" value={data?.apiBaseUrl ?? null} last />
-      </InfoGroup>
+      {registered && data.apiBaseUrl != null && (
+        <InfoGroup title="Server">
+          <InfoRow label="API URL" value={data.apiBaseUrl} last />
+        </InfoGroup>
+      )}
 
-      <InfoGroup title="Sync">
+      <InfoGroup title="Events">
         <InfoRow
-          label="Events"
+          label="Total"
           value={data != null ? String(data.totalEvents) : null}
+        />
+        <InfoRow
+          label="Sent"
+          value={data != null ? String(data.sentEvents) : null}
+        />
+        <InfoRow
+          label="Unsent"
+          value={data != null ? String(data.unsentEvents) : null}
           last
         />
       </InfoGroup>
