@@ -10,6 +10,7 @@ import {
   TextInput,
   View,
 } from "react-native";
+import { router } from "expo-router";
 import * as Linking from "expo-linking";
 import * as WebBrowser from "expo-web-browser";
 import Svg, { Circle, Path, Rect } from "react-native-svg";
@@ -521,7 +522,12 @@ const SettingsGroups = () => (
     <Group title="App">
       <Row icon={iconAppearance()} label="Appearance" disabled />
       <Row icon={iconNag()} label="Tone of nags" disabled />
-      <Row icon={iconAbout()} label="About" last disabled />
+      <Row
+        icon={iconAbout()}
+        label="About"
+        last
+        onPress={() => router.navigate("/about")}
+      />
     </Group>
   </>
 );
