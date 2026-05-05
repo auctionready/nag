@@ -81,15 +81,8 @@ const AboutScreen = () => {
         />
         {registered && (
           <>
-            <InfoRow
-              label="Sent"
-              value={String(data.sentEvents)}
-            />
-            <InfoRow
-              label="Unsent"
-              value={String(data.unsentEvents)}
-              last
-            />
+            <InfoRow label="Sent" value={String(data.sentEvents)} />
+            <InfoRow label="Unsent" value={String(data.unsentEvents)} last />
           </>
         )}
       </InfoGroup>
