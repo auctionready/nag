@@ -3,7 +3,8 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PKG_DIR="$(dirname "$SCRIPT_DIR")"
-DEFAULT_INPUT="$PKG_DIR/openapi.json"
+REPO_ROOT="$(cd "$PKG_DIR/../.." && pwd)"
+DEFAULT_INPUT="$REPO_ROOT/backend/Nag.Api/OpenApi/openapi.json"
 URL="${OPENAPI_URL:-$DEFAULT_INPUT}"
 OUTPUT="$PKG_DIR/src/endpoint-definition.ts"
 TEMPLATE="$SCRIPT_DIR/endpoint-template.hbs"
