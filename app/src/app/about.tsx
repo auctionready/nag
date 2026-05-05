@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
 import Constants from "expo-constants";
-import { loadIdentity, countPending, countFailed } from "@nag/core";
+import { sql } from "drizzle-orm";
+import { loadIdentity } from "@nag/core";
+import { outbox } from "@nag/schema";
 import { db } from "../db";
 import { tokens } from "../components/theme";
 
@@ -10,8 +12,7 @@ type AboutData = {
   deviceId: string | null;
   registeredAt: Date | null;
   apiBaseUrl: string;
-  pendingEvents: number;
-  failedEvents: number;
+  totalEvents: number;
 };
 
 const AboutScreen = () => {
@@ -19,10 +20,9 @@ const AboutScreen = () => {
 
   useEffect(() => {
     const load = async () => {
-      const [identity, pending, failed] = await Promise.all([
+      const [identity, [countRow]] = await Promise.all([
         loadIdentity(db),
-        countPending(db),
-        countFailed(db),
+        db.select({ count: sql<number>`count(*)` }).from(outbox),
       ]);
       const apiBaseUrl =
         (Constants.expoConfig?.extra as { apiBaseUrl?: string })?.apiBaseUrl ??
@@ -32,8 +32,7 @@ const AboutScreen = () => {
         deviceId: identity?.deviceId ?? null,
         registeredAt: identity?.registeredAt ?? null,
         apiBaseUrl,
-        pendingEvents: pending,
-        failedEvents: failed,
+        totalEvents: Number(countRow?.count ?? 0),
       });
     };
     void load();
@@ -60,12 +59,8 @@ const AboutScreen = () => {
 
       <InfoGroup title="Sync">
         <InfoRow
-          label="Pending events"
-          value={data != null ? String(data.pendingEvents) : null}
-        />
-        <InfoRow
-          label="Failed events"
-          value={data != null ? String(data.failedEvents) : null}
+          label="Events"
+          value={data != null ? String(data.totalEvents) : null}
           last
         />
       </InfoGroup>
