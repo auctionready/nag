@@ -10,7 +10,7 @@
     "package:lambda:run": "./scripts/run-lambda-locally.sh",
     "check": "concurrently -g \"pnpm check:format\" \"pnpm check:openapi\"",
     "check:format": "dotnet csharpier check .",
-    "check:openapi": "./scripts/generate-openapi.sh && git diff --exit-code ../packages/api-client/openapi.json"
+    "check:openapi": "pnpm --filter @nag/api-client generate && git diff --exit-code ../packages/api-client/src/endpoint-definition.ts"
   },
   "devDependencies": {
     "concurrently": "catalog:"

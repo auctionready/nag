@@ -87,6 +87,18 @@ jobs:
         with:
           dotnet-version: "10.0.x"
 
+      - uses: volta-cli/action@v4
+
+      - uses: pnpm/action-setup@v5
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: package.json
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+        working-directory: .
+
       - run: dotnet tool restore
 
       - run: dotnet csharpier check .
@@ -104,8 +116,8 @@ jobs:
           path: backend/**/TestResults/results.trx
           reporter: dotnet-trx
 
-      # Fails if a backend change drifts packages/api-client/openapi.json
-      # from what's committed. The file is exempt from Prettier (see
-      # .prettierignore) so raw `dotnet swagger tofile` output is canonical.
-      - name: openapi.json is up to date
-        run: ./scripts/generate-openapi.sh && git diff --exit-code ../packages/api-client/openapi.json
+      # Fails if a backend change drifts packages/api-client/src/endpoint-definition.ts
+      # from what's committed. openapi.json is generated as an intermediate
+      # artifact and is gitignored.
+      - name: endpoint-definition.ts is up to date
+        run: pnpm --filter @nag/api-client generate && git diff --exit-code ../packages/api-client/src/endpoint-definition.ts

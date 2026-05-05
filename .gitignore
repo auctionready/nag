@@ -13,3 +13,4 @@ android/
 app/junit.xml
 .claude/settings.local.json
 .env.local
+packages/api-client/openapi.json
