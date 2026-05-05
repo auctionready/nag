@@ -1,7 +1,10 @@
-import { DevSettings } from "react-native";
+import { Alert, DevSettings } from "react-native";
 import { registerDevMenuItems } from "expo-dev-client";
 import { router } from "expo-router";
+import Constants from "expo-constants";
+import { loadIdentity } from "@nag/core";
 import { clearAll, seedSampleData } from "./seed";
+import { db } from "./index";
 import { devFlags } from "../infrastructure/devFlags";
 import { clearAllClerkTokens } from "../infrastructure/clerk";
 import { deviceTokenStore } from "../infrastructure/tokenStore";
@@ -43,6 +46,28 @@ if (__DEV__) {
         await clearAll();
         await seedSampleData();
         DevSettings.reload();
+      },
+    },
+    {
+      name: "Account details",
+      callback: async () => {
+        const [identity, token] = await Promise.all([
+          loadIdentity(db),
+          deviceTokenStore.get(),
+        ]);
+        const apiBaseUrl =
+          (Constants.expoConfig?.extra as { apiBaseUrl?: string })
+            ?.apiBaseUrl ?? "<missing>";
+        Alert.alert(
+          "Account details",
+          [
+            `deviceId: ${identity?.deviceId ?? "<none>"}`,
+            `accountId: ${identity?.accountId ?? "<none>"}`,
+            `registeredAt: ${identity?.registeredAt?.toISOString() ?? "<none>"}`,
+            `deviceToken: ${token ?? "<none>"}`,
+            `apiBaseUrl: ${apiBaseUrl}`,
+          ].join("\n"),
+        );
       },
     },
     {
