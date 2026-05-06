@@ -57,6 +57,14 @@ export type PullSyncOptions = {
    * from monopolising the pull. Default 5.
    */
   maxPages?: number;
+  /**
+   * When true, prune local check-ins older than the start of the previous
+   * month after each successful pull (gated further by an empty outbox).
+   * Defaults to {@link PRUNE_OLD_CHECKINS_ENABLED}, which reads
+   * `NAG_PRUNE_OLD_CHECKINS` at module load. Tests pass an explicit
+   * boolean so coverage doesn't depend on the ambient env.
+   */
+  pruneOldCheckIns?: boolean;
   log?: {
     debug?: (msg: string, ...args: unknown[]) => void;
     info?: (msg: string, ...args: unknown[]) => void;
@@ -78,6 +86,7 @@ export const createPullSync = ({
   db,
   getSync,
   maxPages = 5,
+  pruneOldCheckIns = PRUNE_OLD_CHECKINS_ENABLED,
   log,
 }: PullSyncOptions): PullSync => {
   const debug = log?.debug ?? (() => {});
@@ -167,8 +176,9 @@ export const createPullSync = ({
     // when the outbox is fully drained, so we never lose a row whose
     // CreateCheckIn hasn't been acknowledged. Pruned periods can be
     // re-fetched from the per-period summary endpoints on demand. Disabled
-    // by default; opt in via `NAG_PRUNE_OLD_CHECKINS=1`.
-    if (PRUNE_OLD_CHECKINS_ENABLED) {
+    // by default; opt in via `NAG_PRUNE_OLD_CHECKINS=1` (or pass
+    // `pruneOldCheckIns: true` directly).
+    if (pruneOldCheckIns) {
       try {
         await pruneOldCheckInsIfSafe(db);
       } catch (e) {
