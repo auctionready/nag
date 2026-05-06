@@ -40,6 +40,20 @@ export const UnbindAccountResponse = z
   .partial();
 export type UnbindAccountResponse = z.infer<typeof UnbindAccountResponse>;
 
+export const RebuildProjectionsRequest = z
+  .object({ secret: z.string().nullable() })
+  .partial();
+export type RebuildProjectionsRequest = z.infer<
+  typeof RebuildProjectionsRequest
+>;
+
+export const RebuildProjectionsResponse = z
+  .object({ rebuilt: z.array(z.string()).nullable() })
+  .partial();
+export type RebuildProjectionsResponse = z.infer<
+  typeof RebuildProjectionsResponse
+>;
+
 export const RegisterDeviceRequest = z
   .object({ deviceId: z.uuid(), label: z.string().nullable() })
   .partial();
@@ -581,6 +595,24 @@ export const endpoints = makeApi([
       { status: 401, schema: ErrorResponse },
       { status: 404, schema: ErrorResponse },
       { status: 409, schema: ErrorResponse },
+    ],
+  },
+  {
+    method: "post",
+    path: "/admin/rebuild-projections",
+    alias: "postAdminRebuildProjections",
+    parameters: [
+      {
+        name: "body",
+        type: "Body",
+        schema: z.object({ secret: z.string().nullable() }).partial(),
+      },
+    ],
+    response: RebuildProjectionsResponse,
+    errors: [
+      { status: 401, schema: ErrorResponse },
+      { status: 404, schema: z.void() },
+      { status: 501, schema: ErrorResponse },
     ],
   },
   {

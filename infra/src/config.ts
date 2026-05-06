@@ -8,6 +8,11 @@ export const stackConfig = {
   // token becomes invalid (clients re-register on next 401). Generate
   // a fresh value with `openssl rand -base64 48`.
   deviceTokenSecret: cfg.requireSecret("deviceTokenSecret"),
+  // Optional pre-shared secret guarding /admin/rebuild-projections. Set
+  // with `pulumi config set --secret nag:adminSecret <value>` only when
+  // you intend to use the recovery endpoint; leaving it unset is the
+  // default and makes the endpoint refuse every request with 501.
+  adminSecret: cfg.getSecret("adminSecret"),
   // Neon API key used by the `pulumi-neon` provider to manage the
   // project / branch / role / database. Generate via the Neon Console
   // → Account Settings → API Keys.
