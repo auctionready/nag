@@ -270,7 +270,17 @@ export const SyncStatusProvider = ({ children }: PropsWithChildren) => {
     [enabled, runWithSingleflight],
   );
 
-  // NetInfo subscription: kick when we come online; reflect offline state.
+  // NetInfo subscription: track `onlineRef` and kick when we transition
+  // back to online. Deliberately does NOT call `setStatus("offline")` —
+  // NetInfo on Android (VPN, captive networks, post-foreground races)
+  // can report `isInternetReachable: false` even when the device is
+  // online, and a direct setStatus would surface a false-offline banner.
+  // The visible status is instead driven by actual sync attempts: the
+  // `inner` offline guard sets it on a real automatic skip, and the
+  // dispatcher/pull-sync set it from real push/pull results. If we're
+  // truly offline, the next post-commit / safety-timer / AppState kick
+  // will reflect it within seconds. If NetInfo lied, we stay on the
+  // last truthful status instead of misleading the user.
   useEffect(() => {
     if (!enabled) return;
     let unsubscribe = () => {};
@@ -285,8 +295,6 @@ export const SyncStatusProvider = ({ children }: PropsWithChildren) => {
         onlineRef.current = online;
         if (online && wasOffline) {
           kick("netinfo-online");
-        } else if (!online) {
-          setStatus("offline");
         }
       });
     } catch (e) {
@@ -302,7 +310,6 @@ export const SyncStatusProvider = ({ children }: PropsWithChildren) => {
         );
         onlineRef.current = online;
         if (online) kick("netinfo-initial");
-        else setStatus("offline");
       })
       .catch((e) => {
         logger.error("NetInfo.fetch failed — assuming online", e);
