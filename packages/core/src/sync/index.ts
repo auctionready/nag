@@ -26,6 +26,7 @@ export {
   SENT_OUTBOX_RETAIN_DEFAULT,
   type PendingRow,
 } from "./outbox";
+export { rebuildOutbox, type RebuildOutboxResult } from "./rebuildOutbox";
 export { applyServerEvent, type ServerEvent } from "./applyServerEvent";
 export { installSnapshot, type ServerSnapshot } from "./installSnapshot";
 export {

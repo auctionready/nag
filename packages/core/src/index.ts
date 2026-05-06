@@ -73,6 +73,8 @@ export {
   getHighestServerSequence,
   applyServerEvent,
   installSnapshot,
+  rebuildOutbox,
+  type RebuildOutboxResult,
   createPullSync,
   type Dispatcher,
   type DispatcherOptions,

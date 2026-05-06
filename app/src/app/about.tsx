@@ -1,9 +1,17 @@
-import { useEffect, useState } from "react";
-import { ScrollView, StyleSheet, Text, View } from "react-native";
+import { useCallback, useEffect, useState } from "react";
+import {
+  Alert,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 import Constants from "expo-constants";
 import { sql, eq } from "drizzle-orm";
-import { loadIdentity } from "@nag/core";
-import { outbox } from "@nag/schema";
+import { useAuth } from "@clerk/clerk-expo";
+import { loadIdentity, rebuildOutbox } from "@nag/core";
+import { checkIn, habit, outbox } from "@nag/schema";
 import { db } from "../db";
 import { tokens } from "../components/theme";
 
@@ -18,7 +26,9 @@ type AboutData = {
 };
 
 const AboutScreen = () => {
+  const { isLoaded, isSignedIn } = useAuth();
   const [data, setData] = useState<AboutData | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
     const load = async () => {
@@ -46,9 +56,56 @@ const AboutScreen = () => {
       });
     };
     void load();
-  }, []);
+  }, [reloadKey]);
 
   const registered = data != null && data.accountId != null;
+  const showRebuild = isLoaded && !isSignedIn;
+
+  const onRebuildPress = useCallback(async () => {
+    const [[habitRow], [checkInRow]] = await Promise.all([
+      db.select({ count: sql<number>`count(*)` }).from(habit),
+      db.select({ count: sql<number>`count(*)` }).from(checkIn),
+    ]);
+    const habitCount = Number(habitRow?.count ?? 0);
+    const checkInCount = Number(checkInRow?.count ?? 0);
+
+    Alert.alert(
+      "Rebuild outbox?",
+      `Replaces the entire outbox with ${habitCount} habit${
+        habitCount === 1 ? "" : "s"
+      } and ${checkInCount} check-in${
+        checkInCount === 1 ? "" : "s"
+      } from local data, and resets sync state. Sign in to drain to the server.`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Rebuild",
+          style: "destructive",
+          onPress: () => {
+            void (async () => {
+              try {
+                const result = await rebuildOutbox(db);
+                setReloadKey((k) => k + 1);
+                Alert.alert(
+                  "Outbox rebuilt",
+                  `${result.habitCount} habit${
+                    result.habitCount === 1 ? "" : "s"
+                  } and ${result.checkInCount} check-in${
+                    result.checkInCount === 1 ? "" : "s"
+                  } queued as pending.`,
+                );
+              } catch (err) {
+                Alert.alert(
+                  "Rebuild failed",
+                  err instanceof Error ? err.message : String(err),
+                );
+              }
+            })();
+          },
+        },
+      ],
+    );
+  }, []);
 
   return (
     <ScrollView
@@ -86,6 +143,27 @@ const AboutScreen = () => {
           </>
         )}
       </InfoGroup>
+
+      {showRebuild && (
+        <View style={styles.group}>
+          <Text style={styles.groupTitle}>Recovery</Text>
+          <View style={styles.card}>
+            <Pressable
+              onPress={onRebuildPress}
+              style={({ pressed }) => [
+                styles.rebuildButton,
+                pressed && styles.rebuildButtonPressed,
+              ]}
+            >
+              <Text style={styles.rebuildLabel}>Rebuild outbox from local</Text>
+              <Text style={styles.rebuildHint}>
+                Wipes the outbox and re-queues habits + check-ins. Sign in to
+                drain to the server.
+              </Text>
+            </Pressable>
+          </View>
+        </View>
+      )}
 
       <View style={{ height: 32 }} />
     </ScrollView>
@@ -173,5 +251,23 @@ const styles = StyleSheet.create({
     fontFamily: "JetBrainsMono",
     fontSize: 12,
     color: tokens.ink,
+  },
+  rebuildButton: {
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+    gap: 6,
+  },
+  rebuildButtonPressed: {
+    opacity: 0.6,
+  },
+  rebuildLabel: {
+    fontFamily: "SpaceGrotesk-Bold",
+    fontSize: 14,
+    color: tokens.ink,
+  },
+  rebuildHint: {
+    fontFamily: "JetBrainsMono",
+    fontSize: 11,
+    color: tokens.mute,
   },
 });
