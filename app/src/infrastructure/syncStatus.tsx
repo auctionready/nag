@@ -213,15 +213,24 @@ export const SyncStatusProvider = ({ children }: PropsWithChildren) => {
           `run[${runId}] push complete (${Date.now() - started}ms) result=${pushResult}`,
         );
         if (pushResult === "halted") {
+          // A 4xx round-tripped: server is reachable, NetInfo can't be
+          // claiming we're offline either.
+          onlineRef.current = true;
           setStatus("halted");
         } else if (pushResult === "offline") {
           setStatus("offline");
         } else if (__DEV__ && devFlags.disablePullSync) {
           logger.warn(`run[${runId}] pull sync disabled (devFlags)`);
+          // Push succeeded — server reachable.
+          onlineRef.current = true;
           setStatus("idle");
         } else {
           // Push succeeded — try the pull side. Order matters: drain
           // first so a snapshot doesn't wipe a pending local command.
+          // Push succeeding is itself proof of network reachability:
+          // self-heal `onlineRef` so a stale NetInfo "offline" reading
+          // doesn't keep blocking subsequent automatic kicks.
+          onlineRef.current = true;
           const pullResult = await pullSync.run();
           logger.info(
             `run[${runId}] pull complete (${Date.now() - started}ms) result=${pullResult}`,
@@ -334,40 +343,41 @@ export const SyncStatusProvider = ({ children }: PropsWithChildren) => {
     void refreshCounts();
   }, [refreshCounts]);
 
+  // Public kickSync: every external caller fires this *after* a successful
+  // network round-trip (post-upgrade, post-pair, post-force-upgrade,
+  // post-signout) — i.e. the device is provably online at the moment of
+  // the call. So we (a) heal `onlineRef` (NetInfo may be reporting stale
+  // or wrong state — Android over VPN/captive, post-foreground races) and
+  // (b) force past the offline guard so the kick can't be silently
+  // skipped. Without this, post-upgrade kicks were getting swallowed by
+  // a stale `onlineRef = false`, leaving the user staring at an "offline"
+  // banner immediately after a successful sign-in.
+  const kickSync = useCallback(
+    (source: string) => {
+      onlineRef.current = true;
+      forceNextRunRef.current = true;
+      kick(source);
+    },
+    [kick],
+  );
+
   const resume = useCallback(async () => {
     logger.info("resume requested");
     try {
       await resumeDispatch(db);
       setLastError(null);
-      // Refresh NetInfo so a stale `onlineRef` (e.g. the listener hasn't
-      // fired since the user came back online) doesn't keep the next run
-      // pinned to the offline path.
-      try {
-        const state = await NetInfo.fetch();
-        onlineRef.current =
-          state.isConnected === true && state.isInternetReachable !== false;
-        logger.debug(
-          `resume: NetInfo refresh online=${onlineRef.current} (isConnected=${state.isConnected} isInternetReachable=${state.isInternetReachable})`,
-        );
-      } catch (e) {
-        logger.warn(
-          "resume: NetInfo.fetch failed — relying on cached state",
-          e,
-        );
-      }
       await refreshCounts();
-      // Force the next run regardless of `onlineRef`: a manual Retry tap
-      // should always attempt the network so the user sees real feedback.
-      // If we're truly offline, the dispatcher/pull-sync return "offline"
-      // and the banner stays visible — same end-state, but the UI flashes
-      // "syncing" so the user knows the tap registered.
-      forceNextRunRef.current = true;
-      kick("resume");
+      // Manual Retry: the user has explicitly asked us to try again.
+      // Route through `kickSync` so we force past the offline guard and
+      // give the dispatcher a real chance to prove the network state —
+      // the user sees "syncing" → either "idle" or "offline" instead of
+      // a silent no-op when NetInfo's cached state is stale.
+      kickSync("resume");
     } catch (e) {
       logger.error("resume failed", e);
       Sentry.captureException(e);
     }
-  }, [kick, refreshCounts]);
+  }, [kickSync, refreshCounts]);
 
   const value = useMemo<SyncStatusContextValue>(
     () => ({
@@ -376,7 +386,7 @@ export const SyncStatusProvider = ({ children }: PropsWithChildren) => {
       failedCount,
       lastError,
       resume,
-      kickSync: kick,
+      kickSync,
       isAnonymous,
     }),
     [
@@ -386,7 +396,7 @@ export const SyncStatusProvider = ({ children }: PropsWithChildren) => {
       failedCount,
       lastError,
       resume,
-      kick,
+      kickSync,
       isAnonymous,
     ],
   );
