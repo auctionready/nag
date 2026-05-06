@@ -4,7 +4,6 @@ import { applyServerEvent, type ServerEvent } from "./applyServerEvent";
 import { installSnapshot, type ServerSnapshot } from "./installSnapshot";
 import { getHighestServerSequence, isHalted } from "./outbox";
 import { syncAllNotifications } from "../notificationConsolidator";
-import { pruneOldCheckInsIfSafe } from "../retention";
 
 export type PullStatus = "idle" | "halted" | "offline";
 
@@ -144,16 +143,6 @@ export const createPullSync = ({
         // Notification scheduling failures shouldn't poison the sync —
         // data is already committed. Caller will surface via Sentry.
       }
-    }
-
-    // Drop check-ins older than the start of the previous month — but only
-    // when the outbox is fully drained, so we never lose a row whose
-    // CreateCheckIn hasn't been acknowledged. Pruned periods can be
-    // re-fetched from the per-period summary endpoints on demand.
-    try {
-      await pruneOldCheckInsIfSafe(db);
-    } catch (e) {
-      error("pullSync.run: pruneOldCheckInsIfSafe threw", e);
     }
 
     return "idle";
