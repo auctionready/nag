@@ -2,6 +2,8 @@ packages:
   - "packages/*"
   - "app"
   - "backend"
+allowBuilds:
+  "@pulumi/neon": true
 approveBuilds: better-sqlite3
 
 catalog:

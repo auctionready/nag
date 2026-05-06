@@ -20,10 +20,7 @@ const database = createDatabase({
 });
 
 const api = createApi({
-  dbEndpoint: database.endpoint,
-  dbName: database.databaseName,
-  dbUsername: database.masterUsername,
-  dbPassword: database.masterPassword,
+  databaseUrl: database.connectionUri,
   deviceTokenSecret: stackConfig.deviceTokenSecret,
   adminSecret: stackConfig.adminSecret,
   clerkIssuer: stackConfig.clerkIssuer,
@@ -45,10 +42,7 @@ const domain =
     : undefined;
 
 applyMigrations({
-  dbEndpoint: database.endpoint,
-  dbName: database.databaseName,
-  dbUsername: database.masterUsername,
-  dbPassword: database.masterPassword,
+  databaseUrl: database.connectionUri,
   lambdaSourceCodeHash: api.sourceCodeHash,
   dependsOn: [api.lambda],
 });
@@ -59,4 +53,3 @@ export const apiUrl: pulumi.Output<string> = domain
   : api.invokeUrl;
 export const functionName = api.functionName;
 export const logGroupName = api.logGroupName;
-export const dbEndpoint = database.endpoint;

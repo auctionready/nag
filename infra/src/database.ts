@@ -1,4 +1,4 @@
-import * as neon from "pulumi-neon";
+import * as neon from "@pulumi/neon";
 import * as pulumi from "@pulumi/pulumi";
 
 export interface DatabaseArgs {
@@ -12,20 +12,17 @@ export interface DatabaseArgs {
   roleName: string;
   minCu: number;
   maxCu: number;
-  // Seconds of idle before the compute scales to zero. 0 means "use Neon's
-  // account default"; pass a positive integer to override.
+  // Seconds of idle before the compute scales to zero. 0 = use Neon's
+  // account default. -1 = never suspend.
   suspendTimeoutSeconds: number;
 }
 
 export interface Database {
-  endpoint: pulumi.Output<string>;
-  databaseName: pulumi.Output<string>;
-  masterUsername: pulumi.Output<string>;
-  masterPassword: pulumi.Output<string>;
+  connectionUri: pulumi.Output<string>;
 }
 
 export const createDatabase = (args: DatabaseArgs): Database => {
-  const provider = new neon.Provider("nag-neon", { token: args.apiKey });
+  const provider = new neon.Provider("nag-neon", { apiKey: args.apiKey });
 
   const project = new neon.Project(
     "nag",
@@ -34,46 +31,24 @@ export const createDatabase = (args: DatabaseArgs): Database => {
       orgId: args.orgId,
       regionId: args.regionId,
       pgVersion: args.pgVersion,
+      // Free-tier orgs cap at 6h (21600s). Default is 24h, which the API
+      // rejects on create.
+      historyRetentionSeconds: 21600,
       branch: {
         name: args.branchName,
-        endpoint: {
-          minCu: args.minCu,
-          maxCu: args.maxCu,
-          suspendTimeout: args.suspendTimeoutSeconds,
-        },
+        roleName: args.roleName,
+        databaseName: args.databaseName,
+      },
+      defaultEndpointSettings: {
+        autoscalingLimitMinCu: args.minCu,
+        autoscalingLimitMaxCu: args.maxCu,
+        suspendTimeoutSeconds: args.suspendTimeoutSeconds,
       },
     },
     { provider, protect: true },
   );
 
-  const branchId = project.branch.apply((b) => b.id);
-  const endpointHost = project.branch.apply((b) => b.endpoint.host);
-
-  const role = new neon.Role(
-    "nag",
-    {
-      projectId: project.id,
-      branchId,
-      name: args.roleName,
-    },
-    { provider },
-  );
-
-  const database = new neon.Database(
-    "nag",
-    {
-      projectId: project.id,
-      branchId,
-      name: args.databaseName,
-      ownerName: role.name,
-    },
-    { provider },
-  );
-
   return {
-    endpoint: endpointHost,
-    databaseName: database.name,
-    masterUsername: role.name,
-    masterPassword: role.password,
+    connectionUri: pulumi.secret(project.connectionUri),
   };
 };
