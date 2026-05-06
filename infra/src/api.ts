@@ -9,6 +9,7 @@ export interface ApiArgs {
   dbUsername: pulumi.Output<string>;
   dbPassword: pulumi.Output<string>;
   deviceTokenSecret: pulumi.Output<string>;
+  adminSecret?: pulumi.Output<string>;
   clerkIssuer?: string;
   sentryDsn?: pulumi.Output<string>;
   sentryEnvironment?: string;
@@ -87,6 +88,9 @@ export const createApi = (args: ApiArgs): Api => {
         // Only set when configured — Program.cs registers the Clerk
         // verifier conditionally on Nag:ClerkIssuer being present.
         ...(args.clerkIssuer ? { Nag__ClerkIssuer: args.clerkIssuer } : {}),
+        // Optional admin secret for /admin/rebuild-projections. When
+        // unset, the endpoint refuses every request with 501.
+        ...(args.adminSecret ? { Nag__AdminSecret: args.adminSecret } : {}),
         // Sentry: when DSN is unset, LambdaSecrets leaves Sentry:Dsn
         // empty and the SDK initializes in disabled mode (no network).
         ...(args.sentryDsn ? { SENTRY_DSN: args.sentryDsn } : {}),
