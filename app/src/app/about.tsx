@@ -11,8 +11,9 @@ import Constants from "expo-constants";
 import { sql, eq } from "drizzle-orm";
 import { useAuth } from "@clerk/clerk-expo";
 import { loadIdentity, rebuildOutbox } from "@nag/core";
-import { checkIn, habit, outbox } from "@nag/schema";
+import { checkIn, habit, identity, outbox } from "@nag/schema";
 import { db } from "../db";
+import { deviceTokenStore } from "../infrastructure/tokenStore";
 import { tokens } from "../components/theme";
 
 type AboutData = {
@@ -107,6 +108,38 @@ const AboutScreen = () => {
     );
   }, []);
 
+  const onResetIdentityPress = useCallback(() => {
+    Alert.alert(
+      "Reset account?",
+      "Wipes the local identity row (device ID, account ID, registered-at) and the device token. Habits, check-ins, and outbox are kept. Sign in again to register fresh.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Reset",
+          style: "destructive",
+          onPress: () => {
+            void (async () => {
+              try {
+                await db.delete(identity);
+                await deviceTokenStore.clear();
+                setReloadKey((k) => k + 1);
+                Alert.alert(
+                  "Account reset",
+                  "Sign in to register this device fresh.",
+                );
+              } catch (err) {
+                Alert.alert(
+                  "Reset failed",
+                  err instanceof Error ? err.message : String(err),
+                );
+              }
+            })();
+          },
+        },
+      ],
+    );
+  }, []);
+
   return (
     <ScrollView
       style={styles.scroll}
@@ -159,6 +192,20 @@ const AboutScreen = () => {
               <Text style={styles.rebuildHint}>
                 Wipes the outbox and re-queues habits + check-ins. Sign in to
                 drain to the server.
+              </Text>
+            </Pressable>
+            <View style={styles.divider} />
+            <Pressable
+              onPress={onResetIdentityPress}
+              style={({ pressed }) => [
+                styles.rebuildButton,
+                pressed && styles.rebuildButtonPressed,
+              ]}
+            >
+              <Text style={styles.rebuildLabel}>Reset account</Text>
+              <Text style={styles.rebuildHint}>
+                Clears identity + device token only. Habits, check-ins, and
+                outbox are kept. Sign in to re-register.
               </Text>
             </Pressable>
           </View>
