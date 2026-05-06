@@ -36,3 +36,5 @@ config:
   nag:neonOrgId: org-broad-bread-95932480
   nag:sentryDsn:
     secure: AAABAKq46extlkJ/hO4jTA5I2DcTpC/qDND59ksmHazMTcLTgL+9qQQKxZopHE4sTqH86joyPNYfGsgf9bEiUf3IGqMCF8ze9VRRCZRQqPEVqJ4nFogkv9LUPJVYtJb7zAw4h1ik79HyHd4Zm9QAdL9c4mHBy2mqGqmRnIbS8Q==
+  nag:adminSecret:
+    secure: AAABAEc7wmUR3Fm0ZInK+EPBcbfs0lkJApr5JWB3jEgtvcKH7FchlrjiHj9xqwDwrW0TNrYCSZjjCctmVg2BcMS116puGtgcgy0AvU+GBNdmZpUt5Wfs0nZrVeb/lFYr
