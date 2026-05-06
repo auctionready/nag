@@ -13,6 +13,7 @@ export {
 } from "./types";
 export {
   isHalted,
+  clearHalted,
   resumeDispatch,
   countPending,
   countFailed,

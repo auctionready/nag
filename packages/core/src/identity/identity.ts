@@ -10,6 +10,7 @@ import {
 } from "@nag/schema";
 import type { AnyDb } from "../db";
 import { withTransaction } from "../db/transaction";
+import { clearHalted } from "../sync/outbox";
 import type { RegisterDeviceFn, RegisterDeviceResult } from "./types";
 
 export type IdentityRow = {
@@ -134,6 +135,11 @@ export const ensureDeviceRegistered = async ({
       })
       .where(eq(identity.id, 1));
     await tokenStore.set(result.deviceToken);
+    // A successful registration is proof that the server is reachable
+    // and accepts our credential — any sticky halt from a previous
+    // 4xx (e.g. an early POST against an empty/rebuilt backend before
+    // the account materialised) should not block the dispatcher now.
+    await clearHalted(db);
     return {
       deviceId: row.deviceId,
       accountId: result.accountId,
@@ -203,6 +209,9 @@ export const refreshDeviceToken = async ({
     })
     .where(eq(identity.id, 1));
   await tokenStore.set(result.deviceToken);
+  // Same rationale as ensureDeviceRegistered: a successful refresh
+  // means we have a working credential, so unstick any prior halt.
+  await clearHalted(db);
 
   info(`identity: token refreshed accountId=${result.accountId}`);
   return result.deviceToken;

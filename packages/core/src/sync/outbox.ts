@@ -134,6 +134,19 @@ export const isHalted = async (db: AnyDb): Promise<boolean> => {
 };
 
 /**
+ * Clears the halt flag without touching outbox rows. Called automatically
+ * after a successful device (re-)registration: a working credential is
+ * proof that whatever 4xx originally tripped the halt is no longer in
+ * effect, so the dispatcher should be allowed to retry on its next tick.
+ * Distinct from `resumeDispatch`, which also flips `failed` rows back to
+ * `pending` (the manual admin recovery for rows the server permanently
+ * rejected).
+ */
+export const clearHalted = async (db: AnyDb): Promise<void> => {
+  await db.update(syncState).set({ halted: false }).where(eq(syncState.id, 1));
+};
+
+/**
  * Clears the halted flag AND transitions every `failed` row back to
  * `pending` in one transaction. Envelope IDs are preserved so retries remain
  * idempotent on the server. Called by the app's "Resume sync" admin action.
