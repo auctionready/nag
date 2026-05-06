@@ -11,7 +11,7 @@ import Constants from "expo-constants";
 import { sql, eq } from "drizzle-orm";
 import { useAuth } from "@clerk/clerk-expo";
 import { loadIdentity, rebuildOutbox } from "@nag/core";
-import { checkIn, habit, identity, outbox } from "@nag/schema";
+import { checkIn, habit, identity, outbox, syncState } from "@nag/schema";
 import { db } from "../db";
 import { deviceTokenStore } from "../infrastructure/tokenStore";
 import { tokens } from "../components/theme";
@@ -111,7 +111,7 @@ const AboutScreen = () => {
   const onResetIdentityPress = useCallback(() => {
     Alert.alert(
       "Reset account?",
-      "Wipes the local identity row (device ID, account ID, registered-at) and the device token. Habits, check-ins, and outbox are kept. Sign in again to register fresh.",
+      "Wipes the local identity row (device ID, account ID, registered-at), the device token, and sync state. Habits, check-ins, and outbox are kept. Sign in again to register fresh.",
       [
         { text: "Cancel", style: "cancel" },
         {
@@ -121,6 +121,10 @@ const AboutScreen = () => {
             void (async () => {
               try {
                 await db.delete(identity);
+                await db
+                  .update(syncState)
+                  .set({ halted: false, highestServerSequence: 0 })
+                  .where(eq(syncState.id, 1));
                 await deviceTokenStore.clear();
                 setReloadKey((k) => k + 1);
                 Alert.alert(
@@ -204,8 +208,8 @@ const AboutScreen = () => {
             >
               <Text style={styles.rebuildLabel}>Reset account</Text>
               <Text style={styles.rebuildHint}>
-                Clears identity + device token only. Habits, check-ins, and
-                outbox are kept. Sign in to re-register.
+                Clears identity, device token, and sync state. Habits,
+                check-ins, and outbox are kept. Sign in to re-register.
               </Text>
             </Pressable>
           </View>
