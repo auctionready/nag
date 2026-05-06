@@ -92,6 +92,15 @@ export const SyncStatusProvider = ({ children }: PropsWithChildren) => {
   // immediately if we go offline mid-run.
   const onlineRef = useRef<boolean>(true);
 
+  // Set by `resume` (the user tapping Retry on the banner) to make the next
+  // run bypass the offline guard below. A ref — not a kick parameter —
+  // because singleflight may coalesce the kick into an in-flight run; the
+  // flag survives until an `inner` invocation actually consumes it. The
+  // dispatcher and pull-sync already report `offline` on network failures,
+  // so forcing a run when supposedly offline is safe and gives the user
+  // visible feedback ("syncing" → "offline") instead of silent no-op.
+  const forceNextRunRef = useRef<boolean>(false);
+
   const refreshCounts = useCallback(async () => {
     try {
       const [accountId, p, f, h] = await Promise.all([
@@ -156,7 +165,12 @@ export const SyncStatusProvider = ({ children }: PropsWithChildren) => {
     const inner = async () => {
       const runId = ++runIdRef.current;
       activeRunRef.current = runId;
-      logger.debug(`run[${runId}] enter`);
+      // Consume the force flag at run entry so a forced retry that's
+      // coalesced into an in-flight run still hands the flag to the
+      // follow-up rerun via singleflight's pendingRerun.
+      const forced = forceNextRunRef.current;
+      forceNextRunRef.current = false;
+      logger.debug(`run[${runId}] enter forced=${forced}`);
       // Anonymous gate: no accountId means the user has never signed in
       // (or just signed out). Don't fire a sync run that would no-op
       // anyway and don't flash "syncing"/"offline" through the UI —
@@ -168,7 +182,7 @@ export const SyncStatusProvider = ({ children }: PropsWithChildren) => {
         activeRunRef.current = null;
         return;
       }
-      if (!onlineRef.current) {
+      if (!forced && !onlineRef.current) {
         logger.debug(`run[${runId}] skipped — offline`);
         setStatus("offline");
         await refreshCounts();
@@ -325,7 +339,29 @@ export const SyncStatusProvider = ({ children }: PropsWithChildren) => {
     try {
       await resumeDispatch(db);
       setLastError(null);
+      // Refresh NetInfo so a stale `onlineRef` (e.g. the listener hasn't
+      // fired since the user came back online) doesn't keep the next run
+      // pinned to the offline path.
+      try {
+        const state = await NetInfo.fetch();
+        onlineRef.current =
+          state.isConnected === true && state.isInternetReachable !== false;
+        logger.debug(
+          `resume: NetInfo refresh online=${onlineRef.current} (isConnected=${state.isConnected} isInternetReachable=${state.isInternetReachable})`,
+        );
+      } catch (e) {
+        logger.warn(
+          "resume: NetInfo.fetch failed — relying on cached state",
+          e,
+        );
+      }
       await refreshCounts();
+      // Force the next run regardless of `onlineRef`: a manual Retry tap
+      // should always attempt the network so the user sees real feedback.
+      // If we're truly offline, the dispatcher/pull-sync return "offline"
+      // and the banner stays visible — same end-state, but the UI flashes
+      // "syncing" so the user knows the tap registered.
+      forceNextRunRef.current = true;
       kick("resume");
     } catch (e) {
       logger.error("resume failed", e);
