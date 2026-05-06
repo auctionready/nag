@@ -35,6 +35,40 @@ import { log } from "./log";
 
 const logger = log("sync");
 
+// Every interesting decision in the sync state machine emits a Sentry
+// breadcrumb so an `offline` banner that turns out to be wrong can be
+// reconstructed end-to-end. Material state transitions and the banner
+// itself also emit `captureMessage`s so they're searchable as events
+// (e.g. `nag.sync.offline-guard-skipped`, `nag.sync.banner-shown`).
+const breadcrumb = (message: string, data?: Record<string, unknown>): void => {
+  Sentry.addBreadcrumb({
+    category: "nag.sync",
+    type: "info",
+    level: "info",
+    message,
+    data,
+  });
+};
+
+const report = (
+  message: string,
+  level: "info" | "warning" | "error" = "info",
+  data?: Record<string, unknown>,
+): void => {
+  Sentry.addBreadcrumb({
+    category: "nag.sync",
+    type: "info",
+    level,
+    message,
+    data,
+  });
+  Sentry.captureMessage(message, {
+    level,
+    contexts: data ? { sync: data } : undefined,
+    tags: { area: "sync" },
+  });
+};
+
 export type SyncUiStatus =
   | "disabled"
   | "idle"
@@ -82,7 +116,7 @@ const SyncStatusContext = createContext<SyncStatusContextValue>({
 export const useSyncStatus = () => useContext(SyncStatusContext);
 
 export const SyncStatusProvider = ({ children }: PropsWithChildren) => {
-  const [status, setStatus] = useState<SyncUiStatus>("disabled");
+  const [status, setStatusRaw] = useState<SyncUiStatus>("disabled");
   const [pendingCount, setPendingCount] = useState(0);
   const [failedCount, setFailedCount] = useState(0);
   const [lastError, setLastError] = useState<string | null>(null);
@@ -101,6 +135,37 @@ export const SyncStatusProvider = ({ children }: PropsWithChildren) => {
   // visible feedback ("syncing" → "offline") instead of silent no-op.
   const forceNextRunRef = useRef<boolean>(false);
 
+  // Mirrors the latest `status` so the `setStatus` wrapper can compute
+  // `from → to` without depending on a render cycle. React's setter is
+  // batched/lazy, but breadcrumbs need the snapshot at call time.
+  const statusRef = useRef<SyncUiStatus>("disabled");
+
+  // Wrapped setStatus — every transition is breadcrumbed, and any
+  // transition INTO "offline" or "halted" is captured as a real Sentry
+  // event so we can find them in search. `origin` lets us trace which
+  // branch of the state machine fired the transition.
+  const setStatus = useCallback((next: SyncUiStatus, origin: string): void => {
+    const prev = statusRef.current;
+    if (prev === next) {
+      breadcrumb(`status no-op (${next})`, { origin });
+      return;
+    }
+    statusRef.current = next;
+    const data = {
+      from: prev,
+      to: next,
+      origin,
+      onlineRef: onlineRef.current,
+      forceNextRunRef: forceNextRunRef.current,
+    };
+    if (next === "offline" || next === "halted") {
+      report(`nag.sync.status: ${prev} → ${next}`, "warning", data);
+    } else {
+      breadcrumb(`status ${prev} → ${next}`, data);
+    }
+    setStatusRaw(next);
+  }, []);
+
   const refreshCounts = useCallback(async () => {
     try {
       const [accountId, p, f, h] = await Promise.all([
@@ -112,22 +177,30 @@ export const SyncStatusProvider = ({ children }: PropsWithChildren) => {
       logger.debug(
         `counts pending=${p} failed=${f} halted=${h} anonymous=${!accountId}`,
       );
+      breadcrumb("refreshCounts", {
+        pending: p,
+        failed: f,
+        halted: h,
+        anonymous: !accountId,
+        accountId: accountId ?? null,
+      });
       setPendingCount(p);
       setFailedCount(f);
       setIsAnonymous(!accountId);
       if (h) {
-        setStatus("halted");
+        setStatus("halted", "refreshCounts:isHalted");
       }
     } catch (e) {
       logger.error("refreshCounts failed", e);
       Sentry.captureException(e);
     }
-  }, []);
+  }, [setStatus]);
 
   const enabled = useMemo(() => {
     logApiConfig();
     const e = isApiConfigured();
     logger.info(`provider init enabled=${e}`);
+    report(`nag.sync.provider init enabled=${e}`, "info", { enabled: e });
     return e;
   }, []);
 
@@ -171,6 +244,11 @@ export const SyncStatusProvider = ({ children }: PropsWithChildren) => {
       const forced = forceNextRunRef.current;
       forceNextRunRef.current = false;
       logger.debug(`run[${runId}] enter forced=${forced}`);
+      breadcrumb(`run[${runId}] enter`, {
+        forced,
+        onlineRef: onlineRef.current,
+        statusBefore: statusRef.current,
+      });
       // Anonymous gate: no accountId means the user has never signed in
       // (or just signed out). Don't fire a sync run that would no-op
       // anyway and don't flash "syncing"/"offline" through the UI —
@@ -178,19 +256,27 @@ export const SyncStatusProvider = ({ children }: PropsWithChildren) => {
       const accountId = await getAccountId(db);
       if (!accountId) {
         logger.debug(`run[${runId}] skipped — anonymous (no accountId)`);
+        breadcrumb(`run[${runId}] skipped — anonymous`);
         await refreshCounts();
         activeRunRef.current = null;
         return;
       }
       if (!forced && !onlineRef.current) {
         logger.debug(`run[${runId}] skipped — offline`);
-        setStatus("offline");
+        report(`nag.sync.run skipped — offline guard`, "warning", {
+          runId,
+          forced,
+          onlineRef: onlineRef.current,
+          accountId,
+        });
+        setStatus("offline", `inner:offline-guard:run[${runId}]`);
         await refreshCounts();
         activeRunRef.current = null;
         return;
       }
       logger.debug(`run[${runId}] start`);
-      setStatus("syncing");
+      breadcrumb(`run[${runId}] start`, { accountId });
+      setStatus("syncing", `inner:start:run[${runId}]`);
       const started = Date.now();
       // Heartbeats at 10s and 30s so a stuck run announces itself instead
       // of looking indistinguishable from silence. The per-POST timeout
@@ -212,18 +298,22 @@ export const SyncStatusProvider = ({ children }: PropsWithChildren) => {
         logger.info(
           `run[${runId}] push complete (${Date.now() - started}ms) result=${pushResult}`,
         );
+        breadcrumb(`run[${runId}] push complete`, {
+          pushResult,
+          elapsedMs: Date.now() - started,
+        });
         if (pushResult === "halted") {
           // A 4xx round-tripped: server is reachable, NetInfo can't be
           // claiming we're offline either.
           onlineRef.current = true;
-          setStatus("halted");
+          setStatus("halted", `inner:push-halted:run[${runId}]`);
         } else if (pushResult === "offline") {
-          setStatus("offline");
+          setStatus("offline", `inner:push-offline:run[${runId}]`);
         } else if (__DEV__ && devFlags.disablePullSync) {
           logger.warn(`run[${runId}] pull sync disabled (devFlags)`);
           // Push succeeded — server reachable.
           onlineRef.current = true;
-          setStatus("idle");
+          setStatus("idle", `inner:push-idle:run[${runId}]`);
         } else {
           // Push succeeded — try the pull side. Order matters: drain
           // first so a snapshot doesn't wipe a pending local command.
@@ -235,14 +325,22 @@ export const SyncStatusProvider = ({ children }: PropsWithChildren) => {
           logger.info(
             `run[${runId}] pull complete (${Date.now() - started}ms) result=${pullResult}`,
           );
-          if (pullResult === "halted") setStatus("halted");
-          else if (pullResult === "offline") setStatus("offline");
-          else setStatus("idle");
+          breadcrumb(`run[${runId}] pull complete`, {
+            pullResult,
+            elapsedMs: Date.now() - started,
+          });
+          if (pullResult === "halted")
+            setStatus("halted", `inner:pull-halted:run[${runId}]`);
+          else if (pullResult === "offline")
+            setStatus("offline", `inner:pull-offline:run[${runId}]`);
+          else setStatus("idle", `inner:pull-idle:run[${runId}]`);
         }
       } catch (e) {
         logger.error(`run[${runId}] threw (${Date.now() - started}ms)`, e);
-        Sentry.captureException(e);
-        setStatus("offline");
+        Sentry.captureException(e, {
+          tags: { area: "sync", runId: String(runId) },
+        });
+        setStatus("offline", `inner:catch:run[${runId}]`);
       } finally {
         clearTimeout(slowWarn10);
         clearTimeout(slowWarn30);
@@ -251,19 +349,33 @@ export const SyncStatusProvider = ({ children }: PropsWithChildren) => {
       }
     };
     return makeSingleflight(inner);
-  }, [enabled, refreshCounts]);
+  }, [enabled, refreshCounts, setStatus]);
 
   const kick = useCallback(
     (source: string) => {
       if (!enabled) {
         logger.debug(`kick(${source}) ignored — disabled`);
+        breadcrumb(`kick ignored — disabled`, { source });
         return;
       }
       const active = activeRunRef.current;
       if (active !== null) {
         logger.debug(`kick(${source}) coalesced into in-flight run[${active}]`);
+        breadcrumb(`kick coalesced`, {
+          source,
+          activeRunId: active,
+          onlineRef: onlineRef.current,
+          forceNextRunRef: forceNextRunRef.current,
+          status: statusRef.current,
+        });
       } else {
         logger.debug(`kick(${source}) → launching new run`);
+        breadcrumb(`kick launching`, {
+          source,
+          onlineRef: onlineRef.current,
+          forceNextRunRef: forceNextRunRef.current,
+          status: statusRef.current,
+        });
       }
       void runWithSingleflight();
     },
@@ -292,13 +404,33 @@ export const SyncStatusProvider = ({ children }: PropsWithChildren) => {
           `netinfo event isConnected=${state.isConnected} isInternetReachable=${state.isInternetReachable} → online=${online}`,
         );
         const wasOffline = !onlineRef.current;
+        const onlineRefBefore = onlineRef.current;
         onlineRef.current = online;
+        const data = {
+          isConnected: state.isConnected,
+          isInternetReachable: state.isInternetReachable,
+          type: state.type,
+          online,
+          onlineRefBefore,
+          wasOffline,
+          status: statusRef.current,
+        };
+        if (onlineRefBefore !== online) {
+          report(
+            `nag.sync.netinfo-event onlineRef ${onlineRefBefore} → ${online}`,
+            online ? "info" : "warning",
+            data,
+          );
+        } else {
+          breadcrumb(`netinfo-event (no change, online=${online})`, data);
+        }
         if (online && wasOffline) {
           kick("netinfo-online");
         }
       });
     } catch (e) {
       logger.error("NetInfo.addEventListener failed", e);
+      Sentry.captureException(e, { tags: { area: "sync" } });
     }
     // Also fetch the initial state so we don't wait for the first change.
     NetInfo.fetch()
@@ -308,11 +440,18 @@ export const SyncStatusProvider = ({ children }: PropsWithChildren) => {
         logger.debug(
           `netinfo initial isConnected=${state.isConnected} isInternetReachable=${state.isInternetReachable} → online=${online}`,
         );
+        report(`nag.sync.netinfo-initial online=${online}`, "info", {
+          isConnected: state.isConnected,
+          isInternetReachable: state.isInternetReachable,
+          type: state.type,
+          online,
+        });
         onlineRef.current = online;
         if (online) kick("netinfo-initial");
       })
       .catch((e) => {
         logger.error("NetInfo.fetch failed — assuming online", e);
+        Sentry.captureException(e, { tags: { area: "sync" } });
         onlineRef.current = true;
         kick("netinfo-fallback");
       });
@@ -324,6 +463,11 @@ export const SyncStatusProvider = ({ children }: PropsWithChildren) => {
     if (!enabled) return;
     const sub = AppState.addEventListener("change", (state) => {
       logger.debug(`appstate change → ${state}`);
+      breadcrumb(`appstate change`, {
+        state,
+        status: statusRef.current,
+        onlineRef: onlineRef.current,
+      });
       if (state === "active") kick("appstate-active");
     });
     return () => sub.remove();
@@ -332,7 +476,13 @@ export const SyncStatusProvider = ({ children }: PropsWithChildren) => {
   // Post-commit subscription.
   useEffect(() => {
     if (!enabled) return;
-    return postCommitBus.subscribe(() => kick("post-commit"));
+    return postCommitBus.subscribe(() => {
+      breadcrumb(`post-commit`, {
+        status: statusRef.current,
+        onlineRef: onlineRef.current,
+      });
+      kick("post-commit");
+    });
   }, [enabled, kick]);
 
   // Periodic safety-net timer while foregrounded.
@@ -361,6 +511,11 @@ export const SyncStatusProvider = ({ children }: PropsWithChildren) => {
   // banner immediately after a successful sign-in.
   const kickSync = useCallback(
     (source: string) => {
+      report(`nag.sync.kickSync called`, "info", {
+        source,
+        onlineRefBefore: onlineRef.current,
+        status: statusRef.current,
+      });
       onlineRef.current = true;
       forceNextRunRef.current = true;
       kick(source);
@@ -370,6 +525,10 @@ export const SyncStatusProvider = ({ children }: PropsWithChildren) => {
 
   const resume = useCallback(async () => {
     logger.info("resume requested");
+    report(`nag.sync.resume requested`, "info", {
+      status: statusRef.current,
+      onlineRef: onlineRef.current,
+    });
     try {
       await resumeDispatch(db);
       setLastError(null);
@@ -382,7 +541,7 @@ export const SyncStatusProvider = ({ children }: PropsWithChildren) => {
       kickSync("resume");
     } catch (e) {
       logger.error("resume failed", e);
-      Sentry.captureException(e);
+      Sentry.captureException(e, { tags: { area: "sync" } });
     }
   }, [kickSync, refreshCounts]);
 
