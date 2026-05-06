@@ -313,7 +313,11 @@ describe("resumeDispatch", () => {
 });
 
 describe("batchSize", () => {
-  it("only processes up to batchSize rows per run", async () => {
+  it("drains every pending row in a single run, paging by batchSize", async () => {
+    // batchSize is the DB page size for loading rows, not a per-run cap.
+    // A single run keeps loading + POSTing batches until empty so a
+    // backlog larger than batchSize doesn't need a separate trigger
+    // (post-commit, safety timer) per batch to fully flush.
     const db = getDb();
     for (let i = 0; i < 5; i++) {
       await processCommand(db, { type: "CreateHabit", title: `H${i}` });
@@ -330,17 +334,67 @@ describe("batchSize", () => {
     const dispatcher = createDispatcher({ db, post, batchSize: 2 });
 
     expect(await dispatcher.run()).toBe("idle");
-    expect(post).toHaveBeenCalledTimes(2);
-    expect(await countPending(db)).toBe(3);
+    expect(post).toHaveBeenCalledTimes(5);
+    expect(await countPending(db)).toBe(0);
 
-    expect(await dispatcher.run()).toBe("idle");
-    expect(post).toHaveBeenCalledTimes(4);
-
+    // A second run with no pending rows is a no-op that still returns idle.
     expect(await dispatcher.run()).toBe("idle");
     expect(post).toHaveBeenCalledTimes(5);
+  });
+
+  it("stops draining when a transient failure interrupts a later batch", async () => {
+    // Loop should bail out of the drain when any POST fails mid-flow,
+    // not push past the failure into the next batch.
+    const db = getDb();
+    for (let i = 0; i < 5; i++) {
+      await processCommand(db, { type: "CreateHabit", title: `H${i}` });
+    }
+
+    let seq = 0;
+    let calls = 0;
+    const post = vi.fn(async (): Promise<PostResult> => {
+      calls++;
+      if (calls === 3) {
+        return { ok: false, kind: "transient", message: "blip" };
+      }
+      return { ok: true, sequence: seq++, events: [] };
+    });
+
+    const dispatcher = createDispatcher({ db, post, batchSize: 2 });
+    expect(await dispatcher.run()).toBe("offline");
+    // Batch 1 (rows 1,2) succeeded; batch 2 (rows 3,4) — first POST failed.
+    // No further POSTs.
+    expect(post).toHaveBeenCalledTimes(3);
+    expect(await countPending(db)).toBe(3);
+  });
+
+  it("yields after maxBatchesPerRun even if rows are still pending", async () => {
+    // Defends against a runaway loop: cap how many batches one run will
+    // process. Anything left is picked up by the next trigger.
+    const db = getDb();
+    for (let i = 0; i < 10; i++) {
+      await processCommand(db, { type: "CreateHabit", title: `H${i}` });
+    }
+
+    let seq = 0;
+    const post = vi.fn(
+      async (): Promise<PostResult> => ({
+        ok: true,
+        sequence: seq++,
+        events: [],
+      }),
+    );
+    const dispatcher = createDispatcher({
+      db,
+      post,
+      batchSize: 2,
+      maxBatchesPerRun: 3,
+    });
 
     expect(await dispatcher.run()).toBe("idle");
-    expect(post).toHaveBeenCalledTimes(5); // no more to send
+    // 3 batches × 2 rows = 6 POSTs; 4 rows still pending for next run.
+    expect(post).toHaveBeenCalledTimes(6);
+    expect(await countPending(db)).toBe(4);
   });
 });
 

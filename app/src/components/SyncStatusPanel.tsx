@@ -12,7 +12,11 @@ export const SyncStatusPanel = () => {
 
   if (status === "disabled") return null;
 
-  const showResume = status === "halted";
+  // Surface Resume whenever the pipeline is stuck — halted on a 4xx, or
+  // transient-offline with at least one pending row. Same treatment as
+  // SyncHaltedBanner so the user has a button to push from either place.
+  const showResume =
+    status === "halted" || (status === "offline" && pendingCount > 0);
 
   return (
     <View style={styles.syncBox}>

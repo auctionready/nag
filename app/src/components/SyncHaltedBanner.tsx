@@ -1,42 +1,71 @@
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useRouter } from "expo-router";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useSyncStatus } from "../infrastructure/syncStatus";
 
 /**
- * Persistent banner shown only while the dispatcher is halted on a
- * non-retriable 4xx. The copy is user-facing, focused on impact +
- * action (not technical cause). Tapping the body deep-links to admin
- * for detail; the Retry button calls `resume()` directly.
+ * Persistent banner shown whenever the sync pipeline is stuck — either
+ * the dispatcher is halted on a 4xx (`status === "halted"`) or it's
+ * been transient-offline with at least one event waiting to ship
+ * (`status === "offline" && pendingCount > 0`). The latter case
+ * matters because the only previous surface was a small grey "offline"
+ * dot, which left users unaware that real local work was queued and
+ * not reaching the server.
+ *
+ * The body deep-links to admin for detail; the Retry button calls
+ * `resume()` directly, which clears any halt flag, flips failed rows
+ * back to pending, and kicks a fresh run.
  */
 export const SyncHaltedBanner = () => {
-  const { status, lastError, resume } = useSyncStatus();
+  const { status, pendingCount, lastError, resume } = useSyncStatus();
   const router = useRouter();
+  // Pad the top with the safe-area inset so the banner doesn't get eaten
+  // by the iOS notch / status bar. The wrapping View in _layout.tsx is a
+  // plain flex container with no safe-area handling — we used to render
+  // the banner up there and have it partially obscured.
+  const insets = useSafeAreaInsets();
 
-  if (status !== "halted") return null;
+  const isHalted = status === "halted";
+  const isStuckOffline = status === "offline" && pendingCount > 0;
+  if (!isHalted && !isStuckOffline) return null;
 
   const isAuth = !!lastError && /^(401|403)/.test(lastError);
-  const title = isAuth
-    ? "Can't connect to your account"
-    : "Not syncing right now";
-  const body = isAuth
-    ? "Your check-ins are saved on this device but can't reach the server. Tap Retry, or tap the banner to see details."
-    : "Your recent changes are safe on this device, but we can't sync them right now. Tap Retry to try again.";
+  const title = isHalted
+    ? isAuth
+      ? "Can't connect to your account"
+      : "Not syncing right now"
+    : `${pendingCount} change${pendingCount === 1 ? "" : "s"} waiting to sync`;
+  const body = isHalted
+    ? isAuth
+      ? "Your check-ins are saved on this device but can't reach the server. Tap Retry, or tap the banner to see details."
+      : "Your recent changes are safe on this device, but we can't sync them right now. Tap Retry to try again."
+    : "Saved on this device but not yet sent to the server. Tap Retry to try now, or tap the banner for details.";
 
   return (
-    <View style={styles.banner}>
+    <View
+      style={[
+        isHalted ? styles.bannerHalted : styles.bannerOffline,
+        { paddingTop: insets.top + 10 },
+      ]}
+    >
       <Pressable
         style={styles.textRegion}
         onPress={() => router.push("/admin")}
         accessibilityRole="button"
         accessibilityLabel={`${title} — open details`}
       >
-        <Text style={styles.title}>{title}</Text>
-        <Text style={styles.detail} numberOfLines={3}>
+        <Text style={isHalted ? styles.titleHalted : styles.titleOffline}>
+          {title}
+        </Text>
+        <Text
+          style={isHalted ? styles.detailHalted : styles.detailOffline}
+          numberOfLines={3}
+        >
           {body}
         </Text>
       </Pressable>
       <Pressable
-        style={styles.retryButton}
+        style={isHalted ? styles.retryButtonHalted : styles.retryButtonOffline}
         onPress={() => {
           void resume();
         }}
@@ -50,7 +79,7 @@ export const SyncHaltedBanner = () => {
 };
 
 const styles = StyleSheet.create({
-  banner: {
+  bannerHalted: {
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: "#FDECEC",
@@ -59,22 +88,47 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 10,
   },
+  bannerOffline: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#FEF6E7",
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: "#B54708",
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+  },
   textRegion: {
     flex: 1,
     paddingRight: 12,
   },
-  title: {
+  titleHalted: {
     color: "#B42318",
     fontSize: 14,
     fontWeight: "700",
   },
-  detail: {
+  titleOffline: {
+    color: "#B54708",
+    fontSize: 14,
+    fontWeight: "700",
+  },
+  detailHalted: {
     color: "#B42318",
     fontSize: 12,
     marginTop: 2,
   },
-  retryButton: {
+  detailOffline: {
+    color: "#B54708",
+    fontSize: 12,
+    marginTop: 2,
+  },
+  retryButtonHalted: {
     backgroundColor: "#B42318",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 6,
+  },
+  retryButtonOffline: {
+    backgroundColor: "#B54708",
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 6,
