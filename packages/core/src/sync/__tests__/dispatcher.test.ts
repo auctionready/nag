@@ -412,10 +412,11 @@ describe("dispatcher gating on device registration", () => {
 });
 
 describe("outbox sent-row retention", () => {
-  it("keeps only the most recent SENT_OUTBOX_RETAIN_DEFAULT sent rows after markSent", async () => {
+  it("keeps every sent row by default (pruning disabled unless NAG_SENT_OUTBOX_RETAIN is set)", async () => {
+    expect(SENT_OUTBOX_RETAIN_DEFAULT).toBeLessThan(0);
+
     const db = getDb();
-    // Seed many more rows than the retention limit so prune actually fires.
-    const total = SENT_OUTBOX_RETAIN_DEFAULT + 5;
+    const total = 15;
     for (let i = 0; i < total; i++) {
       await processCommand(db, { type: "CreateHabit", title: `H${i}` });
     }
@@ -432,18 +433,7 @@ describe("outbox sent-row retention", () => {
     expect(await createDispatcher({ db, post }).run()).toBe("idle");
 
     expect(await countPending(db)).toBe(0);
-    expect(await countSent(db)).toBe(SENT_OUTBOX_RETAIN_DEFAULT);
-
-    // The retained rows are the newest by id — the oldest are pruned.
-    // Assert via `serverSequence` (deterministic per test, unlike SQLite's
-    // autoincrement which is shared across the test file).
-    const rows = await db
-      .select({ serverSequence: schema.outbox.serverSequence })
-      .from(schema.outbox)
-      .orderBy(asc(schema.outbox.id));
-    expect(rows.length).toBe(SENT_OUTBOX_RETAIN_DEFAULT);
-    expect(rows[0].serverSequence).toBe(total - SENT_OUTBOX_RETAIN_DEFAULT + 1);
-    expect(rows.at(-1)!.serverSequence).toBe(total);
+    expect(await countSent(db)).toBe(total);
   });
 
   it("keeps all rows when count is below the retention limit", async () => {

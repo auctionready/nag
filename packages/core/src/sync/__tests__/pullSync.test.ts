@@ -253,4 +253,62 @@ describe("createPullSync", () => {
     await createPullSync({ db, getSync }).run();
     expect(getSync).toHaveBeenCalledWith(50);
   });
+
+  describe("old check-in pruning", () => {
+    /**
+     * Seed a habit + one stale check-in (older than the previous-month
+     * cutoff) and one fresh one. The outbox is left empty so
+     * `pruneOldCheckInsIfSafe`'s drained-outbox gate is satisfied — that
+     * gate is exercised by `retention.test.ts`; here we only care that
+     * pullSync invokes (or skips) the helper based on the option.
+     */
+    const seedStaleAndFreshCheckIns = async (db: ReturnType<typeof getDb>) => {
+      const [h] = await db
+        .insert(schema.habit)
+        .values({ title: "Read" })
+        .returning({ id: schema.habit.id });
+      await db
+        .insert(schema.checkIn)
+        .values({ habitId: h.id, timestamp: new Date("2000-01-01T00:00:00Z") });
+      await db
+        .insert(schema.checkIn)
+        .values({ habitId: h.id, timestamp: new Date() });
+      return h.id;
+    };
+
+    const noopSync = () =>
+      okSync({ mode: "replay", events: [], headSequence: 0, nextSince: null });
+
+    it("keeps stale check-ins when pruneOldCheckIns is false (default)", async () => {
+      const db = getDb();
+      await seedStaleAndFreshCheckIns(db);
+
+      await createPullSync({
+        db,
+        getSync: noopSync(),
+        pruneOldCheckIns: false,
+      }).run();
+
+      const rows = await db.select().from(schema.checkIn);
+      expect(rows).toHaveLength(2);
+    });
+
+    it("drops stale check-ins when pruneOldCheckIns is true", async () => {
+      const db = getDb();
+      await seedStaleAndFreshCheckIns(db);
+
+      await createPullSync({
+        db,
+        getSync: noopSync(),
+        pruneOldCheckIns: true,
+      }).run();
+
+      const rows = await db.select().from(schema.checkIn);
+      expect(rows).toHaveLength(1);
+      // The fresh row (timestamp = "now") must be the survivor.
+      expect(rows[0].timestamp.getTime()).toBeGreaterThan(
+        new Date("2020-01-01").getTime(),
+      );
+    });
+  });
 });

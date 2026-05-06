@@ -6,6 +6,23 @@ import { getHighestServerSequence, isHalted } from "./outbox";
 import { syncAllNotifications } from "../notificationConsolidator";
 import { pruneOldCheckInsIfSafe } from "../retention";
 
+/**
+ * Whether to prune old check-ins after each pull-sync. Off by default so
+ * the local DB keeps full history; set `NAG_PRUNE_OLD_CHECKINS=1` (or
+ * `true`) to re-enable. Read at module load to mirror
+ * `NAG_SENT_OUTBOX_RETAIN`'s pattern.
+ */
+export const PRUNE_OLD_CHECKINS_ENABLED: boolean = readPruneEnv();
+
+function readPruneEnv(): boolean {
+  const raw =
+    typeof process !== "undefined"
+      ? process.env?.NAG_PRUNE_OLD_CHECKINS
+      : undefined;
+  if (raw === undefined || raw === "") return false;
+  return raw === "1" || raw.toLowerCase() === "true";
+}
+
 export type PullStatus = "idle" | "halted" | "offline";
 
 /**
@@ -40,6 +57,14 @@ export type PullSyncOptions = {
    * from monopolising the pull. Default 5.
    */
   maxPages?: number;
+  /**
+   * When true, prune local check-ins older than the start of the previous
+   * month after each successful pull (gated further by an empty outbox).
+   * Defaults to {@link PRUNE_OLD_CHECKINS_ENABLED}, which reads
+   * `NAG_PRUNE_OLD_CHECKINS` at module load. Tests pass an explicit
+   * boolean so coverage doesn't depend on the ambient env.
+   */
+  pruneOldCheckIns?: boolean;
   log?: {
     debug?: (msg: string, ...args: unknown[]) => void;
     info?: (msg: string, ...args: unknown[]) => void;
@@ -61,6 +86,7 @@ export const createPullSync = ({
   db,
   getSync,
   maxPages = 5,
+  pruneOldCheckIns = PRUNE_OLD_CHECKINS_ENABLED,
   log,
 }: PullSyncOptions): PullSync => {
   const debug = log?.debug ?? (() => {});
@@ -149,11 +175,15 @@ export const createPullSync = ({
     // Drop check-ins older than the start of the previous month — but only
     // when the outbox is fully drained, so we never lose a row whose
     // CreateCheckIn hasn't been acknowledged. Pruned periods can be
-    // re-fetched from the per-period summary endpoints on demand.
-    try {
-      await pruneOldCheckInsIfSafe(db);
-    } catch (e) {
-      error("pullSync.run: pruneOldCheckInsIfSafe threw", e);
+    // re-fetched from the per-period summary endpoints on demand. Disabled
+    // by default; opt in via `NAG_PRUNE_OLD_CHECKINS=1` (or pass
+    // `pruneOldCheckIns: true` directly).
+    if (pruneOldCheckIns) {
+      try {
+        await pruneOldCheckInsIfSafe(db);
+      } catch (e) {
+        error("pullSync.run: pruneOldCheckInsIfSafe threw", e);
+      }
     }
 
     return "idle";

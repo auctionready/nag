@@ -13,9 +13,9 @@ export type PendingRow = {
 /**
  * Default retention for sent outbox rows after each successful send. The
  * value is read from the `NAG_SENT_OUTBOX_RETAIN` env var at module load
- * (so tests can override it via Vitest's env config); set to `-1` to
- * disable pruning entirely and keep every sent row. Falls back to 10 when
- * the env var is unset, empty, or unparseable.
+ * (so tests can override it via Vitest's env config). Pruning is disabled
+ * by default (`-1` — every sent row is kept); set the env var to a
+ * non-negative integer to re-enable, or `0` to drop every sent row.
  *
  * Retained rows are useful only for debugging — `serverSequence` is
  * mirrored into `sync_state.highest_server_sequence`, and pending replays
@@ -28,9 +28,9 @@ function readRetainEnv(): number {
     typeof process !== "undefined"
       ? process.env?.NAG_SENT_OUTBOX_RETAIN
       : undefined;
-  if (raw === undefined || raw === "") return 10;
+  if (raw === undefined || raw === "") return -1;
   const parsed = Number(raw);
-  if (!Number.isFinite(parsed)) return 10;
+  if (!Number.isFinite(parsed)) return -1;
   return Math.trunc(parsed);
 }
 
