@@ -12,12 +12,12 @@
   },
   "dependencies": {
     "@zodios/core": "^10.9.6",
-    "axios": "^1.15.2",
+    "axios": "^1.16.0",
     "zod": "catalog:"
   },
   "devDependencies": {
     "@types/node": "catalog:",
-    "nock": "^14.0.0",
+    "nock": "^14.0.14",
     "openapi-zod-client": "^1.18.3",
     "typescript": "catalog:",
     "vitest": "catalog:"
