@@ -195,6 +195,61 @@ describe("ensureDeviceRegistered", () => {
     });
   });
 
+  describe("when sync was previously halted", () => {
+    it("clears the halted flag after a successful registration", async () => {
+      const db = getDb();
+      await db.delete(identity);
+      await db
+        .update(syncState)
+        .set({ halted: true })
+        .where(eq(syncState.id, 1));
+      const tokenStore = new InMemoryTokenStore();
+
+      const register = vi.fn(
+        async (): Promise<RegisterDeviceResult> => ({
+          ok: true,
+          accountId: "acc-after-halt",
+          registeredAt: new Date("2026-04-25T00:00:00.000Z"),
+          deviceToken: "tok-after-halt",
+        }),
+      );
+
+      await ensureDeviceRegistered({ db, tokenStore, register, newDeviceId });
+
+      const [s] = await db
+        .select({ halted: syncState.halted })
+        .from(syncState)
+        .where(eq(syncState.id, 1));
+      expect(s?.halted).toBe(false);
+    });
+
+    it("leaves the halted flag set when registration fails", async () => {
+      const db = getDb();
+      await db.delete(identity);
+      await db
+        .update(syncState)
+        .set({ halted: true })
+        .where(eq(syncState.id, 1));
+      const tokenStore = new InMemoryTokenStore();
+
+      const register = vi.fn(
+        async (): Promise<RegisterDeviceResult> => ({
+          ok: false,
+          kind: "transient",
+          message: "network down",
+        }),
+      );
+
+      await ensureDeviceRegistered({ db, tokenStore, register, newDeviceId });
+
+      const [s] = await db
+        .select({ halted: syncState.halted })
+        .from(syncState)
+        .where(eq(syncState.id, 1));
+      expect(s?.halted).toBe(true);
+    });
+  });
+
   describe("when migrating from a pre-token install", () => {
     it("re-registers to fetch a deviceToken even though SQLite already has an accountId", async () => {
       // SQLite row carries deviceId + accountId from before phase 2c,
@@ -275,6 +330,30 @@ describe("refreshDeviceToken", () => {
 
     expect(newToken).toBeNull();
     expect(await tokenStore.get()).toBe("stale-tok");
+  });
+
+  it("clears the halted flag after a successful refresh", async () => {
+    const db = getDb();
+    await db.update(syncState).set({ halted: true }).where(eq(syncState.id, 1));
+    const tokenStore = new InMemoryTokenStore("stale-tok");
+
+    const seeded = await loadIdentity(db);
+    const register = vi.fn(
+      async (): Promise<RegisterDeviceResult> => ({
+        ok: true,
+        accountId: seeded!.accountId!,
+        registeredAt: new Date("2026-04-26T00:00:00.000Z"),
+        deviceToken: "rotated-tok",
+      }),
+    );
+
+    await refreshDeviceToken({ db, tokenStore, register });
+
+    const [s] = await db
+      .select({ halted: syncState.halted })
+      .from(syncState)
+      .where(eq(syncState.id, 1));
+    expect(s?.halted).toBe(false);
   });
 
   it("returns null when no identity row exists", async () => {
