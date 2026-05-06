@@ -2,21 +2,38 @@ namespace Nag.Api.Infrastructure;
 
 /// <summary>
 /// In Lambda, assembles the DB connection string and device-token secret
-/// from the function's environment variables. Opt-in: only runs when
-/// <c>DATABASE_URL</c> is set, so local <c>dotnet run</c> and tests fall
-/// back to <c>appsettings</c>.
+/// from the function's environment variables. When running in Lambda
+/// (<c>AWS_LAMBDA_FUNCTION_NAME</c> set), required env vars are enforced
+/// at startup so a misconfigured deployment fails fast — instead of
+/// later, deep inside DI resolution, with a misleading error.
 /// </summary>
 public static class LambdaSecrets
 {
     public static void HydrateFromEnvironment(ConfigurationManager configuration)
     {
+        var inLambda = !string.IsNullOrEmpty(
+            Environment.GetEnvironmentVariable("AWS_LAMBDA_FUNCTION_NAME")
+        );
+
         var databaseUrl = Environment.GetEnvironmentVariable("DATABASE_URL");
+        if (inLambda && string.IsNullOrWhiteSpace(databaseUrl))
+        {
+            throw new InvalidOperationException(
+                "DATABASE_URL is not set. The Lambda requires it to build the Postgres connection string."
+            );
+        }
         if (!string.IsNullOrWhiteSpace(databaseUrl))
         {
             configuration["ConnectionStrings:Nag"] = NpgsqlConnectionStringFromUri(databaseUrl);
         }
 
         var deviceTokenSecret = Environment.GetEnvironmentVariable("DEVICE_TOKEN_SECRET");
+        if (inLambda && string.IsNullOrWhiteSpace(deviceTokenSecret))
+        {
+            throw new InvalidOperationException(
+                "DEVICE_TOKEN_SECRET is not set. The Lambda requires it to sign device tokens."
+            );
+        }
         if (!string.IsNullOrWhiteSpace(deviceTokenSecret))
         {
             configuration["Nag:DeviceToken:Secret"] = deviceTokenSecret;
