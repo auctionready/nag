@@ -14,8 +14,9 @@ export const stackConfig = {
   // default and makes the endpoint refuse every request with 501.
   adminSecret: cfg.getSecret("adminSecret"),
   // Neon API key used by the `pulumi-neon` provider to manage the
-  // project / branch / role / database. Generate via the Neon Console
-  // → Account Settings → API Keys.
+  // project + branch endpoint, and to fetch the role password via the
+  // Neon REST API on every run. Generate via Neon Console → Account
+  // Settings → API Keys.
   neonApiKey: cfg.requireSecret("neonApiKey"),
   // Neon organization ID. Find it in the Neon Console → Settings → General
   // (or via `GET https://console.neon.tech/api/v2/users/me/organizations`).
@@ -26,6 +27,11 @@ export const stackConfig = {
   neonPgVersion: cfg.getNumber("neonPgVersion") ?? 17,
   neonProjectName: cfg.get("neonProjectName") ?? "nag",
   neonBranchName: cfg.get("neonBranchName") ?? "main",
+  // Neon role + database. Created once by Pulumi (`neon.Role` /
+  // `neon.Database` in `database.ts`, both `protect: true` +
+  // `ignoreChanges: ["branchId"]`) and then frozen — the password is
+  // fetched fresh via the Neon REST API on every run, so snapshot
+  // restores stay invisible.
   neonDatabaseName: cfg.get("neonDatabaseName") ?? "nag",
   neonRoleName: cfg.get("neonRoleName") ?? "nag",
   // Compute units (CU): 1 CU ≈ 1 vCPU + 4 GB RAM. Default 0.25 / 1 keeps

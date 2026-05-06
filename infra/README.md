@@ -73,8 +73,8 @@ pulumi up
 NEON_HOST=$(pulumi stack output dbEndpoint)
 NEON_PASSWORD=$(pulumi stack output --show-secrets dbPassword)   # add this output if you need it
 PGPASSWORD=$NEON_PASSWORD pg_restore --no-owner --no-privileges \
-  --host "$NEON_HOST" --username nag --dbname nag --clean --if-exists \
-  nag.dump
+  --host "$NEON_HOST" --username nag --dbname nag \
+  --clean --if-exists nag.dump
 ```
 
 In a maintenance window: pause writes, snapshot, restore, run `pulumi up` to switch the Lambda env vars, smoke-test, then destroy the Aurora cluster + VPC + NAT instance from the _previous_ stack state (the new stack no longer references those resources, so `pulumi up` already removed them — verify with `pulumi stack` and `aws ec2 describe-vpcs`).
@@ -95,18 +95,59 @@ device token fails HMAC verification → mobile clients get 401 → they
 hit `/devices/register` (anonymous) and receive a fresh token signed
 by the new secret. There is no separate revocation list.
 
+### How the DB password gets to the Lambda
+
+`infra/src/database.ts` declares three Neon resources:
+
+1. `neon.Project` — the project + main-branch endpoint settings (CU
+   range, suspend timeout). `protect: true`.
+2. `neon.Role nag` — `protect: true`, `ignoreChanges: ["branchId"]`.
+3. `neon.Database nag` — `protect: true`, `ignoreChanges: ["branchId"]`.
+
+The role and database are created on the first `pulumi up` and then
+frozen. **Pulumi never reads `role.password` or any branch-pinned
+output.** Instead, on every run `database.ts` calls
+`GET https://console.neon.tech/api/v2/projects/{id}/connection_uri?role_name=nag&database_name=nag`,
+extracts the password from the returned URI, and feeds it into the
+Lambda env var `DB_PASSWORD`. The endpoint hostname comes from the
+project's current `main` branch (`project.branch.endpoint.host`).
+
+`branchId` is replace-only on `Role`/`Database`. A Neon
+"restore from snapshot" creates a new branch with a new ID, which
+without `ignoreChanges` would force a destroy+recreate (dropping the
+database and rotating the password). The decoupling — never reading
+the resource outputs downstream — makes the stale `branchId` in state
+harmless: nothing depends on it, and the password fetch hits the
+current `main` branch directly via the REST API.
+
 ### Rotating the Neon role password
 
-Neon assigns the role password at create time and exposes it as a
-Pulumi secret output. To rotate, taint the role and re-run `up`:
+Rotate via the Neon console (Project → Roles → `nag` → Reset
+Password), then re-run `pulumi up`. The next run re-fetches the new
+password from `connection_uri` and updates the Lambda env var:
 
 ```bash
-pulumi state delete 'urn:pulumi:prod::nag::neon:index/role:Role::nag'
-pulumi up
+cd infra
+pulumi up --stack prod
 ```
 
-The role is recreated with a fresh password and the Lambda env var
-`DB_PASSWORD` updates in the same deploy.
+### Recovering from a Neon console restore
+
+"Restore from snapshot" creates a new branch and promotes it to
+`main`, renaming the previous `main` to `main (old)`. The restored
+branch carries `nag` + `nag` with the original password. On the next
+`pulumi up`:
+
+- The Neon SDK's `Project` resource refreshes `branch.endpoint.host`
+  to point at the new branch's compute endpoint → `DB_HOST` updates.
+- `connection_uri` returns the password for whichever branch is
+  currently `main` → `DB_PASSWORD` follows automatically.
+- The `Role`/`Database` state still references the old `branchId`,
+  but nothing reads that, and `ignoreChanges: ["branchId"]` keeps
+  Pulumi from trying to "fix" it.
+
+Nothing else to do. Optionally delete the orphaned `main (old)`
+branches via the console once you've confirmed the restore is good.
 
 ## Custom domain (optional)
 
@@ -193,7 +234,7 @@ infra/
   index.ts                # wires the modules
   src/
     config.ts             # typed stack-config accessor
-    database.ts           # Neon project + branch endpoint + role + database
+    database.ts           # Neon project + role + database; password fetched per-run via REST
     api.ts                # Lambda + API Gateway + log group + IAM
     domain.ts             # ACM cert + API Gateway custom domain + Route 53 alias (optional)
   Pulumi.yaml             # project
