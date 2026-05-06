@@ -1,6 +1,8 @@
+import { useEffect, useRef } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import * as Sentry from "@sentry/react-native";
 import { useSyncStatus } from "../infrastructure/syncStatus";
 
 /**
@@ -19,14 +21,70 @@ import { useSyncStatus } from "../infrastructure/syncStatus";
 export const SyncHaltedBanner = () => {
   const { status, pendingCount, lastError, resume } = useSyncStatus();
   const router = useRouter();
+  const wasVisibleRef = useRef(false);
+
+  const isHaltedNow = status === "halted";
+  const isStuckOfflineNow = status === "offline" && pendingCount > 0;
+  const isVisibleNow = isHaltedNow || isStuckOfflineNow;
+
+  // Capture every visibility transition so a wrongly-shown banner can be
+  // located in Sentry and correlated with the state-machine breadcrumbs
+  // emitted by syncStatus.tsx.
+  useEffect(() => {
+    if (isVisibleNow && !wasVisibleRef.current) {
+      Sentry.addBreadcrumb({
+        category: "nag.sync",
+        type: "info",
+        level: "warning",
+        message: "banner shown",
+        data: {
+          status,
+          pendingCount,
+          lastError,
+          isHaltedNow,
+          isStuckOfflineNow,
+        },
+      });
+      Sentry.captureMessage("nag.sync.banner-shown", {
+        level: "warning",
+        contexts: {
+          sync: {
+            status,
+            pendingCount,
+            lastError,
+            isHaltedNow,
+            isStuckOfflineNow,
+          },
+        },
+        tags: { area: "sync" },
+      });
+    } else if (!isVisibleNow && wasVisibleRef.current) {
+      Sentry.addBreadcrumb({
+        category: "nag.sync",
+        type: "info",
+        level: "info",
+        message: "banner hidden",
+        data: { status, pendingCount },
+      });
+    }
+    wasVisibleRef.current = isVisibleNow;
+  }, [
+    isVisibleNow,
+    status,
+    pendingCount,
+    lastError,
+    isHaltedNow,
+    isStuckOfflineNow,
+  ]);
+
   // Pad the top with the safe-area inset so the banner doesn't get eaten
   // by the iOS notch / status bar. The wrapping View in _layout.tsx is a
   // plain flex container with no safe-area handling — we used to render
   // the banner up there and have it partially obscured.
   const insets = useSafeAreaInsets();
 
-  const isHalted = status === "halted";
-  const isStuckOffline = status === "offline" && pendingCount > 0;
+  const isHalted = isHaltedNow;
+  const isStuckOffline = isStuckOfflineNow;
   if (!isHalted && !isStuckOffline) return null;
 
   const isAuth = !!lastError && /^(401|403)/.test(lastError);
@@ -67,6 +125,11 @@ export const SyncHaltedBanner = () => {
       <Pressable
         style={isHalted ? styles.retryButtonHalted : styles.retryButtonOffline}
         onPress={() => {
+          Sentry.captureMessage("nag.sync.retry-tapped", {
+            level: "info",
+            contexts: { sync: { status, pendingCount, lastError } },
+            tags: { area: "sync" },
+          });
           void resume();
         }}
         accessibilityRole="button"
