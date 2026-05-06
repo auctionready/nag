@@ -4,10 +4,7 @@ import * as crypto from "crypto";
 import * as fs from "fs";
 
 export interface ApiArgs {
-  dbEndpoint: pulumi.Output<string>;
-  dbName: pulumi.Output<string>;
-  dbUsername: pulumi.Output<string>;
-  dbPassword: pulumi.Output<string>;
+  databaseUrl: pulumi.Output<string>;
   deviceTokenSecret: pulumi.Output<string>;
   adminSecret?: pulumi.Output<string>;
   clerkIssuer?: string;
@@ -79,10 +76,7 @@ export const createApi = (args: ApiArgs): Api => {
     environment: {
       variables: {
         ASPNETCORE_ENVIRONMENT: "Production",
-        DB_HOST: args.dbEndpoint,
-        DB_NAME: args.dbName,
-        DB_USERNAME: args.dbUsername,
-        DB_PASSWORD: args.dbPassword,
+        DATABASE_URL: args.databaseUrl,
         DEVICE_TOKEN_SECRET: args.deviceTokenSecret,
         Nag__SchemaName: "public",
         // Only set when configured — Program.cs registers the Clerk

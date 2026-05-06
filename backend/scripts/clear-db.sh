@@ -12,9 +12,8 @@
 #
 # Usage:
 #   ./scripts/clear-db.sh --local          # localhost, db=nag, user=nag
-#   ./scripts/clear-db.sh --neon           # uses DB_HOST / DB_NAME /
-#                                          # DB_USERNAME / DB_PASSWORD
-#                                          # with sslmode=require
+#   ./scripts/clear-db.sh --neon           # uses DATABASE_URL
+#                                          # (postgres://user:pass@host/db?sslmode=require)
 #
 # The script asks for confirmation before running. Pass `--yes` to skip
 # the prompt (e.g. for CI / scripted teardown).
@@ -47,15 +46,22 @@ if [[ "$mode" == "local" ]]; then
   target="postgres://$PGUSER@$PGHOST:$PGPORT/$PGDATABASE"
   sslmode=""
 else
-  : "${DB_HOST:?DB_HOST is required for --neon}"
-  : "${DB_PASSWORD:?DB_PASSWORD is required for --neon}"
-  : "${DB_NAME:=nag}"
-  : "${DB_USERNAME:=nag}"
-  export PGHOST="$DB_HOST"
-  export PGUSER="$DB_USERNAME"
-  export PGPASSWORD="$DB_PASSWORD"
-  export PGDATABASE="$DB_NAME"
-  export PGPORT="${DB_PORT:-5432}"
+  : "${DATABASE_URL:?DATABASE_URL is required for --neon}"
+  uri="${DATABASE_URL}"
+  # Strip query string for parsing, then peel off scheme/user/pass/host/path.
+  rest="${uri#*://}"
+  rest="${rest%%\?*}"
+  userpass="${rest%%@*}"
+  hostpath="${rest#*@}"
+  export PGUSER="${userpass%%:*}"
+  export PGPASSWORD="${userpass#*:}"
+  hostport="${hostpath%%/*}"
+  export PGDATABASE="${hostpath#*/}"
+  export PGHOST="${hostport%%:*}"
+  case "$hostport" in
+    *:*) export PGPORT="${hostport#*:}" ;;
+    *)   export PGPORT="5432" ;;
+  esac
   export PGSSLMODE="require"
   target="postgres://$PGUSER@$PGHOST:$PGPORT/$PGDATABASE"
   sslmode=" (sslmode=require)"

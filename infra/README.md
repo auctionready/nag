@@ -1,6 +1,6 @@
 # Nag infrastructure (Pulumi, TypeScript)
 
-AWS deployment for the Nag backend: API Gateway HTTP API → Lambda (`dotnet10`, arm64) → **Neon serverless PostgreSQL** (engine 17). The DB password (provisioned by Neon) and the device-token signing secret are injected into the Lambda as KMS-encrypted environment variables — no managed NAT Gateway, no AWS Secrets Manager, no VPC.
+AWS deployment for the Nag backend: API Gateway HTTP API → Lambda (`dotnet10`, arm64) → **Neon serverless PostgreSQL** (engine 17). The Neon connection URI and the device-token signing secret are injected into the Lambda as KMS-encrypted environment variables — no managed NAT Gateway, no AWS Secrets Manager, no VPC.
 
 State backend: **Pulumi Cloud**.
 Region: **ap-southeast-2** (Lambda + API Gateway). Neon project lives in `aws-ap-southeast-2` for in-region latency.
@@ -16,9 +16,17 @@ Internet → API Gateway HTTP API ($default)
 
 The Lambda runs outside any VPC, so all outbound traffic — to Neon, to Clerk's JWKS, to anywhere else — uses AWS-managed public networking with no NAT instance / NAT Gateway / Hyperplane ENI in the path. Cold start is ~half the in-VPC number.
 
-The DB password and device-token signing secret are passed as Lambda environment variables (`DB_PASSWORD`, `DEVICE_TOKEN_SECRET`), encrypted at rest with the AWS-managed KMS key — see `backend/Nag.Api/Infrastructure/LambdaSecrets.cs`. The Npgsql connection string forces `SSL Mode=Require` so the in-flight Neon traffic is always TLS.
+The DB connection string and device-token signing secret are passed as Lambda environment variables (`DATABASE_URL`, `DEVICE_TOKEN_SECRET`), encrypted at rest with the AWS-managed KMS key — see `backend/Nag.Api/Infrastructure/LambdaSecrets.cs`. `DATABASE_URL` is the Neon `connection_uri` (a `postgres://user:pass@host/db?sslmode=require` URI); `LambdaSecrets` parses it into Npgsql `key=value` form and forces `SSL Mode=Require`.
 
-Neon's compute scales to zero after `neonSuspendTimeoutSeconds` of idle (default = Neon account default, ~5 min on Free). First query after a long idle pays a ~500 ms warm-up — much faster than Aurora Serverless v2's ~10–15 s wake.
+Neon's compute scales to zero after `neonSuspendTimeoutSeconds` of idle (default = Neon account default, ~5 min on Free). First query after a long idle pays a ~500 ms warm-up.
+
+## How the DB connection reaches the Lambda
+
+`infra/src/database.ts` declares a single Neon resource: `neon.Project`, with the default branch + role + database + endpoint configured inline. The provider exposes `project.connectionUri` as a Pulumi secret output — that value is wired straight into the Lambda's `DATABASE_URL` env var.
+
+There are deliberately no separate `neon.Role` / `neon.Database` resources. Those used to be branch-pinned, which made a Neon "restore from snapshot" (which promotes a new branch ID) try to replace them. Modeling only the project keeps state branch-agnostic: a console restore refreshes `connectionUri` to the new branch on the next `pulumi up` and nothing else moves.
+
+To rotate the password out-of-band (e.g. via Neon console), run `pulumi up` afterwards — `connectionUri` is recomputed from the project on every refresh.
 
 ## Prerequisites
 
@@ -49,64 +57,7 @@ pulumi config set --secret nag:deviceTokenSecret "$(openssl rand -base64 48)"
 # pulumi config set nag:apiDomainName  api.example.com
 ```
 
-The `pulumi-neon` npm SDK ships TypeScript bindings; the Pulumi runtime resolves the corresponding `pulumi-resource-neon` plugin binary from the bundled provider package. If `pulumi up` cannot find the plugin, install it with:
-
-```bash
-pulumi plugin install resource neon 0.2.0
-```
-
-### Migrating data from Aurora to Neon
-
-The Pulumi diff that introduces the Neon project does **not** copy data. To cut over a populated Aurora cluster:
-
-```bash
-# 1. Snapshot Aurora (point-in-time, while the cluster is awake).
-pg_dump --format=custom --no-owner --no-privileges \
-        --host <aurora-endpoint> --username nag --dbname nag \
-        --file nag.dump
-
-# 2. Provision the Neon project (run once before the cutover).
-pulumi up
-
-# 3. Restore into Neon. Connection details come from the stack outputs +
-#    the `nag-neon` role password (a Pulumi secret).
-NEON_HOST=$(pulumi stack output dbEndpoint)
-NEON_PASSWORD=$(pulumi stack output --show-secrets dbPassword)   # add this output if you need it
-PGPASSWORD=$NEON_PASSWORD pg_restore --no-owner --no-privileges \
-  --host "$NEON_HOST" --username nag --dbname nag --clean --if-exists \
-  nag.dump
-```
-
-In a maintenance window: pause writes, snapshot, restore, run `pulumi up` to switch the Lambda env vars, smoke-test, then destroy the Aurora cluster + VPC + NAT instance from the _previous_ stack state (the new stack no longer references those resources, so `pulumi up` already removed them — verify with `pulumi stack` and `aws ec2 describe-vpcs`).
-
-### Rotating the device-token secret
-
-The signing secret is the trust root for every issued device token. To
-rotate (e.g. on suspected compromise, or as periodic hygiene):
-
-```bash
-cd infra
-pulumi config set --secret nag:deviceTokenSecret "$(openssl rand -base64 48)" --stack prod
-pulumi up --stack prod
-```
-
-After the new Lambda environment is live, every previously-issued
-device token fails HMAC verification → mobile clients get 401 → they
-hit `/devices/register` (anonymous) and receive a fresh token signed
-by the new secret. There is no separate revocation list.
-
-### Rotating the Neon role password
-
-Neon assigns the role password at create time and exposes it as a
-Pulumi secret output. To rotate, taint the role and re-run `up`:
-
-```bash
-pulumi state delete 'urn:pulumi:prod::nag::neon:index/role:Role::nag'
-pulumi up
-```
-
-The role is recreated with a fresh password and the Lambda env var
-`DB_PASSWORD` updates in the same deploy.
+The `@pulumi/neon` SDK lives under `sdks/neon/` and is committed (see [`sdks/SDKS.md`](./sdks/SDKS.md) for why). To bump the provider, run `pulumi package add terraform-provider kislerdm/neon` from `infra/` and commit the regenerated SDK + the resulting `package.json` / `package-lock.json` changes.
 
 ## Custom domain (optional)
 
@@ -179,6 +130,22 @@ curl -i -H "Authorization: Bearer wrong"   "$URL/home-board" # → 401
 curl -i                                    "$URL/home-board" # → 401
 ```
 
+## Rotating the device-token secret
+
+The signing secret is the trust root for every issued device token. To
+rotate (e.g. on suspected compromise, or as periodic hygiene):
+
+```bash
+cd infra
+pulumi config set --secret nag:deviceTokenSecret "$(openssl rand -base64 48)" --stack prod
+pulumi up --stack prod
+```
+
+After the new Lambda environment is live, every previously-issued
+device token fails HMAC verification → mobile clients get 401 → they
+hit `/devices/register` (anonymous) and receive a fresh token signed
+by the new secret. There is no separate revocation list.
+
 ## CI
 
 `.github/workflows/deploy-backend.yml` builds the Lambda package, assumes `nag-github-deploy` via OIDC, and runs `pulumi up` on push to `main` (paths `backend/**`, `infra/**`) or manual dispatch.
@@ -193,9 +160,51 @@ infra/
   index.ts                # wires the modules
   src/
     config.ts             # typed stack-config accessor
-    database.ts           # Neon project + branch endpoint + role + database
+    database.ts           # neon.Project — exposes connectionUri
     api.ts                # Lambda + API Gateway + log group + IAM
     domain.ts             # ACM cert + API Gateway custom domain + Route 53 alias (optional)
-  Pulumi.yaml             # project
+    migrations.ts         # command.local that runs db-apply after deploy
+  Pulumi.yaml             # project (pins the neon bridge plugin version)
   Pulumi.prod.yaml        # prod stack config
+  sdks/neon/              # generated @pulumi/neon SDK (committed — see sdks/SDKS.md)
 ```
+
+## Migrating an existing stack from `pulumi-neon` to `@pulumi/neon`
+
+The repo previously used the older `pulumi-neon` npm package and modeled `neon.Project` + `neon.Role` + `neon.Database` as three separate resources, with a custom REST fetch for the password. The new shape uses a single `neon.Project` and reads `connectionUri` directly. Existing stacks need a one-shot state migration; new stacks just need `npm ci` and a normal `pulumi up`.
+
+For each existing stack (e.g. `prod`):
+
+1. **List the existing neon resources in state**
+
+   ```bash
+   pulumi stack --stack prod --show-urns | grep neon
+   ```
+
+   Expect four URNs: a `pulumi:providers:neon` provider, a `neon:index/project:Project`, a `neon:index/role:Role`, and a `neon:index/database:Database`. Copy them — the next steps use the exact strings.
+
+2. **Drop the Role, Database, Project, and old Provider from state**
+
+   The Role and Database stay in Neon (live database keeps them) — we're only removing them from Pulumi's bookkeeping so the next `up` doesn't try to delete them. The Project is dropped because the new `@pulumi/neon` (bridged via `pulumi-resource-terraform-provider`) is bound to a different provider plugin than the old `pulumi-resource-neon`; easiest fix is delete + re-import. The old Provider falls out once nothing references it.
+
+   ```bash
+   pulumi state delete --stack prod 'urn:pulumi:prod::nag::neon:index/role:Role::nag'
+   pulumi state delete --stack prod 'urn:pulumi:prod::nag::neon:index/database:Database::nag'
+   pulumi state delete --stack prod 'urn:pulumi:prod::nag::neon:index/project:Project::nag'
+   pulumi state delete --stack prod 'urn:pulumi:prod::nag::pulumi:providers:neon::nag-neon'
+   ```
+
+3. **Re-import the Project under the new provider**
+
+   ```bash
+   # Project ID from Neon Console → Settings → General (e.g. damp-recipe-88779456).
+   pulumi import --stack prod neon:index/project:Project nag <project-id>
+   ```
+
+   Pulumi will print a generated `new neon.Project(...)` block. Diff it against `infra/src/database.ts` — `orgId`, `regionId`, `pgVersion`, `branch.{name,roleName,databaseName}`, and `defaultEndpointSettings` should already match. If they don't, reconcile the code before continuing.
+
+4. **`pulumi preview --stack prod`**
+
+   The only diffs should be on the Lambda: `DB_HOST`/`DB_NAME`/`DB_USERNAME`/`DB_PASSWORD` removed, `DATABASE_URL` added. Expect **no replacement** of the Neon project, no recompute of the endpoint, and no DB downtime. Anything else — stop and investigate.
+
+5. **`pulumi up --stack prod`**. The Lambda redeploys with the new env shape; Marten reconnects on the next request.

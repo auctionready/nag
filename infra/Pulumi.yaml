@@ -2,3 +2,9 @@ name: nag
 runtime: nodejs
 description: Backend deployment for Nag — API Gateway HTTP API + Lambda (dotnet10/arm64) + Neon serverless Postgres.
 main: index.ts
+packages:
+  neon:
+    source: terraform-provider
+    version: 1.1.1
+    parameters:
+      - kislerdm/neon

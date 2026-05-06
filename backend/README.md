@@ -123,10 +123,11 @@ Production assumes:
 
 - AWS Lambda with the managed `dotnet10` runtime (GA Jan 2026)
 - [Neon](https://neon.tech) Serverless Postgres 17, auto-suspend on
-- DB connection details and the device-token signing secret passed as
-  Lambda environment variables (`DB_HOST`, `DB_NAME`, `DB_USERNAME`,
-  `DB_PASSWORD`, `DEVICE_TOKEN_SECRET`) — see
-  `Nag.Api/Infrastructure/LambdaSecrets.cs`
+- DB connection string and the device-token signing secret passed as
+  Lambda environment variables (`DATABASE_URL`, `DEVICE_TOKEN_SECRET`)
+  — see `Nag.Api/Infrastructure/LambdaSecrets.cs`. `DATABASE_URL` is
+  the Neon `connection_uri` (a `postgres://user:pass@host/db?sslmode=require`
+  URI); `LambdaSecrets` parses it into Npgsql key=value form.
 - Sentry DSN passed as `SENTRY_DSN` (plus optional `SENTRY_ENVIRONMENT`
   / `SENTRY_RELEASE`); when unset the SDK initializes in disabled mode
 
@@ -138,13 +139,13 @@ start. Schema changes therefore have to be applied out-of-band — Pulumi
 wires `scripts/apply-db-migrations.sh` as a `command.local.Command`
 resource (see [`infra/src/migrations.ts`](../infra/src/migrations.ts))
 that runs after the Neon DB and the Lambda code are in place, and
-re-fires whenever the Lambda zip hash or DB password changes. The
+re-fires whenever the Lambda zip hash or `DATABASE_URL` changes. The
 underlying `db-apply` JasperFx command is idempotent, so re-running is
 safe.
 
 To run it manually against a non-prod DB:
 
 ```bash
-DB_HOST=localhost DB_NAME=nag DB_USERNAME=nag DB_PASSWORD=... \
+DATABASE_URL='postgres://nag:nag@localhost/nag' \
   ./scripts/apply-db-migrations.sh
 ```
