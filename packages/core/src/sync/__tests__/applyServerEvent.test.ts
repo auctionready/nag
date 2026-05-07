@@ -301,6 +301,6 @@ describe("applyServerEvent unknown type", () => {
         type: "NoSuchEvent",
         payload: {},
       }),
-    ).rejects.toThrow("unknown envelope type");
+    ).rejects.toThrow("unknown event type");
   });
 });
