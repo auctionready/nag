@@ -34,6 +34,17 @@ type EventPayload =
   | Record<string, unknown>;
 
 /**
+ * Wire-shape entries — `{ type, payload }` is what the dispatcher loads
+ * from `outbox.events` and POSTs to `/events`. Anyone writing to the
+ * outbox (handlers via `audit`, recovery via `rebuildOutbox`) MUST go
+ * through this so the discriminator+payload split stays consistent.
+ */
+export type OutboxEventEntry = { type: string; payload: EventPayload };
+
+export const buildEventEntries = (events: Event[]): OutboxEventEntry[] =>
+  events.map((e) => ({ type: e.type, payload: payloadOf(e) }));
+
+/**
  * Persists the events the handler emitted as a single outbox envelope row
  * in `pending` state. The dispatcher reads `events` (JSON-encoded
  * `[{type, payload}, ...]`), wraps it in a `WriteEventEnvelope`, and POSTs
@@ -46,12 +57,9 @@ export async function audit(
 ): Promise<void> {
   if (result.events.length === 0) return;
 
-  const entries = result.events.map((e) => ({
-    type: e.type,
-    payload: payloadOf(e),
-  }));
-
-  await db.insert(outbox).values({ events: JSON.stringify(entries) });
+  await db
+    .insert(outbox)
+    .values({ events: JSON.stringify(buildEventEntries(result.events)) });
 }
 
 /** Strip the discriminator and turn Date timestamps into ISO strings. */

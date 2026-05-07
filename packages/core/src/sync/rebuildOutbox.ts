@@ -2,6 +2,7 @@ import { asc, eq } from "drizzle-orm";
 import { checkIn, goal, habit, outbox, schedule, syncState } from "@nag/schema";
 import type { AnyDb } from "../db";
 import { withTransaction } from "../db/transaction";
+import { buildEventEntries } from "../commands/auditor";
 import type { CheckInRecorded, HabitCreated } from "../events";
 
 export type RebuildOutboxResult = {
@@ -77,7 +78,9 @@ export const rebuildOutbox = async (db: AnyDb): Promise<RebuildOutboxResult> =>
         goal: goalPayload,
       };
 
-      await db.insert(outbox).values({ events: JSON.stringify([event]) });
+      await db
+        .insert(outbox)
+        .values({ events: JSON.stringify(buildEventEntries([event])) });
     }
 
     const checkIns = await db
@@ -99,7 +102,9 @@ export const rebuildOutbox = async (db: AnyDb): Promise<RebuildOutboxResult> =>
         timestamp: c.timestamp,
         skipped: c.skipped,
       };
-      await db.insert(outbox).values({ events: JSON.stringify([event]) });
+      await db
+        .insert(outbox)
+        .values({ events: JSON.stringify(buildEventEntries([event])) });
     }
 
     return { habitCount: habits.length, checkInCount: checkIns.length };
