@@ -10,7 +10,7 @@ const MONO = "JetBrainsMono";
 export type SlotCheckInState = "pending" | "done" | "skip";
 
 export interface SlotCheckInItem {
-  id: number;
+  id: string;
   title: string;
   /** Icon kind from the habit. May be null / unknown — falls back to the check glyph. */
   icon?: HabitIconKind | string | null;
@@ -26,8 +26,8 @@ export interface SlotCheckInProps {
   /** Top-eyebrow group label, e.g. "7:00 am". */
   groupTime?: string;
   habits: SlotCheckInItem[];
-  onCheckIn: (habitId: number) => void;
-  onSkip: (habitId: number) => void;
+  onCheckIn: (habitId: string) => void;
+  onSkip: (habitId: string) => void;
   onDone: () => void;
   /** Tapped the close × in the top bar. */
   onClose?: () => void;
@@ -44,18 +44,18 @@ export const SlotCheckIn = ({
   // Track which rows started resolved at mount — those can't be amended
   // yet (no checkInId to delete) so we lock them. Captured once via
   // useState initializer so live-query updates don't change the lock set.
-  const [lockedIds] = useState<Set<number>>(
+  const [lockedIds] = useState<Set<string>>(
     () =>
       new Set(
         habits.filter((h) => h.initialState !== "pending").map((h) => h.id),
       ),
   );
 
-  const [states, setStates] = useState<Record<number, SlotCheckInState>>(() =>
+  const [states, setStates] = useState<Record<string, SlotCheckInState>>(() =>
     Object.fromEntries(habits.map((h) => [h.id, h.initialState])),
   );
 
-  const cycle = (id: number) => {
+  const cycle = (id: string) => {
     if (lockedIds.has(id)) return;
     setStates((s) => {
       const cur = s[id] ?? "pending";

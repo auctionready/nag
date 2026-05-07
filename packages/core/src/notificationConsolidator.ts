@@ -15,7 +15,7 @@ export interface ConsolidatedNotificationScheduler {
 
 export interface ConsolidatedSlot {
   key: string;
-  habitIds: number[];
+  habitIds: string[];
   titles: string[];
   regularity: "day" | "week" | "month";
   hour: number;
@@ -47,7 +47,7 @@ export const consolidateSchedules = (
 
   const addToSlot = (
     key: string,
-    habitId: number,
+    habitId: string,
     title: string,
     regularity: "day" | "week" | "month",
     hour: number,
@@ -242,8 +242,8 @@ export const getConsolidatedScheduler = () => scheduler;
 const pendingHabitIndexes = (
   slot: ConsolidatedSlot,
   occurrence: Date,
-  checkInsByHabit: Map<number, { timestamp: Date; skipped: boolean | null }[]>,
-  schedulesByHabit: Map<number, ScheduleRow[]>,
+  checkInsByHabit: Map<string, { timestamp: Date; skipped: boolean | null }[]>,
+  schedulesByHabit: Map<string, ScheduleRow[]>,
 ): number[] => {
   const pending: number[] = [];
   for (let i = 0; i < slot.habitIds.length; i++) {
@@ -301,7 +301,7 @@ export const syncAllNotifications = async (
     lookupEnd,
   );
   const checkInsByHabit = new Map<
-    number,
+    string,
     { timestamp: Date; skipped: boolean | null }[]
   >();
   for (const c of checkInRows) {
@@ -311,7 +311,7 @@ export const syncAllNotifications = async (
   }
 
   // Group the raw schedule rows by habit for per-habit slot matching.
-  const schedulesByHabit = new Map<number, ScheduleRow[]>();
+  const schedulesByHabit = new Map<string, ScheduleRow[]>();
   for (const row of rows) {
     const list = schedulesByHabit.get(row.habitId) ?? [];
     list.push(row);

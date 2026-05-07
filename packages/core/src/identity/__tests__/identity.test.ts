@@ -378,7 +378,7 @@ describe("switchLocalAccount", () => {
     // Seed some local data that should be discarded on switch.
     const [{ habitId }] = await db
       .insert(habit)
-      .values({ externalId: "h-1", title: "Old habit" })
+      .values({ id: crypto.randomUUID(), title: "Old habit" })
       .returning({ habitId: habit.id });
     const [{ goalId }] = await db
       .insert(goal)
@@ -393,7 +393,7 @@ describe("switchLocalAccount", () => {
       reminder: true,
     });
     await db.insert(checkIn).values({
-      externalId: "c-1",
+      id: crypto.randomUUID(),
       habitId,
       timestamp: new Date("2026-04-01T08:00:00.000Z"),
       skipped: false,
@@ -401,7 +401,7 @@ describe("switchLocalAccount", () => {
       updatedAt: new Date(),
     });
     await db.insert(outbox).values({
-      envelopeId: "env-pending",
+      id: "00000000-0000-4000-8000-0000000000aa",
       events: "[]",
       status: "pending",
     });
@@ -447,11 +447,11 @@ describe("clearLocalAuth", () => {
     // Seed user data that must survive sign-out.
     const [{ habitId }] = await db
       .insert(habit)
-      .values({ externalId: "h-keep", title: "Surviving habit" })
+      .values({ id: crypto.randomUUID(), title: "Surviving habit" })
       .returning({ habitId: habit.id });
     await db.insert(goal).values({ habitId, regularity: "day", frequency: 1 });
     await db.insert(checkIn).values({
-      externalId: "c-keep",
+      id: crypto.randomUUID(),
       habitId,
       timestamp: new Date("2026-04-15T08:00:00.000Z"),
       skipped: false,
@@ -459,7 +459,7 @@ describe("clearLocalAuth", () => {
       updatedAt: new Date(),
     });
     await db.insert(outbox).values({
-      envelopeId: "env-keep",
+      id: "00000000-0000-4000-8000-0000000000ab",
       events: "[]",
       status: "pending",
     });

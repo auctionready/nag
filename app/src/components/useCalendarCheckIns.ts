@@ -5,10 +5,10 @@ import { db } from "../db";
 import { calendarCheckIns } from "@nag/core";
 
 export type CalendarCheckIn = {
-  id: number;
+  id: string;
   timestamp: Date;
   skipped: boolean;
-  habitId: number;
+  habitId: string;
   habitTitle: string;
 };
 

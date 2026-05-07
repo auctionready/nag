@@ -23,12 +23,15 @@ const getDb = setupTestDb("dispatcher-test.db");
  * habit id created first so tests can reference it if needed.
  */
 const seedThreeCommands = async (db: ReturnType<typeof getDb>) => {
-  const { habitId } = await processCommand(db, {
+  const habitId = crypto.randomUUID();
+  await processCommand(db, {
     type: "CreateHabit",
+    habitId,
     title: "A",
   });
   await processCommand(db, {
     type: "CreateCheckIn",
+    checkInId: crypto.randomUUID(),
     habitId,
     timestamp: new Date(),
   });
@@ -78,7 +81,11 @@ describe("dispatcher happy path", () => {
 
   it("treats 200 accepted:false (duplicate) identically to accepted:true", async () => {
     const db = getDb();
-    await processCommand(db, { type: "CreateHabit", title: "Dup" });
+    await processCommand(db, {
+      type: "CreateHabit",
+      habitId: crypto.randomUUID(),
+      title: "Dup",
+    });
 
     // Server says "I've seen this envelope_id already" → still a success.
     const post = vi.fn(
@@ -145,7 +152,11 @@ describe("dispatcher non-retriable (4xx)", () => {
 
   it("subsequent runs are no-ops while halted", async () => {
     const db = getDb();
-    await processCommand(db, { type: "CreateHabit", title: "X" });
+    await processCommand(db, {
+      type: "CreateHabit",
+      habitId: crypto.randomUUID(),
+      title: "X",
+    });
 
     const post = vi
       .fn<() => Promise<PostResult>>()
@@ -194,8 +205,16 @@ describe("dispatcher transient errors", () => {
 
   it("5xx transient result keeps the row pending and stops the batch", async () => {
     const db = getDb();
-    await processCommand(db, { type: "CreateHabit", title: "One" });
-    await processCommand(db, { type: "CreateHabit", title: "Two" });
+    await processCommand(db, {
+      type: "CreateHabit",
+      habitId: crypto.randomUUID(),
+      title: "One",
+    });
+    await processCommand(db, {
+      type: "CreateHabit",
+      habitId: crypto.randomUUID(),
+      title: "Two",
+    });
 
     const post = vi.fn(
       async (): Promise<PostResult> => ({
@@ -216,7 +235,11 @@ describe("dispatcher transient errors", () => {
 describe("dispatcher idempotent replay (crash between POST and markSent)", () => {
   it("on next run the same envelope is POSTed again and can be marked sent", async () => {
     const db = getDb();
-    await processCommand(db, { type: "CreateHabit", title: "Crashy" });
+    await processCommand(db, {
+      type: "CreateHabit",
+      habitId: crypto.randomUUID(),
+      title: "Crashy",
+    });
 
     const postedEnvelopeIds: string[] = [];
     let throwOnMarkSent = true;
@@ -255,8 +278,16 @@ describe("dispatcher idempotent replay (crash between POST and markSent)", () =>
 describe("resumeDispatch", () => {
   it("clears halted, flips failed rows back to pending with preserved envelope ids, and allows dispatcher to proceed", async () => {
     const db = getDb();
-    await processCommand(db, { type: "CreateHabit", title: "First" });
-    await processCommand(db, { type: "CreateHabit", title: "Second" });
+    await processCommand(db, {
+      type: "CreateHabit",
+      habitId: crypto.randomUUID(),
+      title: "First",
+    });
+    await processCommand(db, {
+      type: "CreateHabit",
+      habitId: crypto.randomUUID(),
+      title: "Second",
+    });
 
     // First run halts on row 1 with a 4xx.
     const post1 = vi.fn(
@@ -273,10 +304,10 @@ describe("resumeDispatch", () => {
 
     const envelopeIdsBefore = (
       await db
-        .select({ envelopeId: schema.outbox.envelopeId })
+        .select({ id: schema.outbox.id })
         .from(schema.outbox)
         .orderBy(asc(schema.outbox.id))
-    ).map((r) => r.envelopeId);
+    ).map((r) => r.id);
 
     // User fixes the issue and presses Resume.
     await resumeDispatch(db);
@@ -287,10 +318,10 @@ describe("resumeDispatch", () => {
     // Envelope IDs unchanged — idempotency preserved for retry.
     const envelopeIdsAfter = (
       await db
-        .select({ envelopeId: schema.outbox.envelopeId })
+        .select({ id: schema.outbox.id })
         .from(schema.outbox)
         .orderBy(asc(schema.outbox.id))
-    ).map((r) => r.envelopeId);
+    ).map((r) => r.id);
     expect(envelopeIdsAfter).toEqual(envelopeIdsBefore);
 
     // Second run succeeds.
@@ -320,7 +351,11 @@ describe("batchSize", () => {
     // (post-commit, safety timer) per batch to fully flush.
     const db = getDb();
     for (let i = 0; i < 5; i++) {
-      await processCommand(db, { type: "CreateHabit", title: `H${i}` });
+      await processCommand(db, {
+        type: "CreateHabit",
+        habitId: crypto.randomUUID(),
+        title: `H${i}`,
+      });
     }
 
     let seq = 0;
@@ -347,7 +382,11 @@ describe("batchSize", () => {
     // not push past the failure into the next batch.
     const db = getDb();
     for (let i = 0; i < 5; i++) {
-      await processCommand(db, { type: "CreateHabit", title: `H${i}` });
+      await processCommand(db, {
+        type: "CreateHabit",
+        habitId: crypto.randomUUID(),
+        title: `H${i}`,
+      });
     }
 
     let seq = 0;
@@ -373,7 +412,11 @@ describe("batchSize", () => {
     // process. Anything left is picked up by the next trigger.
     const db = getDb();
     for (let i = 0; i < 10; i++) {
-      await processCommand(db, { type: "CreateHabit", title: `H${i}` });
+      await processCommand(db, {
+        type: "CreateHabit",
+        habitId: crypto.randomUUID(),
+        title: `H${i}`,
+      });
     }
 
     let seq = 0;
@@ -401,8 +444,11 @@ describe("batchSize", () => {
 describe("envelope shape", () => {
   it("sends { id, timestamp (ISO), events: [{type, payload}] } from the outbox row", async () => {
     const db = getDb();
-    const { externalId } = await processCommand(db, {
+    const habitId = crypto.randomUUID();
+    const externalId = habitId;
+    await processCommand(db, {
       type: "CreateHabit",
+      habitId,
       title: "Shape",
     });
 
@@ -472,7 +518,11 @@ describe("outbox sent-row retention", () => {
     const db = getDb();
     const total = 15;
     for (let i = 0; i < total; i++) {
-      await processCommand(db, { type: "CreateHabit", title: `H${i}` });
+      await processCommand(db, {
+        type: "CreateHabit",
+        habitId: crypto.randomUUID(),
+        title: `H${i}`,
+      });
     }
 
     let seq = 0;
@@ -522,7 +572,11 @@ describe("outbox sent-row retention", () => {
       status: "failed",
       lastError: "old failure",
     });
-    await processCommand(db, { type: "CreateHabit", title: "Pending" });
+    await processCommand(db, {
+      type: "CreateHabit",
+      habitId: crypto.randomUUID(),
+      title: "Pending",
+    });
 
     // Bypass the dispatcher and call markSent directly with a tiny retention
     // window to force a prune that *would* delete other-status rows if the
@@ -542,7 +596,11 @@ describe("outbox sent-row retention", () => {
     const db = getDb();
     const total = 15;
     for (let i = 0; i < total; i++) {
-      await processCommand(db, { type: "CreateHabit", title: `H${i}` });
+      await processCommand(db, {
+        type: "CreateHabit",
+        habitId: crypto.randomUUID(),
+        title: `H${i}`,
+      });
     }
 
     const rows = await db
@@ -610,14 +668,16 @@ describe("dispatcher reconciliation", () => {
   it("applies the server's authoritative events to local state on success", async () => {
     const db = getDb();
     // Optimistic local state: CreateHabit appends a habit row + an outbox row.
-    const { habitId } = await processCommand(db, {
+    const habitId = crypto.randomUUID();
+    await processCommand(db, {
       type: "CreateHabit",
+      habitId,
       title: "Read",
     });
 
     // Look up the habit's externalId — the server response carries it.
     const [{ externalId }] = await db
-      .select({ externalId: schema.habit.externalId })
+      .select({ externalId: schema.habit.id })
       .from(schema.habit)
       .where(eq(schema.habit.id, habitId));
 
@@ -658,7 +718,11 @@ describe("dispatcher reconciliation", () => {
 
   it("does not halt the batch when reconciliation throws", async () => {
     const db = getDb();
-    await processCommand(db, { type: "CreateHabit", title: "X" });
+    await processCommand(db, {
+      type: "CreateHabit",
+      habitId: crypto.randomUUID(),
+      title: "X",
+    });
 
     // Server returns an event with an unknown type — applyServerEvent
     // will throw, but reconciliation is best-effort and shouldn't
@@ -691,7 +755,11 @@ describe("dispatcher reconciliation", () => {
 
   it("is a no-op when the response carries no events (empty envelope)", async () => {
     const db = getDb();
-    await processCommand(db, { type: "CreateHabit", title: "Y" });
+    await processCommand(db, {
+      type: "CreateHabit",
+      habitId: crypto.randomUUID(),
+      title: "Y",
+    });
 
     const post = vi.fn(
       async (): Promise<PostResult> => ({

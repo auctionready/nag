@@ -2,6 +2,7 @@ import { Alert, DevSettings } from "react-native";
 import { registerDevMenuItems } from "expo-dev-client";
 import { router } from "expo-router";
 import { clearAll, seedSampleData } from "./seed";
+import { resetDatabaseSchema } from "./index";
 import { devFlags } from "../infrastructure/devFlags";
 import { clearAllClerkTokens } from "../infrastructure/clerk";
 import { deviceTokenStore } from "../infrastructure/tokenStore";
@@ -32,8 +33,14 @@ if (__DEV__) {
         // user (otherwise the post-Clerk-sign-in effect would immediately
         // re-register the just-wiped device). Server-side state is
         // untouched.
-        await clearAll({ tokenStore: deviceTokenStore });
+        //
+        // Drops every table (including drizzle's migration tracking)
+        // rather than truncating rows so the migrator re-runs from
+        // scratch on reload — covers schema-breaking changes that
+        // `clearAll` can't recover from.
+        await deviceTokenStore.clear();
         await clearAllClerkTokens();
+        resetDatabaseSchema();
         DevSettings.reload();
       },
     },

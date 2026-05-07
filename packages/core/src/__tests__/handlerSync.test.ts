@@ -21,7 +21,11 @@ beforeEach(() => {
 
 describe("handlers call syncAllNotifications", () => {
   it("CreateHabit (no goal)", async () => {
-    await processCommand(getDb(), { type: "CreateHabit", title: "Read" });
+    await processCommand(getDb(), {
+      type: "CreateHabit",
+      habitId: crypto.randomUUID(),
+      title: "Read",
+    });
     expect(mockSyncAll).toHaveBeenCalledOnce();
     expect(mockSyncAll).toHaveBeenCalledWith(getDb());
   });
@@ -29,6 +33,7 @@ describe("handlers call syncAllNotifications", () => {
   it("CreateHabit (scheduled goal)", async () => {
     await processCommand(getDb(), {
       type: "CreateHabit",
+      habitId: crypto.randomUUID(),
       title: "Read",
       goal: {
         regularity: "day",
@@ -39,8 +44,10 @@ describe("handlers call syncAllNotifications", () => {
   });
 
   it("UpdateHabit", async () => {
-    const { habitId } = await processCommand(getDb(), {
+    const habitId = crypto.randomUUID();
+    await processCommand(getDb(), {
       type: "CreateHabit",
+      habitId,
       title: "Read",
     });
     mockSyncAll.mockClear();
@@ -53,8 +60,10 @@ describe("handlers call syncAllNotifications", () => {
   });
 
   it("DeleteHabit", async () => {
-    const { habitId } = await processCommand(getDb(), {
+    const habitId = crypto.randomUUID();
+    await processCommand(getDb(), {
       type: "CreateHabit",
+      habitId,
       title: "Read",
     });
     mockSyncAll.mockClear();
@@ -63,13 +72,16 @@ describe("handlers call syncAllNotifications", () => {
   });
 
   it("CreateCheckIn", async () => {
-    const { habitId } = await processCommand(getDb(), {
+    const habitId = crypto.randomUUID();
+    await processCommand(getDb(), {
       type: "CreateHabit",
+      habitId,
       title: "Read",
     });
     mockSyncAll.mockClear();
     await processCommand(getDb(), {
       type: "CreateCheckIn",
+      checkInId: crypto.randomUUID(),
       habitId,
       timestamp: new Date(),
     });
@@ -77,12 +89,16 @@ describe("handlers call syncAllNotifications", () => {
   });
 
   it("UpdateCheckIn", async () => {
-    const { habitId } = await processCommand(getDb(), {
+    const habitId = crypto.randomUUID();
+    await processCommand(getDb(), {
       type: "CreateHabit",
+      habitId,
       title: "Read",
     });
-    const { checkInId } = await processCommand(getDb(), {
+    const checkInId = crypto.randomUUID();
+    await processCommand(getDb(), {
       type: "CreateCheckIn",
+      checkInId,
       habitId,
       timestamp: new Date(),
     });
@@ -96,12 +112,16 @@ describe("handlers call syncAllNotifications", () => {
   });
 
   it("DeleteCheckIn", async () => {
-    const { habitId } = await processCommand(getDb(), {
+    const habitId = crypto.randomUUID();
+    await processCommand(getDb(), {
       type: "CreateHabit",
+      habitId,
       title: "Read",
     });
-    const { checkInId } = await processCommand(getDb(), {
+    const checkInId = crypto.randomUUID();
+    await processCommand(getDb(), {
       type: "CreateCheckIn",
+      checkInId,
       habitId,
       timestamp: new Date(),
     });
@@ -114,6 +134,7 @@ describe("handlers call syncAllNotifications", () => {
     await expect(
       processCommand(getDb(), {
         type: "CreateHabit",
+        habitId: crypto.randomUUID(),
         title: "",
       }),
     ).rejects.toBeDefined();

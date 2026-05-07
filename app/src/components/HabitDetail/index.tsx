@@ -66,9 +66,9 @@ export interface HabitDetailProps {
   /** Skip with the given deemed timestamp (symmetric with `onCheckInAt`). */
   onSkipAt: (timestamp: Date) => void;
   onEdit: () => void;
-  onRemoveCheckIn: (checkInId: number) => void;
+  onRemoveCheckIn: (checkInId: string) => void;
   onEditCheckInTimestamp: (
-    checkInId: number,
+    checkInId: string,
     timestamp: Date,
     skipped?: boolean,
   ) => void;
@@ -193,7 +193,7 @@ export const HabitDetail = ({
   const showWeekStrip = regularity === "week" && scheduledDaysMask !== 0;
 
   type PickerIntent =
-    | { kind: "edit"; checkInId: number }
+    | { kind: "edit"; checkInId: string }
     | { kind: "new-checkin" }
     | { kind: "new-skip" };
 

@@ -19,5 +19,5 @@ export const applyCheckInMoved = async (
       timestamp: new Date(payload.newTimestamp),
       updatedAt: new Date(),
     })
-    .where(eq(checkIn.externalId, payload.checkInId));
+    .where(eq(checkIn.id, payload.checkInId));
 };

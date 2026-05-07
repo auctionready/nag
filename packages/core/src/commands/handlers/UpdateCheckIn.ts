@@ -1,5 +1,5 @@
 import { eq } from "drizzle-orm";
-import { checkIn, habit } from "@nag/schema";
+import { checkIn } from "@nag/schema";
 import type { AnyDb } from "../../db";
 import type { UpdateCheckIn } from "../schemas";
 import type {
@@ -13,22 +13,18 @@ type UpdateCheckInEvent =
   | CheckInMarkedSkipped
   | CheckInMarkedDone;
 
-export type UpdateCheckInResult = {
-  events: UpdateCheckInEvent[];
-};
-
-export type UpdateCheckInOutput = {
-  events: UpdateCheckInEvent[];
-  finalize: (applied: unknown[]) => UpdateCheckInResult;
-};
-
+/**
+ * Reads the existing check-in to diff against the requested update — we
+ * only emit events for fields that actually changed. The wire-level
+ * events still carry `habitId`, the old/current `timestamp`, etc., so
+ * backend projections can resolve provenance without rewalking.
+ */
 export const handleUpdateCheckIn = async (
   db: AnyDb,
   { checkInId, timestamp: newTimestamp, skipped: newSkipped }: UpdateCheckIn,
-): Promise<UpdateCheckInOutput> => {
+): Promise<{ events: UpdateCheckInEvent[] }> => {
   const [row] = await db
     .select({
-      externalId: checkIn.externalId,
       habitId: checkIn.habitId,
       timestamp: checkIn.timestamp,
       skipped: checkIn.skipped,
@@ -39,23 +35,13 @@ export const handleUpdateCheckIn = async (
     throw new Error(`UpdateCheckIn: check-in id=${checkInId} not found`);
   }
 
-  const [habitRow] = await db
-    .select({ externalId: habit.externalId })
-    .from(habit)
-    .where(eq(habit.id, row.habitId));
-  if (!habitRow) {
-    throw new Error(
-      `UpdateCheckIn: habit id=${row.habitId} for check-in not found`,
-    );
-  }
-
   const events: UpdateCheckInEvent[] = [];
 
   if (row.timestamp.getTime() !== newTimestamp.getTime()) {
     events.push({
       type: "CheckInMoved",
-      checkInId: row.externalId,
-      habitId: habitRow.externalId,
+      checkInId,
+      habitId: row.habitId,
       oldTimestamp: row.timestamp,
       newTimestamp,
     });
@@ -64,11 +50,11 @@ export const handleUpdateCheckIn = async (
   if (newSkipped !== undefined && newSkipped !== row.skipped) {
     events.push({
       type: newSkipped ? "CheckInMarkedSkipped" : "CheckInMarkedDone",
-      checkInId: row.externalId,
-      habitId: habitRow.externalId,
+      checkInId,
+      habitId: row.habitId,
       timestamp: newTimestamp,
     });
   }
 
-  return { events, finalize: () => ({ events }) };
+  return { events };
 };

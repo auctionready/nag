@@ -17,7 +17,7 @@ const baseProps = {
   checkInsThisPeriod: 0,
   schedules: [] as ScheduleInfo[],
   checkIns: [] as {
-    id: number;
+    id: string;
     timestamp: Date;
     createdAt: Date;
     updatedAt: Date;
@@ -166,7 +166,7 @@ describe("HabitDetail", () => {
           schedules={schedules}
           checkIns={[
             {
-              id: 1,
+              id: "ci-1",
               timestamp: sundayAt(9),
               createdAt: sundayAt(9),
               updatedAt: sundayAt(9),
@@ -187,28 +187,28 @@ describe("HabitDetail", () => {
           schedules={schedules}
           checkIns={[
             {
-              id: 1,
+              id: "ci-1",
               timestamp: sundayAt(8, 30),
               createdAt: sundayAt(8, 30),
               updatedAt: sundayAt(8, 30),
               skipped: null,
             },
             {
-              id: 2,
+              id: "ci-2",
               timestamp: sundayAt(12, 30),
               createdAt: sundayAt(12, 30),
               updatedAt: sundayAt(12, 30),
               skipped: null,
             },
             {
-              id: 3,
+              id: "ci-3",
               timestamp: sundayAt(18, 30),
               createdAt: sundayAt(18, 30),
               updatedAt: sundayAt(18, 30),
               skipped: null,
             },
             {
-              id: 4,
+              id: "ci-4",
               timestamp: sundayAt(19, 30),
               createdAt: sundayAt(19, 30),
               updatedAt: sundayAt(19, 30),
@@ -308,7 +308,7 @@ describe("HabitDetail", () => {
           schedules={schedules}
           checkIns={[
             {
-              id: 1,
+              id: "ci-1",
               timestamp: sundayAt(8, 30),
               createdAt: sundayAt(8, 30),
               updatedAt: sundayAt(8, 30),
@@ -470,7 +470,7 @@ describe("HabitDetail", () => {
             complianceColor={complianceColors.compliant}
             checkIns={[
               {
-                id: 1,
+                id: "ci-1",
                 timestamp: sundayAt(9, 5),
                 createdAt: sundayAt(9, 5),
                 updatedAt: sundayAt(9, 5),
@@ -637,21 +637,21 @@ describe("HabitDetail", () => {
     const wednesdayAt = (h: number) => new Date(2025, 5, 11, h, 0);
     const checkIns = [
       {
-        id: 1,
+        id: "ci-1",
         timestamp: mondayAt(10),
         createdAt: mondayAt(10),
         updatedAt: mondayAt(10),
         skipped: null as boolean | null,
       },
       {
-        id: 2,
+        id: "ci-2",
         timestamp: wednesdayAt(10),
         createdAt: wednesdayAt(10),
         updatedAt: wednesdayAt(10),
         skipped: null as boolean | null,
       },
       {
-        id: 3,
+        id: "ci-3",
         timestamp: sundayAt(9),
         createdAt: sundayAt(9),
         updatedAt: sundayAt(9),
@@ -756,14 +756,14 @@ describe("HabitDetail", () => {
   describe("with a skipped check-in", () => {
     const checkIns = [
       {
-        id: 1,
+        id: "ci-1",
         timestamp: sundayAt(10),
         createdAt: sundayAt(10),
         updatedAt: sundayAt(10),
         skipped: null as boolean | null,
       },
       {
-        id: 2,
+        id: "ci-2",
         timestamp: sundayAt(14),
         createdAt: sundayAt(14),
         updatedAt: sundayAt(14),
@@ -782,7 +782,7 @@ describe("HabitDetail", () => {
       );
       expect(view.getByText("(skipped)")).toBeTruthy();
       fireEvent.press(view.getAllByText("Remove")[0]);
-      expect(baseProps.onRemoveCheckIn).toHaveBeenCalledWith(1);
+      expect(baseProps.onRemoveCheckIn).toHaveBeenCalledWith("ci-1");
     });
   });
 
@@ -790,7 +790,7 @@ describe("HabitDetail", () => {
     // Slot at 8:00 AM, actually recorded at 10:00 AM → back-fill gap of 2h.
     const backFilled = [
       {
-        id: 1,
+        id: "ci-1",
         timestamp: sundayAt(8),
         createdAt: sundayAt(10),
         updatedAt: sundayAt(10),
@@ -817,7 +817,7 @@ describe("HabitDetail", () => {
       // Slot Sun Jun 15, recorded Mon Jun 16 — same month so month is implied.
       const laterDay = [
         {
-          id: 1,
+          id: "ci-1",
           timestamp: sundayAt(8),
           createdAt: new Date(2025, 5, 16, 10, 0),
           updatedAt: new Date(2025, 5, 16, 10, 0),
@@ -839,7 +839,7 @@ describe("HabitDetail", () => {
     it("omits year on (recorded …) when same year, different month", () => {
       const diffMonth = [
         {
-          id: 1,
+          id: "ci-1",
           timestamp: sundayAt(8),
           createdAt: new Date(2025, 6, 2, 10, 0), // Jul 2
           updatedAt: new Date(2025, 6, 2, 10, 0),
@@ -860,7 +860,7 @@ describe("HabitDetail", () => {
     it("shows full date on (recorded …) when different year", () => {
       const diffYear = [
         {
-          id: 1,
+          id: "ci-1",
           timestamp: sundayAt(8),
           createdAt: new Date(2026, 0, 5, 10, 0), // Jan 5 2026
           updatedAt: new Date(2026, 0, 5, 10, 0),
@@ -885,7 +885,7 @@ describe("HabitDetail", () => {
       // the "(recorded …)" line (fresh check-ins differ by microseconds).
       const fresh = [
         {
-          id: 1,
+          id: "ci-1",
           timestamp: sundayAt(10, 0),
           createdAt: new Date(2025, 5, 15, 10, 0, 30),
           updatedAt: new Date(2025, 5, 15, 10, 0, 30),

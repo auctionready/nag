@@ -19,7 +19,7 @@ export const allActiveSchedules = (db: AnyDb) =>
     .innerJoin(habit, eq(goal.habitId, habit.id))
     .where(eq(schedule.reminder, true));
 
-export const schedulesForHabits = (db: AnyDb, habitIds: number[]) =>
+export const schedulesForHabits = (db: AnyDb, habitIds: string[]) =>
   db
     .select({
       habitId: goal.habitId,
@@ -30,9 +30,16 @@ export const schedulesForHabits = (db: AnyDb, habitIds: number[]) =>
     })
     .from(schedule)
     .innerJoin(goal, eq(schedule.goalId, goal.id))
-    .where(inArray(goal.habitId, habitIds.length > 0 ? habitIds : [-1]));
+    .where(
+      inArray(
+        goal.habitId,
+        habitIds.length > 0
+          ? habitIds
+          : ["00000000-0000-0000-0000-000000000000"],
+      ),
+    );
 
-export const schedulesForHabit = (db: AnyDb, habitId: number) =>
+export const schedulesForHabit = (db: AnyDb, habitId: string) =>
   db
     .select({
       days: schedule.days,

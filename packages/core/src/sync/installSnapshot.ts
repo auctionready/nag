@@ -72,21 +72,18 @@ export const installSnapshot = async (
     const now = new Date();
 
     for (const h of snapshot.habits ?? []) {
-      const [insertedHabit] = await db
-        .insert(habit)
-        .values({
-          externalId: h.id,
-          title: h.title,
-          description: h.description ?? null,
-          icon: h.icon ?? null,
-        })
-        .returning({ id: habit.id });
+      await db.insert(habit).values({
+        id: h.id,
+        title: h.title,
+        description: h.description ?? null,
+        icon: h.icon ?? null,
+      });
 
       if (h.goal) {
         const [insertedGoal] = await db
           .insert(goal)
           .values({
-            habitId: insertedHabit.id,
+            habitId: h.id,
             regularity: h.goal.regularity,
             frequency: h.goal.frequency ?? 1,
           })
@@ -109,8 +106,8 @@ export const installSnapshot = async (
       if (h.periodCheckIns && h.periodCheckIns.length > 0) {
         await db.insert(checkIn).values(
           h.periodCheckIns.map((c) => ({
-            externalId: c.id,
-            habitId: insertedHabit.id,
+            id: c.id,
+            habitId: h.id,
             timestamp:
               c.timestamp instanceof Date ? c.timestamp : new Date(c.timestamp),
             skipped: c.skipped,

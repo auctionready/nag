@@ -169,14 +169,13 @@ the same `sequence` back; events are only appended once.
 
 ## Differences from the client schema
 
-The client uses integer auto-increment ids (SQLite) for fast joins
-locally; the server-shaped events carry GUIDs (`HabitId`,
-`CheckInId` in event payloads, sourced from each row's `external_id`
-column). Trade-off accepted because:
-
-- offline-first creation works without a server round-trip;
-- idempotency is straightforward;
-- avoids id-reconciliation games when syncing across devices.
+The client and server share the same UUID identity for strong entities
+(`Habit`, `CheckIn`): the value the UI mints is the local SQLite PK
+**and** the GUID the server stores, with no separate `external_id`
+indirection. Weak entities (`Goal`, `Schedule`) keep client-internal
+integer PKs — they're never referenced across the wire. Offline-first
+creation still works without a server round-trip, idempotency is
+straightforward, and there's nothing to reconcile across devices.
 
 ## Tests
 

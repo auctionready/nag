@@ -265,14 +265,18 @@ describe("createPullSync", () => {
     const seedStaleAndFreshCheckIns = async (db: ReturnType<typeof getDb>) => {
       const [h] = await db
         .insert(schema.habit)
-        .values({ title: "Read" })
+        .values({ id: crypto.randomUUID(), title: "Read" })
         .returning({ id: schema.habit.id });
-      await db
-        .insert(schema.checkIn)
-        .values({ habitId: h.id, timestamp: new Date("2000-01-01T00:00:00Z") });
-      await db
-        .insert(schema.checkIn)
-        .values({ habitId: h.id, timestamp: new Date() });
+      await db.insert(schema.checkIn).values({
+        id: crypto.randomUUID(),
+        habitId: h.id,
+        timestamp: new Date("2000-01-01T00:00:00Z"),
+      });
+      await db.insert(schema.checkIn).values({
+        id: crypto.randomUUID(),
+        habitId: h.id,
+        timestamp: new Date(),
+      });
       return h.id;
     };
 

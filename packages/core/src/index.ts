@@ -54,7 +54,7 @@ export {
   schedulesForGoal,
   allActiveSchedules,
 } from "./queries";
-export { processCommand, type CommandResult } from "./commands/processor";
+export { processCommand } from "./commands/processor";
 export {
   previousMonthStart,
   currentWeekBounds,

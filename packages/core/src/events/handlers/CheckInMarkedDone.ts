@@ -11,5 +11,5 @@ export const applyCheckInMarkedDone = async (
   await db
     .update(checkIn)
     .set({ skipped: false, updatedAt: new Date() })
-    .where(eq(checkIn.externalId, payload.checkInId));
+    .where(eq(checkIn.id, payload.checkInId));
 };

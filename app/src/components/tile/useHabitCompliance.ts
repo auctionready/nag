@@ -12,7 +12,7 @@ import { periodStart } from "../getComplianceColor";
 import type { HabitGoalSummary } from "./useHabitGoalSummary";
 
 export const useHabitCompliance = (
-  habitId: number,
+  habitId: string,
   goal: HabitGoalSummary | null,
 ) => {
   const periodStartDate = goal ? periodStart(goal.regularity) : undefined;

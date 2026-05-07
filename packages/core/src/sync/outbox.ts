@@ -4,10 +4,9 @@ import type { AnyDb } from "../db";
 import { withTransaction } from "../db/transaction";
 
 export type PendingRow = {
-  id: number;
-  envelopeId: string;
+  id: string;
   events: string;
-  timestamp: Date;
+  createdAt: Date;
 };
 
 /**
@@ -41,9 +40,8 @@ export const loadPendingBatch = (
   db
     .select({
       id: outbox.id,
-      envelopeId: outbox.envelopeId,
       events: outbox.events,
-      timestamp: outbox.timestamp,
+      createdAt: outbox.createdAt,
     })
     .from(outbox)
     .where(eq(outbox.status, "pending"))
@@ -66,7 +64,7 @@ export const loadPendingBatch = (
  */
 export const markSent = async (
   db: AnyDb,
-  id: number,
+  id: string,
   serverSequence: number,
   retainSentRows: number = SENT_OUTBOX_RETAIN_DEFAULT,
 ): Promise<void> =>
@@ -105,7 +103,7 @@ export const markSent = async (
 
 export const markPendingWithError = async (
   db: AnyDb,
-  id: number,
+  id: string,
   error: string,
 ): Promise<void> => {
   await db.update(outbox).set({ lastError: error }).where(eq(outbox.id, id));
@@ -114,7 +112,7 @@ export const markPendingWithError = async (
 /** Marks the row as `failed` and sets `sync_state.halted = 1` atomically. */
 export const markFailedAndHalt = async (
   db: AnyDb,
-  id: number,
+  id: string,
   error: string,
 ): Promise<void> =>
   withTransaction(db, async () => {

@@ -8,5 +8,5 @@ export const applyCheckInDeleted = async (
   db: AnyDb,
   payload: CheckInDeletedPayload,
 ): Promise<void> => {
-  await db.delete(checkIn).where(eq(checkIn.externalId, payload.checkInId));
+  await db.delete(checkIn).where(eq(checkIn.id, payload.checkInId));
 };

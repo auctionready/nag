@@ -2,7 +2,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { useLiveQuery } from "drizzle-orm/expo-sqlite";
 import { parse, format, startOfToday } from "date-fns";
 import { db } from "../../db";
-import { getTitle } from "@nag/schema";
+import { getTitle, seqUuid } from "@nag/schema";
 import {
   habitById,
   goalForHabitFull,
@@ -23,7 +23,7 @@ const DAY_PARAM_FORMAT = "yyyy-MM-dd";
 const HabitScreen = () => {
   const { id, day } = useLocalSearchParams<{ id: string; day?: string }>();
   const router = useRouter();
-  const habitId = Number(id);
+  const habitId = id ?? "";
 
   const { data: habits } = useLiveQuery(habitById(db, habitId), [habitId]);
   const habitData = habits?.[0];
@@ -97,12 +97,18 @@ const HabitScreen = () => {
   };
 
   const handleCheckInAt = async (timestamp: Date) => {
-    await dispatch({ type: "CreateCheckIn", habitId, timestamp });
+    await dispatch({
+      type: "CreateCheckIn",
+      checkInId: seqUuid(),
+      habitId,
+      timestamp,
+    });
   };
 
   const handleSkipAt = async (timestamp: Date) => {
     await dispatch({
       type: "CreateCheckIn",
+      checkInId: seqUuid(),
       habitId,
       timestamp,
       skipped: true,
@@ -110,7 +116,7 @@ const HabitScreen = () => {
   };
 
   const handleEditCheckInTimestamp = async (
-    checkInId: number,
+    checkInId: string,
     timestamp: Date,
     skipped?: boolean,
   ) => {
@@ -126,8 +132,8 @@ const HabitScreen = () => {
     <HabitDetail
       loading={!habitData}
       complianceHistorySlot={
-        habitData?.externalId ? (
-          <ComplianceHistory habitExternalId={habitData.externalId} />
+        habitData?.id ? (
+          <ComplianceHistory habitExternalId={habitData.id} />
         ) : null
       }
       title={habitData?.title ?? ""}

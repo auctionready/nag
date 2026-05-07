@@ -7,9 +7,9 @@ export interface ScheduleEntry {
 }
 
 export interface NotificationScheduler {
-  cancelNotifications(habitId: number): Promise<void>;
+  cancelNotifications(habitId: string): Promise<void>;
   syncNotifications(
-    habitId: number,
+    habitId: string,
     title: string,
     schedules: ScheduleEntry[],
     regularity: "day" | "week" | "month",

@@ -25,7 +25,7 @@ describe("goalForHabit", () => {
     const db = getDb();
     const [h] = await db
       .insert(schema.habit)
-      .values({ title: "Test" })
+      .values({ id: crypto.randomUUID(), title: "Test" })
       .returning();
     await db
       .insert(schema.goal)
@@ -42,7 +42,7 @@ describe("goalForHabit", () => {
     const db = getDb();
     const [h] = await db
       .insert(schema.habit)
-      .values({ title: "No goal" })
+      .values({ id: crypto.randomUUID(), title: "No goal" })
       .returning();
     const goals = await goalForHabit(db, h.id);
     expect(goals).toHaveLength(0);
@@ -54,10 +54,14 @@ describe("checkInCount", () => {
     const db = getDb();
     const [h] = await db
       .insert(schema.habit)
-      .values({ title: "Count" })
+      .values({ id: crypto.randomUUID(), title: "Count" })
       .returning();
-    await db.insert(schema.checkIn).values({ habitId: h.id });
-    await db.insert(schema.checkIn).values({ habitId: h.id });
+    await db
+      .insert(schema.checkIn)
+      .values({ id: crypto.randomUUID(), habitId: h.id });
+    await db
+      .insert(schema.checkIn)
+      .values({ id: crypto.randomUUID(), habitId: h.id });
 
     const [row] = await checkInCount(db, h.id);
     expect(row.value).toBe(2);
@@ -67,14 +71,16 @@ describe("checkInCount", () => {
     const db = getDb();
     const [h] = await db
       .insert(schema.habit)
-      .values({ title: "Since" })
+      .values({ id: crypto.randomUUID(), title: "Since" })
       .returning();
     const old = subDays(new Date(), 5);
     const recent = new Date();
-    await db.insert(schema.checkIn).values({ habitId: h.id, timestamp: old });
     await db
       .insert(schema.checkIn)
-      .values({ habitId: h.id, timestamp: recent });
+      .values({ id: crypto.randomUUID(), habitId: h.id, timestamp: old });
+    await db
+      .insert(schema.checkIn)
+      .values({ id: crypto.randomUUID(), habitId: h.id, timestamp: recent });
 
     const since = subDays(new Date(), 1);
     const [row] = await checkInCount(db, h.id, since);
@@ -87,14 +93,20 @@ describe("recentCheckIns", () => {
     const db = getDb();
     const [h] = await db
       .insert(schema.habit)
-      .values({ title: "Recent" })
+      .values({ id: crypto.randomUUID(), title: "Recent" })
       .returning();
     const t1 = subDays(new Date(), 3);
     const t2 = subDays(new Date(), 1);
     const t3 = new Date();
-    await db.insert(schema.checkIn).values({ habitId: h.id, timestamp: t1 });
-    await db.insert(schema.checkIn).values({ habitId: h.id, timestamp: t2 });
-    await db.insert(schema.checkIn).values({ habitId: h.id, timestamp: t3 });
+    await db
+      .insert(schema.checkIn)
+      .values({ id: crypto.randomUUID(), habitId: h.id, timestamp: t1 });
+    await db
+      .insert(schema.checkIn)
+      .values({ id: crypto.randomUUID(), habitId: h.id, timestamp: t2 });
+    await db
+      .insert(schema.checkIn)
+      .values({ id: crypto.randomUUID(), habitId: h.id, timestamp: t3 });
 
     const rows = await recentCheckIns(db, h.id);
     expect(rows).toHaveLength(3);
@@ -110,10 +122,12 @@ describe("recentCheckIns", () => {
     const db = getDb();
     const [h] = await db
       .insert(schema.habit)
-      .values({ title: "Limit" })
+      .values({ id: crypto.randomUUID(), title: "Limit" })
       .returning();
     for (let i = 0; i < 5; i++) {
-      await db.insert(schema.checkIn).values({ habitId: h.id });
+      await db
+        .insert(schema.checkIn)
+        .values({ id: crypto.randomUUID(), habitId: h.id });
     }
 
     const rows = await recentCheckIns(db, h.id, undefined, 2);
@@ -126,13 +140,14 @@ describe("checkInsInPeriod", () => {
     const db = getDb();
     const [h] = await db
       .insert(schema.habit)
-      .values({ title: "Period" })
+      .values({ id: crypto.randomUUID(), title: "Period" })
       .returning();
     // Insert 10 check-ins this period — more than `recentCheckIns`'s
     // historical default limits (3/7) — to confirm there's no truncation.
     const since = subDays(new Date(), 7);
     for (let i = 0; i < 10; i++) {
       await db.insert(schema.checkIn).values({
+        id: crypto.randomUUID(),
         habitId: h.id,
         timestamp: subDays(new Date(), i % 7),
       });
@@ -145,13 +160,15 @@ describe("checkInsInPeriod", () => {
     const db = getDb();
     const [h] = await db
       .insert(schema.habit)
-      .values({ title: "Bounded" })
+      .values({ id: crypto.randomUUID(), title: "Bounded" })
       .returning();
     await db.insert(schema.checkIn).values({
+      id: crypto.randomUUID(),
       habitId: h.id,
       timestamp: subDays(new Date(), 30),
     });
     await db.insert(schema.checkIn).values({
+      id: crypto.randomUUID(),
       habitId: h.id,
       timestamp: subDays(new Date(), 1),
     });
@@ -167,12 +184,15 @@ describe("checkInsInPeriod", () => {
     const db = getDb();
     const [h] = await db
       .insert(schema.habit)
-      .values({ title: "Back-fill" })
+      .values({ id: crypto.randomUUID(), title: "Back-fill" })
       .returning();
     // Today's "real" check-in first.
-    await db.insert(schema.checkIn).values({ habitId: h.id });
+    await db
+      .insert(schema.checkIn)
+      .values({ id: crypto.randomUUID(), habitId: h.id });
     // Then a back-fill for 3 days ago (deemed time = past).
     await db.insert(schema.checkIn).values({
+      id: crypto.randomUUID(),
       habitId: h.id,
       timestamp: subDays(new Date(), 3),
     });
@@ -188,8 +208,12 @@ describe("checkInsInPeriod", () => {
 describe("allHabits", () => {
   it("returns all habits", async () => {
     const db = getDb();
-    await db.insert(schema.habit).values({ title: "A" });
-    await db.insert(schema.habit).values({ title: "B" });
+    await db
+      .insert(schema.habit)
+      .values({ id: crypto.randomUUID(), title: "A" });
+    await db
+      .insert(schema.habit)
+      .values({ id: crypto.randomUUID(), title: "B" });
 
     const rows = await allHabits(db);
     expect(rows).toHaveLength(2);
@@ -209,7 +233,7 @@ describe("habitById", () => {
     const db = getDb();
     const [h] = await db
       .insert(schema.habit)
-      .values({ title: "Find me" })
+      .values({ id: crypto.randomUUID(), title: "Find me" })
       .returning();
 
     const rows = await habitById(db, h.id);
@@ -219,7 +243,7 @@ describe("habitById", () => {
 
   it("returns empty for non-existent id", async () => {
     const db = getDb();
-    const rows = await habitById(db, 9999);
+    const rows = await habitById(db, "00000000-0000-0000-0000-0000000000ff");
     expect(rows).toHaveLength(0);
   });
 });
@@ -229,7 +253,7 @@ describe("goalForHabitFull", () => {
     const db = getDb();
     const [h] = await db
       .insert(schema.habit)
-      .values({ title: "Goal" })
+      .values({ id: crypto.randomUUID(), title: "Goal" })
       .returning();
     await db
       .insert(schema.goal)
@@ -249,12 +273,16 @@ describe("checkInsForHabit", () => {
     const db = getDb();
     const [h] = await db
       .insert(schema.habit)
-      .values({ title: "CI" })
+      .values({ id: crypto.randomUUID(), title: "CI" })
       .returning();
     const t1 = subDays(new Date(), 2);
     const t2 = new Date();
-    await db.insert(schema.checkIn).values({ habitId: h.id, timestamp: t1 });
-    await db.insert(schema.checkIn).values({ habitId: h.id, timestamp: t2 });
+    await db
+      .insert(schema.checkIn)
+      .values({ id: crypto.randomUUID(), habitId: h.id, timestamp: t1 });
+    await db
+      .insert(schema.checkIn)
+      .values({ id: crypto.randomUUID(), habitId: h.id, timestamp: t2 });
 
     const rows = await checkInsForHabit(db, h.id);
     expect(rows).toHaveLength(2);
@@ -269,9 +297,11 @@ describe("calendarCheckIns", () => {
     const db = getDb();
     const [h] = await db
       .insert(schema.habit)
-      .values({ title: "Cal" })
+      .values({ id: crypto.randomUUID(), title: "Cal" })
       .returning();
-    await db.insert(schema.checkIn).values({ habitId: h.id });
+    await db
+      .insert(schema.checkIn)
+      .values({ id: crypto.randomUUID(), habitId: h.id });
 
     const rows = await calendarCheckIns(db);
     expect(rows).toHaveLength(1);
@@ -288,7 +318,7 @@ describe("schedulesForGoal", () => {
       const db = getDb();
       const [h] = await db
         .insert(schema.habit)
-        .values({ title: "Scheduled" })
+        .values({ id: crypto.randomUUID(), title: "Scheduled" })
         .returning();
       const [g] = await db
         .insert(schema.goal)
@@ -338,7 +368,7 @@ describe("schedulesForGoal", () => {
     const db = getDb();
     const [h] = await db
       .insert(schema.habit)
-      .values({ title: "No sched" })
+      .values({ id: crypto.randomUUID(), title: "No sched" })
       .returning();
     const [g] = await db
       .insert(schema.goal)
@@ -361,13 +391,15 @@ describe("habitsByIds", () => {
     const db = getDb();
     const [h1] = await db
       .insert(schema.habit)
-      .values({ title: "Alpha" })
+      .values({ id: crypto.randomUUID(), title: "Alpha" })
       .returning();
     const [h2] = await db
       .insert(schema.habit)
-      .values({ title: "Beta" })
+      .values({ id: crypto.randomUUID(), title: "Beta" })
       .returning();
-    await db.insert(schema.habit).values({ title: "Gamma" });
+    await db
+      .insert(schema.habit)
+      .values({ id: crypto.randomUUID(), title: "Gamma" });
 
     const rows = await habitsByIds(db, [h1.id, h2.id]);
     expect(rows).toHaveLength(2);
@@ -376,7 +408,9 @@ describe("habitsByIds", () => {
 
   it("returns empty for an empty id list", async () => {
     const db = getDb();
-    await db.insert(schema.habit).values({ title: "Lonely" });
+    await db
+      .insert(schema.habit)
+      .values({ id: crypto.randomUUID(), title: "Lonely" });
 
     const rows = await habitsByIds(db, []);
     expect(rows).toHaveLength(0);
@@ -384,7 +418,9 @@ describe("habitsByIds", () => {
 
   it("returns empty for non-existent ids", async () => {
     const db = getDb();
-    const rows = await habitsByIds(db, [9999]);
+    const rows = await habitsByIds(db, [
+      "00000000-0000-0000-0000-0000000000ff",
+    ]);
     expect(rows).toHaveLength(0);
   });
 });
@@ -395,7 +431,7 @@ describe("checkInCount edge cases", () => {
       const db = getDb();
       const [h] = await db
         .insert(schema.habit)
-        .values({ title: "Empty" })
+        .values({ id: crypto.randomUUID(), title: "Empty" })
         .returning();
       const [row] = await checkInCount(db, h.id);
       expect(row.value).toBe(0);
@@ -407,9 +443,11 @@ describe("checkInCount edge cases", () => {
       const db = getDb();
       const [h] = await db
         .insert(schema.habit)
-        .values({ title: "Future" })
+        .values({ id: crypto.randomUUID(), title: "Future" })
         .returning();
-      await db.insert(schema.checkIn).values({ habitId: h.id });
+      await db
+        .insert(schema.checkIn)
+        .values({ id: crypto.randomUUID(), habitId: h.id });
       const futureDate = new Date(Date.now() + 86400000);
       const [row] = await checkInCount(db, h.id, futureDate);
       expect(row.value).toBe(0);
@@ -422,7 +460,7 @@ describe("recentCheckIns edge cases", () => {
     const db = getDb();
     const [h] = await db
       .insert(schema.habit)
-      .values({ title: "None" })
+      .values({ id: crypto.randomUUID(), title: "None" })
       .returning();
     const rows = await recentCheckIns(db, h.id);
     expect(rows).toHaveLength(0);
@@ -447,25 +485,31 @@ describe("checkInsForHabitsOnDay", () => {
     const db = getDb();
     const [a] = await db
       .insert(schema.habit)
-      .values({ title: "A" })
+      .values({ id: crypto.randomUUID(), title: "A" })
       .returning();
     const [b] = await db
       .insert(schema.habit)
-      .values({ title: "B" })
+      .values({ id: crypto.randomUUID(), title: "B" })
       .returning();
     const [c] = await db
       .insert(schema.habit)
-      .values({ title: "C" })
+      .values({ id: crypto.randomUUID(), title: "C" })
       .returning();
-    await db.insert(schema.checkIn).values({ habitId: a.id, timestamp: at(9) });
-    await db.insert(schema.checkIn).values({ habitId: b.id, timestamp: at(7) });
+    await db
+      .insert(schema.checkIn)
+      .values({ id: crypto.randomUUID(), habitId: a.id, timestamp: at(9) });
+    await db
+      .insert(schema.checkIn)
+      .values({ id: crypto.randomUUID(), habitId: b.id, timestamp: at(7) });
     // Not in the query set:
-    await db.insert(schema.checkIn).values({ habitId: c.id, timestamp: at(8) });
+    await db
+      .insert(schema.checkIn)
+      .values({ id: crypto.randomUUID(), habitId: c.id, timestamp: at(8) });
     // Yesterday:
     const yesterday = subDays(at(12), 1);
     await db
       .insert(schema.checkIn)
-      .values({ habitId: a.id, timestamp: yesterday });
+      .values({ id: crypto.randomUUID(), habitId: a.id, timestamp: yesterday });
 
     const rows = await checkInsForHabitsOnDay(
       db,
@@ -485,11 +529,14 @@ describe("checkInsForHabitsOnDay", () => {
     const db = getDb();
     const [a] = await db
       .insert(schema.habit)
-      .values({ title: "A" })
+      .values({ id: crypto.randomUUID(), title: "A" })
       .returning();
-    await db
-      .insert(schema.checkIn)
-      .values({ habitId: a.id, timestamp: at(10), skipped: true });
+    await db.insert(schema.checkIn).values({
+      id: crypto.randomUUID(),
+      habitId: a.id,
+      timestamp: at(10),
+      skipped: true,
+    });
 
     const [row] = await checkInsForHabitsOnDay(
       db,
@@ -504,9 +551,11 @@ describe("checkInsForHabitsOnDay", () => {
     const db = getDb();
     const [a] = await db
       .insert(schema.habit)
-      .values({ title: "A" })
+      .values({ id: crypto.randomUUID(), title: "A" })
       .returning();
-    await db.insert(schema.checkIn).values({ habitId: a.id, timestamp: at(8) });
+    await db
+      .insert(schema.checkIn)
+      .values({ id: crypto.randomUUID(), habitId: a.id, timestamp: at(8) });
 
     const rows = await checkInsForHabitsOnDay(db, [], dayStart(), dayEnd());
     expect(rows).toHaveLength(0);
@@ -518,11 +567,11 @@ describe("schedulesForHabits", () => {
     const db = getDb();
     const [a] = await db
       .insert(schema.habit)
-      .values({ title: "A" })
+      .values({ id: crypto.randomUUID(), title: "A" })
       .returning();
     const [b] = await db
       .insert(schema.habit)
-      .values({ title: "B" })
+      .values({ id: crypto.randomUUID(), title: "B" })
       .returning();
     const [ga] = await db
       .insert(schema.goal)

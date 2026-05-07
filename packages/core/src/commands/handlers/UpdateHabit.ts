@@ -1,5 +1,3 @@
-import { eq } from "drizzle-orm";
-import { habit } from "@nag/schema";
 import type { AnyDb } from "../../db";
 import type { UpdateHabit } from "../schemas";
 import type {
@@ -7,50 +5,31 @@ import type {
   HabitGoalCleared,
   HabitGoalDefined,
 } from "../../events";
-import type { HabitGoalDefinedResult } from "../../events/handlers/HabitGoalDefined";
 
 type UpdateHabitEvent =
   | HabitDetailsEdited
   | HabitGoalDefined
   | HabitGoalCleared;
 
-export type UpdateHabitResult = {
-  scheduleIds: number[];
-  events: UpdateHabitEvent[];
-};
-
-export type UpdateHabitOutput = {
-  events: UpdateHabitEvent[];
-  finalize: (applied: unknown[]) => UpdateHabitResult;
-};
-
 /**
- * Validates the habit exists, then emits the appropriate combination of
+ * Translates `UpdateHabit` into the appropriate combination of
  * `HabitDetailsEdited` (editorial fields), `HabitGoalCleared`
  * (`goal: null`), and `HabitGoalDefined` (`goal: {...}`) events. The
- * event handlers do the DB writes; the processor wires `applied[]` into
- * `finalize` so we can surface the inserted schedule ids back to the
- * caller (the only piece of DB feedback we still need).
+ * habit's existence is enforced by the event handlers' upsert
+ * semantics — a stray UpdateHabit against a missing id is a no-op
+ * locally and gets caught server-side.
  */
 export const handleUpdateHabit = async (
-  db: AnyDb,
+  _db: AnyDb,
   { habitId, title, description, icon, goal }: UpdateHabit,
-): Promise<UpdateHabitOutput> => {
-  const [existing] = await db
-    .select({ externalId: habit.externalId })
-    .from(habit)
-    .where(eq(habit.id, habitId));
-  if (!existing) {
-    throw new Error(`UpdateHabit: habit id=${habitId} not found`);
-  }
-
+): Promise<{ events: UpdateHabitEvent[] }> => {
   const events: UpdateHabitEvent[] = [];
 
   // Emit a HabitDetailsEdited iff any editorial field is in the command.
   if (title !== undefined || description !== undefined || icon !== undefined) {
     const edited: HabitDetailsEdited = {
       type: "HabitDetailsEdited",
-      habitId: existing.externalId,
+      habitId,
     };
     if (title !== undefined) edited.title = title;
     if (description === null) {
@@ -66,15 +45,12 @@ export const handleUpdateHabit = async (
     events.push(edited);
   }
 
-  let goalDefinedIndex: number | undefined;
-
   if (goal === null) {
-    events.push({ type: "HabitGoalCleared", habitId: existing.externalId });
+    events.push({ type: "HabitGoalCleared", habitId });
   } else if (goal !== undefined) {
-    goalDefinedIndex = events.length;
     events.push({
       type: "HabitGoalDefined",
-      habitId: existing.externalId,
+      habitId,
       regularity: goal.regularity,
       frequency: goal.frequency ?? null,
       schedules: goal.schedules
@@ -89,14 +65,5 @@ export const handleUpdateHabit = async (
     });
   }
 
-  return {
-    events,
-    finalize: (applied) => {
-      const scheduleIds =
-        goalDefinedIndex !== undefined
-          ? (applied[goalDefinedIndex] as HabitGoalDefinedResult).scheduleIds
-          : [];
-      return { scheduleIds, events };
-    },
-  };
+  return { events };
 };

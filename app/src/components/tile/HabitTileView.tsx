@@ -14,7 +14,7 @@ import { HabitGlyph, type HabitIconKind } from "../HabitGlyph";
 import { tokens } from "../theme";
 
 export interface HabitTileViewProps {
-  id: number;
+  id: string;
   title: string;
   icon?: string | null;
   goal: HabitGoalSummary | null;

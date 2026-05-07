@@ -8,5 +8,5 @@ export const applyHabitDeleted = async (
   db: AnyDb,
   payload: HabitDeletedPayload,
 ): Promise<void> => {
-  await db.delete(habit).where(eq(habit.externalId, payload.habitId));
+  await db.delete(habit).where(eq(habit.id, payload.habitId));
 };

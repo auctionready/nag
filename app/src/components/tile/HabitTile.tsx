@@ -1,6 +1,7 @@
 import { useCallback } from "react";
 import { useRouter } from "expo-router";
 import { habitProgressSnapshot } from "@nag/core";
+import { seqUuid } from "@nag/schema";
 import { dispatch } from "../../infrastructure/dispatch";
 import { complianceColors } from "../getComplianceColor";
 import { useHabitGoalSummary } from "./useHabitGoalSummary";
@@ -12,7 +13,7 @@ import { classifyDailyWeek } from "./classifyDailyWeek";
 import { hasMultipleSlotsPerDay } from "./hasMultipleSlotsPerDay";
 
 interface HabitTileProps {
-  id: number;
+  id: string;
   title: string;
   icon?: string | null;
 }
@@ -97,6 +98,7 @@ export const HabitTile = ({ id, title, icon }: HabitTileProps) => {
   const handleCheckIn = useCallback(async () => {
     await dispatch({
       type: "CreateCheckIn",
+      checkInId: seqUuid(),
       habitId: id,
       timestamp: new Date(),
     });

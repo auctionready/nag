@@ -17,7 +17,7 @@ erDiagram
     GOAL  ||--o{ SCHEDULE   : "has"
 
     HABIT {
-        integer id PK
+        text    id PK        "uuid, caller-minted"
         text    title
         text    description "nullable"
         text    icon        "nullable"
@@ -27,7 +27,7 @@ erDiagram
 
     GOAL {
         integer id PK
-        integer habit_id   FK "cascade delete"
+        text    habit_id   FK "cascade delete"
         text    regularity "day | week | month"
         integer frequency  "times per regularity"
         iso     created_at
@@ -35,8 +35,8 @@ erDiagram
     }
 
     CHECK_IN {
-        integer id PK
-        integer habit_id  FK "cascade delete"
+        text    id PK        "uuid, caller-minted"
+        text    habit_id  FK "cascade delete"
         iso     timestamp  "deemed slot time"
         boolean skipped    "default false"
         iso     created_at "wall-clock insert time"

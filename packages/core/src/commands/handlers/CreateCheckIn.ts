@@ -3,50 +3,32 @@ import { habit } from "@nag/schema";
 import type { AnyDb } from "../../db";
 import type { CreateCheckIn } from "../schemas";
 import type { CheckInRecorded } from "../../events";
-import type { CheckInRecordedResult } from "../../events/handlers/CheckInRecorded";
 
-export type CreateCheckInResult = {
-  checkInId: number;
-  externalId: string;
-  events: [CheckInRecorded];
-};
-
-export type CreateCheckInOutput = {
-  events: [CheckInRecorded];
-  finalize: (applied: unknown[]) => CreateCheckInResult;
-};
-
+/**
+ * Validates the target habit exists before emitting the event so a
+ * stray local command can't leave a no-op event in the outbox. The
+ * apply path itself is tolerant of a missing parent (sync replay can
+ * arrive out of order); only the user-driven local command needs the
+ * up-front check.
+ */
 export const handleCreateCheckIn = async (
   db: AnyDb,
-  { habitId, timestamp, skipped }: CreateCheckIn,
-): Promise<CreateCheckInOutput> => {
-  const [habitRow] = await db
-    .select({ externalId: habit.externalId })
+  { checkInId, habitId, timestamp, skipped }: CreateCheckIn,
+): Promise<{ events: [CheckInRecorded] }> => {
+  const [parent] = await db
+    .select({ id: habit.id })
     .from(habit)
     .where(eq(habit.id, habitId));
-  if (!habitRow) {
+  if (!parent) {
     throw new Error(`CreateCheckIn: habit id=${habitId} not found`);
   }
 
-  const externalId = crypto.randomUUID();
   const event: CheckInRecorded = {
     type: "CheckInRecorded",
-    checkInId: externalId,
-    habitId: habitRow.externalId,
+    checkInId,
+    habitId,
     timestamp,
     skipped: skipped ?? false,
   };
-
-  return {
-    events: [event],
-    finalize: (applied) => {
-      const r = applied[0] as CheckInRecordedResult;
-      if (r.checkInId == null) {
-        throw new Error(
-          "CreateCheckIn: CheckInRecorded apply did not return checkInId",
-        );
-      }
-      return { checkInId: r.checkInId, externalId, events: [event] };
-    },
-  };
+  return { events: [event] };
 };

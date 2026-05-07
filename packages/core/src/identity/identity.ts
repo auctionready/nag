@@ -7,6 +7,7 @@ import {
   checkIn,
   outbox,
   syncState,
+  seqUuid,
 } from "@nag/schema";
 import type { AnyDb } from "../db";
 import { withTransaction } from "../db/transaction";
@@ -96,7 +97,7 @@ export const ensureDeviceRegistered = async ({
   db,
   tokenStore,
   register,
-  newDeviceId = () => crypto.randomUUID(),
+  newDeviceId = seqUuid,
   log,
 }: EnsureDeviceRegisteredOptions): Promise<EnsureDeviceRegisteredResult> => {
   const debug = log?.debug ?? (() => {});

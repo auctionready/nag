@@ -1,6 +1,6 @@
 import { sqliteTable, integer, index } from "drizzle-orm/sqlite-core";
 import { goal } from "./goal";
-import { isoTimestamp } from "./isoTimestamp";
+import { timestamp } from "../columns";
 
 export const schedule = sqliteTable(
   "schedule",
@@ -14,7 +14,7 @@ export const schedule = sqliteTable(
     days: integer("days"),
     dayOfMonth: integer("day_of_month"),
     reminder: integer("reminder", { mode: "boolean" }).notNull().default(true),
-    createdAt: isoTimestamp("created_at")
+    createdAt: timestamp("created_at")
       .notNull()
       .$defaultFn(() => new Date()),
   },

@@ -9,40 +9,49 @@ import { Day } from "../days";
 
 const getDb = setupTestDb("commands-test.db");
 
-/** Test helper: dispatch a CreateCheckIn command with sensible defaults. */
-const createCheckIn = (
+/**
+ * Test helper: dispatch a CreateCheckIn command with sensible defaults.
+ * Returns the minted check-in id so callers can reference it later.
+ */
+const createCheckIn = async (
   db: AnyDb,
-  habitId: number,
+  habitId: string,
   options: { timestamp?: Date; skipped?: boolean } = {},
-) =>
-  processCommand(db, {
+): Promise<{ checkInId: string }> => {
+  const checkInId = crypto.randomUUID();
+  await processCommand(db, {
     type: "CreateCheckIn",
+    checkInId,
     habitId,
     timestamp: options.timestamp ?? new Date(),
     ...(options.skipped !== undefined ? { skipped: options.skipped } : {}),
   });
+  return { checkInId };
+};
 
 describe("CreateHabit", () => {
   it("creates a habit without a goal", async () => {
     const db = getDb();
-    const result = await processCommand(db, {
+    const habitId = crypto.randomUUID();
+    await processCommand(db, {
       type: "CreateHabit",
+      habitId,
       title: "Exercise",
     });
-
-    expect(result).toHaveProperty("habitId");
     const [h] = await db
       .select()
       .from(schema.habit)
-      .where(eq(schema.habit.id, result.habitId));
+      .where(eq(schema.habit.id, habitId));
     expect(h.title).toBe("Exercise");
     expect(h.description).toBeNull();
   });
 
   it("creates a habit with description", async () => {
     const db = getDb();
-    const result = await processCommand(db, {
+    const habitId = crypto.randomUUID();
+    await processCommand(db, {
       type: "CreateHabit",
+      habitId,
       title: "Read",
       description: "Read for 30 minutes",
     });
@@ -50,19 +59,19 @@ describe("CreateHabit", () => {
     const [h] = await db
       .select()
       .from(schema.habit)
-      .where(eq(schema.habit.id, result.habitId));
+      .where(eq(schema.habit.id, habitId));
     expect(h.description).toBe("Read for 30 minutes");
   });
 
   it("creates a habit with a goal", async () => {
     const db = getDb();
-    const result = await processCommand(db, {
+    const habitId = crypto.randomUUID();
+    await processCommand(db, {
       type: "CreateHabit",
+      habitId,
       title: "Meditate",
       goal: { regularity: "day", frequency: 1 },
     });
-
-    const habitId = result.habitId;
     const goals = await db
       .select()
       .from(schema.goal)
@@ -75,14 +84,20 @@ describe("CreateHabit", () => {
   it("rejects invalid input", async () => {
     const db = getDb();
     await expect(
-      processCommand(db, { type: "CreateHabit", title: "" }),
+      processCommand(db, {
+        type: "CreateHabit",
+        habitId: crypto.randomUUID(),
+        title: "",
+      }),
     ).rejects.toThrow();
   });
 
   it("creates a habit with daily schedules", async () => {
     const db = getDb();
-    const result = await processCommand(db, {
+    const habitId = crypto.randomUUID();
+    await processCommand(db, {
       type: "CreateHabit",
+      habitId,
       title: "Meditate",
       goal: {
         regularity: "day",
@@ -92,8 +107,6 @@ describe("CreateHabit", () => {
         ],
       },
     });
-
-    const habitId = result.habitId;
     const goals = await db
       .select()
       .from(schema.goal)
@@ -116,16 +129,16 @@ describe("CreateHabit", () => {
 
   it("creates a habit with weekly schedules using days bitmask", async () => {
     const db = getDb();
-    const result = await processCommand(db, {
+    const habitId = crypto.randomUUID();
+    await processCommand(db, {
       type: "CreateHabit",
+      habitId,
       title: "Exercise",
       goal: {
         regularity: "week",
         schedules: [{ hour: 7, minute: 0, days: Day.Mon | Day.Wed | Day.Fri }],
       },
     });
-
-    const habitId = result.habitId;
     const goals = await db
       .select()
       .from(schema.goal)
@@ -142,8 +155,10 @@ describe("CreateHabit", () => {
 
   it("creates a habit with monthly schedules", async () => {
     const db = getDb();
-    const result = await processCommand(db, {
+    const habitId = crypto.randomUUID();
+    await processCommand(db, {
       type: "CreateHabit",
+      habitId,
       title: "Review",
       goal: {
         regularity: "month",
@@ -153,8 +168,6 @@ describe("CreateHabit", () => {
         ],
       },
     });
-
-    const habitId = result.habitId;
     const goals = await db
       .select()
       .from(schema.goal)
@@ -174,8 +187,10 @@ describe("CreateHabit", () => {
 describe("UpdateHabit", () => {
   it("updates the title", async () => {
     const db = getDb();
-    const { habitId } = await processCommand(db, {
+    const habitId = crypto.randomUUID();
+    await processCommand(db, {
       type: "CreateHabit",
+      habitId,
       title: "Old",
     });
 
@@ -194,8 +209,10 @@ describe("UpdateHabit", () => {
 
   it("clears description when null", async () => {
     const db = getDb();
-    const { habitId } = await processCommand(db, {
+    const habitId = crypto.randomUUID();
+    await processCommand(db, {
       type: "CreateHabit",
+      habitId,
       title: "Test",
       description: "Some desc",
     });
@@ -215,8 +232,10 @@ describe("UpdateHabit", () => {
 
   it("leaves description unchanged when undefined", async () => {
     const db = getDb();
-    const { habitId } = await processCommand(db, {
+    const habitId = crypto.randomUUID();
+    await processCommand(db, {
       type: "CreateHabit",
+      habitId,
       title: "Test",
       description: "Keep me",
     });
@@ -236,8 +255,10 @@ describe("UpdateHabit", () => {
 
   it("replaces the goal", async () => {
     const db = getDb();
-    const { habitId } = await processCommand(db, {
+    const habitId = crypto.randomUUID();
+    await processCommand(db, {
       type: "CreateHabit",
+      habitId,
       title: "Test",
       goal: { regularity: "day", frequency: 1 },
     });
@@ -259,8 +280,10 @@ describe("UpdateHabit", () => {
 
   it("deletes the goal when null", async () => {
     const db = getDb();
-    const { habitId } = await processCommand(db, {
+    const habitId = crypto.randomUUID();
+    await processCommand(db, {
       type: "CreateHabit",
+      habitId,
       title: "Test",
       goal: { regularity: "day", frequency: 1 },
     });
@@ -280,8 +303,10 @@ describe("UpdateHabit", () => {
 
   it("leaves goal unchanged when undefined", async () => {
     const db = getDb();
-    const { habitId } = await processCommand(db, {
+    const habitId = crypto.randomUUID();
+    await processCommand(db, {
       type: "CreateHabit",
+      habitId,
       title: "Test",
       goal: { regularity: "day", frequency: 2 },
     });
@@ -302,8 +327,10 @@ describe("UpdateHabit", () => {
 
   it("replaces frequency goal with scheduled goal", async () => {
     const db = getDb();
-    const { habitId } = await processCommand(db, {
+    const habitId = crypto.randomUUID();
+    await processCommand(db, {
       type: "CreateHabit",
+      habitId,
       title: "Test",
       goal: { regularity: "day", frequency: 1 },
     });
@@ -336,8 +363,10 @@ describe("UpdateHabit", () => {
 
   it("replaces scheduled goal with frequency goal", async () => {
     const db = getDb();
-    const { habitId } = await processCommand(db, {
+    const habitId = crypto.randomUUID();
+    await processCommand(db, {
       type: "CreateHabit",
+      habitId,
       title: "Test",
       goal: {
         regularity: "day",
@@ -367,8 +396,10 @@ describe("UpdateHabit", () => {
 
   it("deleting goal cascades to schedules", async () => {
     const db = getDb();
-    const { habitId } = await processCommand(db, {
+    const habitId = crypto.randomUUID();
+    await processCommand(db, {
       type: "CreateHabit",
+      habitId,
       title: "Test",
       goal: {
         regularity: "week",
@@ -396,8 +427,10 @@ describe("UpdateHabit", () => {
 describe("DeleteHabit", () => {
   it("deletes the habit and cascades", async () => {
     const db = getDb();
-    const { habitId } = await processCommand(db, {
+    const habitId = crypto.randomUUID();
+    await processCommand(db, {
       type: "CreateHabit",
+      habitId,
       title: "Temp",
       goal: { regularity: "day", frequency: 1 },
     });
@@ -427,8 +460,10 @@ describe("DeleteHabit", () => {
 
   it("cascades to schedules when deleting habit", async () => {
     const db = getDb();
-    const { habitId } = await processCommand(db, {
+    const habitId = crypto.randomUUID();
+    await processCommand(db, {
       type: "CreateHabit",
+      habitId,
       title: "Temp",
       goal: {
         regularity: "day",
@@ -449,15 +484,15 @@ describe("DeleteHabit", () => {
 describe("CreateCheckIn", () => {
   it("creates a check-in for a habit", async () => {
     const db = getDb();
-    const { habitId } = await processCommand(db, {
+    const habitId = crypto.randomUUID();
+    await processCommand(db, {
       type: "CreateHabit",
+      habitId,
       title: "Test",
     });
 
     const now = new Date();
-    const result = await createCheckIn(db, habitId, { timestamp: now });
-
-    expect(result).toHaveProperty("checkInId");
+    await createCheckIn(db, habitId, { timestamp: now });
     const checkIns = await db
       .select()
       .from(schema.checkIn)
@@ -471,8 +506,10 @@ describe("CreateCheckIn", () => {
 
   it("stores payload timestamp separately from createdAt for back-filled slots", async () => {
     const db = getDb();
-    const { habitId } = await processCommand(db, {
+    const habitId = crypto.randomUUID();
+    await processCommand(db, {
       type: "CreateHabit",
+      habitId,
       title: "Back-fill test",
     });
 
@@ -496,8 +533,10 @@ describe("CreateCheckIn", () => {
 describe("DeleteCheckIn", () => {
   it("deletes a specific check-in", async () => {
     const db = getDb();
-    const { habitId } = await processCommand(db, {
+    const habitId = crypto.randomUUID();
+    await processCommand(db, {
       type: "CreateHabit",
+      habitId,
       title: "Test",
     });
 
@@ -518,17 +557,20 @@ describe("DeleteCheckIn", () => {
 describe("outbox enqueue", () => {
   it("records a server-shaped event envelope per processCommand call", async () => {
     const db = getDb();
-    const { externalId } = await processCommand(db, {
+    const habitId = crypto.randomUUID();
+    const externalId = habitId;
+    await processCommand(db, {
       type: "CreateHabit",
+      habitId,
       title: "Audit test",
       goal: { regularity: "week", frequency: 2 },
     });
 
     const logs = await db.select().from(schema.outbox);
     expect(logs).toHaveLength(1);
-    expect(logs[0].timestamp).toBeInstanceOf(Date);
+    expect(logs[0].createdAt).toBeInstanceOf(Date);
     expect(logs[0].status).toBe("pending");
-    expect(logs[0].envelopeId).toMatch(
+    expect(logs[0].id).toMatch(
       /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/,
     );
 
@@ -551,8 +593,11 @@ describe("outbox enqueue", () => {
 
   it("emits the habit's externalId for DeleteHabit", async () => {
     const db = getDb();
-    const { habitId, externalId } = await processCommand(db, {
+    const habitId = crypto.randomUUID();
+    const externalId = habitId;
+    await processCommand(db, {
       type: "CreateHabit",
+      habitId,
       title: "Setup",
     });
 
@@ -574,7 +619,11 @@ describe("outbox enqueue", () => {
   it("does not enqueue on validation failure", async () => {
     const db = getDb();
     await expect(
-      processCommand(db, { type: "CreateHabit", title: "" }),
+      processCommand(db, {
+        type: "CreateHabit",
+        habitId: crypto.randomUUID(),
+        title: "",
+      }),
     ).rejects.toThrow();
 
     const logs = await db.select().from(schema.outbox);
@@ -583,8 +632,10 @@ describe("outbox enqueue", () => {
 
   it("accumulates outbox entries across commands", async () => {
     const db = getDb();
-    const { habitId } = await processCommand(db, {
+    const habitId = crypto.randomUUID();
+    await processCommand(db, {
       type: "CreateHabit",
+      habitId,
       title: "Multi",
     });
 
@@ -632,23 +683,24 @@ describe("processCommand validation", () => {
     expect(logs).toHaveLength(0);
   });
 
-  it("rejects wrong field type (string instead of number)", async () => {
+  it("rejects wrong id type (number instead of string)", async () => {
     const db = getDb();
     await expect(
       // @ts-expect-error testing wrong field type
-      processCommand(db, { type: "DeleteHabit", habitId: "abc" }),
+      processCommand(db, { type: "DeleteHabit", habitId: 123 }),
     ).rejects.toThrow(ZodError);
 
     const logs = await db.select().from(schema.outbox);
     expect(logs).toHaveLength(0);
   });
 
-  it("rejects negative id", async () => {
+  it("rejects empty habit id string", async () => {
     const db = getDb();
     await expect(
       processCommand(db, {
         type: "CreateCheckIn",
-        habitId: -1,
+        checkInId: crypto.randomUUID(),
+        habitId: "",
         timestamp: new Date(),
       }),
     ).rejects.toThrow(ZodError);
@@ -662,6 +714,7 @@ describe("processCommand validation", () => {
     await expect(
       processCommand(db, {
         type: "CreateHabit",
+        habitId: crypto.randomUUID(),
         title: "X",
         // @ts-expect-error testing invalid enum value
         goal: { regularity: "year", frequency: 1 },
@@ -677,6 +730,7 @@ describe("processCommand validation", () => {
     await expect(
       processCommand(db, {
         type: "CreateHabit",
+        habitId: crypto.randomUUID(),
         title: "X",
         goal: { regularity: "day" },
       }),
@@ -688,6 +742,7 @@ describe("processCommand validation", () => {
     await expect(
       processCommand(db, {
         type: "CreateHabit",
+        habitId: crypto.randomUUID(),
         title: "X",
         goal: {
           regularity: "day",
@@ -703,6 +758,7 @@ describe("processCommand validation", () => {
     await expect(
       processCommand(db, {
         type: "CreateHabit",
+        habitId: crypto.randomUUID(),
         title: "X",
         goal: {
           regularity: "day",
@@ -717,6 +773,7 @@ describe("processCommand validation", () => {
     await expect(
       processCommand(db, {
         type: "CreateHabit",
+        habitId: crypto.randomUUID(),
         title: "X",
         goal: {
           regularity: "week",
@@ -731,6 +788,7 @@ describe("processCommand validation", () => {
     await expect(
       processCommand(db, {
         type: "CreateHabit",
+        habitId: crypto.randomUUID(),
         title: "X",
         goal: {
           regularity: "month",
@@ -745,6 +803,7 @@ describe("processCommand validation", () => {
     await expect(
       processCommand(db, {
         type: "CreateHabit",
+        habitId: crypto.randomUUID(),
         title: "X",
         goal: { regularity: "day", frequency: 0 },
       }),
@@ -779,7 +838,8 @@ describe("processCommand handler errors", () => {
     await expect(
       processCommand(db, {
         type: "CreateCheckIn",
-        habitId: 99999,
+        checkInId: crypto.randomUUID(),
+        habitId: crypto.randomUUID(),
         timestamp: new Date(),
       }),
     ).rejects.toThrow();
@@ -796,7 +856,8 @@ describe("processCommand handler errors", () => {
     await expect(
       processCommand(db, {
         type: "CreateCheckIn",
-        habitId: 99999,
+        checkInId: crypto.randomUUID(),
+        habitId: crypto.randomUUID(),
         timestamp: new Date(),
       }),
     ).rejects.toThrow();
@@ -809,8 +870,10 @@ describe("processCommand handler errors", () => {
 
   it("rolls back transaction on handler error (no outbox row written)", async () => {
     const db = getDb();
-    const { habitId } = await processCommand(db, {
+    const habitId = crypto.randomUUID();
+    await processCommand(db, {
       type: "CreateHabit",
+      habitId,
       title: "Valid",
     });
 
@@ -819,7 +882,8 @@ describe("processCommand handler errors", () => {
     await expect(
       processCommand(db, {
         type: "CreateCheckIn",
-        habitId: 99999,
+        checkInId: crypto.randomUUID(),
+        habitId: crypto.randomUUID(),
         timestamp: new Date(),
       }),
     ).rejects.toThrow();
@@ -841,8 +905,10 @@ describe("schedule boundary values", () => {
 
     beforeEach(async () => {
       const db = getDb();
-      const result = await processCommand(db, {
+      const habitId = crypto.randomUUID();
+      await processCommand(db, {
         type: "CreateHabit",
+        habitId,
         title: "Midnight",
         goal: {
           regularity: "day",
@@ -852,7 +918,7 @@ describe("schedule boundary values", () => {
       const goals = await db
         .select()
         .from(schema.goal)
-        .where(eq(schema.goal.habitId, result.habitId));
+        .where(eq(schema.goal.habitId, habitId));
       schedules = await db
         .select()
         .from(schema.schedule)
@@ -873,8 +939,10 @@ describe("schedule boundary values", () => {
 
     beforeEach(async () => {
       const db = getDb();
-      const result = await processCommand(db, {
+      const habitId = crypto.randomUUID();
+      await processCommand(db, {
         type: "CreateHabit",
+        habitId,
         title: "Late night",
         goal: {
           regularity: "day",
@@ -884,7 +952,7 @@ describe("schedule boundary values", () => {
       const goals = await db
         .select()
         .from(schema.goal)
-        .where(eq(schema.goal.habitId, result.habitId));
+        .where(eq(schema.goal.habitId, habitId));
       schedules = await db
         .select()
         .from(schema.schedule)
@@ -907,8 +975,10 @@ describe("UpdateHabit description edge cases", () => {
 
     beforeEach(async () => {
       const db = getDb();
-      const { habitId } = await processCommand(db, {
+      const habitId = crypto.randomUUID();
+      await processCommand(db, {
         type: "CreateHabit",
+        habitId,
         title: "No desc",
       });
       await processCommand(db, {
@@ -932,8 +1002,10 @@ describe("UpdateHabit description edge cases", () => {
 
     beforeEach(async () => {
       const db = getDb();
-      const { habitId } = await processCommand(db, {
+      const habitId = crypto.randomUUID();
+      await processCommand(db, {
         type: "CreateHabit",
+        habitId,
         title: "Keep me",
       });
       await processCommand(db, {
@@ -962,8 +1034,10 @@ describe("multiple check-ins", () => {
 
   beforeEach(async () => {
     const db = getDb();
-    const { habitId } = await processCommand(db, {
+    const habitId = crypto.randomUUID();
+    await processCommand(db, {
       type: "CreateHabit",
+      habitId,
       title: "Multi",
     });
     await createCheckIn(db, habitId);

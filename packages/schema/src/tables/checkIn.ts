@@ -1,21 +1,17 @@
-import { sqliteTable, integer, index, text } from "drizzle-orm/sqlite-core";
+import { sqliteTable, integer, index } from "drizzle-orm/sqlite-core";
 import { habit } from "./habit";
-import { isoTimestamp } from "./isoTimestamp";
-import { safeDefault } from "./safeDefault";
+import { uuid, timestamp } from "../columns";
+import { seqUuid } from "../seqUuid";
 
 export const checkIn = sqliteTable(
   "check_in",
   {
-    id: integer("id", { mode: "number" }).primaryKey({ autoIncrement: true }),
     /**
-     * Stable UUID used when the row is referenced in command envelopes shipped
-     * to the server. See `habit.externalId`.
+     * Stable UUID minted by the caller. Same value used in event payloads
+     * shipped to the server.
      */
-    externalId: text("external_id")
-      .notNull()
-      .unique()
-      .$defaultFn(safeDefault("checkIn.externalId", () => crypto.randomUUID())),
-    habitId: integer("habit_id", { mode: "number" })
+    id: uuid("id").primaryKey().$defaultFn(seqUuid),
+    habitId: uuid("habit_id")
       .notNull()
       .references(() => habit.id, { onDelete: "cascade" }),
     /**
@@ -25,7 +21,7 @@ export const checkIn = sqliteTable(
      * 8 a.m. (the slot); `createdAt` is 10 a.m. (the wall-clock recording
      * time). The default only fires if no value is given.
      */
-    timestamp: isoTimestamp("timestamp")
+    timestamp: timestamp("timestamp")
       .notNull()
       .$defaultFn(() => new Date()),
     skipped: integer("skipped", { mode: "boolean" }).notNull().default(false),
@@ -34,10 +30,10 @@ export const checkIn = sqliteTable(
      * overridable by callers. Compare against `timestamp` to see whether a
      * check-in was back-filled.
      */
-    createdAt: isoTimestamp("created_at")
+    createdAt: timestamp("created_at")
       .notNull()
       .$defaultFn(() => new Date()),
-    updatedAt: isoTimestamp("updated_at")
+    updatedAt: timestamp("updated_at")
       .notNull()
       .$defaultFn(() => new Date()),
   },

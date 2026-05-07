@@ -2,7 +2,7 @@ import { and, asc, count, desc, eq, gte, inArray, lt } from "drizzle-orm";
 import { checkIn, habit } from "@nag/schema";
 import type { AnyDb } from "../db";
 
-export const checkInsForHabit = (db: AnyDb, habitId: number) =>
+export const checkInsForHabit = (db: AnyDb, habitId: string) =>
   db
     .select()
     .from(checkIn)
@@ -22,7 +22,7 @@ export const calendarCheckIns = (db: AnyDb) =>
     .innerJoin(habit, eq(checkIn.habitId, habit.id))
     .orderBy(desc(checkIn.timestamp));
 
-export const checkInCount = (db: AnyDb, habitId: number, since?: Date) =>
+export const checkInCount = (db: AnyDb, habitId: string, since?: Date) =>
   db
     .select({ value: count() })
     .from(checkIn)
@@ -34,7 +34,7 @@ export const checkInCount = (db: AnyDb, habitId: number, since?: Date) =>
 
 export const recentCheckIns = (
   db: AnyDb,
-  habitId: number,
+  habitId: string,
   since?: Date,
   limit = 3,
 ) =>
@@ -58,7 +58,7 @@ export const recentCheckIns = (
  * in the same period — making the home-board tile's day cells
  * disagree with the habit-detail screen.
  */
-export const checkInsInPeriod = (db: AnyDb, habitId: number, since: Date) =>
+export const checkInsInPeriod = (db: AnyDb, habitId: string, since: Date) =>
   db
     .select({ timestamp: checkIn.timestamp })
     .from(checkIn)
@@ -72,7 +72,7 @@ export const checkInsInPeriod = (db: AnyDb, habitId: number, since: Date) =>
  */
 export const checkInsForHabitsOnDay = (
   db: AnyDb,
-  habitIds: number[],
+  habitIds: string[],
   dayStart: Date,
   dayEnd: Date,
 ) =>
@@ -85,7 +85,12 @@ export const checkInsForHabitsOnDay = (
     .from(checkIn)
     .where(
       and(
-        inArray(checkIn.habitId, habitIds.length > 0 ? habitIds : [-1]),
+        inArray(
+          checkIn.habitId,
+          habitIds.length > 0
+            ? habitIds
+            : ["00000000-0000-0000-0000-000000000000"],
+        ),
         gte(checkIn.timestamp, dayStart),
         lt(checkIn.timestamp, dayEnd),
       ),

@@ -37,8 +37,8 @@ type EventPayload =
  * Persists the events the handler emitted as a single outbox envelope row
  * in `pending` state. The dispatcher reads `events` (JSON-encoded
  * `[{type, payload}, ...]`), wraps it in a `WriteEventEnvelope`, and POSTs
- * to `/events`. `envelope_id` and `timestamp` are set by the table's
- * `$defaultFn`s.
+ * to `/events`. `id` (which doubles as the wire envelope id) and
+ * `created_at` are set by the table's `$defaultFn`s.
  */
 export async function enqueueEvents(
   db: AnyDb,
