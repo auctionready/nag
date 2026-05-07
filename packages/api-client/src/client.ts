@@ -1,7 +1,8 @@
-import axios, {
+import {
   isAxiosError,
   type InternalAxiosRequestConfig,
   AxiosHeaders,
+  create as createAxios,
 } from "axios";
 import { Zodios } from "@zodios/core";
 import { endpoints } from "./endpoint-definition";
@@ -71,7 +72,7 @@ export const createNagApiClient = ({
   timeoutMs = 30_000,
   validate,
 }: NagApiClientOptions) => {
-  const axiosInstance = axios.create({ timeout: timeoutMs });
+  const axiosInstance = createAxios({ timeout: timeoutMs });
 
   axiosInstance.interceptors.request.use(async (config) => {
     const token = await getToken();
