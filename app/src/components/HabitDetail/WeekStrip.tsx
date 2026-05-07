@@ -1,11 +1,12 @@
 import { Pressable, StyleSheet, Text, View } from "react-native";
-import { startOfWeek, addDays, startOfDay, isAfter } from "date-fns";
+import { startOfWeek, addDays, isAfter } from "date-fns";
 import {
   buildDayCells,
   dayTitles,
   isSameCalendarDay,
   mondayFirstDayLetters,
 } from "@nag/core";
+import { useStartOfToday } from "../../infrastructure/today";
 import { complianceColors } from "../getComplianceColor";
 
 interface WeekStripProps {
@@ -21,8 +22,6 @@ interface WeekStripProps {
   anyCheckInDaysMask?: number;
   /** Override for today's circle (partial/failing/compliant). */
   todayColor?: string;
-  /** Anchor day for the week (today by default). */
-  now?: Date;
   /** The currently selected day (for highlighting), or null if none. */
   selectedDay: Date | null;
   /**
@@ -48,10 +47,10 @@ export const WeekStrip = ({
   partialDaysMask,
   anyCheckInDaysMask,
   todayColor,
-  now = new Date(),
   selectedDay,
   onSelectDay,
 }: WeekStripProps) => {
+  const todayStart = useStartOfToday();
   const cells = buildDayCells({
     scheduledDaysMask,
     checkedInDaysMask,
@@ -61,11 +60,10 @@ export const WeekStrip = ({
     partialColor: complianceColors.partial,
     todayColor,
     missedColor: complianceColors.failing,
-    now,
+    now: todayStart,
   });
 
-  const mondayThisWeek = startOfWeek(now, { weekStartsOn: 1 });
-  const todayStart = startOfDay(now);
+  const mondayThisWeek = startOfWeek(todayStart, { weekStartsOn: 1 });
 
   return (
     <View style={styles.container}>

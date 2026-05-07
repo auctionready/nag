@@ -1,6 +1,6 @@
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useLiveQuery } from "drizzle-orm/expo-sqlite";
-import { parse, format, startOfToday } from "date-fns";
+import { parse, format } from "date-fns";
 import { db } from "../../db";
 import { getTitle, seqUuid } from "@nag/schema";
 import {
@@ -14,6 +14,7 @@ import {
   tileColor,
 } from "@nag/core";
 import { dispatch } from "../../infrastructure/dispatch";
+import { useStartOfToday } from "../../infrastructure/today";
 import { HabitDetail } from "../../components/HabitDetail";
 import { ComplianceHistory } from "../../components/HabitDetail/ComplianceHistory";
 import { complianceColors } from "../../components/getComplianceColor";
@@ -24,6 +25,7 @@ const HabitScreen = () => {
   const { id, day } = useLocalSearchParams<{ id: string; day?: string }>();
   const router = useRouter();
   const habitId = id ?? "";
+  const todayStart = useStartOfToday();
 
   const { data: habits } = useLiveQuery(habitById(db, habitId), [habitId]);
   const habitData = habits?.[0];
@@ -50,18 +52,18 @@ const HabitScreen = () => {
   // affordances on slot chips would feel disconnected from the strip above.
   const hasWeeklyDaysSchedule =
     goalData?.regularity === "week" && combineScheduleDays(schedules) !== 0;
-  const parsedDay = day ? parse(day, DAY_PARAM_FORMAT, new Date()) : null;
+  const parsedDay = day ? parse(day, DAY_PARAM_FORMAT, todayStart) : null;
   // Ignore a `?day=` pointing at the future — a deep link shouldn't bypass
   // the UI guard that prevents check-in / skip on days that haven't happened.
   const selectedDay =
-    parsedDay && parsedDay <= startOfToday()
+    parsedDay && parsedDay <= todayStart
       ? parsedDay
       : hasWeeklyDaysSchedule
-        ? startOfToday()
+        ? todayStart
         : null;
 
   const periodStartDate = goalData
-    ? periodStart(goalData.regularity)
+    ? periodStart(goalData.regularity, todayStart)
     : undefined;
   const periodStartKey = periodStartDate?.getTime() ?? 0;
   const { data: countRows } = useLiveQuery(
@@ -90,7 +92,7 @@ const HabitScreen = () => {
     // Guard against future-day selection at the route-param boundary as
     // well as the UI; the WeekStrip already disables future cells, but
     // this keeps a stray `?day=` URL from bypassing the guard.
-    if (nextDay && nextDay > startOfToday()) return;
+    if (nextDay && nextDay > todayStart) return;
     router.setParams({
       day: nextDay ? format(nextDay, DAY_PARAM_FORMAT) : undefined,
     });

@@ -1,6 +1,7 @@
 import { StyleSheet, Text, View, type ViewStyle } from "react-native";
 import Svg, { Line, Path } from "react-native-svg";
 import { mondayFirstDayLetters } from "@nag/core";
+import { useStartOfToday } from "../../infrastructure/today";
 import { tokens } from "../theme";
 
 interface DayIndicatorsProps {
@@ -11,6 +12,14 @@ interface DayIndicatorsProps {
   todayColor?: string;
   partialColor?: string;
   missedColor?: string;
+}
+
+interface BuildCellsArgs {
+  scheduledDaysMask: number;
+  checkedInDaysMask: number;
+  partialDaysMask?: number;
+  anyCheckInDaysMask?: number;
+  now: Date;
 }
 
 // State language for week-strip cells, mirroring the design:
@@ -42,15 +51,13 @@ interface Cell {
   isPast: boolean;
 }
 
-const buildCells = (
-  {
-    scheduledDaysMask,
-    checkedInDaysMask,
-    partialDaysMask = 0,
-    anyCheckInDaysMask = 0,
-  }: DayIndicatorsProps,
-  now: Date = new Date(),
-): Cell[] => {
+const buildCells = ({
+  scheduledDaysMask,
+  checkedInDaysMask,
+  partialDaysMask = 0,
+  anyCheckInDaysMask = 0,
+  now,
+}: BuildCellsArgs): Cell[] => {
   const todayBit = 1 << now.getDay();
   const todayIndex = mondayFirstDayLetters.findIndex(
     ({ day }) => day === todayBit,
@@ -76,7 +83,8 @@ const buildCells = (
 };
 
 export const DayIndicators = (props: DayIndicatorsProps) => {
-  const cells = buildCells(props);
+  const todayStart = useStartOfToday();
+  const cells = buildCells({ ...props, now: todayStart });
   return (
     <View style={styles.row}>
       {cells.map((cell, i) => (

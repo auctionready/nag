@@ -5,6 +5,7 @@ import { useRouter } from "expo-router";
 import { addDays, format, startOfDay } from "date-fns";
 import { schemas, type GetHabitComplianceResult } from "@nag/api-client";
 import { getHabitCompliance } from "../../infrastructure/apiClient";
+import { useStartOfToday } from "../../infrastructure/today";
 import { complianceColors } from "../getComplianceColor";
 
 type HabitComplianceHistory = schemas.HabitComplianceHistory;
@@ -18,7 +19,6 @@ const CELL_GAP = 4;
 interface ComplianceHistoryProps {
   /** The habit's externalId — backend keys compliance docs by it. */
   habitExternalId: string;
-  now?: Date;
 }
 
 type FetchState =
@@ -41,8 +41,8 @@ type FetchState =
  */
 export const ComplianceHistory = ({
   habitExternalId,
-  now = new Date(),
 }: ComplianceHistoryProps) => {
+  const todayStart = useStartOfToday();
   const { isLoaded, isSignedIn } = useAuth();
   const router = useRouter();
   const [state, setState] = useState<FetchState>({ kind: "idle" });
@@ -89,7 +89,7 @@ export const ComplianceHistory = ({
   return (
     <Card
       label="How am I doing"
-      body={<ComplianceStrip history={state.data} now={now} />}
+      body={<ComplianceStrip history={state.data} now={todayStart} />}
     />
   );
 };

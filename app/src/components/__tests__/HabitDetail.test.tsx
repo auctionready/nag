@@ -1,12 +1,20 @@
-import { render, fireEvent } from "@testing-library/react-native";
+import type { ReactElement } from "react";
+import { fireEvent } from "@testing-library/react-native";
 import { Alert } from "react-native";
 import type { ScheduleInfo } from "@nag/core";
 import { Day } from "@nag/core";
 import { HabitDetail } from "../HabitDetail";
 import { complianceColors } from "../getComplianceColor";
+import { renderWithToday } from "../../test-utils/renderWithToday";
 
 // 2025-06-15 is a Sunday
 const sundayAt = (h: number, m = 0) => new Date(2025, 5, 15, h, m);
+
+// Local render shim: every test in this suite needs a TodayProvider plus a
+// fixed system clock. Default to Sunday 10am — the historical fixture.
+// Tests that need a different "now" pass it as the second arg.
+const render = (ui: ReactElement, now: Date = sundayAt(10)) =>
+  renderWithToday(ui, { now });
 
 const baseProps = {
   title: "Exercise",
@@ -31,11 +39,18 @@ const baseProps = {
   onEdit: jest.fn(),
   onRemoveCheckIn: jest.fn(),
   onEditCheckInTimestamp: jest.fn(),
-  now: sundayAt(10),
 };
 
 beforeEach(() => {
   jest.clearAllMocks();
+  // `useStartOfToday` resolves system time at provider mount, and HabitDetail's
+  // sub-day logic reads `new Date()` per render. Both must observe the
+  // same fixture clock — fake timers anchor them.
+  jest.useFakeTimers();
+});
+
+afterEach(() => {
+  jest.useRealTimers();
 });
 
 describe("HabitDetail", () => {
@@ -215,8 +230,8 @@ describe("HabitDetail", () => {
               skipped: null,
             },
           ]}
-          now={sundayAt(20)}
         />,
+        sundayAt(20),
       );
       expect(view.getByText("+1 extra")).toBeTruthy();
     });
@@ -229,9 +244,9 @@ describe("HabitDetail", () => {
             regularity="day"
             frequency={3}
             schedules={schedules}
-            // No check-ins + now=14:00 → 8AM & 12PM chips are `missed`
-            now={sundayAt(14)}
           />,
+          // No check-ins + now=14:00 → 8AM & 12PM chips are `missed`
+          sundayAt(14),
         );
 
       const triggerLongPressOnEightAm = () => {
@@ -315,9 +330,9 @@ describe("HabitDetail", () => {
               skipped: null,
             },
           ]}
-          // 14:00 → 12 PM is now missed (past, unfilled).
-          now={sundayAt(14)}
         />,
+        // 14:00 → 12 PM is now missed (past, unfilled).
+        sundayAt(14),
       );
       // Missed 12 PM chip is interactive…
       expect(
@@ -402,8 +417,8 @@ describe("HabitDetail", () => {
             frequency={3}
             schedules={weeklySchedules}
             complianceColor={complianceColors.partial}
-            now={wednesdayNow}
           />,
+          wednesdayNow,
         );
         fireEvent.press(view.getByLabelText("Select Friday"));
         expect(baseProps.onSelectDay).not.toHaveBeenCalled();
@@ -417,8 +432,8 @@ describe("HabitDetail", () => {
             frequency={3}
             schedules={weeklySchedules}
             complianceColor={complianceColors.partial}
-            now={wednesdayNow}
           />,
+          wednesdayNow,
         );
         const friday = view.getByLabelText("Select Friday");
         expect(friday.props.accessibilityState).toEqual(
@@ -434,8 +449,8 @@ describe("HabitDetail", () => {
             frequency={3}
             schedules={weeklySchedules}
             complianceColor={complianceColors.partial}
-            now={wednesdayNow}
           />,
+          wednesdayNow,
         );
         // Past: Monday.
         fireEvent.press(view.getByLabelText("Select Monday"));

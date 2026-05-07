@@ -1,11 +1,11 @@
 import { StyleSheet, View, type ViewStyle } from "react-native";
 import Svg, { Path } from "react-native-svg";
 import { buildMonthCells, type MonthDayCell } from "@nag/core";
+import { useStartOfToday } from "../../infrastructure/today";
 import { tokens } from "../theme";
 
 interface MonthIndicatorsProps {
   checkIns: { timestamp: Date }[];
-  now?: Date;
 }
 
 // Cell language for the monthly strip. Monthly habits don't carry a per-day
@@ -17,8 +17,9 @@ interface MonthIndicatorsProps {
 //   future     — very subtle fill
 const COLUMNS = 10;
 
-export const MonthIndicators = ({ checkIns, now }: MonthIndicatorsProps) => {
-  const cells = buildMonthCells(checkIns, now);
+export const MonthIndicators = ({ checkIns }: MonthIndicatorsProps) => {
+  const todayStart = useStartOfToday();
+  const cells = buildMonthCells(checkIns, todayStart);
   const rows: MonthDayCell[][] = [];
   for (let i = 0; i < cells.length; i += COLUMNS) {
     rows.push(cells.slice(i, i + COLUMNS));

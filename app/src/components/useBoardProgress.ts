@@ -1,8 +1,9 @@
 import { useMemo } from "react";
 import { useLiveQuery } from "drizzle-orm/expo-sqlite";
-import { startOfDay, endOfDay } from "date-fns";
+import { endOfDay } from "date-fns";
 import { checkInsForHabitsOnDay } from "@nag/core";
 import { db } from "../db";
+import { useStartOfToday } from "../infrastructure/today";
 
 interface BoardProgress {
   /** Number of distinct habits with ≥1 (non-skipped) check-in today. */
@@ -22,9 +23,8 @@ interface BoardProgress {
  * the design's "3 of 5 done" framing.
  */
 export const useBoardProgress = (habitIds: string[]): BoardProgress => {
-  const now = useMemo(() => new Date(), []);
-  const dayStart = useMemo(() => startOfDay(now), [now]);
-  const dayEnd = useMemo(() => endOfDay(now), [now]);
+  const dayStart = useStartOfToday();
+  const dayEnd = useMemo(() => endOfDay(dayStart), [dayStart]);
 
   const { data: rows } = useLiveQuery(
     checkInsForHabitsOnDay(db, habitIds, dayStart, dayEnd),
