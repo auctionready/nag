@@ -18,6 +18,10 @@ import {
   periodWindow,
   type ScheduleInfo,
 } from "@nag/core";
+import {
+  epochMinuteToDate,
+  useCurrentEpochMinute,
+} from "../../infrastructure/today";
 import { complianceColors } from "../getComplianceColor";
 import { TodayCard } from "./TodayCard";
 import { WeekStrip } from "./WeekStrip";
@@ -72,8 +76,6 @@ export interface HabitDetailProps {
     timestamp: Date,
     skipped?: boolean,
   ) => void;
-  /** Injectable for tests; defaults to new Date() on each render. */
-  now?: Date;
 }
 
 const periodTitle = (regularity: Regularity | null): string => {
@@ -103,29 +105,37 @@ export const HabitDetail = ({
   onEdit,
   onRemoveCheckIn,
   onEditCheckInTimestamp,
-  now = new Date(),
 }: HabitDetailProps) => {
   const { bottom: safeBottom } = useSafeAreaInsets();
+  // `epochMinute` is stable across renders within the same minute, so every
+  // useMemo below caches across re-render storms (e.g. `useLiveQuery`
+  // refiring) and only recomputes when the clock crosses a minute
+  // boundary or the calendar day rolls over.
+  const epochMinute = useCurrentEpochMinute();
+  const now = useMemo(() => epochMinuteToDate(epochMinute), [epochMinute]);
 
-  const cardAnchor = useMemo(() => {
-    if (!selectedDay) return now;
-    if (isSameCalendarDay(selectedDay, now)) return now;
-    // Past day → end-of-day so unfilled slots read as "missed" (red).
-    // Future day → start-of-day so unfilled slots read as "upcoming" (white).
-    // Without this split, future days would erroneously paint upcoming
-    // slots red.
-    return selectedDay < now ? endOfDay(selectedDay) : startOfDay(selectedDay);
-  }, [selectedDay, now]);
+  const cardAnchor: Date = useMemo(
+    () =>
+      !selectedDay
+        ? now
+        : isSameCalendarDay(selectedDay, now)
+          ? now
+          : // Past day → end-of-day so unfilled slots read as "missed" (red).
+            // Future day → start-of-day so unfilled slots read as "upcoming"
+            // (white). Without this split, future days would erroneously
+            // paint upcoming slots red.
+            selectedDay < now
+            ? endOfDay(selectedDay)
+            : startOfDay(selectedDay),
+    [selectedDay, now],
+  );
 
+  // Scope check-ins to the current period so prior-period back-fills
+  // don't leak into this period's masks. Uses periodStart (Monday-first
+  // for `week`), which fixes the Sunday-boundary bug the old inline
+  // `start.setDate(start.getDate() - start.getDay())` introduced.
   const snap = useMemo(() => {
-    // Scope check-ins to the current period so prior-period back-fills
-    // don't leak into this period's masks. Uses periodStart (Monday-first
-    // for `week`), which fixes the Sunday-boundary bug the old inline
-    // `start.setDate(start.getDate() - start.getDay())` introduced.
     const periodStartDate = regularity ? periodStart(regularity, now) : null;
-    const periodCheckIns = periodStartDate
-      ? checkIns.filter((c) => c.timestamp >= periodStartDate)
-      : checkIns;
     const goal =
       regularity !== null && frequency !== null && goalCreatedAt != null
         ? { regularity, frequency, createdAt: goalCreatedAt }
@@ -133,10 +143,10 @@ export const HabitDetail = ({
     return habitProgressSnapshot({
       goal,
       schedules,
-      periodCheckIns: periodCheckIns.map((c) => ({
-        timestamp: c.timestamp,
-        skipped: c.skipped,
-      })),
+      periodCheckIns: (periodStartDate
+        ? checkIns.filter((c) => c.timestamp >= periodStartDate)
+        : checkIns
+      ).map((c) => ({ timestamp: c.timestamp, skipped: c.skipped })),
       periodCheckInCount: checkInsThisPeriod,
       now,
       anchor: cardAnchor,
@@ -369,7 +379,6 @@ export const HabitDetail = ({
             partialDaysMask={partialDaysMask}
             anyCheckInDaysMask={anyCheckInDaysMask}
             todayColor={complianceColor}
-            now={now}
             selectedDay={selectedDay}
             onSelectDay={onSelectDay}
           />

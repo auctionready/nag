@@ -17,10 +17,11 @@ import {
   useCalendarCheckIns,
   useSelectedDayCheckIns,
 } from "../../components/useCalendarCheckIns";
+import { useStartOfToday } from "../../infrastructure/today";
 import { WeekdayNames } from "@nag/core";
 
 const CalendarScreen = () => {
-  const today = startOfDay(new Date());
+  const today = useStartOfToday();
   const currentMonthStart = startOfMonth(today);
 
   const [currentMonth, setCurrentMonth] = useState(() => currentMonthStart);

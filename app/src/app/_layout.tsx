@@ -6,6 +6,7 @@ import { init, postMigrationInit } from "../infrastructure/init";
 import { useNotificationResponseHandler } from "../infrastructure/notificationResponseHandler";
 import { useForegroundNotificationSync } from "../infrastructure/foregroundSync";
 import { SyncStatusProvider } from "../infrastructure/syncStatus";
+import { TodayProvider } from "../infrastructure/today";
 import { SyncHaltedBanner } from "../components/SyncHaltedBanner";
 import { AppHeader } from "../components/AppHeader";
 import { getClerkPublishableKey, tokenCache } from "../infrastructure/clerk";
@@ -110,7 +111,9 @@ const RootLayout = () => {
       <ClerkOrPassthrough>
         <DatabaseProvider>
           <SyncStatusProvider>
-            <InnerLayout />
+            <TodayProvider>
+              <InnerLayout />
+            </TodayProvider>
           </SyncStatusProvider>
         </DatabaseProvider>
       </ClerkOrPassthrough>

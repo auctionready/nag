@@ -15,7 +15,6 @@ type WeeklyPeriodIndicatorsProps = {
 type MonthlyPeriodIndicatorsProps = {
   regularity: "month";
   checkIns: { timestamp: Date }[];
-  now?: Date;
 };
 
 export type PeriodIndicatorsProps =
@@ -24,7 +23,7 @@ export type PeriodIndicatorsProps =
 
 export const PeriodIndicators = (props: PeriodIndicatorsProps) => {
   if (props.regularity === "month") {
-    return <MonthIndicators checkIns={props.checkIns} now={props.now} />;
+    return <MonthIndicators checkIns={props.checkIns} />;
   }
   return (
     <DayIndicators

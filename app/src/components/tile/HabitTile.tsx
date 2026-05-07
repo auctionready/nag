@@ -3,6 +3,10 @@ import { useRouter } from "expo-router";
 import { habitProgressSnapshot } from "@nag/core";
 import { seqUuid } from "@nag/schema";
 import { dispatch } from "../../infrastructure/dispatch";
+import {
+  epochMinuteToDate,
+  useCurrentEpochMinute,
+} from "../../infrastructure/today";
 import { complianceColors } from "../getComplianceColor";
 import { useHabitGoalSummary } from "./useHabitGoalSummary";
 import { useHabitCompliance } from "./useHabitCompliance";
@@ -31,7 +35,8 @@ export const HabitTile = ({ id, title, icon }: HabitTileProps) => {
     schedules,
   } = useHabitCompliance(id, goal);
 
-  const now = new Date();
+  const epochMinute = useCurrentEpochMinute();
+  const now = epochMinuteToDate(epochMinute);
   const snap = habitProgressSnapshot({
     goal,
     schedules,
@@ -73,7 +78,7 @@ export const HabitTile = ({ id, title, icon }: HabitTileProps) => {
   );
 
   const periodIndicators: PeriodIndicatorsProps | undefined = isMonthly
-    ? { regularity: "month", checkIns: periodCheckIns, now }
+    ? { regularity: "month", checkIns: periodCheckIns }
     : dailyMasks
       ? {
           regularity: "day",

@@ -9,13 +9,17 @@ import {
 import type { ScheduleInfo } from "@nag/core";
 import { db } from "../../db";
 import { periodStart } from "../getComplianceColor";
+import { useStartOfToday } from "../../infrastructure/today";
 import type { HabitGoalSummary } from "./useHabitGoalSummary";
 
 export const useHabitCompliance = (
   habitId: string,
   goal: HabitGoalSummary | null,
 ) => {
-  const periodStartDate = goal ? periodStart(goal.regularity) : undefined;
+  const todayStart = useStartOfToday();
+  const periodStartDate = goal
+    ? periodStart(goal.regularity, todayStart)
+    : undefined;
   // Keying deps by epoch ms keeps useLiveQuery's effect stable across renders
   // — passing the Date directly produces a fresh reference each render and
   // re-subscribes the change listener on every setData, locking the JS thread
@@ -51,7 +55,10 @@ export const useHabitCompliance = (
 
   // Daily habits' periodCheckIns is just today, but the week-strip needs to
   // paint earlier days too. Fetch this week's check-ins separately for them.
-  const weekStartKey = useStableWeekStartKey();
+  // Keying by epoch ms (not the Date object) so useLiveQuery's effect stays
+  // stable across renders within the same week — same reasoning as
+  // periodStartKey above.
+  const weekStartKey = startOfWeek(todayStart, { weekStartsOn: 1 }).getTime();
   const { data: weekRows } = useLiveQuery(
     checkInsInPeriod(db, habitId, new Date(weekStartKey)),
     [habitId, weekStartKey],
@@ -70,8 +77,3 @@ export const useHabitCompliance = (
     schedules,
   };
 };
-
-// Returns the epoch ms of this week's Monday, stable for the lifetime of the
-// week (so `useLiveQuery` doesn't re-subscribe on every render).
-const useStableWeekStartKey = (): number =>
-  startOfWeek(new Date(), { weekStartsOn: 1 }).getTime();
