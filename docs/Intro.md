@@ -51,8 +51,10 @@ The app talks to SQLite through Drizzle, using the schema defined in
 - **Schedule** — a time slot (hour + minute) on one or more days of the week
   when the app should remind you about a goal. nag is not a calendar app, so
   schedules are weekday-based, not date-based.
-- **Audit log** — a persistent record of commands processed by the domain
-  layer, used for debugging and traceability.
+- **Outbox** — the local persisted log of committed user-intent envelopes.
+  Plays two roles: the pending queue the dispatcher pushes to the server
+  and the retained record of recent intents used for debugging. See
+  [`Model.md` § outbox](./Model.md#outbox).
 
 See the [Model](./Model.md) doc for the full database schema and how these
 entities relate.
