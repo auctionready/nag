@@ -9,21 +9,26 @@ export type DeleteHabitResult = {
   events: [HabitDeleted];
 };
 
-export async function handleDeleteHabit(
+export type DeleteHabitOutput = {
+  events: [HabitDeleted];
+  finalize: (applied: unknown[]) => DeleteHabitResult;
+};
+
+export const handleDeleteHabit = async (
   db: AnyDb,
-  command: DeleteHabit,
-): Promise<DeleteHabitResult> {
-  const deleted = await db
-    .delete(habit)
-    .where(eq(habit.id, command.habitId))
-    .returning({ externalId: habit.externalId });
-
-  if (deleted.length === 0) {
-    throw new Error(`DeleteHabit: habit id=${command.habitId} not found`);
+  { habitId }: DeleteHabit,
+): Promise<DeleteHabitOutput> => {
+  const [row] = await db
+    .select({ externalId: habit.externalId })
+    .from(habit)
+    .where(eq(habit.id, habitId));
+  if (!row) {
+    throw new Error(`DeleteHabit: habit id=${habitId} not found`);
   }
-
+  const { externalId } = row;
+  const event: HabitDeleted = { type: "HabitDeleted", habitId: externalId };
   return {
-    externalId: deleted[0].externalId,
-    events: [{ type: "HabitDeleted", habitId: deleted[0].externalId }],
+    events: [event],
+    finalize: () => ({ externalId, events: [event] }),
   };
-}
+};

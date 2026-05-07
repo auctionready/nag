@@ -1,24 +1,30 @@
 import type { AnyDb } from "../db";
 import { withTransaction } from "../db/transaction";
+import { applyEvent } from "../events/handlers";
 import { Command } from "./schemas";
 import type { HandlerMap } from "./handlers";
 import { handlers } from "./handlers";
-import { enqueueEvents, type HandlerEventsContext } from "./enqueueOutbox";
+import { enqueueEvents } from "./enqueueOutbox";
 import { syncAllNotifications } from "../notificationConsolidator";
 
-export type CommandResult<T extends Command> = Awaited<
-  ReturnType<HandlerMap[T["type"]]>
+export type CommandResult<T extends Command> = ReturnType<
+  Awaited<ReturnType<HandlerMap[T["type"]]>>["finalize"]
 >;
 
 /**
- * Executes a command transactionally: BEGIN → handler → enqueue → COMMIT,
- * then refreshes the OS notification schedule outside the transaction.
+ * Executes a command transactionally: BEGIN → handler → apply events →
+ * enqueue → COMMIT, then refreshes the OS notification schedule outside
+ * the transaction.
  *
- * The handler returns both the local-DB outcome (ids assigned by SQLite,
- * etc.) and the past-tense `events` the intent produced. `enqueueEvents`
- * writes those events as a single outbox envelope row so the dispatcher
- * can ship them to `POST /events` verbatim — keeping client and server
- * on the same event vocabulary.
+ * Command handlers are pure event producers — they read whatever state
+ * they need to validate the intent and emit one or more past-tense
+ * events, but never write to the DB themselves. The processor then
+ * dispatches each event through the type-keyed event registry
+ * (`applyEvent`) — the same registry server-replay uses — so the
+ * per-event-type DB logic has exactly one home, shared between the
+ * command path and `/sync` replay. The handler's `finalize` callback
+ * stitches the apply results (assigned local ids, schedule ids, etc.)
+ * into the caller-facing CommandResult shape.
  *
  * Notification sync runs post-commit because the expo-notifications API
  * calls (cancel + reschedule) can take seconds and used to block the
@@ -36,18 +42,25 @@ export type CommandResult<T extends Command> = Awaited<
 export async function processCommand<T extends Command>(
   db: AnyDb,
   input: T,
-): Promise<Awaited<ReturnType<HandlerMap[T["type"]]>>> {
+): Promise<CommandResult<T>> {
   const command = Command.parse(input) as T;
   const handler = handlers[command.type] as unknown as (
     db: AnyDb,
     command: T,
-  ) => ReturnType<HandlerMap[T["type"]]>;
+  ) => Promise<{
+    events: { type: string }[];
+    finalize: (applied: unknown[]) => CommandResult<T>;
+  }>;
 
-  type R = Awaited<ReturnType<HandlerMap[T["type"]]>>;
-  const result = await withTransaction<R>(db, async (): Promise<R> => {
-    const r = (await handler(db, command)) as R;
-    await enqueueEvents(db, r as unknown as HandlerEventsContext);
-    return r;
+  const result = await withTransaction<CommandResult<T>>(db, async () => {
+    const { events, finalize } = await handler(db, command);
+    const applied: unknown[] = [];
+    for (const event of events) {
+      const { type, ...payload } = event;
+      applied.push(await applyEvent(db, type, payload));
+    }
+    await enqueueEvents(db, { events: events as never });
+    return finalize(applied);
   });
 
   await syncAllNotifications(db);

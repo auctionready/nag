@@ -9,10 +9,15 @@ export type DeleteCheckInResult = {
   events: [CheckInDeleted];
 };
 
-export async function handleDeleteCheckIn(
+export type DeleteCheckInOutput = {
+  events: [CheckInDeleted];
+  finalize: (applied: unknown[]) => DeleteCheckInResult;
+};
+
+export const handleDeleteCheckIn = async (
   db: AnyDb,
-  command: DeleteCheckIn,
-): Promise<DeleteCheckInResult> {
+  { checkInId }: DeleteCheckIn,
+): Promise<DeleteCheckInOutput> => {
   const [row] = await db
     .select({
       externalId: checkIn.externalId,
@@ -20,11 +25,9 @@ export async function handleDeleteCheckIn(
       timestamp: checkIn.timestamp,
     })
     .from(checkIn)
-    .where(eq(checkIn.id, command.checkInId));
+    .where(eq(checkIn.id, checkInId));
   if (!row) {
-    throw new Error(
-      `DeleteCheckIn: check-in id=${command.checkInId} not found`,
-    );
+    throw new Error(`DeleteCheckIn: check-in id=${checkInId} not found`);
   }
   const [habitRow] = await db
     .select({ externalId: habit.externalId })
@@ -36,17 +39,16 @@ export async function handleDeleteCheckIn(
     );
   }
 
-  await db.delete(checkIn).where(eq(checkIn.id, command.checkInId));
+  const { externalId } = row;
+  const event: CheckInDeleted = {
+    type: "CheckInDeleted",
+    checkInId: externalId,
+    habitId: habitRow.externalId,
+    timestamp: row.timestamp,
+  };
 
   return {
-    externalId: row.externalId,
-    events: [
-      {
-        type: "CheckInDeleted",
-        checkInId: row.externalId,
-        habitId: habitRow.externalId,
-        timestamp: row.timestamp,
-      },
-    ],
+    events: [event],
+    finalize: () => ({ externalId, events: [event] }),
   };
-}
+};

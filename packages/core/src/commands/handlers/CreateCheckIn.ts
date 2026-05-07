@@ -1,8 +1,9 @@
 import { eq } from "drizzle-orm";
-import { checkIn, habit } from "@nag/schema";
+import { habit } from "@nag/schema";
 import type { AnyDb } from "../../db";
 import type { CreateCheckIn } from "../schemas";
 import type { CheckInRecorded } from "../../events";
+import type { CheckInRecordedResult } from "../../events/handlers/CheckInRecorded";
 
 export type CreateCheckInResult = {
   checkInId: number;
@@ -10,40 +11,42 @@ export type CreateCheckInResult = {
   events: [CheckInRecorded];
 };
 
-export async function handleCreateCheckIn(
+export type CreateCheckInOutput = {
+  events: [CheckInRecorded];
+  finalize: (applied: unknown[]) => CreateCheckInResult;
+};
+
+export const handleCreateCheckIn = async (
   db: AnyDb,
-  command: CreateCheckIn,
-): Promise<CreateCheckInResult> {
+  { habitId, timestamp, skipped }: CreateCheckIn,
+): Promise<CreateCheckInOutput> => {
   const [habitRow] = await db
     .select({ externalId: habit.externalId })
     .from(habit)
-    .where(eq(habit.id, command.habitId));
+    .where(eq(habit.id, habitId));
   if (!habitRow) {
-    throw new Error(`CreateCheckIn: habit id=${command.habitId} not found`);
+    throw new Error(`CreateCheckIn: habit id=${habitId} not found`);
   }
 
-  const [inserted] = await db
-    .insert(checkIn)
-    .values({
-      habitId: command.habitId,
-      // `timestamp` is the deemed slot time; `createdAt` is set by
-      // `$defaultFn` to the wall-clock time of this insert.
-      timestamp: command.timestamp,
-      skipped: command.skipped ?? false,
-    })
-    .returning({ id: checkIn.id, externalId: checkIn.externalId });
+  const externalId = crypto.randomUUID();
+  const event: CheckInRecorded = {
+    type: "CheckInRecorded",
+    checkInId: externalId,
+    habitId: habitRow.externalId,
+    timestamp,
+    skipped: skipped ?? false,
+  };
 
   return {
-    checkInId: inserted.id,
-    externalId: inserted.externalId,
-    events: [
-      {
-        type: "CheckInRecorded",
-        checkInId: inserted.externalId,
-        habitId: habitRow.externalId,
-        timestamp: command.timestamp,
-        skipped: command.skipped ?? false,
-      },
-    ],
+    events: [event],
+    finalize: (applied) => {
+      const r = applied[0] as CheckInRecordedResult;
+      if (r.checkInId == null) {
+        throw new Error(
+          "CreateCheckIn: CheckInRecorded apply did not return checkInId",
+        );
+      }
+      return { checkInId: r.checkInId, externalId, events: [event] };
+    },
   };
-}
+};

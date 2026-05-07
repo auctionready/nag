@@ -8,19 +8,24 @@ import type {
   CheckInMoved,
 } from "../../events";
 
-type Event = CheckInMoved | CheckInMarkedSkipped | CheckInMarkedDone;
+type UpdateCheckInEvent =
+  | CheckInMoved
+  | CheckInMarkedSkipped
+  | CheckInMarkedDone;
 
 export type UpdateCheckInResult = {
-  events: Event[];
+  events: UpdateCheckInEvent[];
 };
 
-export async function handleUpdateCheckIn(
+export type UpdateCheckInOutput = {
+  events: UpdateCheckInEvent[];
+  finalize: (applied: unknown[]) => UpdateCheckInResult;
+};
+
+export const handleUpdateCheckIn = async (
   db: AnyDb,
-  command: UpdateCheckIn,
-): Promise<UpdateCheckInResult> {
-  // Read the current row so we can build the precise events. We need
-  // both external ids (for the wire) and the prior timestamp / skipped
-  // state to decide whether the move and skip-toggle events are needed.
+  { checkInId, timestamp: newTimestamp, skipped: newSkipped }: UpdateCheckIn,
+): Promise<UpdateCheckInOutput> => {
   const [row] = await db
     .select({
       externalId: checkIn.externalId,
@@ -29,11 +34,9 @@ export async function handleUpdateCheckIn(
       skipped: checkIn.skipped,
     })
     .from(checkIn)
-    .where(eq(checkIn.id, command.checkInId));
+    .where(eq(checkIn.id, checkInId));
   if (!row) {
-    throw new Error(
-      `UpdateCheckIn: check-in id=${command.checkInId} not found`,
-    );
+    throw new Error(`UpdateCheckIn: check-in id=${checkInId} not found`);
   }
 
   const [habitRow] = await db
@@ -46,37 +49,26 @@ export async function handleUpdateCheckIn(
     );
   }
 
-  await db
-    .update(checkIn)
-    .set({
-      timestamp: command.timestamp,
-      ...(command.skipped !== undefined && { skipped: command.skipped }),
-      updatedAt: new Date(),
-    })
-    .where(eq(checkIn.id, command.checkInId));
+  const events: UpdateCheckInEvent[] = [];
 
-  const events: Event[] = [];
-
-  if (row.timestamp.getTime() !== command.timestamp.getTime()) {
-    const moved: CheckInMoved = {
+  if (row.timestamp.getTime() !== newTimestamp.getTime()) {
+    events.push({
       type: "CheckInMoved",
       checkInId: row.externalId,
       habitId: habitRow.externalId,
       oldTimestamp: row.timestamp,
-      newTimestamp: command.timestamp,
-    };
-    events.push(moved);
+      newTimestamp,
+    });
   }
 
-  if (command.skipped !== undefined && command.skipped !== row.skipped) {
-    const skipEvent: CheckInMarkedSkipped | CheckInMarkedDone = {
-      type: command.skipped ? "CheckInMarkedSkipped" : "CheckInMarkedDone",
+  if (newSkipped !== undefined && newSkipped !== row.skipped) {
+    events.push({
+      type: newSkipped ? "CheckInMarkedSkipped" : "CheckInMarkedDone",
       checkInId: row.externalId,
       habitId: habitRow.externalId,
-      timestamp: command.timestamp,
-    };
-    events.push(skipEvent);
+      timestamp: newTimestamp,
+    });
   }
 
-  return { events };
-}
+  return { events, finalize: () => ({ events }) };
+};
