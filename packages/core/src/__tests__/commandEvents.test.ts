@@ -39,8 +39,11 @@ const allEnvelopes = async (db: AnyDb): Promise<Entry[][]> => {
 describe("CreateHabit emits HabitCreated", () => {
   it("with no goal: goal is null", async () => {
     const db = getDb();
-    const { externalId } = await processCommand(db, {
+    const habitId = crypto.randomUUID();
+    const externalId = habitId;
+    await processCommand(db, {
       type: "CreateHabit",
+      habitId,
       title: "Read",
     });
 
@@ -61,8 +64,11 @@ describe("CreateHabit emits HabitCreated", () => {
 
   it("with a frequency goal: goal carries frequency, schedules:null", async () => {
     const db = getDb();
-    const { externalId } = await processCommand(db, {
+    const habitId = crypto.randomUUID();
+    const externalId = habitId;
+    await processCommand(db, {
       type: "CreateHabit",
+      habitId,
       title: "Meditate",
       goal: { regularity: "day", frequency: 2 },
     });
@@ -83,6 +89,7 @@ describe("CreateHabit emits HabitCreated", () => {
     const db = getDb();
     await processCommand(db, {
       type: "CreateHabit",
+      habitId: crypto.randomUUID(),
       title: "Exercise",
       goal: {
         regularity: "week",
@@ -109,8 +116,11 @@ describe("UpdateHabit event combinations", () => {
     db: AnyDb,
     overrides?: Partial<{ description: string; goalFreq: number }>,
   ) => {
-    const { habitId, externalId } = await processCommand(db, {
+    const habitId = crypto.randomUUID();
+    const externalId = habitId;
+    await processCommand(db, {
       type: "CreateHabit",
+      habitId,
       title: "Initial",
       ...(overrides?.description ? { description: overrides.description } : {}),
       ...(overrides?.goalFreq
@@ -311,8 +321,11 @@ describe("UpdateHabit event combinations", () => {
 describe("DeleteHabit emits HabitDeleted", () => {
   it("with the habit's externalId", async () => {
     const db = getDb();
-    const { habitId, externalId } = await processCommand(db, {
+    const habitId = crypto.randomUUID();
+    const externalId = habitId;
+    await processCommand(db, {
       type: "CreateHabit",
+      habitId,
       title: "Temp",
     });
     await processCommand(db, { type: "DeleteHabit", habitId });
@@ -327,13 +340,17 @@ describe("DeleteHabit emits HabitDeleted", () => {
 describe("CreateCheckIn emits CheckInRecorded", () => {
   it("with checkInId, habitId, timestamp, and skipped:false default", async () => {
     const db = getDb();
-    const { habitId, externalId: habitExt } = await processCommand(db, {
+    const habitId = crypto.randomUUID();
+    await processCommand(db, {
       type: "CreateHabit",
+      habitId,
       title: "Read",
     });
     const ts = new Date("2026-04-30T08:00:00.000Z");
-    const { externalId: checkInExt } = await processCommand(db, {
+    const checkInId = crypto.randomUUID();
+    await processCommand(db, {
       type: "CreateCheckIn",
+      checkInId,
       habitId,
       timestamp: ts,
     });
@@ -343,8 +360,8 @@ describe("CreateCheckIn emits CheckInRecorded", () => {
       {
         type: "CheckInRecorded",
         payload: {
-          checkInId: checkInExt,
-          habitId: habitExt,
+          checkInId: checkInId,
+          habitId: habitId,
           timestamp: ts.toISOString(),
           skipped: false,
         },
@@ -354,12 +371,15 @@ describe("CreateCheckIn emits CheckInRecorded", () => {
 
   it("preserves the skipped flag when explicitly set to true", async () => {
     const db = getDb();
-    const { habitId } = await processCommand(db, {
+    const habitId = crypto.randomUUID();
+    await processCommand(db, {
       type: "CreateHabit",
+      habitId,
       title: "Read",
     });
     await processCommand(db, {
       type: "CreateCheckIn",
+      checkInId: crypto.randomUUID(),
       habitId,
       timestamp: new Date(),
       skipped: true,
@@ -372,24 +392,28 @@ describe("CreateCheckIn emits CheckInRecorded", () => {
 
 describe("UpdateCheckIn event combinations", () => {
   const seedCheckIn = async (db: AnyDb, ts: Date, skipped = false) => {
-    const { habitId, externalId: habitExt } = await processCommand(db, {
+    const habitId = crypto.randomUUID();
+    await processCommand(db, {
       type: "CreateHabit",
+      habitId,
       title: "H",
     });
-    const { checkInId, externalId: checkInExt } = await processCommand(db, {
+    const checkInId = crypto.randomUUID();
+    await processCommand(db, {
       type: "CreateCheckIn",
+      checkInId,
       habitId,
       timestamp: ts,
       skipped,
     });
-    return { habitId, habitExt, checkInId, checkInExt };
+    return { habitId, checkInId };
   };
 
   it("timestamp changed only → [CheckInMoved]", async () => {
     const db = getDb();
     const oldTs = new Date("2026-04-30T08:00:00.000Z");
     const newTs = new Date("2026-04-30T09:00:00.000Z");
-    const { checkInId, checkInExt, habitExt } = await seedCheckIn(db, oldTs);
+    const { checkInId, habitId } = await seedCheckIn(db, oldTs);
 
     await processCommand(db, {
       type: "UpdateCheckIn",
@@ -402,8 +426,8 @@ describe("UpdateCheckIn event combinations", () => {
       {
         type: "CheckInMoved",
         payload: {
-          checkInId: checkInExt,
-          habitId: habitExt,
+          checkInId: checkInId,
+          habitId: habitId,
           oldTimestamp: oldTs.toISOString(),
           newTimestamp: newTs.toISOString(),
         },
@@ -414,7 +438,7 @@ describe("UpdateCheckIn event combinations", () => {
   it("skipped false→true (timestamp same) → [CheckInMarkedSkipped]", async () => {
     const db = getDb();
     const ts = new Date("2026-04-30T08:00:00.000Z");
-    const { checkInId, checkInExt, habitExt } = await seedCheckIn(db, ts);
+    const { checkInId, habitId } = await seedCheckIn(db, ts);
 
     await processCommand(db, {
       type: "UpdateCheckIn",
@@ -428,8 +452,8 @@ describe("UpdateCheckIn event combinations", () => {
       {
         type: "CheckInMarkedSkipped",
         payload: {
-          checkInId: checkInExt,
-          habitId: habitExt,
+          checkInId: checkInId,
+          habitId: habitId,
           timestamp: ts.toISOString(),
         },
       },
@@ -439,7 +463,7 @@ describe("UpdateCheckIn event combinations", () => {
   it("skipped true→false (timestamp same) → [CheckInMarkedDone]", async () => {
     const db = getDb();
     const ts = new Date("2026-04-30T08:00:00.000Z");
-    const { checkInId, checkInExt, habitExt } = await seedCheckIn(db, ts, true);
+    const { checkInId, habitId } = await seedCheckIn(db, ts, true);
 
     await processCommand(db, {
       type: "UpdateCheckIn",
@@ -453,8 +477,8 @@ describe("UpdateCheckIn event combinations", () => {
       {
         type: "CheckInMarkedDone",
         payload: {
-          checkInId: checkInExt,
-          habitId: habitExt,
+          checkInId: checkInId,
+          habitId: habitId,
           timestamp: ts.toISOString(),
         },
       },
@@ -465,7 +489,7 @@ describe("UpdateCheckIn event combinations", () => {
     const db = getDb();
     const oldTs = new Date("2026-04-30T08:00:00.000Z");
     const newTs = new Date("2026-04-30T09:30:00.000Z");
-    const { checkInId, checkInExt } = await seedCheckIn(db, oldTs);
+    const { checkInId } = await seedCheckIn(db, oldTs);
 
     await processCommand(db, {
       type: "UpdateCheckIn",
@@ -484,7 +508,7 @@ describe("UpdateCheckIn event combinations", () => {
       newTs.toISOString(),
     );
     expect((events![0].payload as { checkInId: string }).checkInId).toBe(
-      checkInExt,
+      checkInId,
     );
   });
 
@@ -544,12 +568,16 @@ describe("DeleteCheckIn emits CheckInDeleted", () => {
   it("carries the timestamp the row had at delete time", async () => {
     const db = getDb();
     const ts = new Date("2026-04-30T08:00:00.000Z");
-    const { habitId, externalId: habitExt } = await processCommand(db, {
+    const habitId = crypto.randomUUID();
+    await processCommand(db, {
       type: "CreateHabit",
+      habitId,
       title: "H",
     });
-    const { checkInId, externalId: checkInExt } = await processCommand(db, {
+    const checkInId = crypto.randomUUID();
+    await processCommand(db, {
       type: "CreateCheckIn",
+      checkInId,
       habitId,
       timestamp: ts,
     });
@@ -560,8 +588,8 @@ describe("DeleteCheckIn emits CheckInDeleted", () => {
       {
         type: "CheckInDeleted",
         payload: {
-          checkInId: checkInExt,
-          habitId: habitExt,
+          checkInId: checkInId,
+          habitId: habitId,
           timestamp: ts.toISOString(),
         },
       },

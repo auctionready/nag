@@ -41,7 +41,11 @@ describe("schema", () => {
   it("should insert and query a habit", async () => {
     const [inserted] = await db
       .insert(schema.habit)
-      .values({ title: "Exercise", description: "Daily workout" })
+      .values({
+        id: crypto.randomUUID(),
+        title: "Exercise",
+        description: "Daily workout",
+      })
       .returning();
 
     expect(inserted.id).toBeDefined();
@@ -58,7 +62,7 @@ describe("schema", () => {
   it("should insert a habit without description", async () => {
     const [inserted] = await db
       .insert(schema.habit)
-      .values({ title: "Stretch" })
+      .values({ id: crypto.randomUUID(), title: "Stretch" })
       .returning();
 
     expect(inserted.id).toBeDefined();
@@ -69,12 +73,16 @@ describe("schema", () => {
   it("should insert a check_in referencing a habit", async () => {
     const [habit] = await db
       .insert(schema.habit)
-      .values({ title: "Read", description: "Read daily" })
+      .values({
+        id: crypto.randomUUID(),
+        title: "Read",
+        description: "Read daily",
+      })
       .returning();
 
     const [checkIn] = await db
       .insert(schema.checkIn)
-      .values({ habitId: habit.id })
+      .values({ id: crypto.randomUUID(), habitId: habit.id })
       .returning();
 
     expect(checkIn.habitId).toBe(habit.id);
@@ -84,7 +92,11 @@ describe("schema", () => {
   it("should insert a goal referencing a habit", async () => {
     const [habit] = await db
       .insert(schema.habit)
-      .values({ title: "Meditate", description: "Daily meditation" })
+      .values({
+        id: crypto.randomUUID(),
+        title: "Meditate",
+        description: "Daily meditation",
+      })
       .returning();
 
     const [goal] = await db
@@ -100,7 +112,11 @@ describe("schema", () => {
   it("should enforce unique constraint on goal (habitId, regularity)", async () => {
     const [habit] = await db
       .insert(schema.habit)
-      .values({ title: "Walk", description: "Walk daily" })
+      .values({
+        id: crypto.randomUUID(),
+        title: "Walk",
+        description: "Walk daily",
+      })
       .returning();
 
     await db
@@ -117,10 +133,16 @@ describe("schema", () => {
   it("should cascade delete check_ins when habit is deleted", async () => {
     const [habit] = await db
       .insert(schema.habit)
-      .values({ title: "Temp", description: "Will be deleted" })
+      .values({
+        id: crypto.randomUUID(),
+        title: "Temp",
+        description: "Will be deleted",
+      })
       .returning();
 
-    await db.insert(schema.checkIn).values({ habitId: habit.id });
+    await db
+      .insert(schema.checkIn)
+      .values({ id: crypto.randomUUID(), habitId: habit.id });
 
     await db.delete(schema.habit).where(eq(schema.habit.id, habit.id));
 
@@ -135,7 +157,11 @@ describe("schema", () => {
   it("should cascade delete goals when habit is deleted", async () => {
     const [habit] = await db
       .insert(schema.habit)
-      .values({ title: "Temp2", description: "Will be deleted" })
+      .values({
+        id: crypto.randomUUID(),
+        title: "Temp2",
+        description: "Will be deleted",
+      })
       .returning();
 
     await db
@@ -153,13 +179,13 @@ describe("schema", () => {
   });
 
   describe("schedule table", () => {
-    let h: { id: number };
+    let h: { id: string };
     let g: { id: number };
 
     beforeEach(async () => {
       [h] = await db
         .insert(schema.habit)
-        .values({ title: "Scheduled" })
+        .values({ id: crypto.randomUUID(), title: "Scheduled" })
         .returning();
       [g] = await db
         .insert(schema.goal)
@@ -249,8 +275,8 @@ describe("schema", () => {
       expect(parsed[0].type).toBe("HabitCreated");
     });
 
-    it("auto-sets timestamp", () => {
-      expect(log.timestamp).toBeInstanceOf(Date);
+    it("auto-sets createdAt", () => {
+      expect(log.createdAt).toBeInstanceOf(Date);
     });
 
     it("defaults status to pending", () => {

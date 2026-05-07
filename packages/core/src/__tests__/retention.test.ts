@@ -77,9 +77,12 @@ describe("currentWeekBounds", () => {
  */
 const insertOldCheckIn = async (
   db: ReturnType<typeof getDb>,
-  habitId: number,
+  habitId: string,
   timestamp: Date,
-) => db.insert(schema.checkIn).values({ habitId, timestamp });
+) =>
+  db
+    .insert(schema.checkIn)
+    .values({ id: crypto.randomUUID(), habitId, timestamp });
 
 const seedOutbox = async (
   db: ReturnType<typeof getDb>,
@@ -100,8 +103,10 @@ const seedOutbox = async (
 describe("pruneOldCheckIns", () => {
   it("deletes check-ins older than the cutoff and keeps newer ones", async () => {
     const db = getDb();
-    const { habitId } = await processCommand(db, {
+    const habitId = crypto.randomUUID();
+    await processCommand(db, {
       type: "CreateHabit",
+      habitId,
       title: "Read",
     });
 
@@ -122,8 +127,10 @@ describe("pruneOldCheckIns", () => {
 
   it("is a no-op when no check-ins precede the cutoff", async () => {
     const db = getDb();
-    const { habitId } = await processCommand(db, {
+    const habitId = crypto.randomUUID();
+    await processCommand(db, {
       type: "CreateHabit",
+      habitId,
       title: "Read",
     });
     await insertOldCheckIn(db, habitId, new Date("2026-04-01T08:00:00.000Z"));
@@ -138,8 +145,10 @@ describe("pruneOldCheckIns", () => {
 describe("pruneOldCheckInsIfSafe", () => {
   it("prunes when the outbox is fully drained", async () => {
     const db = getDb();
-    const { habitId } = await processCommand(db, {
+    const habitId = crypto.randomUUID();
+    await processCommand(db, {
       type: "CreateHabit",
+      habitId,
       title: "Read",
     });
     await insertOldCheckIn(db, habitId, new Date("2026-01-15T08:00:00.000Z"));
@@ -164,8 +173,10 @@ describe("pruneOldCheckInsIfSafe", () => {
 
   it("skips when there are pending outbox rows", async () => {
     const db = getDb();
-    const { habitId } = await processCommand(db, {
+    const habitId = crypto.randomUUID();
+    await processCommand(db, {
       type: "CreateHabit",
+      habitId,
       title: "Read",
     });
     await insertOldCheckIn(db, habitId, new Date("2026-01-15T08:00:00.000Z"));
@@ -183,8 +194,10 @@ describe("pruneOldCheckInsIfSafe", () => {
 
   it("skips when there are failed outbox rows", async () => {
     const db = getDb();
-    const { habitId } = await processCommand(db, {
+    const habitId = crypto.randomUUID();
+    await processCommand(db, {
       type: "CreateHabit",
+      habitId,
       title: "Read",
     });
     await insertOldCheckIn(db, habitId, new Date("2026-01-15T08:00:00.000Z"));

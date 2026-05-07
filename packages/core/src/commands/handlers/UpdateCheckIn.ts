@@ -1,5 +1,5 @@
 import { eq } from "drizzle-orm";
-import { checkIn, habit } from "@nag/schema";
+import { checkIn } from "@nag/schema";
 import type { AnyDb } from "../../db";
 import type { UpdateCheckIn } from "../schemas";
 import type {
@@ -8,75 +8,53 @@ import type {
   CheckInMoved,
 } from "../../events";
 
-type Event = CheckInMoved | CheckInMarkedSkipped | CheckInMarkedDone;
+type UpdateCheckInEvent =
+  | CheckInMoved
+  | CheckInMarkedSkipped
+  | CheckInMarkedDone;
 
-export type UpdateCheckInResult = {
-  events: Event[];
-};
-
-export async function handleUpdateCheckIn(
+/**
+ * Reads the existing check-in to diff against the requested update — we
+ * only emit events for fields that actually changed. The wire-level
+ * events still carry `habitId`, the old/current `timestamp`, etc., so
+ * backend projections can resolve provenance without rewalking.
+ */
+export const handleUpdateCheckIn = async (
   db: AnyDb,
-  command: UpdateCheckIn,
-): Promise<UpdateCheckInResult> {
-  // Read the current row so we can build the precise events. We need
-  // both external ids (for the wire) and the prior timestamp / skipped
-  // state to decide whether the move and skip-toggle events are needed.
+  { checkInId, timestamp: newTimestamp, skipped: newSkipped }: UpdateCheckIn,
+): Promise<{ events: UpdateCheckInEvent[] }> => {
   const [row] = await db
     .select({
-      externalId: checkIn.externalId,
       habitId: checkIn.habitId,
       timestamp: checkIn.timestamp,
       skipped: checkIn.skipped,
     })
     .from(checkIn)
-    .where(eq(checkIn.id, command.checkInId));
+    .where(eq(checkIn.id, checkInId));
   if (!row) {
-    throw new Error(
-      `UpdateCheckIn: check-in id=${command.checkInId} not found`,
-    );
+    throw new Error(`UpdateCheckIn: check-in id=${checkInId} not found`);
   }
 
-  const [habitRow] = await db
-    .select({ externalId: habit.externalId })
-    .from(habit)
-    .where(eq(habit.id, row.habitId));
-  if (!habitRow) {
-    throw new Error(
-      `UpdateCheckIn: habit id=${row.habitId} for check-in not found`,
-    );
-  }
+  const events: UpdateCheckInEvent[] = [];
 
-  await db
-    .update(checkIn)
-    .set({
-      timestamp: command.timestamp,
-      ...(command.skipped !== undefined && { skipped: command.skipped }),
-      updatedAt: new Date(),
-    })
-    .where(eq(checkIn.id, command.checkInId));
-
-  const events: Event[] = [];
-
-  if (row.timestamp.getTime() !== command.timestamp.getTime()) {
-    const moved: CheckInMoved = {
+  if (row.timestamp.getTime() !== newTimestamp.getTime()) {
+    events.push({
       type: "CheckInMoved",
-      checkInId: row.externalId,
-      habitId: habitRow.externalId,
+      checkInId,
+      habitId: row.habitId,
       oldTimestamp: row.timestamp,
-      newTimestamp: command.timestamp,
-    };
-    events.push(moved);
+      newTimestamp,
+    });
   }
 
-  if (command.skipped !== undefined && command.skipped !== row.skipped) {
-    const skipEvent: CheckInMarkedSkipped | CheckInMarkedDone = {
-      type: command.skipped ? "CheckInMarkedSkipped" : "CheckInMarkedDone",
-      checkInId: row.externalId,
-      habitId: habitRow.externalId,
-      timestamp: command.timestamp,
-    };
-    events.push(skipEvent);
+  if (newSkipped !== undefined && newSkipped !== row.skipped) {
+    events.push({
+      type: newSkipped ? "CheckInMarkedSkipped" : "CheckInMarkedDone",
+      checkInId,
+      habitId: row.habitId,
+      timestamp: newTimestamp,
+    });
   }
 
   return { events };
-}
+};

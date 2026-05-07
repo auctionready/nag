@@ -22,7 +22,7 @@ describe("applyServerEvent HabitCreated", () => {
     const rows = await db.select().from(schema.habit);
     expect(rows).toHaveLength(1);
     expect(rows[0].title).toBe("Read");
-    expect(rows[0].externalId).toBe(habitExtId);
+    expect(rows[0].id).toBe(habitExtId);
   });
 
   it("is idempotent on replay", async () => {
@@ -166,7 +166,7 @@ describe("applyServerEvent CheckInRecorded", () => {
       },
     });
     const [c] = await db.select().from(schema.checkIn);
-    expect(c.externalId).toBe(checkInExtId);
+    expect(c.id).toBe(checkInExtId);
     expect(c.timestamp.toISOString()).toBe("2026-04-25T07:00:00.000Z");
   });
 
@@ -301,6 +301,6 @@ describe("applyServerEvent unknown type", () => {
         type: "NoSuchEvent",
         payload: {},
       }),
-    ).rejects.toThrow("unknown envelope type");
+    ).rejects.toThrow("unknown event type");
   });
 });

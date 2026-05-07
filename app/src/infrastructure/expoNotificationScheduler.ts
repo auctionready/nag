@@ -6,7 +6,7 @@ import type {
 import type { Regularity } from "@nag/schema";
 
 const notificationId = (
-  habitId: number,
+  habitId: string,
   scheduleId: number,
   dow?: number,
 ): string =>
@@ -20,7 +20,7 @@ const requestPermissions = async (): Promise<boolean> => {
 };
 
 export const expoNotificationScheduler: NotificationScheduler = {
-  cancelNotifications: async (habitId: number) => {
+  cancelNotifications: async (habitId: string) => {
     const all = await Notifications.getAllScheduledNotificationsAsync();
     const prefix = `habit-${habitId}-`;
     await Promise.all(
@@ -33,7 +33,7 @@ export const expoNotificationScheduler: NotificationScheduler = {
   },
 
   syncNotifications: async (
-    habitId: number,
+    habitId: string,
     title: string,
     schedules: NotificationScheduleEntry[],
     regularity: Regularity,

@@ -123,23 +123,19 @@ export const createDispatcher = ({
           return "halted";
         }
         const envelope: WriteEventEnvelope = {
-          id: row.envelopeId,
-          timestamp: row.timestamp.toISOString(),
+          id: row.id,
+          timestamp: row.createdAt.toISOString(),
           events,
         };
         const types = events.map((e) => e.type).join(",");
-        debug(
-          `dispatcher: POSTing row id=${row.id} envelope=${envelope.id} types=[${types}]`,
-        );
+        debug(`dispatcher: POSTing row id=${row.id} types=[${types}]`);
 
         let result;
         try {
           result = await post(envelope);
         } catch (err) {
           const message = err instanceof Error ? err.message : String(err);
-          error(
-            `dispatcher: post threw for row id=${row.id} envelope=${envelope.id}: ${message}`,
-          );
+          error(`dispatcher: post threw for row id=${row.id}: ${message}`);
           await markPendingWithError(db, row.id, message);
           onError?.(err);
           return "offline";

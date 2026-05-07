@@ -6,7 +6,7 @@ const navigateFor = (response: Notifications.NotificationResponse): void => {
   const data = response.notification.request.content.data;
   if (!data?.habitIds || !Array.isArray(data.habitIds)) return;
   const params = new URLSearchParams();
-  params.set("habitIds", (data.habitIds as number[]).join(","));
+  params.set("habitIds", (data.habitIds as string[]).join(","));
   if (typeof data.slotHour === "number") {
     params.set("h", String(data.slotHour));
   }

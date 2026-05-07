@@ -1,24 +1,28 @@
 import type { AnyDb } from "../db";
 import { withTransaction } from "../db/transaction";
+import { applyEvent } from "../events/handlers";
 import { Command } from "./schemas";
-import type { HandlerMap } from "./handlers";
 import { handlers } from "./handlers";
-import { audit, type HandlerEventsContext } from "./auditor";
+import { enqueueEvents } from "./enqueueOutbox";
 import { syncAllNotifications } from "../notificationConsolidator";
 
-export type CommandResult<T extends Command> = Awaited<
-  ReturnType<HandlerMap[T["type"]]>
->;
-
 /**
- * Executes a command transactionally: BEGIN → handler → audit → COMMIT,
- * then refreshes the OS notification schedule outside the transaction.
+ * Executes a command transactionally: BEGIN → handler → apply events →
+ * enqueue → COMMIT, then refreshes the OS notification schedule outside
+ * the transaction.
  *
- * The handler returns both the local-DB outcome (ids assigned by SQLite,
- * etc.) and the past-tense `events` the intent produced. The auditor
- * writes those events as a single outbox envelope row so the dispatcher
- * can ship them to `POST /events` verbatim — keeping client and server
- * on the same event vocabulary.
+ * Command handlers are pure event producers — they may read DB state to
+ * validate the intent or fill in wire fields (e.g. `UpdateCheckIn`
+ * reading the current row to compute the right diff event), but never
+ * write. The processor then dispatches each event through the type-keyed
+ * event registry (`applyEvent`) — the same registry server-replay uses —
+ * so the per-event-type DB logic has exactly one home, shared between
+ * the command path and `/sync` replay.
+ *
+ * Identities (habit ids, check-in ids, envelope ids) are minted by the
+ * caller — for entity ids, in the command itself; for the envelope id,
+ * by the schema's `outbox.id` `$defaultFn`. Nothing in this function
+ * generates a new identity, so there's no result to return.
  *
  * Notification sync runs post-commit because the expo-notifications API
  * calls (cancel + reschedule) can take seconds and used to block the
@@ -36,20 +40,21 @@ export type CommandResult<T extends Command> = Awaited<
 export async function processCommand<T extends Command>(
   db: AnyDb,
   input: T,
-): Promise<Awaited<ReturnType<HandlerMap[T["type"]]>>> {
+): Promise<void> {
   const command = Command.parse(input) as T;
   const handler = handlers[command.type] as unknown as (
     db: AnyDb,
     command: T,
-  ) => ReturnType<HandlerMap[T["type"]]>;
+  ) => Promise<{ events: { type: string }[] }>;
 
-  type R = Awaited<ReturnType<HandlerMap[T["type"]]>>;
-  const result = await withTransaction<R>(db, async (): Promise<R> => {
-    const r = (await handler(db, command)) as R;
-    await audit(db, r as unknown as HandlerEventsContext);
-    return r;
+  await withTransaction<void>(db, async () => {
+    const { events } = await handler(db, command);
+    for (const event of events) {
+      const { type, ...payload } = event;
+      await applyEvent(db, type, payload);
+    }
+    await enqueueEvents(db, { events: events as never });
   });
 
   await syncAllNotifications(db);
-  return result;
 }

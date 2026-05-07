@@ -38,7 +38,7 @@ describe("installSnapshot", () => {
     await installSnapshot(db, 17, sampleSnapshot);
 
     const [h] = await db.select().from(schema.habit);
-    expect(h.externalId).toBe(habitId);
+    expect(h.id).toBe(habitId);
     expect(h.title).toBe("Read");
 
     const [g] = await db.select().from(schema.goal);
@@ -50,27 +50,35 @@ describe("installSnapshot", () => {
 
     const ci = await db.select().from(schema.checkIn);
     expect(ci).toHaveLength(1);
-    expect(ci[0].externalId).toBe(checkInId);
+    expect(ci[0].id).toBe(checkInId);
   });
 
   it("flushes pre-existing replicated rows", async () => {
     const db = getDb();
     // Pre-populate via processCommand so the rows look real (and seed
     // a pending outbox row in the process).
-    await processCommand(db, { type: "CreateHabit", title: "Old habit" });
+    await processCommand(db, {
+      type: "CreateHabit",
+      habitId: crypto.randomUUID(),
+      title: "Old habit",
+    });
     expect(await db.select().from(schema.habit)).toHaveLength(1);
 
     await installSnapshot(db, 50, sampleSnapshot);
 
     const habits = await db.select().from(schema.habit);
     expect(habits).toHaveLength(1);
-    expect(habits[0].externalId).toBe(habitId);
+    expect(habits[0].id).toBe(habitId);
     expect(habits[0].title).toBe("Read");
   });
 
   it("clears the outbox", async () => {
     const db = getDb();
-    await processCommand(db, { type: "CreateHabit", title: "Pending" });
+    await processCommand(db, {
+      type: "CreateHabit",
+      habitId: crypto.randomUUID(),
+      title: "Pending",
+    });
     expect(await db.select().from(schema.outbox)).not.toHaveLength(0);
 
     await installSnapshot(db, 50, sampleSnapshot);
@@ -96,7 +104,11 @@ describe("installSnapshot", () => {
 
   it("handles empty snapshot", async () => {
     const db = getDb();
-    await processCommand(db, { type: "CreateHabit", title: "Will be wiped" });
+    await processCommand(db, {
+      type: "CreateHabit",
+      habitId: crypto.randomUUID(),
+      title: "Will be wiped",
+    });
 
     await installSnapshot(db, 5, { habits: [] });
 

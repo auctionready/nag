@@ -335,11 +335,17 @@ export const SyncStatusProvider = ({ children }: PropsWithChildren) => {
             pullResult,
             elapsedMs: Date.now() - started,
           });
-          if (pullResult === "halted")
-            setStatus("halted", `inner:pull-halted:run[${runId}]`);
-          else if (pullResult === "offline")
-            setStatus("offline", `inner:pull-offline:run[${runId}]`);
-          else setStatus("idle", `inner:pull-idle:run[${runId}]`);
+          switch (pullResult) {
+            case "halted":
+              setStatus("halted", `inner:pull-halted:run[${runId}]`);
+              break;
+            case "offline":
+              setStatus("offline", `inner:pull-offline:run[${runId}]`);
+              break;
+            case "idle":
+              setStatus("idle", `inner:pull-idle:run[${runId}]`);
+              break;
+          }
         }
       } catch (e) {
         logger.error(`run[${runId}] threw (${Date.now() - started}ms)`, e);

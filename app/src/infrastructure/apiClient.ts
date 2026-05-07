@@ -138,17 +138,17 @@ export const pairDevice = (request: {
   label?: string | null;
 }): Promise<PairDeviceResult> => apiPairDevice(getApiClient(), request, logger);
 
+export const getHabitCompliance = (
+  habitId: string,
+): Promise<GetHabitComplianceResult> =>
+  apiGetHabitCompliance(getApiClient(), habitId, logger);
+
 /**
  * Adapter from `@nag/api-client.getSync` (returns a Zodios-typed body)
  * to `@nag/core.GetSyncFn` (the loose `SyncResult` shape the pull-sync
  * orchestrator works with). The cast is safe because the Zodios schema
  * mirrors `SyncResult` field-for-field.
  */
-export const getHabitCompliance = (
-  habitId: string,
-): Promise<GetHabitComplianceResult> =>
-  apiGetHabitCompliance(getApiClient(), habitId, logger);
-
 export const getSync: GetSyncFn = async (since) => {
   const result: GetSyncResult = await apiGetSync(getApiClient(), since, logger);
   if (result.ok) {

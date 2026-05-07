@@ -1,49 +1,34 @@
 import { eq } from "drizzle-orm";
-import { checkIn, habit } from "@nag/schema";
+import { habit } from "@nag/schema";
 import type { AnyDb } from "../../db";
 import type { CreateCheckIn } from "../schemas";
 import type { CheckInRecorded } from "../../events";
 
-export type CreateCheckInResult = {
-  checkInId: number;
-  externalId: string;
-  events: [CheckInRecorded];
-};
-
-export async function handleCreateCheckIn(
+/**
+ * Validates the target habit exists before emitting the event so a
+ * stray local command can't leave a no-op event in the outbox. The
+ * apply path itself is tolerant of a missing parent (sync replay can
+ * arrive out of order); only the user-driven local command needs the
+ * up-front check.
+ */
+export const handleCreateCheckIn = async (
   db: AnyDb,
-  command: CreateCheckIn,
-): Promise<CreateCheckInResult> {
-  const [habitRow] = await db
-    .select({ externalId: habit.externalId })
+  { checkInId, habitId, timestamp, skipped }: CreateCheckIn,
+): Promise<{ events: [CheckInRecorded] }> => {
+  const [parent] = await db
+    .select({ id: habit.id })
     .from(habit)
-    .where(eq(habit.id, command.habitId));
-  if (!habitRow) {
-    throw new Error(`CreateCheckIn: habit id=${command.habitId} not found`);
+    .where(eq(habit.id, habitId));
+  if (!parent) {
+    throw new Error(`CreateCheckIn: habit id=${habitId} not found`);
   }
 
-  const [inserted] = await db
-    .insert(checkIn)
-    .values({
-      habitId: command.habitId,
-      // `timestamp` is the deemed slot time; `createdAt` is set by
-      // `$defaultFn` to the wall-clock time of this insert.
-      timestamp: command.timestamp,
-      skipped: command.skipped ?? false,
-    })
-    .returning({ id: checkIn.id, externalId: checkIn.externalId });
-
-  return {
-    checkInId: inserted.id,
-    externalId: inserted.externalId,
-    events: [
-      {
-        type: "CheckInRecorded",
-        checkInId: inserted.externalId,
-        habitId: habitRow.externalId,
-        timestamp: command.timestamp,
-        skipped: command.skipped ?? false,
-      },
-    ],
+  const event: CheckInRecorded = {
+    type: "CheckInRecorded",
+    checkInId,
+    habitId,
+    timestamp,
+    skipped: skipped ?? false,
   };
-}
+  return { events: [event] };
+};

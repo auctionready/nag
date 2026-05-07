@@ -32,7 +32,10 @@ const seedDailyHabit = async (
   reminder = true,
 ) => {
   const db = getDb();
-  const [h] = await db.insert(schema.habit).values({ title }).returning();
+  const [h] = await db
+    .insert(schema.habit)
+    .values({ id: crypto.randomUUID(), title })
+    .returning();
   const [g] = await db
     .insert(schema.goal)
     .values({ habitId: h.id, regularity: "day", frequency: 1 })
@@ -51,7 +54,10 @@ const seedWeeklyHabit = async (
   reminder = true,
 ) => {
   const db = getDb();
-  const [h] = await db.insert(schema.habit).values({ title }).returning();
+  const [h] = await db
+    .insert(schema.habit)
+    .values({ id: crypto.randomUUID(), title })
+    .returning();
   const [g] = await db
     .insert(schema.goal)
     .values({ habitId: h.id, regularity: "week", frequency: 1 })
@@ -70,7 +76,10 @@ const seedMonthlyHabit = async (
   reminder = true,
 ) => {
   const db = getDb();
-  const [h] = await db.insert(schema.habit).values({ title }).returning();
+  const [h] = await db
+    .insert(schema.habit)
+    .values({ id: crypto.randomUUID(), title })
+    .returning();
   const [g] = await db
     .insert(schema.goal)
     .values({ habitId: h.id, regularity: "month", frequency: 1 })
@@ -82,12 +91,14 @@ const seedMonthlyHabit = async (
 };
 
 const insertCheckIn = async (
-  habitId: number,
+  habitId: string,
   timestamp: Date,
   skipped = false,
 ) => {
   const db = getDb();
-  await db.insert(schema.checkIn).values({ habitId, timestamp, skipped });
+  await db
+    .insert(schema.checkIn)
+    .values({ id: crypto.randomUUID(), habitId, timestamp, skipped });
 };
 
 describe("syncAllNotifications", () => {

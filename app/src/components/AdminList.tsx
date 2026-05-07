@@ -1,7 +1,7 @@
 import { FlatList, Pressable, StyleSheet, Text, View } from "react-native";
 
 interface Habit {
-  id: number;
+  id: string;
   title: string;
   description: string | null;
 }
@@ -9,7 +9,7 @@ interface Habit {
 export interface AdminListProps {
   habits: Habit[];
   onAddHabit: () => void;
-  onEditHabit: (id: number) => void;
+  onEditHabit: (id: string) => void;
 }
 
 export const AdminList = ({

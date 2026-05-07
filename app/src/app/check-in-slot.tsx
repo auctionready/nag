@@ -11,6 +11,7 @@ import {
   schedulesForHabits,
   type SlotState,
 } from "@nag/core";
+import { seqUuid } from "@nag/schema";
 import { dispatch } from "../infrastructure/dispatch";
 import {
   SlotCheckIn,
@@ -26,10 +27,7 @@ const CheckInSlotScreen = () => {
     m: slotMinuteRaw,
   } = useLocalSearchParams<{ habitIds: string; h?: string; m?: string }>();
   const router = useRouter();
-  const habitIds = (rawIds ?? "")
-    .split(",")
-    .map(Number)
-    .filter((n) => !isNaN(n) && n > 0);
+  const habitIds = (rawIds ?? "").split(",").filter((s) => s.length > 0);
   const slotHour = slotHourRaw !== undefined ? Number(slotHourRaw) : undefined;
   const slotMinute =
     slotMinuteRaw !== undefined ? Number(slotMinuteRaw) : undefined;
@@ -55,17 +53,19 @@ const CheckInSlotScreen = () => {
     rawIds,
   ]);
 
-  const handleCheckIn = useCallback(async (habitId: number) => {
+  const handleCheckIn = useCallback(async (habitId: string) => {
     await dispatch({
       type: "CreateCheckIn",
+      checkInId: seqUuid(),
       habitId,
       timestamp: new Date(),
     });
   }, []);
 
-  const handleSkip = useCallback(async (habitId: number) => {
+  const handleSkip = useCallback(async (habitId: string) => {
     await dispatch({
       type: "CreateCheckIn",
+      checkInId: seqUuid(),
       habitId,
       timestamp: new Date(),
       skipped: true,

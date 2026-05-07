@@ -82,8 +82,16 @@ const GoalPayload = z
     }
   });
 
+/**
+ * Strong-entity ids are caller-minted UUIDs. The same value is the local
+ * PK and the server-side identity, so commands carry it explicitly rather
+ * than asking the processor to fish back a generated id.
+ */
+const Uuid = z.string().min(1);
+
 export const CreateHabit = z.object({
   type: z.literal("CreateHabit"),
+  habitId: Uuid,
   title: z.string().min(1),
   description: z.string().optional(),
   icon: z.string().optional(),
@@ -92,7 +100,7 @@ export const CreateHabit = z.object({
 
 export const UpdateHabit = z.object({
   type: z.literal("UpdateHabit"),
-  habitId: z.int().positive(),
+  habitId: Uuid,
   title: z.string().min(1).optional(),
   description: z.string().nullable().optional(),
   icon: z.string().nullable().optional(),
@@ -101,12 +109,13 @@ export const UpdateHabit = z.object({
 
 export const DeleteHabit = z.object({
   type: z.literal("DeleteHabit"),
-  habitId: z.int().positive(),
+  habitId: Uuid,
 });
 
 export const CreateCheckIn = z.object({
   type: z.literal("CreateCheckIn"),
-  habitId: z.int().positive(),
+  checkInId: Uuid,
+  habitId: Uuid,
   /**
    * The deemed slot time for this check-in. For a regular "check in right
    * now" tap this is `new Date()`; for a long-press back-fill of a missed
@@ -119,12 +128,12 @@ export const CreateCheckIn = z.object({
 
 export const DeleteCheckIn = z.object({
   type: z.literal("DeleteCheckIn"),
-  checkInId: z.int().positive(),
+  checkInId: Uuid,
 });
 
 export const UpdateCheckIn = z.object({
   type: z.literal("UpdateCheckIn"),
-  checkInId: z.int().positive(),
+  checkInId: Uuid,
   timestamp: z.coerce.date(),
   skipped: z.boolean().optional(),
 });

@@ -15,8 +15,8 @@ jest.mock("../SyncDot", () => ({
 }));
 
 const mockHabits = [
-  { id: 1, title: "Exercise" },
-  { id: 2, title: "Read" },
+  { id: "h-1", title: "Exercise" },
+  { id: "h-2", title: "Read" },
 ];
 
 describe("Board", () => {
@@ -73,8 +73,14 @@ describe("Board", () => {
 
     it("calls renderTile for each habit", () => {
       expect(mockRenderTile).toHaveBeenCalledTimes(2);
-      expect(mockRenderTile).toHaveBeenCalledWith({ id: 1, title: "Exercise" });
-      expect(mockRenderTile).toHaveBeenCalledWith({ id: 2, title: "Read" });
+      expect(mockRenderTile).toHaveBeenCalledWith({
+        id: "h-1",
+        title: "Exercise",
+      });
+      expect(mockRenderTile).toHaveBeenCalledWith({
+        id: "h-2",
+        title: "Read",
+      });
     });
   });
 });

@@ -6,7 +6,7 @@ import { tokens } from "./theme";
 import { useBoardProgress } from "./useBoardProgress";
 
 interface Habit {
-  id: number;
+  id: string;
   title: string;
 }
 

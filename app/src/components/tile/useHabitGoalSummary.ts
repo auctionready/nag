@@ -3,7 +3,7 @@ import { getTitle } from "@nag/schema";
 import { goalForHabit } from "@nag/core";
 import { db } from "../../db";
 
-const useHabitGoalSummary = (habitId: number) => {
+const useHabitGoalSummary = (habitId: string) => {
   const { data: goals } = useLiveQuery(goalForHabit(db, habitId), [habitId]);
 
   const goalData = goals?.[0];

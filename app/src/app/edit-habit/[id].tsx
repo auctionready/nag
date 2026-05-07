@@ -11,7 +11,7 @@ import { buildGoalPayload } from "../../operations";
 const EditHabitScreen = () => {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
-  const habitId = Number(id);
+  const habitId = id ?? "";
 
   const { data: habits } = useLiveQuery(habitById(db, habitId), [habitId]);
   const habitData = habits?.[0];

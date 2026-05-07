@@ -8,6 +8,7 @@ import {
   outbox,
   syncState,
   identity,
+  seqUuid,
 } from "@nag/schema";
 import {
   Day,
@@ -23,7 +24,7 @@ import {
 import { db } from "./index";
 
 interface SeedEntry {
-  command: CreateHabit;
+  command: Omit<CreateHabit, "habitId">;
   checkIns?: { daysAgo: number }[];
 }
 
@@ -238,19 +239,21 @@ export const seedSampleData = async () => {
 
   try {
     for (const entry of sampleData) {
-      const result = await processCommand(db, entry.command);
+      const habitId = seqUuid();
+      await processCommand(db, { ...entry.command, habitId });
 
       if (entry.command.goal) {
         await db
           .update(goal)
           .set({ createdAt: goalCreatedAt, updatedAt: goalCreatedAt })
-          .where(eq(goal.habitId, result.habitId));
+          .where(eq(goal.habitId, habitId));
       }
 
       for (const ci of entry.checkIns ?? []) {
         await processCommand(db, {
           type: "CreateCheckIn",
-          habitId: result.habitId,
+          checkInId: seqUuid(),
+          habitId,
           timestamp: subDays(now, ci.daysAgo),
         });
       }

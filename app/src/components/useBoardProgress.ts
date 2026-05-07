@@ -21,7 +21,7 @@ interface BoardProgress {
  * today's date. Coarse — a multi-slot habit only needs one — but matches
  * the design's "3 of 5 done" framing.
  */
-export const useBoardProgress = (habitIds: number[]): BoardProgress => {
+export const useBoardProgress = (habitIds: string[]): BoardProgress => {
   const now = useMemo(() => new Date(), []);
   const dayStart = useMemo(() => startOfDay(now), [now]);
   const dayEnd = useMemo(() => endOfDay(now), [now]);
@@ -33,7 +33,7 @@ export const useBoardProgress = (habitIds: number[]): BoardProgress => {
 
   const doneCount = useMemo(() => {
     if (!rows) return 0;
-    const done = new Set<number>();
+    const done = new Set<string>();
     for (const r of rows) {
       if (!r.skipped) done.add(r.habitId);
     }

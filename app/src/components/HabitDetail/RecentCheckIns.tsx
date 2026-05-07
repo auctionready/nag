@@ -12,7 +12,7 @@ import { isSameCalendarDay } from "@nag/core";
 import { complianceColors } from "../getComplianceColor";
 
 export interface RecentCheckInItem {
-  id: number;
+  id: string;
   /** Deemed slot time — what the check-in is credited to. */
   timestamp: Date;
   /** Wall-clock insert time. Differs from `timestamp` for back-filled check-ins. */
@@ -29,8 +29,8 @@ interface RecentCheckInsProps {
   title: string;
   /** True when the list is scoped to a single calendar day; controls timestamp format. */
   singleDay: boolean;
-  onRemove: (id: number) => void;
-  onEditTimestamp?: (id: number, timestamp: Date) => void;
+  onRemove: (id: string) => void;
+  onEditTimestamp?: (id: string, timestamp: Date) => void;
 }
 
 const TIME_ONLY = "h:mm a";
@@ -72,12 +72,12 @@ export const RecentCheckIns = ({
 
   const fmt = singleDay ? TIME_ONLY : FULL_FMT;
 
-  const handleRemove = (id: number) => {
+  const handleRemove = (id: string) => {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     onRemove(id);
   };
 
-  const renderRightActions = (id: number) => (
+  const renderRightActions = (id: string) => (
     <Pressable
       onPress={() => handleRemove(id)}
       style={styles.removeAction}
@@ -88,7 +88,7 @@ export const RecentCheckIns = ({
     </Pressable>
   );
 
-  const renderLeftActions = (id: number, timestamp: Date) => {
+  const renderLeftActions = (id: string, timestamp: Date) => {
     if (!onEditTimestamp) return null;
     return (
       <Pressable

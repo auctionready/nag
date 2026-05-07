@@ -1,4 +1,4 @@
-import { processCommand, type Command, type CommandResult } from "@nag/core";
+import { processCommand, type Command } from "@nag/core";
 import { db } from "../db";
 import { postCommitBus } from "./postCommitBus";
 import { log } from "./log";
@@ -15,13 +15,12 @@ const logger = log("dispatch");
  */
 export const dispatch = async <T extends Command>(
   command: T,
-): Promise<CommandResult<T>> => {
+): Promise<void> => {
   logger.debug(`start ${command.type}`, command);
   try {
-    const result = await processCommand(db, command);
-    logger.debug(`committed ${command.type}`, result);
+    await processCommand(db, command);
+    logger.debug(`committed ${command.type}`);
     postCommitBus.emit();
-    return result;
   } catch (error) {
     logger.error(`failed ${command.type}`, error);
     throw error;
