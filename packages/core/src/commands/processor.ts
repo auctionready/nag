@@ -3,7 +3,7 @@ import { withTransaction } from "../db/transaction";
 import { Command } from "./schemas";
 import type { HandlerMap } from "./handlers";
 import { handlers } from "./handlers";
-import { audit, type HandlerEventsContext } from "./auditor";
+import { enqueueEvents, type HandlerEventsContext } from "./enqueueOutbox";
 import { syncAllNotifications } from "../notificationConsolidator";
 
 export type CommandResult<T extends Command> = Awaited<
@@ -11,11 +11,11 @@ export type CommandResult<T extends Command> = Awaited<
 >;
 
 /**
- * Executes a command transactionally: BEGIN → handler → audit → COMMIT,
+ * Executes a command transactionally: BEGIN → handler → enqueue → COMMIT,
  * then refreshes the OS notification schedule outside the transaction.
  *
  * The handler returns both the local-DB outcome (ids assigned by SQLite,
- * etc.) and the past-tense `events` the intent produced. The auditor
+ * etc.) and the past-tense `events` the intent produced. `enqueueEvents`
  * writes those events as a single outbox envelope row so the dispatcher
  * can ship them to `POST /events` verbatim — keeping client and server
  * on the same event vocabulary.
@@ -46,7 +46,7 @@ export async function processCommand<T extends Command>(
   type R = Awaited<ReturnType<HandlerMap[T["type"]]>>;
   const result = await withTransaction<R>(db, async (): Promise<R> => {
     const r = (await handler(db, command)) as R;
-    await audit(db, r as unknown as HandlerEventsContext);
+    await enqueueEvents(db, r as unknown as HandlerEventsContext);
     return r;
   });
 

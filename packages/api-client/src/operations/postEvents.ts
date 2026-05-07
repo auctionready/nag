@@ -10,7 +10,7 @@ import { failureFromError, type Endpoints, type WrapperLog } from "./shared";
 /**
  * Wire shape of an outbound write envelope. Wider than the generated
  * Zodios `postEvents_Body` (whose `events` array is a discriminated union)
- * so the outbox dispatcher can ship whatever the auditor captured — the
+ * so the outbox dispatcher can ship whatever the writer enqueued — the
  * server re-validates each event entry and rejects anything malformed
  * with a 400.
  */

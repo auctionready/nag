@@ -40,7 +40,7 @@ type EventPayload =
  * to `/events`. `envelope_id` and `timestamp` are set by the table's
  * `$defaultFn`s.
  */
-export async function audit(
+export async function enqueueEvents(
   db: AnyDb,
   result: HandlerEventsContext,
 ): Promise<void> {

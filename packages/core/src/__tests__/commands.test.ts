@@ -515,7 +515,7 @@ describe("DeleteCheckIn", () => {
   });
 });
 
-describe("audit logging", () => {
+describe("outbox enqueue", () => {
   it("records a server-shaped event envelope per processCommand call", async () => {
     const db = getDb();
     const { externalId } = await processCommand(db, {
@@ -571,7 +571,7 @@ describe("audit logging", () => {
     expect(events[0].payload.habitId).toBe(externalId);
   });
 
-  it("does not audit on validation failure", async () => {
+  it("does not enqueue on validation failure", async () => {
     const db = getDb();
     await expect(
       processCommand(db, { type: "CreateHabit", title: "" }),
@@ -581,7 +581,7 @@ describe("audit logging", () => {
     expect(logs).toHaveLength(0);
   });
 
-  it("accumulates audit entries across commands", async () => {
+  it("accumulates outbox entries across commands", async () => {
     const db = getDb();
     const { habitId } = await processCommand(db, {
       type: "CreateHabit",
@@ -807,7 +807,7 @@ describe("processCommand handler errors", () => {
     expect(checkInsAfter).toHaveLength(checkInsBefore.length);
   });
 
-  it("rolls back transaction on handler error (no audit written)", async () => {
+  it("rolls back transaction on handler error (no outbox row written)", async () => {
     const db = getDb();
     const { habitId } = await processCommand(db, {
       type: "CreateHabit",
