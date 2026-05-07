@@ -261,6 +261,12 @@ export const SyncStatusProvider = ({ children }: PropsWithChildren) => {
         activeRunRef.current = null;
         return;
       }
+      // Clear `isAnonymous` eagerly so the SyncDot/banner show "syncing"
+      // during the initial post-sign-in drain. `refreshCounts` runs only
+      // in the `finally` block, so without this the indicators stayed
+      // hidden for the full drain — looking like the user wasn't signed
+      // in.
+      setIsAnonymous(false);
       if (!forced && !onlineRef.current) {
         logger.debug(`run[${runId}] skipped — offline`);
         report(`nag.sync.run skipped — offline guard`, "warning", {
