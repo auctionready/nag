@@ -66,6 +66,12 @@ export const getApiClient = (): NagApiClient => {
   logger.debug(`creating client baseUrl=${apiBaseUrl}`);
   singleton = createNagApiClient({
     baseUrl: apiBaseUrl,
+    // Only validate responses — request bodies are validated server-side,
+    // which gives a single, observable failure path (a 4xx that the
+    // dispatcher already classifies as non-retriable). Validating
+    // requests locally would silently halt sync on the device with no
+    // server log, and a synchronous Zodios throw is easy to misclassify.
+    validate: "response",
     getToken: () => deviceTokenStore.get(),
     onUnauthorized: async () => {
       identityLogger.warn(
