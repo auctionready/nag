@@ -13,6 +13,7 @@ import {
 import { router } from "expo-router";
 import * as Linking from "expo-linking";
 import * as WebBrowser from "expo-web-browser";
+import * as Sentry from "@sentry/react-native";
 import Svg, { Circle, Path, Rect } from "react-native-svg";
 import {
   useAuth,
@@ -133,10 +134,18 @@ const SignedInOrOut = () => {
     upgradeStarted.current = true;
 
     void (async () => {
+      Sentry.captureMessage("nag.sync.sign-in-flow start", {
+        level: "info",
+        tags: { area: "sync" },
+      });
       setStatus({ kind: "in-progress" });
       try {
         const idpToken = await getToken();
         if (!idpToken) {
+          Sentry.captureMessage("nag.sync.sign-in-flow no-idp-token", {
+            level: "warning",
+            tags: { area: "sync" },
+          });
           setStatus({ kind: "fail", message: "no IdP token from Clerk" });
           return;
         }
@@ -151,6 +160,17 @@ const SignedInOrOut = () => {
           register: registerDevice,
           log: logger,
         });
+        Sentry.captureMessage("nag.sync.sign-in-flow ensureDeviceRegistered", {
+          level: "info",
+          contexts: {
+            sync: {
+              accountId: registration.accountId,
+              deviceId: registration.deviceId,
+              hasToken: registration.deviceToken != null,
+            },
+          },
+          tags: { area: "sync" },
+        });
         if (!registration.accountId) {
           setStatus({
             kind: "fail",
@@ -163,6 +183,25 @@ const SignedInOrOut = () => {
           deviceId: registration.deviceId,
           idpToken,
         });
+        Sentry.captureMessage(
+          `nag.sync.sign-in-flow upgrade ${result.ok ? "ok" : result.kind}`,
+          {
+            level: result.ok ? "info" : "warning",
+            contexts: {
+              sync: result.ok
+                ? { accountId: result.accountId, idpSubject: result.idpSubject }
+                : {
+                    kind: result.kind,
+                    status:
+                      result.kind === "non-retriable"
+                        ? result.status
+                        : undefined,
+                    message: result.message,
+                  },
+            },
+            tags: { area: "sync" },
+          },
+        );
         if (result.ok) {
           logger.info(
             `account upgraded accountId=${result.accountId} sub=${result.idpSubject}`,

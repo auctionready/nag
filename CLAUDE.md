@@ -92,3 +92,17 @@ should get their own page under `docs/` and be linked from
 
 - Prefer `describe` with `beforeEach` to set up scenarios, then one or more
   `it`s to assert.
+
+## Agent skills
+
+### Issue tracker
+
+Issues are tracked as GitHub Issues on `auctionready/nag` via the `gh` CLI. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Default canonical labels: `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Multi-context layout: `CONTEXT-MAP.md` at the repo root pointing to per-context `CONTEXT.md` files (e.g. `app/`, `backend/`). See `docs/agents/domain.md`.
