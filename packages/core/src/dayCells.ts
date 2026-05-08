@@ -11,13 +11,13 @@ export interface DayCell {
 export interface BuildDayCellsInput {
   scheduledDaysMask: number;
   /**
-   * Days where every scheduled slot for that day-of-week has a check-in.
+   * Days where every scheduled time-slot for that day-of-week has a check-in.
    * Per the new partial-aware semantic this is full completion, not
    * "any check-in" — for partial completion pass `partialDaysMask`.
    */
   checkedInDaysMask: number;
   /**
-   * Days where some — but not all — of that day's scheduled slots have a
+   * Days where some — but not all — of that day's scheduled time-slots have a
    * check-in. Painted with `partialColor` (typically orange) instead of
    * the green `checkedInColor`. Pass alongside `checkedInDaysMask` from
    * `classifyScheduledDays`.
@@ -105,10 +105,10 @@ export const buildDayCells = ({
 export const checkInDaysMask = (checkIns: { timestamp: Date }[]): number =>
   checkIns.reduce((mask, c) => mask | (1 << c.timestamp.getDay()), 0);
 
-export interface SlotCompletion {
-  /** Days where check-ins meet or exceed that day's scheduled slot count. */
+export interface TimeSlotCompletion {
+  /** Days where check-ins meet or exceed that day's scheduled time-slot count. */
   completedDaysMask: number;
-  /** Days where 0 < check-ins < scheduled slot count. */
+  /** Days where 0 < check-ins < scheduled time-slot count. */
   partialDaysMask: number;
 }
 
@@ -117,7 +117,7 @@ export interface SlotCompletion {
  * habit's schedules and the check-ins in the period. Use the returned
  * masks for `buildDayCells`'s `checkedInDaysMask` + `partialDaysMask`
  * so per-day cells reflect partial completion (e.g. 2 of 3 scheduled
- * slots done → orange instead of green).
+ * time-slots done → orange instead of green).
  */
 export const classifyScheduledDays = ({
   schedules,
@@ -125,8 +125,8 @@ export const classifyScheduledDays = ({
 }: {
   schedules: ScheduleInfo[];
   checkIns: { timestamp: Date }[];
-}): SlotCompletion => {
-  const slotsByDay: number[] = new Array(7).fill(0);
+}): TimeSlotCompletion => {
+  const timeSlotsByDay: number[] = new Array(7).fill(0);
   for (const s of schedules) {
     if (s.hour === null || s.hour === undefined) continue;
     const days = s.days ?? 0;
@@ -134,7 +134,7 @@ export const classifyScheduledDays = ({
       const bit = 1 << dow;
       // `days === 0` means "every day" (matches existing matchers).
       if (days === 0 || (days & bit) !== 0) {
-        slotsByDay[dow] += 1;
+        timeSlotsByDay[dow] += 1;
       }
     }
   }
@@ -146,10 +146,10 @@ export const classifyScheduledDays = ({
   let partialDaysMask = 0;
   for (let dow = 0; dow < 7; dow++) {
     const bit = 1 << dow;
-    const slots = slotsByDay[dow];
+    const timeSlots = timeSlotsByDay[dow];
     const done = checkInsByDay[dow];
-    if (slots === 0) continue;
-    if (done >= slots) completedDaysMask |= bit;
+    if (timeSlots === 0) continue;
+    if (done >= timeSlots) completedDaysMask |= bit;
     else if (done > 0) partialDaysMask |= bit;
   }
   return { completedDaysMask, partialDaysMask };

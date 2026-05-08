@@ -82,7 +82,7 @@ describe("makeSingleflight", () => {
     expect(calls).toBe(2);
   });
 
-  it("releases the in-flight slot after a rejection", async () => {
+  it("releases the in-flight timeSlot after a rejection", async () => {
     let calls = 0;
     const wrapped = makeSingleflight(async () => {
       calls++;

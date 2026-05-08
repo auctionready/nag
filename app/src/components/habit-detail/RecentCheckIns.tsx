@@ -13,7 +13,7 @@ import { complianceColors } from "../../components/compliance";
 
 export interface RecentCheckInItem {
   id: string;
-  /** Deemed slot time — what the check-in is credited to. */
+  /** Deemed time-slot time — what the check-in is credited to. */
   timestamp: Date;
   /** Wall-clock insert time. Differs from `timestamp` for back-filled check-ins. */
   createdAt: Date;
@@ -38,7 +38,7 @@ const FULL_FMT = "EEE, MMM d, yyyy h:mm a";
 
 // Both `timestamp` and `createdAt` default to near-simultaneous `new Date()`
 // calls, so fresh check-ins differ by microseconds. User-driven back-fills
-// (long-press a missed slot, footer check-in on a non-today selected day)
+// (long-press a missed time-slot, footer check-in on a non-today selected day)
 // put them minutes to hours apart. 60s is a comfortable threshold.
 const BACKFILL_THRESHOLD_MS = 60_000;
 const wasBackFilled = ({ timestamp, createdAt }: RecentCheckInItem) =>

@@ -26,7 +26,7 @@ describe("classifyDailyWeek", () => {
     });
   });
 
-  describe("frequency > 1 (multi-slot daily)", () => {
+  describe("frequency > 1 (multi-timeSlot daily)", () => {
     it("marks a day as completed when count meets the target", () => {
       const { completedDaysMask, partialDaysMask } = classifyDailyWeek(
         [checkInOn(2), checkInOn(2), checkInOn(2)],

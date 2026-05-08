@@ -25,7 +25,7 @@ export const ScheduleEditorModal = ({
       <View style={styles.overlay}>
         <View style={styles.sheet}>
           <View style={styles.handle} />
-          <Text style={styles.title}>edit time-slot</Text>
+          <Text style={styles.title}>edit time-timeSlot</Text>
           <ScheduleEntryForm
             initialValues={initialValues}
             isNew={isNew}

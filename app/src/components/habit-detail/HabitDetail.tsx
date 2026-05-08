@@ -31,7 +31,7 @@ import { CheckInDatePickerModal } from "./CheckInDatePickerModal";
 export interface HabitDetailProps {
   loading?: boolean;
   /**
-   * Optional slot for the "How am I doing" card — rendered after the
+   * Optional time-slot for the "How am I doing" card — rendered after the
    * recent check-ins list. Passed in by the screen so this component
    * stays free of API/DB imports and remains trivially testable.
    */
@@ -64,7 +64,7 @@ export interface HabitDetailProps {
   /**
    * Record a check-in with the given deemed timestamp. Footer "Check-in"
    * passes `new Date()` (or a moment on the selected day); long-press on a
-   * missed slot chip passes the slot's timestamp on the selected day.
+   * missed time-slot chip passes the time-slot's timestamp on the selected day.
    */
   onCheckInAt: (timestamp: Date) => void;
   /** Skip with the given deemed timestamp (symmetric with `onCheckInAt`). */
@@ -120,10 +120,10 @@ export const HabitDetail = ({
         ? now
         : isSameCalendarDay(selectedDay, now)
           ? now
-          : // Past day → end-of-day so unfilled slots read as "missed" (red).
-            // Future day → start-of-day so unfilled slots read as "upcoming"
+          : // Past day → end-of-day so unfilled timeSlots read as "missed" (red).
+            // Future day → start-of-day so unfilled time-slots read as "upcoming"
             // (white). Without this split, future days would erroneously
-            // paint upcoming slots red.
+            // paint upcoming time-slots red.
             selectedDay < now
             ? endOfDay(selectedDay)
             : startOfDay(selectedDay),
@@ -163,7 +163,7 @@ export const HabitDetail = ({
     cardAnchor,
   ]);
 
-  const match = snap.slots;
+  const match = snap.timeSlots;
   const cardIsToday = snap.headline.isToday;
   const notScheduledForDay = snap.anchorKind === "off-day";
   const scheduledDaysMask = snap.scheduledDaysMask;
@@ -261,7 +261,7 @@ export const HabitDetail = ({
   // handler (which fires on finger-up) can skip the regular action.
   // Using Gesture.LongPress() instead of Pressable.onLongPress because
   // GestureHandlerRootView intercepts touches at the root and makes
-  // Pressable.onLongPress unreliable — the same reason SlotChip and
+  // Pressable.onLongPress unreliable — the same reason Time-slotChip and
   // HabitTileView use the gesture-handler API.
   const didCheckInLongPress = useRef(false);
   const didSkipLongPress = useRef(false);
@@ -303,7 +303,7 @@ export const HabitDetail = ({
     onSkipAt(buildFooterTimestamp(selectedDay, new Date()));
   };
 
-  const handleAddCheckInForSlot = (hour: number, minute: number) => {
+  const handleAddCheckInForTimeSlot = (hour: number, minute: number) => {
     const anchor = selectedDay ?? now;
     const ts = new Date(
       anchor.getFullYear(),
@@ -314,7 +314,7 @@ export const HabitDetail = ({
       0,
       0,
     );
-    // Long-press is overloaded: the user might want to record the slot as
+    // Long-press is overloaded: the user might want to record the time-slot as
     // done, OR record it as skipped (e.g. "I missed my 8 a.m. run, but I
     // intentionally skipped it"). Prompt to disambiguate before writing.
     Alert.alert("Back-fill check-in?", `For ${format(ts, "h:mm a")}`, [
@@ -351,7 +351,7 @@ export const HabitDetail = ({
           <TodayCard
             selectedDay={cardAnchor}
             isToday={cardIsToday}
-            // Only pass `match` when there are slots for the day; otherwise
+            // Only pass `match` when there are time-slots for the day; otherwise
             // suppress it so the card falls through to "Not scheduled" or
             // the frequency-only fallback.
             match={match !== null && match.total > 0 ? match : null}
@@ -368,7 +368,7 @@ export const HabitDetail = ({
                 : undefined
             }
             ringColor={ringColor}
-            onAddCheckInForSlot={handleAddCheckInForSlot}
+            onAddCheckInForTimeSlot={handleAddCheckInForTimeSlot}
           />
         )}
 

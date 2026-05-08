@@ -1,15 +1,15 @@
 import { StyleSheet, Text, View } from "react-native";
 import { format } from "date-fns";
-import type { MatchCheckInsToSlotsResult } from "@nag/core";
+import type { MatchCheckInsToTimeSlotsResult } from "@nag/core";
 import { ProgressRing } from "../../components/progress-ring";
 import { complianceColors } from "../../components/compliance";
-import { SlotChip } from "./SlotChip";
+import { TimeSlotChip } from "./TimeSlotChip";
 import { FrequencyDots } from "./FrequencyDots";
 
 interface TodayCardProps {
   /**
    * The selected day. Used for the weekday label, and (in the parent) as the
-   * anchor for `matchCheckInsToSlots`.
+   * anchor for `matchCheckInsToTime-slots`.
    */
   selectedDay: Date;
   /**
@@ -17,8 +17,8 @@ interface TodayCardProps {
    * the headline says "done today" (vs. just "done" for retrospective views).
    */
   isToday: boolean;
-  /** Null if this habit has no timed slots — we fall back to FrequencyDots. */
-  match: MatchCheckInsToSlotsResult | null;
+  /** Null if this habit has no timed time-slots — we fall back to FrequencyDots. */
+  match: MatchCheckInsToTimeSlotsResult | null;
   /** Used when `match` is null — how many check-ins this period vs. target. */
   fallback?: {
     completed: number;
@@ -32,11 +32,11 @@ interface TodayCardProps {
   notScheduledForDay?: boolean;
   ringColor: string;
   /**
-   * Long-press handler for a slot chip: supply the slot's hour/minute so the
+   * Long-press handler for a time-slot chip: supply the time-slot's hour/minute so the
    * screen can build a Date on the selected day. Only `missed`/`upcoming`
    * chips trigger this.
    */
-  onAddCheckInForSlot?: (hour: number, minute: number) => void;
+  onAddCheckInForTimeSlot?: (hour: number, minute: number) => void;
 }
 
 export const TodayCard = ({
@@ -46,16 +46,16 @@ export const TodayCard = ({
   fallback,
   notScheduledForDay,
   ringColor,
-  onAddCheckInForSlot,
+  onAddCheckInForTimeSlot,
 }: TodayCardProps) => {
-  const hasSlots = match !== null && match.total > 0;
-  const progress = hasSlots
+  const hasTimeSlots = match !== null && match.total > 0;
+  const progress = hasTimeSlots
     ? (match.done + match.extras) / Math.max(1, match.total)
     : !notScheduledForDay && fallback
       ? fallback.completed / Math.max(1, fallback.frequency)
       : 0;
   const clampedProgress = Math.min(1, progress);
-  const headline = hasSlots
+  const headline = hasTimeSlots
     ? `${match.done} of ${match.total} done${isToday ? " today" : ""}`
     : notScheduledForDay
       ? "Not scheduled"
@@ -79,28 +79,32 @@ export const TodayCard = ({
         </View>
       </View>
 
-      {hasSlots ? (
-        <View style={styles.slotRow}>
-          {/* Back-fill policy: any past `missed` slot, plus the *next-up*
-              upcoming slot today (so the user can record "I'm doing it
-              now" a few minutes before the slot). On past/future days
+      {hasTimeSlots ? (
+        <View style={styles.timeSlotRow}>
+          {/* Back-fill policy: any past `missed` timeSlot, plus the *next-up*
+              upcoming timeSlot today (so the user can record "I'm doing it
+              now" a few minutes before the timeSlot). On past/future days
               there is no nearest-upcoming concept. */}
           {(() => {
             const firstUpcomingIdx = isToday
-              ? match.slots.findIndex((s) => s.status === "upcoming")
+              ? match.timeSlots.findIndex((s) => s.status === "upcoming")
               : -1;
-            return match.slots.map((slot, i) => {
+            return match.timeSlots.map((timeSlot, i) => {
               const backfillable =
-                slot.status === "missed" || i === firstUpcomingIdx;
+                timeSlot.status === "missed" || i === firstUpcomingIdx;
               return (
-                <SlotChip
-                  key={`${slot.hour}:${slot.minute}:${i}`}
-                  hour={slot.hour}
-                  minute={slot.minute}
-                  status={slot.status}
+                <TimeSlotChip
+                  key={`${timeSlot.hour}:${timeSlot.minute}:${i}`}
+                  hour={timeSlot.hour}
+                  minute={timeSlot.minute}
+                  status={timeSlot.status}
                   onLongPress={
-                    backfillable && onAddCheckInForSlot
-                      ? () => onAddCheckInForSlot(slot.hour, slot.minute)
+                    backfillable && onAddCheckInForTimeSlot
+                      ? () =>
+                          onAddCheckInForTimeSlot(
+                            timeSlot.hour,
+                            timeSlot.minute,
+                          )
                       : undefined
                   }
                 />
@@ -156,7 +160,7 @@ const styles = StyleSheet.create({
     color: "#222",
     marginTop: 2,
   },
-  slotRow: {
+  timeSlotRow: {
     flexDirection: "row",
     flexWrap: "wrap",
     gap: 8,

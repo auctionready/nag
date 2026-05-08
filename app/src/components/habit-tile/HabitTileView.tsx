@@ -8,7 +8,7 @@ import {
   PeriodIndicators,
   type PeriodIndicatorsProps,
 } from "./PeriodIndicators";
-import type { SlotDotState } from "./slotDotState";
+import type { TimeSlotDotState } from "./timeSlotDotState";
 import { TileProgressChip, computeChipState } from "./TileProgressChip";
 import { HabitGlyph, type HabitIconKind } from "../../components/glyphs";
 import { tokens } from "../../components/theme";
@@ -21,17 +21,17 @@ export interface HabitTileViewProps {
   /** Total check-ins in the goal's current period (week or month). */
   periodCheckInCount: number;
   recentCheckIns: { timestamp: Date }[];
-  /** Schedule has 2+ slots on at least one day-of-week. */
-  multiSlotPerDay: boolean;
+  /** Schedule has 2+ time-slots on at least one day-of-week. */
+  multiTimeSlotPerDay: boolean;
   /** All schedule rows for the habit. */
   schedules: ScheduleInfo[];
   isOffDay?: boolean;
   periodIndicators?: PeriodIndicatorsProps;
   /**
-   * Per-slot dot states for today, only when the habit has more than one
-   * slot in a day (multi-slot daily frequency or multiple scheduled times).
+   * Per-time-slot dot states for today, only when the habit has more than one
+   * time-slot in a day (multi-time-slot daily frequency or multiple scheduled times).
    */
-  todaySlots?: SlotDotState[];
+  todayTimeSlots?: TimeSlotDotState[];
   onPress: () => void;
   onCheckIn: () => Promise<void>;
 }
@@ -42,10 +42,10 @@ export const HabitTileView = ({
   goal,
   periodCheckInCount,
   recentCheckIns: recent,
-  multiSlotPerDay,
+  multiTimeSlotPerDay,
   schedules,
   periodIndicators,
-  todaySlots,
+  todayTimeSlots,
   onPress,
   onCheckIn,
 }: HabitTileViewProps) => {
@@ -77,9 +77,9 @@ export const HabitTileView = ({
 
   const chipState = computeChipState({
     goal,
-    todaySlots,
+    todayTimeSlots,
     periodCheckInCount,
-    multiSlotPerDay,
+    multiTimeSlotPerDay,
     schedules,
   });
   const last = recent[0]?.timestamp;

@@ -48,7 +48,7 @@ const HabitScreen = () => {
   // with a `days` mask we default to "today is selected" (highlight today
   // in the week strip, scope the list to today's check-ins) — without that
   // default, the week strip would show no selection and the long-press
-  // affordances on slot chips would feel disconnected from the strip above.
+  // affordances on time-slot chips would feel disconnected from the strip above.
   const hasWeeklyDaysSchedule =
     goalData?.regularity === "week" && combineScheduleDays(schedules) !== 0;
   const parsedDay = day ? parse(day, DAY_PARAM_FORMAT, todayStart) : null;

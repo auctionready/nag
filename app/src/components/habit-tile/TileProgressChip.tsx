@@ -1,23 +1,23 @@
 import { StyleSheet, Text, View, type ViewStyle } from "react-native";
 import type { ScheduleInfo } from "@nag/core";
 import type { HabitGoalSummary } from "./useHabitGoalSummary";
-import { slotStripStates, type SlotDotState } from "./slotDotState";
+import { timeSlotStripStates, type TimeSlotDotState } from "./timeSlotDotState";
 import { cadenceLabel, formatTime } from "../../components/formatters";
 import { tokens } from "../../components/theme";
 
 export type TileChipState =
   | { kind: "label"; text: string }
-  | { kind: "dots"; slots: SlotDotState[]; prefixToday: boolean }
-  | { kind: "labelDots"; text: string; slots: SlotDotState[] };
+  | { kind: "dots"; timeSlots: TimeSlotDotState[]; prefixToday: boolean }
+  | { kind: "labelDots"; text: string; timeSlots: TimeSlotDotState[] };
 
 interface ChipInputs {
   goal: HabitGoalSummary | null;
-  /** Today's slot dot states — present when today has 1+ scheduled slots. */
-  todaySlots: SlotDotState[] | undefined;
+  /** Today's time-slot dot states — present when today has 1+ scheduled time-slots. */
+  todayTimeSlots: TimeSlotDotState[] | undefined;
   /** Total check-ins in the goal's current period. */
   periodCheckInCount: number;
-  /** Schedule has 2+ slots on at least one day-of-week. */
-  multiSlotPerDay: boolean;
+  /** Schedule has 2+ time-slots on at least one day-of-week. */
+  multiTimeSlotPerDay: boolean;
   /** All schedule rows for the habit (specific days/times). */
   schedules: ScheduleInfo[];
 }
@@ -41,14 +41,14 @@ const everyDayTimeLabel = (schedules: ScheduleInfo[]): string | null => {
  * Builds the top-right chip state for a habit tile.
  *
  * Cases:
- * - daily multi-frequency → today's slot dots (with "today" eyebrow)
- * - weekly + multi-slot-per-day → today's slot dots (with eyebrow); off-day
+ * - daily multi-frequency → today's time-slot dots (with "today" eyebrow)
+ * - weekly + multi-time-slot-per-day → today's time-slot dots (with eyebrow); off-day
  *   fallback shows "off today"
  * - weekly/monthly + unscheduled (no schedule rows) → cadence label with
  *   N=frequency dots stacked beneath, filled from period check-in count.
  *   We always show at least one dot (even at frequency=1) so the tile
  *   communicates period completion at a glance.
- * - weekly + scheduled (single-slot-per-day) → text label "Nx / wk".
+ * - weekly + scheduled (single-time-slot-per-day) → text label "Nx / wk".
  *   The week-strip already paints the specific days, so dots would be
  *   redundant.
  * - monthly + scheduled → text label "Nx / mo". The month-strip carries
@@ -57,9 +57,9 @@ const everyDayTimeLabel = (schedules: ScheduleInfo[]): string | null => {
  */
 export const computeChipState = ({
   goal,
-  todaySlots,
+  todayTimeSlots,
   periodCheckInCount,
-  multiSlotPerDay,
+  multiTimeSlotPerDay,
   schedules,
 }: ChipInputs): TileChipState | null => {
   if (!goal) return null;
@@ -68,8 +68,10 @@ export const computeChipState = ({
   const isUnscheduled = schedules.length === 0;
 
   if (goal.regularity === "day" && goal.frequency > 1) {
-    const slots = todaySlots ?? [...slotStripStates(goal.frequency, 0)];
-    return { kind: "dots", slots, prefixToday: true };
+    const timeSlots = todayTimeSlots ?? [
+      ...timeSlotStripStates(goal.frequency, 0),
+    ];
+    return { kind: "dots", timeSlots, prefixToday: true };
   }
 
   if (
@@ -79,7 +81,7 @@ export const computeChipState = ({
     return {
       kind: "labelDots",
       text: cadenceLabel(goal),
-      slots: [...slotStripStates(goal.frequency, periodCheckInCount)],
+      timeSlots: [...timeSlotStripStates(goal.frequency, periodCheckInCount)],
     };
   }
 
@@ -87,9 +89,9 @@ export const computeChipState = ({
     return { kind: "label", text: dailyTime ?? cadenceLabel(goal) };
   }
 
-  if (goal.regularity === "week" && multiSlotPerDay) {
-    if (todaySlots && todaySlots.length > 0) {
-      return { kind: "dots", slots: todaySlots, prefixToday: true };
+  if (goal.regularity === "week" && multiTimeSlotPerDay) {
+    if (todayTimeSlots && todayTimeSlots.length > 0) {
+      return { kind: "dots", timeSlots: todayTimeSlots, prefixToday: true };
     }
     return { kind: "label", text: "off today" };
   }
@@ -117,7 +119,7 @@ export const TileProgressChip = ({ state }: TileProgressChipProps) => {
           {state.text}
         </Text>
         <View style={styles.dots}>
-          {state.slots.map((s, i) => (
+          {state.timeSlots.map((s, i) => (
             <Dot key={i} state={s} />
           ))}
         </View>
@@ -129,7 +131,7 @@ export const TileProgressChip = ({ state }: TileProgressChipProps) => {
     <View style={styles.row}>
       {state.prefixToday && <Text style={styles.todayEyebrow}>today</Text>}
       <View style={styles.dots}>
-        {state.slots.map((s, i) => (
+        {state.timeSlots.map((s, i) => (
           <Dot key={i} state={s} />
         ))}
       </View>
@@ -137,7 +139,7 @@ export const TileProgressChip = ({ state }: TileProgressChipProps) => {
   );
 };
 
-const Dot = ({ state }: { state: SlotDotState }) => {
+const Dot = ({ state }: { state: TimeSlotDotState }) => {
   const style: ViewStyle[] = [styles.dot];
   switch (state) {
     case "done":

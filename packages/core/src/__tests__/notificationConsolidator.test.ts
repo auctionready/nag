@@ -2,8 +2,8 @@ import { describe, it, expect } from "vitest";
 import {
   consolidateSchedules,
   nextOccurrences,
-  slotContent,
-  type ConsolidatedSlot,
+  timeSlotContent,
+  type ConsolidatedTimeSlot,
 } from "../notificationConsolidator";
 import { Day } from "../days";
 
@@ -35,10 +35,10 @@ describe("consolidateSchedules", () => {
     expect(consolidateSchedules([])).toEqual([]);
   });
 
-  it("creates a single slot for one daily habit", () => {
-    const slots = consolidateSchedules([row()]);
-    expect(slots).toHaveLength(1);
-    expect(slots[0]).toMatchObject({
+  it("creates a single timeSlot for one daily habit", () => {
+    const timeSlots = consolidateSchedules([row()]);
+    expect(timeSlots).toHaveLength(1);
+    expect(timeSlots[0]).toMatchObject({
       key: "daily-08-00",
       habitIds: ["h-1"],
       titles: ["Exercise"],
@@ -49,25 +49,25 @@ describe("consolidateSchedules", () => {
   });
 
   it("consolidates two daily habits at the same time", () => {
-    const slots = consolidateSchedules([
+    const timeSlots = consolidateSchedules([
       row({ habitId: "h-1", habitTitle: "Exercise" }),
       row({ habitId: "h-2", habitTitle: "Meditate", scheduleId: 20 }),
     ]);
-    expect(slots).toHaveLength(1);
-    expect(slots[0].habitIds).toEqual(["h-1", "h-2"]);
-    expect(slots[0].titles).toEqual(["Exercise", "Meditate"]);
+    expect(timeSlots).toHaveLength(1);
+    expect(timeSlots[0].habitIds).toEqual(["h-1", "h-2"]);
+    expect(timeSlots[0].titles).toEqual(["Exercise", "Meditate"]);
   });
 
   it("does not consolidate daily habits at different times", () => {
-    const slots = consolidateSchedules([
+    const timeSlots = consolidateSchedules([
       row({ habitId: "h-1", hour: 8, minute: 0 }),
       row({ habitId: "h-2", hour: 9, minute: 0, scheduleId: 20 }),
     ]);
-    expect(slots).toHaveLength(2);
+    expect(timeSlots).toHaveLength(2);
   });
 
   it("does not consolidate habits with different regularity at the same time", () => {
-    const slots = consolidateSchedules([
+    const timeSlots = consolidateSchedules([
       row({ habitId: "h-1", regularity: "day" }),
       row({
         habitId: "h-2",
@@ -76,25 +76,25 @@ describe("consolidateSchedules", () => {
         scheduleId: 20,
       }),
     ]);
-    expect(slots).toHaveLength(2);
+    expect(timeSlots).toHaveLength(2);
   });
 
-  it("expands weekly bitmask into separate slots per day", () => {
-    const slots = consolidateSchedules([
+  it("expands weekly bitmask into separate timeSlots per day", () => {
+    const timeSlots = consolidateSchedules([
       row({
         regularity: "week",
         days: Day.Mon | Day.Wed,
       }),
     ]);
-    expect(slots).toHaveLength(2);
-    expect(slots.map((s) => s.key).sort()).toEqual([
+    expect(timeSlots).toHaveLength(2);
+    expect(timeSlots.map((s) => s.key).sort()).toEqual([
       "weekly-1-08-00",
       "weekly-3-08-00",
     ]);
   });
 
   it("consolidates two weekly habits on the same day and time", () => {
-    const slots = consolidateSchedules([
+    const timeSlots = consolidateSchedules([
       row({
         habitId: "h-1",
         habitTitle: "Run",
@@ -109,13 +109,13 @@ describe("consolidateSchedules", () => {
         scheduleId: 20,
       }),
     ]);
-    expect(slots).toHaveLength(1);
-    expect(slots[0].habitIds).toEqual(["h-1", "h-2"]);
-    expect(slots[0].dow).toBe(1);
+    expect(timeSlots).toHaveLength(1);
+    expect(timeSlots[0].habitIds).toEqual(["h-1", "h-2"]);
+    expect(timeSlots[0].dow).toBe(1);
   });
 
-  it("creates separate slots for monthly habits on different days", () => {
-    const slots = consolidateSchedules([
+  it("creates separate timeSlots for monthly habits on different days", () => {
+    const timeSlots = consolidateSchedules([
       row({ habitId: "h-1", regularity: "month", dayOfMonth: 1 }),
       row({
         habitId: "h-2",
@@ -124,11 +124,11 @@ describe("consolidateSchedules", () => {
         scheduleId: 20,
       }),
     ]);
-    expect(slots).toHaveLength(2);
+    expect(timeSlots).toHaveLength(2);
   });
 
   it("consolidates monthly habits on the same day and time", () => {
-    const slots = consolidateSchedules([
+    const timeSlots = consolidateSchedules([
       row({
         habitId: "h-1",
         habitTitle: "Review",
@@ -143,24 +143,24 @@ describe("consolidateSchedules", () => {
         scheduleId: 20,
       }),
     ]);
-    expect(slots).toHaveLength(1);
-    expect(slots[0].habitIds).toEqual(["h-1", "h-2"]);
-    expect(slots[0].dayOfMonth).toBe(1);
+    expect(timeSlots).toHaveLength(1);
+    expect(timeSlots[0].habitIds).toEqual(["h-1", "h-2"]);
+    expect(timeSlots[0].dayOfMonth).toBe(1);
   });
 
-  it("deduplicates same habit appearing twice in the same slot", () => {
-    const slots = consolidateSchedules([
+  it("deduplicates same habit appearing twice in the same timeSlot", () => {
+    const timeSlots = consolidateSchedules([
       row({ habitId: "h-1", scheduleId: 10 }),
       row({ habitId: "h-1", scheduleId: 11 }),
     ]);
-    expect(slots).toHaveLength(1);
-    expect(slots[0].habitIds).toEqual(["h-1"]);
+    expect(timeSlots).toHaveLength(1);
+    expect(timeSlots[0].habitIds).toEqual(["h-1"]);
   });
 });
 
 const daily = (
-  overrides: Partial<ConsolidatedSlot> = {},
-): ConsolidatedSlot => ({
+  overrides: Partial<ConsolidatedTimeSlot> = {},
+): ConsolidatedTimeSlot => ({
   key: "daily-08-00",
   habitIds: ["h-1"],
   titles: ["Exercise"],
@@ -172,7 +172,7 @@ const daily = (
 
 describe("nextOccurrences", () => {
   describe("daily", () => {
-    it("includes today when the slot is still in the future", () => {
+    it("includes today when the timeSlot is still in the future", () => {
       const now = new Date(2026, 3, 15, 6, 0);
       const out = nextOccurrences(daily(), now);
       expect(out).toHaveLength(7);
@@ -180,7 +180,7 @@ describe("nextOccurrences", () => {
       expect(out[6]).toEqual(new Date(2026, 3, 21, 8, 0));
     });
 
-    it("skips today when the slot has already passed", () => {
+    it("skips today when the timeSlot has already passed", () => {
       const now = new Date(2026, 3, 15, 10, 0);
       const out = nextOccurrences(daily(), now);
       expect(out).toHaveLength(7);
@@ -193,7 +193,7 @@ describe("nextOccurrences", () => {
     it("returns the next 4 occurrences of the target weekday", () => {
       // 2026-04-15 is a Wednesday (dow=3). Target: Monday (dow=1).
       const now = new Date(2026, 3, 15, 10, 0);
-      const slot: ConsolidatedSlot = {
+      const timeSlot: ConsolidatedTimeSlot = {
         key: "weekly-1-08-00",
         habitIds: ["h-1"],
         titles: ["Run"],
@@ -202,7 +202,7 @@ describe("nextOccurrences", () => {
         minute: 0,
         dow: 1,
       };
-      const out = nextOccurrences(slot, now);
+      const out = nextOccurrences(timeSlot, now);
       expect(out).toHaveLength(4);
       expect(out[0].getDay()).toBe(1);
       // Next Monday is 2026-04-20.
@@ -210,10 +210,10 @@ describe("nextOccurrences", () => {
       expect(out[3]).toEqual(new Date(2026, 4, 11, 8, 0));
     });
 
-    it("includes today when the target weekday is today and slot is future", () => {
+    it("includes today when the target weekday is today and timeSlot is future", () => {
       // Wed 2026-04-15, target dow=3 (Wednesday), 8:00 is still future from 06:00.
       const now = new Date(2026, 3, 15, 6, 0);
-      const slot: ConsolidatedSlot = {
+      const timeSlot: ConsolidatedTimeSlot = {
         key: "weekly-3-08-00",
         habitIds: ["h-1"],
         titles: ["Run"],
@@ -222,7 +222,7 @@ describe("nextOccurrences", () => {
         minute: 0,
         dow: 3,
       };
-      const out = nextOccurrences(slot, now);
+      const out = nextOccurrences(timeSlot, now);
       expect(out[0]).toEqual(new Date(2026, 3, 15, 8, 0));
     });
   });
@@ -230,7 +230,7 @@ describe("nextOccurrences", () => {
   describe("monthly", () => {
     it("skips months whose dayOfMonth does not exist (Jan 31 -> Feb skipped)", () => {
       const now = new Date(2026, 0, 31, 9, 0);
-      const slot: ConsolidatedSlot = {
+      const timeSlot: ConsolidatedTimeSlot = {
         key: "monthly-31-08-00",
         habitIds: ["h-1"],
         titles: ["Review"],
@@ -239,7 +239,7 @@ describe("nextOccurrences", () => {
         minute: 0,
         dayOfMonth: 31,
       };
-      const out = nextOccurrences(slot, now);
+      const out = nextOccurrences(timeSlot, now);
       expect(out).toHaveLength(3);
       // Jan 31 at 08:00 is already past (now=09:00). Next valid: Mar 31, May 31, Jul 31.
       expect(out[0]).toEqual(new Date(2026, 2, 31, 8, 0));
@@ -249,32 +249,32 @@ describe("nextOccurrences", () => {
   });
 });
 
-describe("slotContent", () => {
-  it("formats a single-habit slot", () => {
-    const slot = daily({ titles: ["Read"] });
-    expect(slotContent(slot)).toEqual({
+describe("timeSlotContent", () => {
+  it("formats a single-habit timeSlot", () => {
+    const timeSlot = daily({ titles: ["Read"] });
+    expect(timeSlotContent(timeSlot)).toEqual({
       title: "Read",
       body: "Time for Read",
     });
   });
 
-  it("formats a multi-habit slot", () => {
-    const slot = daily({
+  it("formats a multi-habit timeSlot", () => {
+    const timeSlot = daily({
       habitIds: ["h-1", "h-2"],
       titles: ["Read", "Stretch"],
     });
-    expect(slotContent(slot)).toEqual({
+    expect(timeSlotContent(timeSlot)).toEqual({
       title: "2 habits due",
       body: "Read, Stretch",
     });
   });
 
   it("trims to included titles", () => {
-    const slot = daily({
+    const timeSlot = daily({
       habitIds: ["h-1", "h-2"],
       titles: ["Read", "Stretch"],
     });
-    expect(slotContent(slot, ["Stretch"])).toEqual({
+    expect(timeSlotContent(timeSlot, ["Stretch"])).toEqual({
       title: "Stretch",
       body: "Time for Stretch",
     });

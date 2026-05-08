@@ -99,7 +99,7 @@ const MS_PER_MINUTE = 60_000;
  * number is stable across renders within the same minute, so it's
  * safe in `useMemo` / `useEffect` dep arrays — perfect for
  * memoizing computations that key off "now" but only need
- * minute-granularity precision (slot status, picker bounds, etc.).
+ * minute-granularity precision (time-slot status, picker bounds, etc.).
  *
  * Pair with `epochMinuteToDate` at the point of use.
  */

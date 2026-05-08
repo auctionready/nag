@@ -15,7 +15,7 @@ interface ScheduledListProps {
 const minutesOf = (s: ScheduleEntry | undefined): number =>
   (Number(s?.hour) || 0) * 60 + (Number(s?.minute) || 0);
 
-// List of time-slot summary rows, ordered chronologically, with a dashed
+// List of time-time-slot summary rows, ordered chronologically, with a dashed
 // "add time" button at the foot.
 export const ScheduledList = ({
   fields,

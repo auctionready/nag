@@ -83,7 +83,7 @@ const sampleData: SeedEntry[] = [
     },
   },
   {
-    // MWF mornings + Tue/Thu evenings (5 slots across the week).
+    // MWF mornings + Tue/Thu evenings (5 time-slots across the week).
     command: {
       type: "CreateHabit",
       title: "Journal",
@@ -116,7 +116,7 @@ const sampleData: SeedEntry[] = [
     checkIns: [{ daysAgo: 1 }],
   },
   {
-    // Weekend-only habit, one slot on Sat + Sun.
+    // Weekend-only habit, one time-slot on Sat + Sun.
     command: {
       type: "CreateHabit",
       title: "Practice guitar",
@@ -128,7 +128,7 @@ const sampleData: SeedEntry[] = [
     checkIns: [{ daysAgo: 3 }],
   },
   {
-    // Three slots per day on weekdays (morning, lunch, evening).
+    // Three time-slots per day on weekdays (morning, lunch, evening).
     command: {
       type: "CreateHabit",
       title: "Drink water",
@@ -227,8 +227,8 @@ export const seedSampleData = async () => {
   const realConsolidated = getConsolidatedScheduler();
   const realNotification = getNotificationScheduler();
   const noopConsolidated = {
-    cancelAllSlotNotifications: async () => {},
-    scheduleSlotNotification: async () => {},
+    cancelAllTimeSlotNotifications: async () => {},
+    scheduleTimeSlotNotification: async () => {},
   };
   const noopNotification = {
     cancelNotifications: async () => {},

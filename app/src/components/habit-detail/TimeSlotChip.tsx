@@ -1,36 +1,36 @@
 import { StyleSheet, Text, View } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
-import type { SlotStatus } from "@nag/core";
+import type { TimeSlotStatus } from "@nag/core";
 import { complianceColors } from "../../components/compliance";
 import { formatTime } from "../../components/formatters";
 
-interface SlotChipProps {
+interface TimeSlotChipProps {
   hour: number;
   minute: number;
-  status: SlotStatus;
+  status: TimeSlotStatus;
   /**
-   * Long-press handler to back-fill a check-in for this slot. The parent
-   * decides which slots to wire — typically `missed` (past, unfilled),
-   * plus the *next-up* `upcoming` slot today (so the user can record
+   * Long-press handler to back-fill a check-in for this time-slot. The parent
+   * decides which time-slots to wire — typically `missed` (past, unfilled),
+   * plus the *next-up* `upcoming` time-slot today (so the user can record
    * "I'm doing it now" a few minutes early). The chip ignores this prop
    * for `done`/`skipped` chips even if passed.
    */
   onLongPress?: () => void;
 }
 
-const glyph: Record<SlotStatus, string> = {
+const glyph: Record<TimeSlotStatus, string> = {
   done: "\u2713", // check mark
   skipped: "\u2013", // en dash
   missed: "\u2715", // cross
   upcoming: "\u25CB", // circle outline
 };
 
-export const SlotChip = ({
+export const TimeSlotChip = ({
   hour,
   minute,
   status,
   onLongPress,
-}: SlotChipProps) => {
+}: TimeSlotChipProps) => {
   const timeLabel = formatTime(hour, minute);
   const styleForStatus = statusStyles[status];
   // `done`/`skipped` already have a check-in — never long-pressable. For
@@ -90,7 +90,7 @@ const styles = StyleSheet.create({
 });
 
 const statusStyles: Record<
-  SlotStatus,
+  TimeSlotStatus,
   { container: object; text: { color: string } }
 > = {
   done: {

@@ -9,7 +9,7 @@ export interface BoardProgressHabit {
 }
 
 export interface BoardProgressResult {
-  /** Sum across habits of slots that should be done by `now`. */
+  /** Sum across habits of time-slots that should be done by `now`. */
   expected: number;
   /** Sum across habits of doneToday, capped per-habit by that habit's expected. */
   done: number;
@@ -25,8 +25,8 @@ export interface BoardProgressResult {
 
 /**
  * Aggregates today's progress across the board. Per-habit expectation:
- *   - timed schedules → expected = today's slots whose hh:mm ≤ now
- *     (off-day or no slots-elapsed-yet ⇒ contributes 0)
+ *   - timed schedules → expected = today's time-slots whose hh:mm ≤ now
+ *     (off-day or no time-slots-elapsed-yet ⇒ contributes 0)
  *   - no schedules + daily goal → expected = goal.frequency for the whole day
  *   - no schedules + weekly/monthly goal → contributes 0 (not a today thing)
  *   - no goal → contributes 0
@@ -61,8 +61,8 @@ export const boardProgress = (
         if (s.hour === null || s.hour === undefined) continue;
         const days = s.days ?? 0;
         if (days !== 0 && (days & todayBit) === 0) continue;
-        const slotMinutes = s.hour * 60 + (s.minute ?? 0);
-        if (slotMinutes <= nowMinutes) habitExpected += 1;
+        const timeSlotMinutes = s.hour * 60 + (s.minute ?? 0);
+        if (timeSlotMinutes <= nowMinutes) habitExpected += 1;
       }
     }
 

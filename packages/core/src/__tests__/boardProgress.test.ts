@@ -90,7 +90,7 @@ describe("boardProgress", () => {
   });
 
   describe("habit with timed schedules", () => {
-    it("expects only slots whose time has elapsed", () => {
+    it("expects only timeSlots whose time has elapsed", () => {
       // 9am, 12pm, 9pm — at 1pm only 9am+12pm have elapsed
       const habit: BoardProgressHabit = {
         goal: dailyGoal(3),
@@ -103,7 +103,7 @@ describe("boardProgress", () => {
       expect(r.percent).toBe(0);
     });
 
-    it("ignores slots not scheduled for today", () => {
+    it("ignores timeSlots not scheduled for today", () => {
       // weekend-only schedule on a Wednesday
       const r = boardProgress(
         [
@@ -132,7 +132,7 @@ describe("boardProgress", () => {
       expect(r.percent).toBe(100);
     });
 
-    it("counts a slot whose time exactly matches now", () => {
+    it("counts a timeSlot whose time exactly matches now", () => {
       const noon = new Date(2025, 5, 4, 12, 0);
       const r = boardProgress(
         [{ goal: dailyGoal(1), schedules: [timed(0, 12)], doneToday: 0 }],
@@ -159,7 +159,7 @@ describe("boardProgress", () => {
     });
 
     it("matches the user's worked example: 3-a-day at 9/12/21, now 13", () => {
-      // One habit, three slots, two elapsed, user did one
+      // One habit, three time-slots, two elapsed, user did one
       const r = boardProgress(
         [
           {

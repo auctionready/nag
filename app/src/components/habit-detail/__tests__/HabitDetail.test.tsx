@@ -158,7 +158,7 @@ describe("HabitDetail", () => {
       { days: null, dayOfMonth: null, hour: 18, minute: 0 },
     ];
 
-    it("renders a chip for each scheduled slot today", () => {
+    it("renders a chip for each scheduled timeSlot today", () => {
       const view = render(
         <HabitDetail
           {...baseProps}
@@ -193,7 +193,7 @@ describe("HabitDetail", () => {
       expect(view.getByText("1 of 3 done today")).toBeTruthy();
     });
 
-    it("shows extras pill when there are more check-ins than slots", () => {
+    it("shows extras pill when there are more check-ins than timeSlots", () => {
       const view = render(
         <HabitDetail
           {...baseProps}
@@ -236,8 +236,8 @@ describe("HabitDetail", () => {
       expect(view.getByText("+1 extra")).toBeTruthy();
     });
 
-    describe("long-pressing a missed slot", () => {
-      const renderWithMissedSlots = () =>
+    describe("long-pressing a missed timeSlot", () => {
+      const renderWithMissedTimeSlots = () =>
         render(
           <HabitDetail
             {...baseProps}
@@ -250,7 +250,7 @@ describe("HabitDetail", () => {
         );
 
       const triggerLongPressOnEightAm = () => {
-        const view = renderWithMissedSlots();
+        const view = renderWithMissedTimeSlots();
         fireEvent(view.getByText("8:00 AM"), "longPress");
         return view;
       };
@@ -278,7 +278,7 @@ describe("HabitDetail", () => {
         );
       });
 
-      it("calls onCheckInAt at the slot's time when 'Check In' is pressed", () => {
+      it("calls onCheckInAt at the timeSlot's time when 'Check In' is pressed", () => {
         triggerLongPressOnEightAm();
         pressAlertButton("Check In");
         expect(baseProps.onCheckInAt).toHaveBeenCalledTimes(1);
@@ -292,7 +292,7 @@ describe("HabitDetail", () => {
         expect((called as Date).getDate()).toBe(15);
       });
 
-      it("calls onSkipAt at the slot's time when 'As Skip' is pressed", () => {
+      it("calls onSkipAt at the timeSlot's time when 'As Skip' is pressed", () => {
         triggerLongPressOnEightAm();
         pressAlertButton("As Skip");
         expect(baseProps.onSkipAt).toHaveBeenCalledTimes(1);
@@ -534,7 +534,7 @@ describe("HabitDetail", () => {
       },
     ];
 
-    it('shows "Not scheduled" when the selected day has no slots', () => {
+    it('shows "Not scheduled" when the selected day has no timeSlots', () => {
       // `now` defaults to Sunday Jun 15 → today is unscheduled for a
       // Mon/Wed/Fri habit. Should NOT fall through to "0 of 3 this period".
       const view = render(
@@ -567,7 +567,7 @@ describe("HabitDetail", () => {
     });
 
     it("renders future-day chips as upcoming, not missed", () => {
-      // Daily habit with 8/12/18 slots; jump to next Sunday (a week ahead).
+      // Daily habit with 8/12/18 time-slots; jump to next Sunday (a week ahead).
       const nextSunday = new Date(2025, 5, 22);
       const view = render(
         <HabitDetail
@@ -583,7 +583,7 @@ describe("HabitDetail", () => {
         />,
       );
       // Glyph inventory: ✓ done, – skipped, ✕ missed, ○ upcoming.
-      // Future-day slots should all show ○, never ✕.
+      // Future-day time-slots should all show ○, never ✕.
       expect(view.queryAllByText("\u25CB")).toHaveLength(3);
       expect(view.queryByText("\u2715")).toBeNull();
       expect(view.getByText("0 of 3 done")).toBeTruthy();
@@ -594,7 +594,7 @@ describe("HabitDetail", () => {
       ).toBeNull();
     });
 
-    it("allows back-fill on the nearest upcoming slot today, not the rest", () => {
+    it("allows back-fill on the nearest upcoming timeSlot today, not the rest", () => {
       // now = Sun 10:00; 8 AM is missed, 12 PM is the nearest upcoming,
       // 6 PM is also upcoming but further out.
       const view = render(
@@ -623,7 +623,7 @@ describe("HabitDetail", () => {
       ).toBeNull();
     });
 
-    it("triggering long-press on the nearest upcoming slot opens the prompt", () => {
+    it("triggering long-press on the nearest upcoming timeSlot opens the prompt", () => {
       jest.spyOn(Alert, "alert");
       const view = render(
         <HabitDetail
@@ -740,7 +740,7 @@ describe("HabitDetail", () => {
       expect(view.getByText("Wednesday")).toBeTruthy();
     });
 
-    it("long-presses a missed slot on a past selected day → Check In", () => {
+    it("long-presses a missed timeSlot on a past selected day → Check In", () => {
       // Repro for "long-press on a past day schedule item does nothing":
       // weekly habit with Wed schedule, today is Sun, user picks past Wed.
       jest.spyOn(Alert, "alert");
@@ -802,7 +802,7 @@ describe("HabitDetail", () => {
   });
 
   describe("back-filled check-in marker", () => {
-    // Slot at 8:00 AM, actually recorded at 10:00 AM → back-fill gap of 2h.
+    // Time-slot at 8:00 AM, actually recorded at 10:00 AM → back-fill gap of 2h.
     const backFilled = [
       {
         id: "ci-1",
@@ -813,8 +813,8 @@ describe("HabitDetail", () => {
       },
     ];
 
-    it("shows time-only on (recorded …) when same calendar day as the slot", () => {
-      // Same-day back-fill: slot at 8 AM, recorded at 10 AM. The day is
+    it("shows time-only on (recorded …) when same calendar day as the timeSlot", () => {
+      // Same-day back-fill: time-slot at 8 AM, recorded at 10 AM. The day is
       // already shown (or implied by the title) — only the time differs.
       const view = render(
         <HabitDetail
@@ -829,7 +829,7 @@ describe("HabitDetail", () => {
     });
 
     it("omits month/year on (recorded …) when same month+year, different day", () => {
-      // Slot Sun Jun 15, recorded Mon Jun 16 — same month so month is implied.
+      // Time-slot Sun Jun 15, recorded Mon Jun 16 — same month so month is implied.
       const laterDay = [
         {
           id: "ci-1",

@@ -11,17 +11,17 @@ import { setupTestDb } from "./testDb";
 const getDb = setupTestDb("sync-test.db");
 
 const cancelAll = vi.fn<
-  ConsolidatedNotificationScheduler["cancelAllSlotNotifications"]
+  ConsolidatedNotificationScheduler["cancelAllTimeSlotNotifications"]
 >(async () => {});
 const scheduleOne = vi.fn<
-  ConsolidatedNotificationScheduler["scheduleSlotNotification"]
+  ConsolidatedNotificationScheduler["scheduleTimeSlotNotification"]
 >(async () => {});
 
 beforeEach(() => {
   vi.clearAllMocks();
   setConsolidatedScheduler({
-    cancelAllSlotNotifications: cancelAll,
-    scheduleSlotNotification: scheduleOne,
+    cancelAllTimeSlotNotifications: cancelAll,
+    scheduleTimeSlotNotification: scheduleOne,
   });
 });
 
@@ -102,7 +102,7 @@ const insertCheckIn = async (
 };
 
 describe("syncAllNotifications", () => {
-  describe("single daily slot", () => {
+  describe("single daily timeSlot", () => {
     it("schedules one occurrence per day for the horizon when no check-ins exist", async () => {
       // Wed 2026-04-15 06:00 — today's 08:00 is still in the future.
       const now = new Date(2026, 3, 15, 6, 0);
@@ -120,7 +120,7 @@ describe("syncAllNotifications", () => {
     it("drops today's occurrence when the habit is already checked in today", async () => {
       const now = new Date(2026, 3, 15, 6, 0);
       const habitId = await seedDailyHabit("Read", 8, 0);
-      // Back-filled check-in at the slot time.
+      // Back-filled check-in at the time-slot time.
       await insertCheckIn(habitId, new Date(2026, 3, 15, 8, 0));
 
       await syncAllNotifications(getDb(), { now });
@@ -150,7 +150,7 @@ describe("syncAllNotifications", () => {
     });
   });
 
-  describe("multi-habit daily slot", () => {
+  describe("multi-habit daily timeSlot", () => {
     it("trims title/body to unchecked habits but keeps full habitIds in data", async () => {
       const now = new Date(2026, 3, 15, 6, 0);
       const readId = await seedDailyHabit("Read", 8, 0);
@@ -169,8 +169,8 @@ describe("syncAllNotifications", () => {
       expect(todayCall![0].body).toBe("Time for Stretch");
       expect(todayCall![0].data).toMatchObject({
         habitIds: [readId, stretchId],
-        slotHour: 8,
-        slotMinute: 0,
+        timeSlotHour: 8,
+        timeSlotMinute: 0,
       });
 
       const tomorrowCall = scheduleOne.mock.calls.find(
@@ -182,7 +182,7 @@ describe("syncAllNotifications", () => {
       expect(tomorrowCall![0].body).toBe("Read, Stretch");
     });
 
-    it("drops the occurrence entirely when all habits in the slot are satisfied", async () => {
+    it("drops the occurrence entirely when all habits in the timeSlot are satisfied", async () => {
       const now = new Date(2026, 3, 15, 6, 0);
       const readId = await seedDailyHabit("Read", 8, 0);
       const stretchId = await seedDailyHabit("Stretch", 8, 0);
@@ -204,7 +204,7 @@ describe("syncAllNotifications", () => {
 
   describe("weekly bitmask", () => {
     it("fans out across the target weekdays", async () => {
-      // Wed 2026-04-15 10:00 — today's slots already past.
+      // Wed 2026-04-15 10:00 — today's time-slots already past.
       const now = new Date(2026, 3, 15, 10, 0);
       await seedWeeklyHabit("Run", 8, 0, Day.Mon | Day.Wed);
 
@@ -235,14 +235,14 @@ describe("syncAllNotifications", () => {
   });
 
   describe("identifier format", () => {
-    it("emits `slot-<key>-YYYYMMDD-HHmm`, unique per occurrence", async () => {
+    it("emits `timeSlot-<key>-YYYYMMDD-HHmm`, unique per occurrence", async () => {
       const now = new Date(2026, 3, 15, 6, 0);
       await seedDailyHabit("Read", 8, 30);
 
       await syncAllNotifications(getDb(), { now });
 
       const ids = scheduleOne.mock.calls.map((c) => c[0].identifier);
-      expect(ids[0]).toBe("slot-daily-08-30-20260415-0830");
+      expect(ids[0]).toBe("timeSlot-daily-08-30-20260415-0830");
       expect(new Set(ids).size).toBe(ids.length);
     });
   });

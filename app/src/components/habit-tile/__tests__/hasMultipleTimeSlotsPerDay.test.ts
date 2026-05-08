@@ -1,5 +1,5 @@
 import type { ScheduleInfo } from "@nag/core";
-import { hasMultipleSlotsPerDay } from "../hasMultipleSlotsPerDay";
+import { hasMultipleTimeSlotsPerDay } from "../hasMultipleTimeSlotsPerDay";
 
 const schedule = (days: number, hour = 8, minute = 0): ScheduleInfo => ({
   days,
@@ -14,25 +14,25 @@ const WED = 1 << 3;
 const FRI = 1 << 5;
 const MON_WED_FRI = MON | WED | FRI;
 
-describe("hasMultipleSlotsPerDay", () => {
+describe("hasMultipleTimeSlotsPerDay", () => {
   it("returns false for an empty schedule list", () => {
-    expect(hasMultipleSlotsPerDay([])).toBe(false);
+    expect(hasMultipleTimeSlotsPerDay([])).toBe(false);
   });
 
   it("returns false for a single schedule on multiple days", () => {
-    expect(hasMultipleSlotsPerDay([schedule(MON_WED_FRI, 8)])).toBe(false);
+    expect(hasMultipleTimeSlotsPerDay([schedule(MON_WED_FRI, 8)])).toBe(false);
   });
 
   it("returns false for several schedules on disjoint days", () => {
-    expect(hasMultipleSlotsPerDay([schedule(MON, 8), schedule(WED, 12)])).toBe(
-      false,
-    );
+    expect(
+      hasMultipleTimeSlotsPerDay([schedule(MON, 8), schedule(WED, 12)]),
+    ).toBe(false);
   });
 
   it("returns true when two schedules cover the same day", () => {
-    // 8am Mon/Wed/Fri AND 6pm Mon/Wed/Fri → multi-slot per day.
+    // 8am Mon/Wed/Fri AND 6pm Mon/Wed/Fri → multi-time-slot per day.
     expect(
-      hasMultipleSlotsPerDay([
+      hasMultipleTimeSlotsPerDay([
         schedule(MON_WED_FRI, 8),
         schedule(MON_WED_FRI, 18),
       ]),
@@ -42,13 +42,16 @@ describe("hasMultipleSlotsPerDay", () => {
   it("returns true when overlap is on a single day-of-week", () => {
     // 8am Mon/Wed AND 8am Wed/Fri → only Wed is doubled, but that's enough.
     expect(
-      hasMultipleSlotsPerDay([schedule(MON | WED, 8), schedule(WED | FRI, 9)]),
+      hasMultipleTimeSlotsPerDay([
+        schedule(MON | WED, 8),
+        schedule(WED | FRI, 9),
+      ]),
     ).toBe(true);
   });
 
   it("treats a null days mask as no days", () => {
     expect(
-      hasMultipleSlotsPerDay([
+      hasMultipleTimeSlotsPerDay([
         { days: null, dayOfMonth: null, hour: 8, minute: 0 },
         { days: null, dayOfMonth: null, hour: 9, minute: 0 },
       ]),

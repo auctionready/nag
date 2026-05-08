@@ -62,7 +62,7 @@ describe("buildDayCells", () => {
   });
 
   it("does not fill unscheduled days when only checkedInDaysMask is passed", () => {
-    // `checkedInDaysMask` is the "fully-completed *scheduled* slots" mask;
+    // `checkedInDaysMask` is the "fully-completed *scheduled* time-slots" mask;
     // unscheduled days never end up in it. Without the separate
     // `anyCheckInDaysMask` the unscheduled day stays unfilled.
     const cells = buildDayCells({
@@ -232,7 +232,7 @@ describe("buildDayCells", () => {
 
   describe("partialColor for partially-completed scheduled days", () => {
     it("paints past partial days orange", () => {
-      // Mon scheduled with 3 slots, only 1 done → partial.
+      // Mon scheduled with 3 time-slots, only 1 done → partial.
       const cells = buildDayCells({
         scheduledDaysMask: Day.Mon | Day.Wed,
         checkedInDaysMask: 0,
@@ -304,7 +304,7 @@ describe("classifyScheduledDays", () => {
   // 2025-06-13 is a real Friday; using calendar dates ensures getDay()
   // produces the expected day-of-week index.
 
-  it("marks a day complete when all its scheduled slots have a check-in", () => {
+  it("marks a day complete when all its scheduled timeSlots have a check-in", () => {
     const result = classifyScheduledDays({
       schedules: [
         { hour: 8, minute: 0, days: Day.Mon, dayOfMonth: null },
@@ -320,7 +320,7 @@ describe("classifyScheduledDays", () => {
     expect(result.partialDaysMask & Day.Mon).toBeFalsy();
   });
 
-  it("marks a day partial when some but not all slots have check-ins", () => {
+  it("marks a day partial when some but not all timeSlots have check-ins", () => {
     const result = classifyScheduledDays({
       schedules: [
         { hour: 8, minute: 0, days: Day.Mon, dayOfMonth: null },
@@ -358,7 +358,7 @@ describe("classifyScheduledDays", () => {
     expect(result.completedDaysMask & Day.Fri).toBeFalsy();
   });
 
-  it("ignores days with no scheduled slots", () => {
+  it("ignores days with no scheduled timeSlots", () => {
     const result = classifyScheduledDays({
       schedules: [{ hour: 8, minute: 0, days: Day.Mon, dayOfMonth: null }],
       checkIns: [
@@ -370,7 +370,7 @@ describe("classifyScheduledDays", () => {
     expect(result.completedDaysMask & Day.Tue).toBeFalsy();
   });
 
-  it("counts extras as complete (>= slots)", () => {
+  it("counts extras as complete (>= timeSlots)", () => {
     const result = classifyScheduledDays({
       schedules: [{ hour: 8, minute: 0, days: Day.Mon, dayOfMonth: null }],
       checkIns: [

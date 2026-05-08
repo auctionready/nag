@@ -26,7 +26,7 @@ interface BuildCellsArgs {
 //   done           — ink fill + check
 //   today-done     — done + orange ring around it
 //   today          — scheduled today, not done — orange ring, empty inside
-//   partial        — some-of-many slots done — bottom portion ink-filled,
+//   partial        — some-of-many time-slots done — bottom portion ink-filled,
 //                    faint ring
 //   today-partial  — partial + orange ring
 //   missed         — past scheduled day with no check-in — faint ring + slash

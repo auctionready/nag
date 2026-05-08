@@ -1,6 +1,6 @@
 import type { Regularity } from "@nag/schema";
 import type { ScheduleInfo } from "@nag/core";
-import type { SlotDotState } from "../slotDotState";
+import type { TimeSlotDotState } from "../timeSlotDotState";
 import { computeChipState } from "../TileProgressChip";
 
 const goal = (regularity: Regularity, frequency: number) => ({
@@ -30,18 +30,18 @@ const someDaysAt = (
 
 const inputs = (overrides: {
   goal: ReturnType<typeof goal> | null;
-  todaySlots?: SlotDotState[];
+  todayTimeSlots?: TimeSlotDotState[];
   periodCheckInCount?: number;
-  multiSlotPerDay?: boolean;
+  multiTimeSlotPerDay?: boolean;
   schedules?: ScheduleInfo[];
   /** Convenience: equivalent to `schedules: [someDaysAt(0b0101010, 9, 0)]`. */
   hasSchedules?: boolean;
 }) => {
   const { hasSchedules, schedules, ...rest } = overrides;
   return {
-    todaySlots: undefined,
+    todayTimeSlots: undefined,
     periodCheckInCount: 0,
-    multiSlotPerDay: false,
+    multiTimeSlotPerDay: false,
     schedules: schedules ?? (hasSchedules ? [someDaysAt(0b0101010, 9, 0)] : []),
     ...rest,
   };
@@ -66,7 +66,7 @@ describe("computeChipState", () => {
       expect(computeChipState(inputs({ goal: goal("week", 1) }))).toEqual({
         kind: "labelDots",
         text: "weekly",
-        slots: ["pending"],
+        timeSlots: ["pending"],
       });
     });
 
@@ -74,7 +74,7 @@ describe("computeChipState", () => {
       expect(computeChipState(inputs({ goal: goal("month", 1) }))).toEqual({
         kind: "labelDots",
         text: "monthly",
-        slots: ["pending"],
+        timeSlots: ["pending"],
       });
     });
 
@@ -86,43 +86,45 @@ describe("computeChipState", () => {
   });
 
   describe("daily, frequency > 1", () => {
-    it("uses provided todaySlots with today eyebrow", () => {
-      const slots: SlotDotState[] = ["done", "pending", "pending"];
+    it("uses provided todayTimeSlots with today eyebrow", () => {
+      const timeSlots: TimeSlotDotState[] = ["done", "pending", "pending"];
       expect(
-        computeChipState(inputs({ goal: goal("day", 3), todaySlots: slots })),
-      ).toEqual({ kind: "dots", slots, prefixToday: true });
+        computeChipState(
+          inputs({ goal: goal("day", 3), todayTimeSlots: timeSlots }),
+        ),
+      ).toEqual({ kind: "dots", timeSlots, prefixToday: true });
     });
 
-    it("falls back to all-pending pips when todaySlots is missing", () => {
+    it("falls back to all-pending pips when todayTimeSlots is missing", () => {
       expect(computeChipState(inputs({ goal: goal("day", 3) }))).toEqual({
         kind: "dots",
-        slots: ["pending", "pending", "pending"],
+        timeSlots: ["pending", "pending", "pending"],
         prefixToday: true,
       });
     });
   });
 
-  describe("weekly, frequency > 1, multi-slot-per-day", () => {
-    it("uses todaySlots with today eyebrow", () => {
-      const slots: SlotDotState[] = ["done", "pending", "pending"];
+  describe("weekly, frequency > 1, multi-timeSlot-per-day", () => {
+    it("uses todayTimeSlots with today eyebrow", () => {
+      const timeSlots: TimeSlotDotState[] = ["done", "pending", "pending"];
       expect(
         computeChipState(
           inputs({
             goal: goal("week", 9),
-            todaySlots: slots,
-            multiSlotPerDay: true,
+            todayTimeSlots: timeSlots,
+            multiTimeSlotPerDay: true,
             hasSchedules: true,
           }),
         ),
-      ).toEqual({ kind: "dots", slots, prefixToday: true });
+      ).toEqual({ kind: "dots", timeSlots, prefixToday: true });
     });
 
-    it("shows 'off today' label when today has no slots", () => {
+    it("shows 'off today' label when today has no timeSlots", () => {
       expect(
         computeChipState(
           inputs({
             goal: goal("week", 9),
-            multiSlotPerDay: true,
+            multiTimeSlotPerDay: true,
             hasSchedules: true,
           }),
         ),
@@ -130,9 +132,9 @@ describe("computeChipState", () => {
     });
   });
 
-  describe("weekly, frequency > 1, scheduled (single-slot-per-day)", () => {
+  describe("weekly, frequency > 1, scheduled (single-timeSlot-per-day)", () => {
     it("renders text label like '3× / wk' — week-strip carries the day detail", () => {
-      // Schedule has specific days (e.g. M·W·F) at one slot each. Dots
+      // Schedule has specific days (e.g. M·W·F) at one time-slot each. Dots
       // would be redundant with the week-strip below.
       expect(
         computeChipState(inputs({ goal: goal("week", 3), hasSchedules: true })),
@@ -149,7 +151,7 @@ describe("computeChipState", () => {
       ).toEqual({
         kind: "labelDots",
         text: "3× / wk",
-        slots: ["done", "done", "pending"],
+        timeSlots: ["done", "done", "pending"],
       });
     });
 
@@ -157,7 +159,7 @@ describe("computeChipState", () => {
       expect(computeChipState(inputs({ goal: goal("week", 4) }))).toEqual({
         kind: "labelDots",
         text: "4× / wk",
-        slots: ["pending", "pending", "pending", "pending"],
+        timeSlots: ["pending", "pending", "pending", "pending"],
       });
     });
 
@@ -169,7 +171,7 @@ describe("computeChipState", () => {
       ).toEqual({
         kind: "labelDots",
         text: "3× / wk",
-        slots: ["done", "done", "done"],
+        timeSlots: ["done", "done", "done"],
       });
     });
 
@@ -181,7 +183,7 @@ describe("computeChipState", () => {
       ).toEqual({
         kind: "labelDots",
         text: "2× / wk",
-        slots: ["done", "done", "ahead", "ahead"],
+        timeSlots: ["done", "done", "ahead", "ahead"],
       });
     });
   });
@@ -226,13 +228,13 @@ describe("computeChipState", () => {
           inputs({
             goal: goal("week", 7),
             schedules: [everyDayAt(7, 0), everyDayAt(19, 30)],
-            multiSlotPerDay: true,
-            todaySlots: ["done", "pending"],
+            multiTimeSlotPerDay: true,
+            todayTimeSlots: ["done", "pending"],
           }),
         ),
       ).toEqual({
         kind: "dots",
-        slots: ["done", "pending"],
+        timeSlots: ["done", "pending"],
         prefixToday: true,
       });
     });
@@ -260,7 +262,7 @@ describe("computeChipState", () => {
       ).toEqual({
         kind: "labelDots",
         text: "4× / mo",
-        slots: ["done", "pending", "pending", "pending"],
+        timeSlots: ["done", "pending", "pending", "pending"],
       });
     });
 

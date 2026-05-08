@@ -11,9 +11,9 @@ import { complianceColors } from "../../components/compliance";
 
 interface WeekStripProps {
   scheduledDaysMask: number;
-  /** Days where every scheduled slot has a check-in (full completion). */
+  /** Days where every scheduled time-slot has a check-in (full completion). */
   checkedInDaysMask: number;
-  /** Days where some — but not all — scheduled slots have a check-in. */
+  /** Days where some — but not all — scheduled time-slots have a check-in. */
   partialDaysMask?: number;
   /**
    * Days with at least one check-in regardless of schedule. Used to show

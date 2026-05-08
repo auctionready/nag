@@ -12,9 +12,9 @@ import { useHabitGoalSummary } from "./useHabitGoalSummary";
 import { useHabitCompliance } from "./useHabitCompliance";
 import { HabitTileView } from "./HabitTileView";
 import type { PeriodIndicatorsProps } from "./PeriodIndicators";
-import { computeTodaySlots } from "./computeTodaySlots";
+import { computeTodayTimeSlots } from "./computeTodayTimeSlots";
 import { classifyDailyWeek } from "./classifyDailyWeek";
-import { hasMultipleSlotsPerDay } from "./hasMultipleSlotsPerDay";
+import { hasMultipleTimeSlotsPerDay } from "./hasMultipleTimeSlotsPerDay";
 
 interface HabitTileProps {
   id: string;
@@ -66,12 +66,12 @@ export const HabitTile = ({ id, title, icon }: HabitTileProps) => {
   const dailyMasks =
     isDaily && goal ? classifyDailyWeek(weekCheckIns, goal.frequency) : null;
 
-  // Today's slot pips — only shown when there's >1 slot in a day. For
-  // scheduled habits we map matchCheckInsToSlots' result; for daily-frequency
+  // Today's time-slot pips — only shown when there's >1 time-slot in a day. For
+  // scheduled habits we map matchCheckInsToTime-slots' result; for daily-frequency
   // habits with frequency > 1 we synthesise pips from today's check-in count.
-  const todaySlots = computeTodaySlots(
+  const todayTimeSlots = computeTodayTimeSlots(
     goal,
-    snap.slots,
+    snap.timeSlots,
     weekCheckIns,
     schedules.length,
     now,
@@ -117,11 +117,11 @@ export const HabitTile = ({ id, title, icon }: HabitTileProps) => {
       goal={goal}
       periodCheckInCount={checkInCount}
       recentCheckIns={recentCheckIns}
-      multiSlotPerDay={hasMultipleSlotsPerDay(schedules)}
+      multiTimeSlotPerDay={hasMultipleTimeSlotsPerDay(schedules)}
       schedules={schedules}
       isOffDay={snap.isAnchorOffDay}
       periodIndicators={periodIndicators}
-      todaySlots={todaySlots}
+      todayTimeSlots={todayTimeSlots}
       onPress={handlePress}
       onCheckIn={handleCheckIn}
     />

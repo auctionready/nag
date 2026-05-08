@@ -25,7 +25,7 @@ interface BoardProgress extends BoardProgressResult {
 
 /**
  * Today's compliance for the home board header. Sums each habit's
- * expected slots-by-now and credited check-ins. See `boardProgress` in
+ * expected time-slots-by-now and credited check-ins. See `boardProgress` in
  * `@nag/core` for the per-habit rules.
  */
 export const useBoardProgress = (habitIds: string[]): BoardProgress => {

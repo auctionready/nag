@@ -498,13 +498,13 @@ describe("CreateCheckIn", () => {
       .from(schema.checkIn)
       .where(eq(schema.checkIn.habitId, habitId));
     expect(checkIns).toHaveLength(1);
-    // `timestamp` is the deemed slot (from the payload); `createdAt` is the
+    // `timestamp` is the deemed time-slot (from the payload); `createdAt` is the
     // wall-clock insert time. For a same-moment check-in they're both ≈ `now`.
     expect(checkIns[0].timestamp.getTime()).toBe(now.getTime());
     expect(checkIns[0].createdAt).toBeInstanceOf(Date);
   });
 
-  it("stores payload timestamp separately from createdAt for back-filled slots", async () => {
+  it("stores payload timestamp separately from createdAt for back-filled timeSlots", async () => {
     const db = getDb();
     const habitId = crypto.randomUUID();
     await processCommand(db, {

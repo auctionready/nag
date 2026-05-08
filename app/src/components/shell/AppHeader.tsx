@@ -65,7 +65,7 @@ interface StackHeaderShape {
 }
 
 /**
- * Adapter that lets `AppHeaderShell` slot into a Stack's `header` option.
+ * Adapter that lets `AppHeaderShell` time-slot into a Stack's `header` option.
  */
 export const AppHeader = ({ options, back }: StackHeaderShape) => {
   const navigation = useNavigation();

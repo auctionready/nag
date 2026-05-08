@@ -35,7 +35,7 @@ export const useHabitCompliance = (
 
   // Day-mask / ring / within-day color need *every* check-in in the period
   // — a limited query silently drops back-fills whose `timestamp` (deemed
-  // slot time) sorts earlier than newer entries.
+  // time-slot time) sorts earlier than newer entries.
   const { data: periodCheckInRows } = useLiveQuery(
     periodStartDate
       ? checkInsInPeriod(db, habitId, periodStartDate)

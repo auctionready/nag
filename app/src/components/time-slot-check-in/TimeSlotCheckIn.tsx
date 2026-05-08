@@ -7,25 +7,25 @@ import { tokens } from "../../components/theme";
 const FONT = "SpaceGrotesk-Bold";
 const MONO = "JetBrainsMono";
 
-export type SlotCheckInState = "pending" | "done" | "skip";
+export type TimeSlotCheckInState = "pending" | "done" | "skip";
 
-export interface SlotCheckInItem {
+export interface TimeSlotCheckInItem {
   id: string;
   title: string;
   /** Icon kind from the habit. May be null / unknown — falls back to the check glyph. */
   icon?: HabitIconKind | string | null;
-  /** Cadence / slot detail line (e.g. "7:00 am · 3 sets" or "M·W·F"). */
-  slotMeta?: string;
+  /** Cadence / time-slot detail line (e.g. "7:00 am · 3 sets" or "M·W·F"). */
+  timeSlotMeta?: string;
   /** Initial state derived from today's check-ins. */
-  initialState: SlotCheckInState;
+  initialState: TimeSlotCheckInState;
   /** Wall-clock time the existing check-in was logged at, e.g. "7:04 am". */
   loggedAt?: string;
 }
 
-export interface SlotCheckInProps {
+export interface TimeSlotCheckInProps {
   /** Top-eyebrow group label, e.g. "7:00 am". */
   groupTime?: string;
-  habits: SlotCheckInItem[];
+  habits: TimeSlotCheckInItem[];
   onCheckIn: (habitId: string) => void;
   onSkip: (habitId: string) => void;
   onDone: () => void;
@@ -33,14 +33,14 @@ export interface SlotCheckInProps {
   onClose?: () => void;
 }
 
-export const SlotCheckIn = ({
+export const TimeSlotCheckIn = ({
   groupTime,
   habits,
   onCheckIn,
   onSkip,
   onDone,
   onClose,
-}: SlotCheckInProps) => {
+}: TimeSlotCheckInProps) => {
   // Track which rows started resolved at mount — those can't be amended
   // yet (no checkInId to delete) so we lock them. Captured once via
   // useState initializer so live-query updates don't change the lock set.
@@ -51,15 +51,15 @@ export const SlotCheckIn = ({
       ),
   );
 
-  const [states, setStates] = useState<Record<string, SlotCheckInState>>(() =>
-    Object.fromEntries(habits.map((h) => [h.id, h.initialState])),
+  const [states, setStates] = useState<Record<string, TimeSlotCheckInState>>(
+    () => Object.fromEntries(habits.map((h) => [h.id, h.initialState])),
   );
 
   const cycle = (id: string) => {
     if (lockedIds.has(id)) return;
     setStates((s) => {
       const cur = s[id] ?? "pending";
-      const next: SlotCheckInState =
+      const next: TimeSlotCheckInState =
         cur === "pending" ? "done" : cur === "done" ? "skip" : "pending";
       return { ...s, [id]: next };
     });
@@ -200,8 +200,8 @@ export const SlotCheckIn = ({
 };
 
 interface CheckInRowProps {
-  habit: SlotCheckInItem;
-  state: SlotCheckInState;
+  habit: TimeSlotCheckInItem;
+  state: TimeSlotCheckInState;
   locked: boolean;
   onPress: () => void;
 }
@@ -216,7 +216,7 @@ const CheckInRow = ({ habit, state, locked, onPress }: CheckInRowProps) => {
       ? `logged ${habit.loggedAt}`
       : habit.loggedAt && isSkip
         ? `skipped ${habit.loggedAt}`
-        : habit.slotMeta;
+        : habit.timeSlotMeta;
 
   return (
     <Pressable
@@ -260,7 +260,7 @@ const CheckInRow = ({ habit, state, locked, onPress }: CheckInRowProps) => {
   );
 };
 
-const StatePill = ({ state }: { state: SlotCheckInState }) => {
+const StatePill = ({ state }: { state: TimeSlotCheckInState }) => {
   if (state === "done") {
     return (
       <View style={pillStyles.done}>

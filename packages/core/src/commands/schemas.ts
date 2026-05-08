@@ -117,9 +117,9 @@ export const CreateCheckIn = z.object({
   checkInId: Uuid,
   habitId: Uuid,
   /**
-   * The deemed slot time for this check-in. For a regular "check in right
+   * The deemed time-slot time for this check-in. For a regular "check in right
    * now" tap this is `new Date()`; for a long-press back-fill of a missed
-   * slot it's that slot's `Date`. Audit log persists commands as JSON so
+   * time-slot it's that time-slot's `Date`. Audit log persists commands as JSON so
    * `z.coerce.date()` lets callers pass either a `Date` or an ISO string.
    */
   timestamp: z.coerce.date(),
