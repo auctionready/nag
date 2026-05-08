@@ -103,7 +103,7 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.orange,
   },
   cellEmptyPast: {
-    backgroundColor: tokens.midFaint,
+    backgroundColor: tokens.faint,
   },
   cellEmptyFuture: {
     backgroundColor: tokens.inkTint,
