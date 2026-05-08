@@ -1,4 +1,5 @@
-import type { HabitFormData } from "../components/HabitForm";
+import { AllDays } from "@nag/core";
+import type { HabitFormData } from "../components/habit-form";
 
 export const buildGoalPayload = (values: HabitFormData) => {
   if (values.regularity === "none") return undefined;
@@ -9,7 +10,7 @@ export const buildGoalPayload = (values: HabitFormData) => {
       schedules: values.schedules.map((s) => ({
         hour: Number(s.hour),
         minute: Number(s.minute),
-        days: s.days,
+        days: s.days ?? AllDays,
         reminder: s.reminder !== false,
       })),
     };

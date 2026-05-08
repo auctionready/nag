@@ -16,7 +16,7 @@ import {
 import {
   useCalendarCheckIns,
   useSelectedDayCheckIns,
-} from "../../components/useCalendarCheckIns";
+} from "../../components/calendar";
 import { useStartOfToday } from "../../infrastructure/today";
 import { WeekdayNames } from "@nag/core";
 

@@ -54,7 +54,7 @@ let singleton: NagApiClient | null = null;
  * is stable against HTTP+localhost; an earlier `adapter: "fetch"`
  * override hung on chunked responses in the iOS simulator.
  */
-export const getApiClient = (): NagApiClient => {
+const getApiClient = (): NagApiClient => {
   if (singleton) return singleton;
   const { apiBaseUrl } = extra();
   if (!apiBaseUrl) {

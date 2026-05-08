@@ -2,6 +2,7 @@ packages:
   - "packages/*"
   - "app"
   - "backend"
+dedupePeerDependents: true
 allowBuilds:
   "@pulumi/neon": true
 approveBuilds: better-sqlite3

@@ -1,5 +1,5 @@
 import { buildGoalPayload } from "../buildGoalPayload";
-import type { HabitFormData } from "../../components/HabitForm";
+import type { HabitFormData } from "../../components/habit-form";
 
 const baseData: HabitFormData = {
   title: "Exercise",

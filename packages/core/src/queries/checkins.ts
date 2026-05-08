@@ -54,7 +54,7 @@ export const recentCheckIns = (
  * (rather than `recentCheckIns`) when callers need every check-in in
  * the period: day-of-week mask, within-day color, ring progress, etc.
  * `recentCheckIns`'s LIMIT silently drops back-filled check-ins whose
- * `timestamp` (the deemed slot time) is earlier than N newer entries
+ * `timestamp` (the deemed time-slot time) is earlier than N newer entries
  * in the same period — making the home-board tile's day cells
  * disagree with the habit-detail screen.
  */
@@ -68,7 +68,7 @@ export const checkInsInPeriod = (db: AnyDb, habitId: string, since: Date) =>
 /**
  * All check-ins for a set of habits whose deemed `timestamp` falls in
  * `[dayStart, dayEnd)`. Returned chronologically — the order
- * `matchCheckInsToSlots` expects.
+ * `matchCheckInsToTime-slots` expects.
  */
 export const checkInsForHabitsOnDay = (
   db: AnyDb,

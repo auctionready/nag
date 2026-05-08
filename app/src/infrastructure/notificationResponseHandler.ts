@@ -7,13 +7,13 @@ const navigateFor = (response: Notifications.NotificationResponse): void => {
   if (!data?.habitIds || !Array.isArray(data.habitIds)) return;
   const params = new URLSearchParams();
   params.set("habitIds", (data.habitIds as string[]).join(","));
-  if (typeof data.slotHour === "number") {
-    params.set("h", String(data.slotHour));
+  if (typeof data.timeSlotHour === "number") {
+    params.set("h", String(data.timeSlotHour));
   }
-  if (typeof data.slotMinute === "number") {
-    params.set("m", String(data.slotMinute));
+  if (typeof data.timeSlotMinute === "number") {
+    params.set("m", String(data.timeSlotMinute));
   }
-  router.push(`/check-in-slot?${params.toString()}`);
+  router.push(`/check-in-time-slot?${params.toString()}`);
 };
 
 export const useNotificationResponseHandler = (): void => {

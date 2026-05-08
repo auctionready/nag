@@ -15,9 +15,8 @@ import {
 } from "@nag/core";
 import { dispatch } from "../../infrastructure/dispatch";
 import { useStartOfToday } from "../../infrastructure/today";
-import { HabitDetail } from "../../components/HabitDetail";
-import { ComplianceHistory } from "../../components/HabitDetail/ComplianceHistory";
-import { complianceColors } from "../../components/getComplianceColor";
+import { HabitDetail, ComplianceHistory } from "../../components/habit-detail";
+import { complianceColors } from "../../components/compliance";
 
 const DAY_PARAM_FORMAT = "yyyy-MM-dd";
 
@@ -49,7 +48,7 @@ const HabitScreen = () => {
   // with a `days` mask we default to "today is selected" (highlight today
   // in the week strip, scope the list to today's check-ins) — without that
   // default, the week strip would show no selection and the long-press
-  // affordances on slot chips would feel disconnected from the strip above.
+  // affordances on time-slot chips would feel disconnected from the strip above.
   const hasWeeklyDaysSchedule =
     goalData?.regularity === "week" && combineScheduleDays(schedules) !== 0;
   const parsedDay = day ? parse(day, DAY_PARAM_FORMAT, todayStart) : null;

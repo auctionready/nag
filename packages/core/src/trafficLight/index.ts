@@ -24,13 +24,13 @@ export type {
   WithinDayCompliance,
   WithinDayComplianceInput,
 } from "./withinDayCompliance";
-export { matchCheckInsToSlots } from "./matchCheckInsToSlots";
+export { matchCheckInsToTimeSlots } from "./matchCheckInsToTimeSlots";
 export type {
-  SlotStatus,
-  SlotState,
-  MatchCheckInsToSlotsInput,
-  MatchCheckInsToSlotsResult,
-} from "./matchCheckInsToSlots";
+  TimeSlotStatus,
+  TimeSlotState,
+  MatchCheckInsToTimeSlotsInput,
+  MatchCheckInsToTimeSlotsResult,
+} from "./matchCheckInsToTimeSlots";
 export { dailyCalculator } from "./dailyCalculator";
 export { weeklyCalculator } from "./weeklyCalculator";
 export { monthlyCalculator } from "./monthlyCalculator";

@@ -1,7 +1,7 @@
 import { useRouter } from "expo-router";
 import { seqUuid } from "@nag/schema";
 import { dispatch } from "../infrastructure/dispatch";
-import { HabitForm, type HabitFormData } from "../components/HabitForm";
+import { HabitForm, type HabitFormData } from "../components/habit-form";
 import { buildGoalPayload } from "../operations";
 
 const AddHabitScreen = () => {

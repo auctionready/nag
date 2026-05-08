@@ -15,10 +15,10 @@ export const checkIn = sqliteTable(
       .notNull()
       .references(() => habit.id, { onDelete: "cascade" }),
     /**
-     * The **deemed** slot time for this check-in — i.e. which scheduled slot
+     * The **deemed** time-slot time for this check-in — i.e. which scheduled time-slot
      * it's credited to. Caller-supplied via the `CreateCheckIn` command. When
-     * the user back-fills a missed 8 a.m. slot at 10 a.m., `timestamp` is
-     * 8 a.m. (the slot); `createdAt` is 10 a.m. (the wall-clock recording
+     * the user back-fills a missed 8 a.m. time-slot at 10 a.m., `timestamp` is
+     * 8 a.m. (the time-slot); `createdAt` is 10 a.m. (the wall-clock recording
      * time). The default only fires if no value is given.
      */
     timestamp: timestamp("timestamp")

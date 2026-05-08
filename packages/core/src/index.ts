@@ -6,12 +6,17 @@ export {
   type HabitProgressSnapshot,
 } from "./habitProgressSnapshot";
 export {
+  boardProgress,
+  type BoardProgressHabit,
+  type BoardProgressResult,
+} from "./boardProgress";
+export {
   buildDayCells,
   checkInDaysMask,
   classifyScheduledDays,
   type DayCell,
   type BuildDayCellsInput,
-  type SlotCompletion,
+  type TimeSlotCompletion,
 } from "./dayCells";
 export { buildMonthCells, type MonthDayCell } from "./monthCells";
 export {
@@ -25,11 +30,11 @@ export {
   withinDayColor,
   type WithinDayCompliance,
   type WithinDayComplianceInput,
-  matchCheckInsToSlots,
-  type SlotStatus,
-  type SlotState,
-  type MatchCheckInsToSlotsInput,
-  type MatchCheckInsToSlotsResult,
+  matchCheckInsToTimeSlots,
+  type TimeSlotStatus,
+  type TimeSlotState,
+  type MatchCheckInsToTimeSlotsInput,
+  type MatchCheckInsToTimeSlotsResult,
   isScheduledToday,
   combineScheduleDays,
   tileColor,
@@ -43,6 +48,7 @@ export {
   habitsByIds,
   goalForHabit,
   goalForHabitFull,
+  goalsForHabits,
   checkInCount,
   recentCheckIns,
   checkInsInPeriod,
@@ -95,6 +101,7 @@ export {
   refreshDeviceToken,
   loadIdentity,
   getAccountId,
+  setIdpSubject,
   switchLocalAccount,
   clearLocalAuth,
   type IdentityRow,
@@ -136,13 +143,15 @@ export {
   Day,
   NoDays,
   AllDays,
+  WeekDays,
+  WeekendDays,
   WeekdayNames,
   dayTitles,
   weekDayEntries,
   mondayFirstDayLetters,
   isSameCalendarDay,
 } from "./days";
-export { formatSlotTime, formatTimeOfDay } from "./format";
+export { formatTimeSlotTime, formatTimeOfDay } from "./format";
 export {
   setNotificationScheduler,
   getNotificationScheduler,
@@ -155,5 +164,5 @@ export {
   syncAllNotifications,
   consolidateSchedules,
   type ConsolidatedNotificationScheduler,
-  type ConsolidatedSlot,
+  type ConsolidatedTimeSlot,
 } from "./notificationConsolidator";

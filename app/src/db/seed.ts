@@ -11,6 +11,7 @@ import {
   seqUuid,
 } from "@nag/schema";
 import {
+  AllDays,
   Day,
   getConsolidatedScheduler,
   getNotificationScheduler,
@@ -43,13 +44,14 @@ const TuTh = Day.Tue | Day.Thu;
 
 const sampleData: SeedEntry[] = [
   {
-    // Daily, every day at 7am — already done today.
+    // Every day at 7am. Modelled as a weekly goal because only weekly
+    // goals carry schedules — see commands/schemas.ts.
     command: {
       type: "CreateHabit",
       title: "Meditate",
       goal: {
-        regularity: "day",
-        schedules: [{ hour: 7, minute: 0 }],
+        regularity: "week",
+        schedules: [{ hour: 7, minute: 0, days: AllDays }],
       },
     },
     checkIns: [{ daysAgo: 0 }],
@@ -72,18 +74,18 @@ const sampleData: SeedEntry[] = [
     checkIns: [{ daysAgo: 0 }],
   },
   {
-    // Daily at 9pm, all week — nothing checked in yet.
+    // Every day at 9pm — nothing checked in yet.
     command: {
       type: "CreateHabit",
       title: "Read",
       goal: {
-        regularity: "day",
-        schedules: [{ hour: 21, minute: 0 }],
+        regularity: "week",
+        schedules: [{ hour: 21, minute: 0, days: AllDays }],
       },
     },
   },
   {
-    // MWF mornings + Tue/Thu evenings (5 slots across the week).
+    // MWF mornings + Tue/Thu evenings (5 time-slots across the week).
     command: {
       type: "CreateHabit",
       title: "Journal",
@@ -116,7 +118,7 @@ const sampleData: SeedEntry[] = [
     checkIns: [{ daysAgo: 1 }],
   },
   {
-    // Weekend-only habit, one slot on Sat + Sun.
+    // Weekend-only habit, one time-slot on Sat + Sun.
     command: {
       type: "CreateHabit",
       title: "Practice guitar",
@@ -128,7 +130,7 @@ const sampleData: SeedEntry[] = [
     checkIns: [{ daysAgo: 3 }],
   },
   {
-    // Three slots per day on weekdays (morning, lunch, evening).
+    // Three time-slots per day on weekdays (morning, lunch, evening).
     command: {
       type: "CreateHabit",
       title: "Drink water",
@@ -227,8 +229,8 @@ export const seedSampleData = async () => {
   const realConsolidated = getConsolidatedScheduler();
   const realNotification = getNotificationScheduler();
   const noopConsolidated = {
-    cancelAllSlotNotifications: async () => {},
-    scheduleSlotNotification: async () => {},
+    cancelAllTimeSlotNotifications: async () => {},
+    scheduleTimeSlotNotification: async () => {},
   };
   const noopNotification = {
     cancelNotifications: async () => {},

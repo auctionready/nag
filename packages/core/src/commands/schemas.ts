@@ -1,97 +1,40 @@
 import { z } from "zod";
 import { regularityValues } from "@nag/schema";
 
-const ScheduleEntry = z.object({
+// A weekly schedule carries a day-of-week mask and a time. `dayOfMonth`
+// is forbidden by construction — schedules only attach to weekly goals.
+const WeeklyScheduleEntry = z.object({
   hour: z.int().min(0).max(23),
   minute: z.int().min(0).max(59),
-  days: z.int().min(1).max(127).optional(),
-  dayOfMonth: z.int().min(1).max(31).optional(),
+  days: z.int().min(1).max(127),
+  dayOfMonth: z.undefined().optional(),
   reminder: z.boolean().optional(),
 });
 
-const GoalPayload = z
-  .object({
-    regularity: z.enum(regularityValues),
-    frequency: z.int().min(1).optional(),
-    schedules: z.array(ScheduleEntry).min(1).optional(),
-  })
-  .superRefine((data, ctx) => {
-    if (!data.frequency && !data.schedules) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: "Either frequency or schedules must be provided",
-      });
-    }
-    if (data.frequency && data.schedules) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: "Cannot provide both frequency and schedules",
-      });
-    }
-    if (data.schedules) {
-      for (const [i, entry] of data.schedules.entries()) {
-        if (data.regularity === "day") {
-          if (entry.days !== undefined) {
-            ctx.addIssue({
-              code: z.ZodIssueCode.custom,
-              message: `schedules[${i}]: daily schedules must not have days`,
-              path: ["schedules", i, "days"],
-            });
-          }
-          if (entry.dayOfMonth !== undefined) {
-            ctx.addIssue({
-              code: z.ZodIssueCode.custom,
-              message: `schedules[${i}]: daily schedules must not have dayOfMonth`,
-              path: ["schedules", i, "dayOfMonth"],
-            });
-          }
-        }
-        if (data.regularity === "week") {
-          if (entry.days === undefined) {
-            ctx.addIssue({
-              code: z.ZodIssueCode.custom,
-              message: `schedules[${i}]: days is required for weekly schedules`,
-              path: ["schedules", i, "days"],
-            });
-          }
-          if (entry.dayOfMonth !== undefined) {
-            ctx.addIssue({
-              code: z.ZodIssueCode.custom,
-              message: `schedules[${i}]: weekly schedules must not have dayOfMonth`,
-              path: ["schedules", i, "dayOfMonth"],
-            });
-          }
-        }
-        if (data.regularity === "month") {
-          if (entry.dayOfMonth === undefined) {
-            ctx.addIssue({
-              code: z.ZodIssueCode.custom,
-              message: `schedules[${i}]: dayOfMonth is required for monthly schedules`,
-              path: ["schedules", i, "dayOfMonth"],
-            });
-          }
-          if (entry.days !== undefined) {
-            ctx.addIssue({
-              code: z.ZodIssueCode.custom,
-              message: `schedules[${i}]: monthly schedules must not have days`,
-              path: ["schedules", i, "days"],
-            });
-          }
-        }
-      }
-    }
-  });
+// Goal shape A: frequency-only (daily, weekly, monthly counts). No schedules.
+const FrequencyGoalPayload = z.object({
+  regularity: z.enum(regularityValues),
+  frequency: z.int().min(1),
+  schedules: z.undefined().optional(),
+});
 
-/**
- * Strong-entity ids are caller-minted UUIDs. The same value is the local
- * PK and the server-side identity, so commands carry it explicitly rather
- * than asking the processor to fish back a generated id.
- */
-const Uuid = z.string().min(1);
+// Goal shape B: scheduled. Always weekly — only weekly goals carry the
+// day-of-week mask that schedules need. No top-level frequency (the
+// handler derives it from popcount(days) across schedules).
+const ScheduledGoalPayload = z.object({
+  regularity: z.literal("week"),
+  schedules: z.array(WeeklyScheduleEntry).min(1),
+  frequency: z.undefined().optional(),
+});
+
+// Two structurally-incompatible variants — TypeScript rejects illegal
+// combos like `{regularity:"day", schedules:[...]}` at the call site,
+// so callers don't need to rely on `superRefine` firing at parse time.
+const GoalPayload = z.union([FrequencyGoalPayload, ScheduledGoalPayload]);
 
 export const CreateHabit = z.object({
   type: z.literal("CreateHabit"),
-  habitId: Uuid,
+  habitId: z.uuid(),
   title: z.string().min(1),
   description: z.string().optional(),
   icon: z.string().optional(),
@@ -100,7 +43,7 @@ export const CreateHabit = z.object({
 
 export const UpdateHabit = z.object({
   type: z.literal("UpdateHabit"),
-  habitId: Uuid,
+  habitId: z.uuid(),
   title: z.string().min(1).optional(),
   description: z.string().nullable().optional(),
   icon: z.string().nullable().optional(),
@@ -109,17 +52,17 @@ export const UpdateHabit = z.object({
 
 export const DeleteHabit = z.object({
   type: z.literal("DeleteHabit"),
-  habitId: Uuid,
+  habitId: z.uuid(),
 });
 
 export const CreateCheckIn = z.object({
   type: z.literal("CreateCheckIn"),
-  checkInId: Uuid,
-  habitId: Uuid,
+  checkInId: z.uuid(),
+  habitId: z.uuid(),
   /**
-   * The deemed slot time for this check-in. For a regular "check in right
+   * The deemed time-slot time for this check-in. For a regular "check in right
    * now" tap this is `new Date()`; for a long-press back-fill of a missed
-   * slot it's that slot's `Date`. Audit log persists commands as JSON so
+   * time-slot it's that time-slot's `Date`. Audit log persists commands as JSON so
    * `z.coerce.date()` lets callers pass either a `Date` or an ISO string.
    */
   timestamp: z.coerce.date(),
@@ -128,12 +71,12 @@ export const CreateCheckIn = z.object({
 
 export const DeleteCheckIn = z.object({
   type: z.literal("DeleteCheckIn"),
-  checkInId: Uuid,
+  checkInId: z.uuid(),
 });
 
 export const UpdateCheckIn = z.object({
   type: z.literal("UpdateCheckIn"),
-  checkInId: Uuid,
+  checkInId: z.uuid(),
   timestamp: z.coerce.date(),
   skipped: z.boolean().optional(),
 });

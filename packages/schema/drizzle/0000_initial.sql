@@ -35,7 +35,8 @@ CREATE TABLE `identity` (
 	`id` integer PRIMARY KEY DEFAULT 1 NOT NULL,
 	`device_id` text(36) NOT NULL,
 	`account_id` text(36),
-	`registered_at` integer
+	`registered_at` integer,
+	`idp_subject` text
 );
 --> statement-breakpoint
 CREATE TABLE `outbox` (

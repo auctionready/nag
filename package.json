@@ -16,7 +16,7 @@
     "test": "pnpm test:app && pnpm test:backend",
     "test:app": "pnpm -r --filter !@nag/backend --filter !nag run test",
     "test:backend": "pnpm --filter @nag/backend test",
-    "check:app": "concurrently -g \"pnpm typecheck\" \"pnpm lint\" \"pnpm test:app\" \"pnpm format:check:app\"",
+    "check:app": "concurrently -g \"pnpm typecheck\" \"pnpm lint\" \"pnpm test:app\" \"pnpm format:check:app\" \"pnpm --filter @nag/app check:circular\"",
     "check:backend": "pnpm --filter @nag/backend check",
     "check": "pnpm check:backend && pnpm check:app",
     "typecheck": "tsc -b",

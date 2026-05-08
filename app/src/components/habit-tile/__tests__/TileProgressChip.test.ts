@@ -1,0 +1,281 @@
+import type { Regularity } from "@nag/schema";
+import type { ScheduleInfo } from "@nag/core";
+import type { TimeSlotDotState } from "../timeSlotDotState";
+import { computeChipState } from "../TileProgressChip";
+
+const goal = (regularity: Regularity, frequency: number) => ({
+  regularity,
+  frequency,
+  title: "habit",
+  createdAt: new Date(),
+});
+
+const everyDayAt = (hour: number, minute: number): ScheduleInfo => ({
+  days: 0x7f,
+  dayOfMonth: null,
+  hour,
+  minute,
+});
+
+const someDaysAt = (
+  days: number,
+  hour: number,
+  minute: number,
+): ScheduleInfo => ({
+  days,
+  dayOfMonth: null,
+  hour,
+  minute,
+});
+
+const inputs = (overrides: {
+  goal: ReturnType<typeof goal> | null;
+  todayTimeSlots?: TimeSlotDotState[];
+  periodCheckInCount?: number;
+  multiTimeSlotPerDay?: boolean;
+  schedules?: ScheduleInfo[];
+  /** Convenience: equivalent to `schedules: [someDaysAt(0b0101010, 9, 0)]`. */
+  hasSchedules?: boolean;
+}) => {
+  const { hasSchedules, schedules, ...rest } = overrides;
+  return {
+    todayTimeSlots: undefined,
+    periodCheckInCount: 0,
+    multiTimeSlotPerDay: false,
+    schedules: schedules ?? (hasSchedules ? [someDaysAt(0b0101010, 9, 0)] : []),
+    ...rest,
+  };
+};
+
+describe("computeChipState", () => {
+  describe("returns null", () => {
+    it("when goal is null", () => {
+      expect(computeChipState(inputs({ goal: null }))).toBeNull();
+    });
+  });
+
+  describe("frequency = 1", () => {
+    it("renders 'daily' label for daily/freq=1 (no schedules)", () => {
+      expect(computeChipState(inputs({ goal: goal("day", 1) }))).toEqual({
+        kind: "label",
+        text: "daily",
+      });
+    });
+
+    it("renders 'weekly' with one dot for unscheduled weekly/freq=1", () => {
+      expect(computeChipState(inputs({ goal: goal("week", 1) }))).toEqual({
+        kind: "labelDots",
+        text: "weekly",
+        timeSlots: ["pending"],
+      });
+    });
+
+    it("renders 'monthly' with one dot for unscheduled monthly/freq=1", () => {
+      expect(computeChipState(inputs({ goal: goal("month", 1) }))).toEqual({
+        kind: "labelDots",
+        text: "monthly",
+        timeSlots: ["pending"],
+      });
+    });
+
+    it("renders 'weekly' label for scheduled weekly/freq=1", () => {
+      expect(
+        computeChipState(inputs({ goal: goal("week", 1), hasSchedules: true })),
+      ).toEqual({ kind: "label", text: "weekly" });
+    });
+  });
+
+  describe("daily, frequency > 1", () => {
+    it("uses provided todayTimeSlots with today eyebrow", () => {
+      const timeSlots: TimeSlotDotState[] = ["done", "pending", "pending"];
+      expect(
+        computeChipState(
+          inputs({ goal: goal("day", 3), todayTimeSlots: timeSlots }),
+        ),
+      ).toEqual({ kind: "dots", timeSlots, prefixToday: true });
+    });
+
+    it("falls back to all-pending pips when todayTimeSlots is missing", () => {
+      expect(computeChipState(inputs({ goal: goal("day", 3) }))).toEqual({
+        kind: "dots",
+        timeSlots: ["pending", "pending", "pending"],
+        prefixToday: true,
+      });
+    });
+  });
+
+  describe("weekly, frequency > 1, multi-timeSlot-per-day", () => {
+    it("uses todayTimeSlots with today eyebrow", () => {
+      const timeSlots: TimeSlotDotState[] = ["done", "pending", "pending"];
+      expect(
+        computeChipState(
+          inputs({
+            goal: goal("week", 9),
+            todayTimeSlots: timeSlots,
+            multiTimeSlotPerDay: true,
+            hasSchedules: true,
+          }),
+        ),
+      ).toEqual({ kind: "dots", timeSlots, prefixToday: true });
+    });
+
+    it("shows 'off today' label when today has no timeSlots", () => {
+      expect(
+        computeChipState(
+          inputs({
+            goal: goal("week", 9),
+            multiTimeSlotPerDay: true,
+            hasSchedules: true,
+          }),
+        ),
+      ).toEqual({ kind: "label", text: "off today" });
+    });
+  });
+
+  describe("weekly, frequency > 1, scheduled (single-timeSlot-per-day)", () => {
+    it("renders text label like '3× / wk' — week-strip carries the day detail", () => {
+      // Schedule has specific days (e.g. M·W·F) at one time-slot each. Dots
+      // would be redundant with the week-strip below.
+      expect(
+        computeChipState(inputs({ goal: goal("week", 3), hasSchedules: true })),
+      ).toEqual({ kind: "label", text: "3× / wk" });
+    });
+  });
+
+  describe("weekly, frequency > 1, unscheduled", () => {
+    it("renders cadence label with N=frequency dots filled from week count", () => {
+      expect(
+        computeChipState(
+          inputs({ goal: goal("week", 3), periodCheckInCount: 2 }),
+        ),
+      ).toEqual({
+        kind: "labelDots",
+        text: "3× / wk",
+        timeSlots: ["done", "done", "pending"],
+      });
+    });
+
+    it("emits all-pending when no check-ins this week yet", () => {
+      expect(computeChipState(inputs({ goal: goal("week", 4) }))).toEqual({
+        kind: "labelDots",
+        text: "4× / wk",
+        timeSlots: ["pending", "pending", "pending", "pending"],
+      });
+    });
+
+    it("emits all-done when count equals frequency", () => {
+      expect(
+        computeChipState(
+          inputs({ goal: goal("week", 3), periodCheckInCount: 3 }),
+        ),
+      ).toEqual({
+        kind: "labelDots",
+        text: "3× / wk",
+        timeSlots: ["done", "done", "done"],
+      });
+    });
+
+    it("appends ahead pips when count exceeds frequency", () => {
+      expect(
+        computeChipState(
+          inputs({ goal: goal("week", 2), periodCheckInCount: 4 }),
+        ),
+      ).toEqual({
+        kind: "labelDots",
+        text: "2× / wk",
+        timeSlots: ["done", "done", "ahead", "ahead"],
+      });
+    });
+  });
+
+  describe("single schedule every day at fixed time", () => {
+    it("replaces 'Nx / wk' with '<time> daily' for weekly habits", () => {
+      expect(
+        computeChipState(
+          inputs({
+            goal: goal("week", 7),
+            schedules: [everyDayAt(19, 30)],
+          }),
+        ),
+      ).toEqual({ kind: "label", text: "7:30 PM daily" });
+    });
+
+    it("replaces 'daily' with '<time> daily' for daily/freq=1 habits", () => {
+      expect(
+        computeChipState(
+          inputs({
+            goal: goal("day", 1),
+            schedules: [everyDayAt(7, 0)],
+          }),
+        ),
+      ).toEqual({ kind: "label", text: "7:00 AM daily" });
+    });
+
+    it("does not apply when the schedule covers fewer than 7 days", () => {
+      expect(
+        computeChipState(
+          inputs({
+            goal: goal("week", 3),
+            schedules: [someDaysAt(0b0101010, 19, 30)],
+          }),
+        ),
+      ).toEqual({ kind: "label", text: "3× / wk" });
+    });
+
+    it("does not apply when there are multiple schedule rows", () => {
+      expect(
+        computeChipState(
+          inputs({
+            goal: goal("week", 7),
+            schedules: [everyDayAt(7, 0), everyDayAt(19, 30)],
+            multiTimeSlotPerDay: true,
+            todayTimeSlots: ["done", "pending"],
+          }),
+        ),
+      ).toEqual({
+        kind: "dots",
+        timeSlots: ["done", "pending"],
+        prefixToday: true,
+      });
+    });
+
+    it("does not apply when the schedule has no time", () => {
+      expect(
+        computeChipState(
+          inputs({
+            goal: goal("week", 7),
+            schedules: [
+              { days: 0x7f, dayOfMonth: null, hour: null, minute: null },
+            ],
+          }),
+        ),
+      ).toEqual({ kind: "label", text: "7× / wk" });
+    });
+  });
+
+  describe("monthly, frequency > 1", () => {
+    it("renders cadence label with N=frequency dots when unscheduled", () => {
+      expect(
+        computeChipState(
+          inputs({ goal: goal("month", 4), periodCheckInCount: 1 }),
+        ),
+      ).toEqual({
+        kind: "labelDots",
+        text: "4× / mo",
+        timeSlots: ["done", "pending", "pending", "pending"],
+      });
+    });
+
+    it("renders plain label when scheduled (month-strip carries detail)", () => {
+      expect(
+        computeChipState(
+          inputs({
+            goal: goal("month", 2),
+            periodCheckInCount: 1,
+            hasSchedules: true,
+          }),
+        ),
+      ).toEqual({ kind: "label", text: "2× / mo" });
+    });
+  });
+});

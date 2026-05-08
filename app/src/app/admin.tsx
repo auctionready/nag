@@ -3,8 +3,8 @@ import { StyleSheet, View } from "react-native";
 import { useLiveQuery } from "drizzle-orm/expo-sqlite";
 import { db } from "../db";
 import { allHabits } from "@nag/core";
-import { AdminList } from "../components/AdminList";
-import { SyncStatusPanel } from "../components/SyncStatusPanel";
+import { AdminList } from "../components/admin-list";
+import { SyncStatusPanel } from "../components/sync";
 
 const AdminScreen = () => {
   const router = useRouter();

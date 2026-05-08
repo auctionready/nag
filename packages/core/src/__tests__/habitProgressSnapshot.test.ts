@@ -175,7 +175,7 @@ describe("habitProgressSnapshot", () => {
       expect(snap.isAnchorOffDay).toBe(true);
     });
 
-    it("day-mask-only schedule is off-day on every anchor (no timed slots)", () => {
+    it("day-mask-only schedule is off-day on every anchor (no timed timeSlots)", () => {
       // Behaviour change: the old tile `computeRingProgress` used a
       // Math.ceil(frequency / popcount(mask)) fallback for day-mask-only
       // habits. The snapshot drops that; they now classify as off-day on
@@ -208,7 +208,7 @@ describe("habitProgressSnapshot", () => {
       expect(snap.anchorColor).toBeUndefined();
     });
 
-    it("populated when anchor is today and a slot has elapsed", () => {
+    it("populated when anchor is today and a timeSlot has elapsed", () => {
       const schedules = [timed(Day.Mon | Day.Wed | Day.Fri, 8)];
       const snap = habitProgressSnapshot(
         base({
@@ -244,7 +244,7 @@ describe("habitProgressSnapshot", () => {
   });
 
   describe("day-of-week masks", () => {
-    it("completedDaysMask covers days where every slot is checked in", () => {
+    it("completedDaysMask covers days where every timeSlot is checked in", () => {
       const schedules = [
         timed(Day.Mon | Day.Wed, 8),
         timed(Day.Mon | Day.Wed, 14),

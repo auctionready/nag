@@ -4,8 +4,8 @@ import { useMemo } from "react";
 import { db } from "../../db";
 import { habitById, goalForHabitFull, schedulesForGoal } from "@nag/core";
 import { dispatch } from "../../infrastructure/dispatch";
-import { HabitForm, type HabitFormData } from "../../components/HabitForm";
-import type { HabitIconKind } from "../../components/HabitGlyph";
+import { HabitForm, type HabitFormData } from "../../components/habit-form";
+import type { HabitIconKind } from "../../components/glyphs";
 import { buildGoalPayload } from "../../operations";
 
 const EditHabitScreen = () => {

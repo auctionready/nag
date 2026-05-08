@@ -87,6 +87,10 @@ should get their own page under `docs/` and be linked from
 - Prefer `const` style over `function` unless awkward.
 - Test files for a given source file go in a `__tests__` folder next to the
   file they test.
+- Pure algorithms (board progress, compliance, day cells, etc.) live in
+  `packages/core/src/` as free functions with vitest tests in
+  `packages/core/src/__tests__/`. App-side hooks just wire `useLiveQuery`
+  results into the core function — they don't host the algorithm.
 
 ### Tests
 

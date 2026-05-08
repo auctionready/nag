@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "f89db500-9f2a-4b7b-bf5b-886994d95f77",
+  "id": "6233ca0a-9881-451f-b3d8-a2469b0ef3f4",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "tables": {
     "check_in": {
@@ -248,6 +248,13 @@
         "registered_at": {
           "name": "registered_at",
           "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "idp_subject": {
+          "name": "idp_subject",
+          "type": "text",
           "primaryKey": false,
           "notNull": false,
           "autoincrement": false

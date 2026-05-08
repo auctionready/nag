@@ -18,6 +18,7 @@ export type IdentityRow = {
   deviceId: string;
   accountId: string | null;
   registeredAt: Date | null;
+  idpSubject: string | null;
 };
 
 export const loadIdentity = async (db: AnyDb): Promise<IdentityRow | null> => {
@@ -26,6 +27,7 @@ export const loadIdentity = async (db: AnyDb): Promise<IdentityRow | null> => {
       deviceId: identity.deviceId,
       accountId: identity.accountId,
       registeredAt: identity.registeredAt,
+      idpSubject: identity.idpSubject,
     })
     .from(identity)
     .where(eq(identity.id, 1));
@@ -35,6 +37,19 @@ export const loadIdentity = async (db: AnyDb): Promise<IdentityRow | null> => {
 export const getAccountId = async (db: AnyDb): Promise<string | null> => {
   const row = await loadIdentity(db);
   return row?.accountId ?? null;
+};
+
+/**
+ * Records that the most recent successful `/accounts/upgrade` bound this
+ * device to the given Clerk identity. The app reads this on cold start to
+ * skip a redundant upgrade call when the currently signed-in identity
+ * matches what's already stored.
+ */
+export const setIdpSubject = async (
+  db: AnyDb,
+  idpSubject: string,
+): Promise<void> => {
+  await db.update(identity).set({ idpSubject }).where(eq(identity.id, 1));
 };
 
 /**
@@ -109,7 +124,7 @@ export const ensureDeviceRegistered = async ({
     const deviceId = newDeviceId();
     debug(`identity: first launch — generated deviceId=${deviceId}`);
     await db.insert(identity).values({ id: 1, deviceId });
-    row = { deviceId, accountId: null, registeredAt: null };
+    row = { deviceId, accountId: null, registeredAt: null, idpSubject: null };
   }
 
   const cachedToken = row.accountId ? await tokenStore.get() : null;
@@ -311,7 +326,7 @@ export const clearLocalAuth = async ({
   const info = log?.info ?? (() => {});
   await db
     .update(identity)
-    .set({ accountId: null, registeredAt: null })
+    .set({ accountId: null, registeredAt: null, idpSubject: null })
     .where(eq(identity.id, 1));
   await tokenStore.clear();
   info("identity: cleared local auth — sign-in will re-register");

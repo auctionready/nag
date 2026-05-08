@@ -3,17 +3,17 @@ import { isSameCalendarDay } from "./days";
 import { checkInDaysMask, classifyScheduledDays } from "./dayCells";
 import {
   type ComplianceColors,
-  type MatchCheckInsToSlotsResult,
+  type MatchCheckInsToTimeSlotsResult,
   type ScheduleInfo,
   combineScheduleDays,
   isScheduledToday,
-  matchCheckInsToSlots,
+  matchCheckInsToTimeSlots,
   tileColor,
   withinDayColor,
 } from "./trafficLight";
 
 export type AnchorKind =
-  /** Anchor day has at least one timed slot scheduled. */
+  /** Anchor day has at least one timed time-slot scheduled. */
   | "scheduled-day"
   /** Habit has schedules but none target the anchor's day-of-week. */
   | "off-day"
@@ -31,19 +31,19 @@ export interface HabitProgressInput {
   schedules: ScheduleInfo[];
   /**
    * All check-ins within the current period (day/week/month). Must include
-   * back-filled check-ins — their `timestamp` is the deemed slot time.
+   * back-filled check-ins — their `timestamp` is the deemed time-slot time.
    */
   periodCheckIns: { timestamp: Date; skipped?: boolean | null }[];
   /**
    * Pre-computed period check-in count. When omitted, falls back to
    * `periodCheckIns.length`. Supplying it lets callers use an authoritative
-   * DB count while still passing a fuller list for mask/slot derivations.
+   * DB count while still passing a fuller list for mask/time-slot derivations.
    */
   periodCheckInCount?: number;
   /** Wall-clock "now". Drives traffic-light, within-day color, off-day detection. */
   now: Date;
   /**
-   * The anchor day for `ring`, `anchorColor`, `slots`, and `headline`.
+   * The anchor day for `ring`, `anchorColor`, `time-slots`, and `headline`.
    * Defaults to `now`. Tile always passes `now`. Detail passes
    * `selectedDay ?? now` so the card can reflect the tapped day.
    */
@@ -67,7 +67,7 @@ export interface HabitProgressSnapshot {
   /**
    * Compliance color for the anchor day. Undefined when anchor is not the
    * current wall-clock day (so callers don't mis-apply a "now"-based color
-   * to a past/future day) or when `withinDayColor` has no elapsed slots.
+   * to a past/future day) or when `withinDayColor` has no elapsed time-slots.
    */
   anchorColor: string | undefined;
   /**
@@ -78,17 +78,17 @@ export interface HabitProgressSnapshot {
    */
   isAnchorOffDay: boolean;
   /**
-   * Slot pairing for the anchor day. Null when the habit has no schedules
+   * Time-slot pairing for the anchor day. Null when the habit has no schedules
    * at all. `total === 0` with `schedules.length > 0` means the anchor
    * day-of-week has no matching schedule (off-day from the anchor's POV).
    */
-  slots: MatchCheckInsToSlotsResult | null;
+  timeSlots: MatchCheckInsToTimeSlotsResult | null;
 
   /** Bitwise OR of every schedule's `days`. 0 means "no day-of-week schedule". */
   scheduledDaysMask: number;
-  /** Days where every scheduled slot has a check-in. */
+  /** Days where every scheduled time-slot has a check-in. */
   completedDaysMask: number;
-  /** Days where some — but not all — slots have a check-in. */
+  /** Days where some — but not all — time-slots have a check-in. */
   partialDaysMask: number;
   /**
    * Day-of-week bitmask of every check-in in the period, *regardless* of
@@ -105,11 +105,11 @@ export interface HabitProgressSnapshot {
   /** Structured headline data; callers format to strings. */
   headline: {
     kind: AnchorKind;
-    /** `slots.done` when `scheduled-day`. */
+    /** `time-slots.done` when `scheduled-day`. */
     done?: number;
-    /** `slots.total` when `scheduled-day`. */
+    /** `time-slots.total` when `scheduled-day`. */
     total?: number;
-    /** `slots.extras` when `scheduled-day`. */
+    /** `time-slots.extras` when `scheduled-day`. */
     extras?: number;
     /** Period check-in count when `frequency-only`. */
     completed?: number;
@@ -127,7 +127,7 @@ export interface HabitProgressSnapshot {
  * derivable here (UI copy, affordances) stays in the caller.
  *
  * Ring definition (resolves the previous tile/detail divergence):
- *   - scheduled-day:   min(1, (slots.done + slots.extras) / max(1, slots.total))
+ *   - scheduled-day:   min(1, (time-slots.done + time-slots.extras) / max(1, time-slots.total))
  *   - off-day:         0
  *   - frequency-only:  min(1, count / goal.frequency)
  *   - none:            0
@@ -150,9 +150,9 @@ export const habitProgressSnapshot = (
   const tl = tileColor(goal, checkInCount, schedules, colors, now);
 
   const scheduledDaysMask = combineScheduleDays(schedules);
-  const slots =
+  const timeSlots =
     schedules.length > 0
-      ? matchCheckInsToSlots({
+      ? matchCheckInsToTimeSlots({
           schedules,
           checkIns: periodCheckIns,
           now: anchor,
@@ -163,15 +163,18 @@ export const habitProgressSnapshot = (
   let anchorKind: AnchorKind;
   if (schedules.length === 0) {
     anchorKind = hasGoal ? "frequency-only" : "none";
-  } else if (slots && slots.total > 0) {
+  } else if (timeSlots && timeSlots.total > 0) {
     anchorKind = "scheduled-day";
   } else {
     anchorKind = "off-day";
   }
 
   let ring = 0;
-  if (anchorKind === "scheduled-day" && slots) {
-    ring = Math.min(1, (slots.done + slots.extras) / Math.max(1, slots.total));
+  if (anchorKind === "scheduled-day" && timeSlots) {
+    ring = Math.min(
+      1,
+      (timeSlots.done + timeSlots.extras) / Math.max(1, timeSlots.total),
+    );
   } else if (anchorKind === "frequency-only" && goal) {
     ring = Math.min(1, checkInCount / Math.max(1, goal.frequency));
   }
@@ -211,7 +214,7 @@ export const habitProgressSnapshot = (
     ring,
     anchorColor,
     isAnchorOffDay,
-    slots,
+    timeSlots,
     scheduledDaysMask,
     completedDaysMask,
     partialDaysMask,
@@ -219,9 +222,9 @@ export const habitProgressSnapshot = (
     unscheduledWeeklyMask,
     headline: {
       kind: anchorKind,
-      done: slots?.done,
-      total: slots?.total,
-      extras: slots?.extras,
+      done: timeSlots?.done,
+      total: timeSlots?.total,
+      extras: timeSlots?.extras,
       completed: anchorKind === "frequency-only" ? checkInCount : undefined,
       frequency: anchorKind === "frequency-only" ? goal?.frequency : undefined,
       isToday: anchorIsToday,

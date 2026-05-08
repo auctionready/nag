@@ -9,6 +9,12 @@ import { timestamp } from "../columns";
  *   - `accountId` and `registeredAt` land once `POST /devices/register`
  *     succeeds. Until they do, the outbox dispatcher refuses to ship — the
  *     app stays usable, just disconnected from the server.
+ *   - `idpSubject` records the Clerk identity (`user_xxx`) that the most
+ *     recent successful `/accounts/upgrade` bound this device to. It's a
+ *     public identifier (not a credential), so it lives here and not in
+ *     SecureStore. Used to short-circuit the upgrade call on cold start
+ *     when we've already upgraded for the currently-signed-in identity;
+ *     cleared on sign-out.
  *
  * Stored as TEXT (not BLOB) — there's only ever one row, so the
  * BLOB index-compactness win doesn't apply.
@@ -23,4 +29,5 @@ export const identity = sqliteTable("identity", {
   deviceId: text("device_id", { length: 36 }).notNull(),
   accountId: text("account_id", { length: 36 }),
   registeredAt: timestamp("registered_at"),
+  idpSubject: text("idp_subject"),
 });

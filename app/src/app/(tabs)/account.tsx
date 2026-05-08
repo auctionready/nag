@@ -25,6 +25,8 @@ import {
 import {
   clearLocalAuth,
   ensureDeviceRegistered,
+  loadIdentity,
+  setIdpSubject,
   switchLocalAccount,
 } from "@nag/core";
 import { habit } from "@nag/schema";
@@ -39,13 +41,13 @@ import { log } from "../../infrastructure/log";
 import { useSyncStatus } from "../../infrastructure/syncStatus";
 import { deviceTokenStore } from "../../infrastructure/tokenStore";
 import { tokens } from "../../components/theme";
-import { Group, ProviderButton, Row } from "../../components/AccountUI";
+import { Group, ProviderButton, Row } from "../../components/account";
 import {
   PROVIDER_LABELS,
   ProviderGlyph,
   type ProviderKey,
   providerFromClerk,
-} from "../../components/ProviderGlyph";
+} from "../../components/glyphs";
 
 // Required by Expo Auth Session so the OAuth redirect properly closes the
 // in-app browser tab when control returns to the app.
@@ -179,6 +181,23 @@ const SignedInOrOut = () => {
           return;
         }
 
+        // Skip the upgrade round-trip when this device is already bound to
+        // the currently signed-in identity. The previous upgrade persisted
+        // `idpSubject` on the local `identity` row; on cold start we just
+        // verify it still matches Clerk's `user.id` and short-circuit.
+        const persisted = await loadIdentity(db);
+        if (
+          persisted?.idpSubject &&
+          user?.id &&
+          persisted.idpSubject === user.id
+        ) {
+          logger.info(
+            `account already upgraded for sub=${persisted.idpSubject} — skipping /accounts/upgrade`,
+          );
+          setStatus({ kind: "ok" });
+          return;
+        }
+
         const result = await upgradeAccount({
           deviceId: registration.deviceId,
           idpToken,
@@ -206,6 +225,7 @@ const SignedInOrOut = () => {
           logger.info(
             `account upgraded accountId=${result.accountId} sub=${result.idpSubject}`,
           );
+          await setIdpSubject(db, result.idpSubject);
           setStatus({ kind: "ok" });
           // Kick the sync loop now so the user sees their data immediately
           // rather than waiting on the safety timer (especially relevant
@@ -227,6 +247,7 @@ const SignedInOrOut = () => {
           await runPairFallback({
             deviceId: registration.deviceId,
             idpToken,
+            idpSubject: user?.id ?? null,
             kickSync,
             signOut,
             setStatus,
@@ -244,7 +265,7 @@ const SignedInOrOut = () => {
         setStatus({ kind: "fail", message });
       }
     })();
-  }, [isLoaded, isSignedIn, getToken, kickSync, signOut]);
+  }, [isLoaded, isSignedIn, user?.id, getToken, kickSync, signOut]);
 
   // Wrapping signOut so the local auth state is torn down *before* the
   // Clerk session ends. Order matters: clearing the secure-store token
@@ -301,6 +322,7 @@ const SignedInOrOut = () => {
 const runPairFallback = async ({
   deviceId,
   idpToken,
+  idpSubject,
   kickSync,
   signOut,
   setStatus,
@@ -308,6 +330,7 @@ const runPairFallback = async ({
 }: {
   deviceId: string;
   idpToken: string;
+  idpSubject: string | null;
   kickSync: (source: string) => void;
   signOut: () => Promise<void>;
   setStatus: React.Dispatch<React.SetStateAction<UpgradeStatus>>;
@@ -316,7 +339,13 @@ const runPairFallback = async ({
   const localHabits = await db.select({ id: habit.id }).from(habit).limit(1);
 
   if (localHabits.length === 0) {
-    await runReplaceLocal({ deviceId, idpToken, kickSync, setStatus });
+    await runReplaceLocal({
+      deviceId,
+      idpToken,
+      idpSubject,
+      kickSync,
+      setStatus,
+    });
     return;
   }
 
@@ -334,11 +363,22 @@ const runPairFallback = async ({
   }
 
   if (choice === "use-server") {
-    await runReplaceLocal({ deviceId, idpToken, kickSync, setStatus });
+    await runReplaceLocal({
+      deviceId,
+      idpToken,
+      idpSubject,
+      kickSync,
+      setStatus,
+    });
     return;
   }
 
-  await runReplaceServer({ deviceId, idpToken, kickSync, setStatus });
+  await runReplaceServer({
+    deviceId,
+    idpToken,
+    kickSync,
+    setStatus,
+  });
 };
 
 /**
@@ -349,11 +389,13 @@ const runPairFallback = async ({
 const runReplaceLocal = async ({
   deviceId,
   idpToken,
+  idpSubject,
   kickSync,
   setStatus,
 }: {
   deviceId: string;
   idpToken: string;
+  idpSubject: string | null;
   kickSync: (source: string) => void;
   setStatus: React.Dispatch<React.SetStateAction<UpgradeStatus>>;
 }): Promise<void> => {
@@ -370,6 +412,7 @@ const runReplaceLocal = async ({
     newDeviceToken: paired.deviceToken,
     registeredAt: paired.registeredAt,
   });
+  if (idpSubject) await setIdpSubject(db, idpSubject);
   logger.info(
     `device paired into existing accountId=${paired.accountId} — local data wiped, kicking sync`,
   );
@@ -399,6 +442,7 @@ const runReplaceServer = async ({
     setStatus({ kind: "fail", message: claimed.message });
     return;
   }
+  await setIdpSubject(db, claimed.idpSubject);
   logger.info(
     `identity force-claimed onto local accountId=${claimed.accountId} — kicking sync`,
   );

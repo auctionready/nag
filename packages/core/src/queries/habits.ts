@@ -33,3 +33,18 @@ export const goalForHabit = (db: AnyDb, habitId: string) =>
 
 export const goalForHabitFull = (db: AnyDb, habitId: string) =>
   db.select().from(goal).where(eq(goal.habitId, habitId));
+
+export const goalsForHabits = (db: AnyDb, habitIds: string[]) =>
+  db
+    .select({
+      habitId: goal.habitId,
+      frequency: goal.frequency,
+      regularity: goal.regularity,
+    })
+    .from(goal)
+    .where(
+      inArray(
+        goal.habitId,
+        habitIds.length > 0 ? habitIds : [EMPTY_UUID_SENTINEL],
+      ),
+    );
