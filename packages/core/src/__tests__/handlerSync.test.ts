@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { processCommand } from "../commands/processor";
 import { syncAllNotifications } from "../notificationConsolidator";
 import { setupTestDb } from "./testDb";
+import { AllDays } from "../days";
 
 vi.mock("../notificationConsolidator", async (importOriginal) => {
   const actual =
@@ -36,8 +37,8 @@ describe("handlers call syncAllNotifications", () => {
       habitId: crypto.randomUUID(),
       title: "Read",
       goal: {
-        regularity: "day",
-        schedules: [{ hour: 8, minute: 0, reminder: true }],
+        regularity: "week",
+        schedules: [{ hour: 8, minute: 0, days: AllDays, reminder: true }],
       },
     });
     expect(mockSyncAll).toHaveBeenCalledOnce();

@@ -5,7 +5,7 @@ import { ZodError } from "zod";
 import type { AnyDb } from "../db";
 import { processCommand } from "../commands/processor";
 import { setupTestDb } from "./testDb";
-import { Day } from "../days";
+import { AllDays, Day } from "../days";
 
 const getDb = setupTestDb("commands-test.db");
 
@@ -92,7 +92,7 @@ describe("CreateHabit", () => {
     ).rejects.toThrow();
   });
 
-  it("creates a habit with daily schedules", async () => {
+  it("creates a habit with weekly schedules across all days", async () => {
     const db = getDb();
     const habitId = crypto.randomUUID();
     await processCommand(db, {
@@ -100,10 +100,10 @@ describe("CreateHabit", () => {
       habitId,
       title: "Meditate",
       goal: {
-        regularity: "day",
+        regularity: "week",
         schedules: [
-          { hour: 9, minute: 0 },
-          { hour: 14, minute: 30 },
+          { hour: 9, minute: 0, days: AllDays },
+          { hour: 14, minute: 30, days: AllDays },
         ],
       },
     });
@@ -112,7 +112,8 @@ describe("CreateHabit", () => {
       .from(schema.goal)
       .where(eq(schema.goal.habitId, habitId));
     expect(goals).toHaveLength(1);
-    expect(goals[0].frequency).toBe(2);
+    // Two schedules × seven days each = 14 occurrences per week.
+    expect(goals[0].frequency).toBe(14);
 
     const schedules = await db
       .select()
@@ -121,7 +122,7 @@ describe("CreateHabit", () => {
     expect(schedules).toHaveLength(2);
     expect(schedules[0].hour).toBe(9);
     expect(schedules[0].minute).toBe(0);
-    expect(schedules[0].days).toBeNull();
+    expect(schedules[0].days).toBe(AllDays);
     expect(schedules[0].dayOfMonth).toBeNull();
     expect(schedules[1].hour).toBe(14);
     expect(schedules[1].minute).toBe(30);
@@ -151,36 +152,6 @@ describe("CreateHabit", () => {
       .where(eq(schema.schedule.goalId, goals[0].id));
     expect(schedules).toHaveLength(1);
     expect(schedules[0].days).toBe(Day.Mon | Day.Wed | Day.Fri);
-  });
-
-  it("creates a habit with monthly schedules", async () => {
-    const db = getDb();
-    const habitId = crypto.randomUUID();
-    await processCommand(db, {
-      type: "CreateHabit",
-      habitId,
-      title: "Review",
-      goal: {
-        regularity: "month",
-        schedules: [
-          { hour: 9, minute: 0, dayOfMonth: 1 },
-          { hour: 9, minute: 0, dayOfMonth: 15 },
-        ],
-      },
-    });
-    const goals = await db
-      .select()
-      .from(schema.goal)
-      .where(eq(schema.goal.habitId, habitId));
-    expect(goals[0].frequency).toBe(2);
-
-    const schedules = await db
-      .select()
-      .from(schema.schedule)
-      .where(eq(schema.schedule.goalId, goals[0].id));
-    expect(schedules).toHaveLength(2);
-    expect(schedules[0].dayOfMonth).toBe(1);
-    expect(schedules[1].dayOfMonth).toBe(15);
   });
 });
 
@@ -339,10 +310,10 @@ describe("UpdateHabit", () => {
       type: "UpdateHabit",
       habitId,
       goal: {
-        regularity: "day",
+        regularity: "week",
         schedules: [
-          { hour: 8, minute: 0 },
-          { hour: 20, minute: 0 },
+          { hour: 8, minute: 0, days: AllDays },
+          { hour: 20, minute: 0, days: AllDays },
         ],
       },
     });
@@ -352,7 +323,7 @@ describe("UpdateHabit", () => {
       .from(schema.goal)
       .where(eq(schema.goal.habitId, habitId));
     expect(goals).toHaveLength(1);
-    expect(goals[0].frequency).toBe(2);
+    expect(goals[0].frequency).toBe(14);
 
     const schedules = await db
       .select()
@@ -369,10 +340,10 @@ describe("UpdateHabit", () => {
       habitId,
       title: "Test",
       goal: {
-        regularity: "day",
+        regularity: "week",
         schedules: [
-          { hour: 8, minute: 0 },
-          { hour: 20, minute: 0 },
+          { hour: 8, minute: 0, days: AllDays },
+          { hour: 20, minute: 0, days: AllDays },
         ],
       },
     });
@@ -466,10 +437,10 @@ describe("DeleteHabit", () => {
       habitId,
       title: "Temp",
       goal: {
-        regularity: "day",
+        regularity: "week",
         schedules: [
-          { hour: 9, minute: 0 },
-          { hour: 18, minute: 30 },
+          { hour: 9, minute: 0, days: AllDays },
+          { hour: 18, minute: 30, days: AllDays },
         ],
       },
     });
@@ -732,6 +703,8 @@ describe("processCommand validation", () => {
         type: "CreateHabit",
         habitId: crypto.randomUUID(),
         title: "X",
+        // @ts-expect-error neither branch of the goal union matches —
+        // FrequencyGoal needs `frequency`, ScheduledGoal needs `schedules`.
         goal: { regularity: "day" },
       }),
     ).rejects.toThrow(ZodError);
@@ -745,15 +718,17 @@ describe("processCommand validation", () => {
         habitId: crypto.randomUUID(),
         title: "X",
         goal: {
-          regularity: "day",
+          regularity: "week",
           frequency: 2,
-          schedules: [{ hour: 9, minute: 0 }],
+          // @ts-expect-error FrequencyGoal forbids `schedules` so the union
+          // branch can't accept this combination.
+          schedules: [{ hour: 9, minute: 0, days: 2 }],
         },
       }),
     ).rejects.toThrow(ZodError);
   });
 
-  it("rejects daily schedule with days", async () => {
+  it("rejects scheduled goal with non-week regularity", async () => {
     const db = getDb();
     await expect(
       processCommand(db, {
@@ -762,6 +737,8 @@ describe("processCommand validation", () => {
         title: "X",
         goal: {
           regularity: "day",
+          // @ts-expect-error only ScheduledGoal carries `schedules` and it
+          // requires regularity "week".
           schedules: [{ hour: 9, minute: 0, days: 2 }],
         },
       }),
@@ -777,21 +754,7 @@ describe("processCommand validation", () => {
         title: "X",
         goal: {
           regularity: "week",
-          schedules: [{ hour: 9, minute: 0 }],
-        },
-      }),
-    ).rejects.toThrow(ZodError);
-  });
-
-  it("rejects monthly schedule without dayOfMonth", async () => {
-    const db = getDb();
-    await expect(
-      processCommand(db, {
-        type: "CreateHabit",
-        habitId: crypto.randomUUID(),
-        title: "X",
-        goal: {
-          regularity: "month",
+          // @ts-expect-error WeeklyScheduleEntry requires `days`.
           schedules: [{ hour: 9, minute: 0 }],
         },
       }),
@@ -911,8 +874,8 @@ describe("schedule boundary values", () => {
         habitId,
         title: "Midnight",
         goal: {
-          regularity: "day",
-          schedules: [{ hour: 0, minute: 0 }],
+          regularity: "week",
+          schedules: [{ hour: 0, minute: 0, days: AllDays }],
         },
       });
       const goals = await db
@@ -945,8 +908,8 @@ describe("schedule boundary values", () => {
         habitId,
         title: "Late night",
         goal: {
-          regularity: "day",
-          schedules: [{ hour: 23, minute: 59 }],
+          regularity: "week",
+          schedules: [{ hour: 23, minute: 59, days: AllDays }],
         },
       });
       const goals = await db
