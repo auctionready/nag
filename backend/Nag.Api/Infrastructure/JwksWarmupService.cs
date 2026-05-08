@@ -11,12 +11,37 @@ namespace Nag.Api.Infrastructure;
 /// time the first /accounts/upgrade lands.
 /// </summary>
 public sealed class JwksWarmupService(
-    IConfigurationManager<OpenIdConnectConfiguration> configManager
+    IConfigurationManager<OpenIdConnectConfiguration> configManager,
+    ILogger<JwksWarmupService> log
 ) : IHostedService
 {
     public Task StartAsync(CancellationToken cancellationToken)
     {
-        _ = configManager.GetConfigurationAsync(cancellationToken);
+        // Fire-and-forget, but the task itself is observed: an unhandled
+        // failure here (Clerk outage, host shutting down mid-fetch in
+        // tests) would otherwise propagate via the finalizer thread as
+        // an unobserved-task `AggregateException` and surface as a
+        // spurious test-run crash. Warmup is best-effort — the next
+        // real request will retry through the same configuration
+        // manager and pay the cold-fetch latency itself.
+        _ = Task.Run(
+            async () =>
+            {
+                try
+                {
+                    await configManager.GetConfigurationAsync(cancellationToken);
+                }
+                catch (OperationCanceledException)
+                {
+                    // Host stopping before warmup completes — expected.
+                }
+                catch (Exception ex)
+                {
+                    log.LogWarning(ex, "JWKS warmup failed; continuing without prefetch");
+                }
+            },
+            cancellationToken
+        );
         return Task.CompletedTask;
     }
 
