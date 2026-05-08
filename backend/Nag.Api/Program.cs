@@ -54,8 +54,8 @@ builder.WebHost.UseSentry(o =>
 
 builder.Host.UseSerilog(
     (ctx, lc) =>
-        lc
-            .ReadFrom.Configuration(ctx.Configuration)
+    {
+        lc.ReadFrom.Configuration(ctx.Configuration)
             .Enrich.FromLogContext()
             .WriteTo.Console() // new Serilog.Formatting.Json.JsonFormatter()
             .WriteTo.Sentry(s =>
@@ -69,7 +69,18 @@ builder.Host.UseSerilog(
                 // as a breadcrumb on whatever event captures next.
                 s.MinimumEventLevel = Serilog.Events.LogEventLevel.Warning;
                 s.MinimumBreadcrumbLevel = Serilog.Events.LogEventLevel.Information;
-            })
+            });
+#if DEBUG
+        // `dotnet swagger tofile` enumerates ApiExplorer, which queries MVC's
+        // descriptor provider. We use Wolverine endpoints (not MVC), so it logs
+        // a misleading "No action descriptors found" at Information level. In
+        // Release nothing enumerates ApiExplorer, so the warning never fires.
+        lc.MinimumLevel.Override(
+            "Microsoft.AspNetCore.Mvc.Infrastructure.DefaultActionDescriptorCollectionProvider",
+            Serilog.Events.LogEventLevel.Warning
+        );
+#endif
+    }
 );
 
 builder.Services.AddAWSLambdaHosting(LambdaEventSource.HttpApi);
