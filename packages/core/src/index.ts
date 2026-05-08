@@ -95,6 +95,7 @@ export {
   refreshDeviceToken,
   loadIdentity,
   getAccountId,
+  setIdpSubject,
   switchLocalAccount,
   clearLocalAuth,
   type IdentityRow,

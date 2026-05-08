@@ -70,6 +70,7 @@ describe("ensureDeviceRegistered", () => {
       deviceId: newDeviceId(),
       accountId: "acc-from-server",
       registeredAt: new Date("2026-04-25T00:00:00.000Z"),
+      idpSubject: null,
     });
     expect(await tokenStore.get()).toBe("tok-from-server");
   });
