@@ -5,11 +5,13 @@ import {
   registerDevice as apiRegisterDevice,
   upgradeAccount as apiUpgradeAccount,
   pairDevice as apiPairDevice,
+  deleteAccount as apiDeleteAccount,
   getSync as apiGetSync,
   getHabitCompliance as apiGetHabitCompliance,
   type NagApiClient,
   type UpgradeAccountResult,
   type PairDeviceResult,
+  type DeleteAccountResult,
   type GetSyncResult,
   type GetHabitComplianceResult,
 } from "@nag/api-client";
@@ -137,6 +139,9 @@ export const pairDevice = (request: {
   idpToken: string;
   label?: string | null;
 }): Promise<PairDeviceResult> => apiPairDevice(getApiClient(), request, logger);
+
+export const deleteAccount = (): Promise<DeleteAccountResult> =>
+  apiDeleteAccount(getApiClient(), logger);
 
 export const getHabitCompliance = (
   habitId: string,

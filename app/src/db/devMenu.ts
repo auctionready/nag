@@ -6,6 +6,8 @@ import { resetDatabaseSchema } from "./index";
 import { devFlags } from "../infrastructure/devFlags";
 import { clearAllClerkTokens } from "../infrastructure/clerk";
 import { deviceTokenStore } from "../infrastructure/tokenStore";
+import { deleteAccount } from "../infrastructure/apiClient";
+import { log } from "../infrastructure/log";
 
 if (__DEV__) {
   registerDevMenuItems([
@@ -57,6 +59,49 @@ if (__DEV__) {
       callback: async () => {
         const token = await deviceTokenStore.get();
         Alert.alert("Device token", token ?? "<none>");
+      },
+    },
+    {
+      name: "Delete my account (server + local)",
+      callback: () => {
+        // Two-stage confirm because this is irreversible: the server
+        // hard-deletes events, devices, read models, and the account
+        // row, and we then wipe local SQLite + tokens so the next
+        // launch is a fresh first-install. The current device token
+        // is what the API uses to identify the caller, so the
+        // delete itself must run *before* we clear the token store.
+        Alert.alert(
+          "Delete account",
+          "This permanently deletes your account, every device paired to " +
+            "it, and all server-side habit/check-in data. Local data on " +
+            "this device will also be wiped. There is no undo.",
+          [
+            { text: "Cancel", style: "cancel" },
+            {
+              text: "Delete",
+              style: "destructive",
+              onPress: async () => {
+                const logger = log("dev:delete-account");
+                const result = await deleteAccount();
+                if (!result.ok) {
+                  logger.error("delete failed", result);
+                  Alert.alert(
+                    "Delete failed",
+                    `${result.kind === "non-retriable" ? `HTTP ${result.status}: ` : ""}${result.message}`,
+                  );
+                  return;
+                }
+                logger.info(
+                  `server account deleted (${result.accountId}) — wiping local state`,
+                );
+                await deviceTokenStore.clear();
+                await clearAllClerkTokens();
+                resetDatabaseSchema();
+                DevSettings.reload();
+              },
+            },
+          ],
+        );
       },
     },
     {

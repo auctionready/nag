@@ -19,3 +19,5 @@ public sealed record UpgradeAccountResponse(
 );
 
 public sealed record UnbindAccountResponse(Guid AccountId);
+
+public sealed record DeleteAccountResponse(Guid AccountId);

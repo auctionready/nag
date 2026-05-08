@@ -5,6 +5,8 @@ using Microsoft.AspNetCore.Mvc;
 using Nag.Api.Auth;
 using Nag.Core.Contracts;
 using Nag.Core.Domain;
+using Nag.Core.Idempotency;
+using Nag.Core.ReadModels;
 using Wolverine.Http;
 
 namespace Nag.Api.Endpoints;
@@ -188,5 +190,90 @@ public static class AccountsEndpoints
         resolver.Invalidate(oldSub);
 
         return Results.Ok(new UnbindAccountResponse(account.Id));
+    }
+
+    /// <summary>
+    /// Hard-deletes the calling account and every row associated with it:
+    /// the account row, every paired device, the per-account read models
+    /// (home board, check-in indexes, weekly/monthly summaries, compliance
+    /// history), the inbox of processed envelopes, and every event +
+    /// stream tagged with the account's tenant id. The caller must be
+    /// authenticated; the account id comes from the principal's
+    /// <c>account_id</c> claim, never the URL or body, so a token can only
+    /// ever delete its own account. Existing device tokens for this
+    /// account become useless once the row is gone (subsequent calls
+    /// will resolve to "account not found").
+    /// </summary>
+    [Tags("Accounts")]
+    [NotTenanted]
+    [EndpointName("deleteAccountsMe")]
+    [ProducesResponseType(typeof(DeleteAccountResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status404NotFound)]
+    [WolverineDelete("/accounts/me")]
+    public static async Task<IResult> DeleteAccount(
+        ClaimsPrincipal user,
+        IDocumentStore store,
+        IDeviceAccountResolver resolver,
+        CancellationToken ct
+    )
+    {
+        var accountIdClaim = user.FindFirstValue(NagClaimTypes.AccountId);
+        if (!Guid.TryParse(accountIdClaim, out var accountId))
+        {
+            return Results.Json(
+                new ErrorResponse(["unauthenticated"]),
+                statusCode: StatusCodes.Status401Unauthorized
+            );
+        }
+
+        // Conjoined-tenant rows are tagged with the account id rendered as
+        // a string — same shape Marten injects via the `account_id` claim
+        // on tenanted endpoints. Open a session in that tenant so
+        // `DeleteWhere<T>(_ => true)` is automatically scoped.
+        var tenantId = accountId.ToString("D");
+        await using var session = store.LightweightSession(tenantId);
+
+        var account = await session.LoadAsync<Account>(accountId, ct);
+        if (account is null)
+            return Results.NotFound(new ErrorResponse(["account not found"]));
+
+        // Per-account read models and inbox. Each of these types is
+        // registered MultiTenanted, so the WHERE clause Marten emits is
+        // `tenant_id = @tenant`; the predicate just has to be non-empty.
+        session.DeleteWhere<HomeBoard>(_ => true);
+        session.DeleteWhere<CheckInState>(_ => true);
+        session.DeleteWhere<MonthlyCheckInSummary>(_ => true);
+        session.DeleteWhere<WeeklyCheckInSummary>(_ => true);
+        session.DeleteWhere<HabitComplianceHistory>(_ => true);
+        session.DeleteWhere<ProcessedEnvelope>(_ => true);
+
+        // Devices and Account are single-tenant (they're how we *find* the
+        // tenant). Filter explicitly by AccountId.
+        session.DeleteWhere<Device>(d => d.AccountId == accountId);
+        session.Delete<Account>(accountId);
+
+        // Events are conjoined-tenant but live in `mt_events` /
+        // `mt_streams`, which Marten doesn't expose via DeleteWhere.
+        // Drop them in the same unit of work via raw SQL so a partial
+        // failure doesn't leave the account half-deleted.
+        var eventsSchema = store.Options.Events.DatabaseSchemaName;
+        session.QueueSqlCommand(
+            $"delete from {eventsSchema}.mt_events where tenant_id = ?",
+            tenantId
+        );
+        session.QueueSqlCommand(
+            $"delete from {eventsSchema}.mt_streams where tenant_id = ?",
+            tenantId
+        );
+
+        await session.SaveChangesAsync(ct);
+
+        // Drop the cached sub→account mapping so a subsequent Clerk-token
+        // request for this identity doesn't 200 against a now-dead row.
+        if (!string.IsNullOrEmpty(account.IdpSubject))
+            resolver.Invalidate(account.IdpSubject);
+
+        return Results.Ok(new DeleteAccountResponse(accountId));
     }
 }
