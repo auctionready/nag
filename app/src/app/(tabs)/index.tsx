@@ -2,8 +2,8 @@ import { useRouter } from "expo-router";
 import { useLiveQuery } from "drizzle-orm/expo-sqlite";
 import { db } from "../../db";
 import { allHabits } from "@nag/core";
-import { HabitTile } from "./_parts/habit-tile";
-import { Board } from "./_parts/board";
+import { HabitTile } from "../../components/habit-tile";
+import { Board } from "../../components/board";
 
 const BoardScreen = () => {
   const router = useRouter();

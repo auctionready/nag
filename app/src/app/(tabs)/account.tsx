@@ -39,7 +39,7 @@ import { log } from "../../infrastructure/log";
 import { useSyncStatus } from "../../infrastructure/syncStatus";
 import { deviceTokenStore } from "../../infrastructure/tokenStore";
 import { tokens } from "../../components/theme";
-import { Group, ProviderButton, Row } from "./_parts/account";
+import { Group, ProviderButton, Row } from "../../components/account";
 import {
   PROVIDER_LABELS,
   ProviderGlyph,

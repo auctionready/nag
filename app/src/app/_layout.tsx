@@ -51,7 +51,7 @@ const InnerLayout = () => {
           name="(tabs)"
           options={{ title: "Nag HQ", headerShown: false }}
         />
-        <Stack.Screen name="admin/index" options={{ title: "Admin" }} />
+        <Stack.Screen name="admin" options={{ title: "Admin" }} />
         <Stack.Screen name="add-habit" options={{ title: "Add Habit" }} />
         <Stack.Screen name="habit/[id]" options={{ title: "Habit" }} />
         <Stack.Screen
@@ -62,10 +62,7 @@ const InnerLayout = () => {
           name="debug-notifications"
           options={{ title: "Scheduled Notifications" }}
         />
-        <Stack.Screen
-          name="check-in-slot/index"
-          options={{ title: "Check In" }}
-        />
+        <Stack.Screen name="check-in-slot" options={{ title: "Check In" }} />
       </Stack>
     </View>
   );

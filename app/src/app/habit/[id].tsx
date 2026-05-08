@@ -15,7 +15,7 @@ import {
 } from "@nag/core";
 import { dispatch } from "../../infrastructure/dispatch";
 import { useStartOfToday } from "../../infrastructure/today";
-import { HabitDetail, ComplianceHistory } from "./_parts/habit-detail";
+import { HabitDetail, ComplianceHistory } from "../../components/habit-detail";
 import { complianceColors } from "../../components/compliance";
 
 const DAY_PARAM_FORMAT = "yyyy-MM-dd";

@@ -13,7 +13,10 @@ import {
   subMonths,
   startOfDay,
 } from "date-fns";
-import { useCalendarCheckIns, useSelectedDayCheckIns } from "./_parts/calendar";
+import {
+  useCalendarCheckIns,
+  useSelectedDayCheckIns,
+} from "../../components/calendar";
 import { useStartOfToday } from "../../infrastructure/today";
 import { WeekdayNames } from "@nag/core";
 
