@@ -9,9 +9,10 @@ interface MonthIndicatorsProps {
 }
 
 // Cell language for the monthly strip. Monthly habits don't carry a per-day
-// schedule, so past unchecked days are calendar negative space (not "missed"):
-//   today-done — ink fill + check + orange ring
-//   today      — orange ring, empty inside
+// schedule, so today is just a quiet "you are here" marker, not a "do this now"
+// prompt; past unchecked days are calendar negative space (not "missed"):
+//   today-done — ink fill + check (same as any done day)
+//   today      — small orange dot, empty otherwise
 //   done       — ink fill + check
 //   past empty — faint fill (slightly stronger than future, to signal history)
 //   future     — very subtle fill
@@ -47,14 +48,11 @@ const MonthCell = ({ day }: { day: MonthDayCell }) => {
   const cellStyle: ViewStyle[] = [styles.cell];
   let inner: React.ReactNode = null;
 
-  if (isToday && hasCheckIn) {
-    cellStyle.push(styles.cellInk, styles.cellTodayRing);
-    inner = <CheckGlyph />;
-  } else if (isToday) {
-    cellStyle.push(styles.cellTodayRing);
-  } else if (hasCheckIn) {
+  if (hasCheckIn) {
     cellStyle.push(styles.cellInk);
     inner = <CheckGlyph />;
+  } else if (isToday) {
+    inner = <View style={styles.todayDot} />;
   } else if (isFuture) {
     cellStyle.push(styles.cellEmptyFuture);
   } else {
@@ -98,8 +96,11 @@ const styles = StyleSheet.create({
   cellInk: {
     backgroundColor: tokens.ink,
   },
-  cellTodayRing: {
-    borderColor: tokens.orange,
+  todayDot: {
+    width: 3,
+    height: 3,
+    borderRadius: 1.5,
+    backgroundColor: tokens.orange,
   },
   cellEmptyPast: {
     backgroundColor: tokens.midFaint,
