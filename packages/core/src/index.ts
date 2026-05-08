@@ -6,6 +6,11 @@ export {
   type HabitProgressSnapshot,
 } from "./habitProgressSnapshot";
 export {
+  boardProgress,
+  type BoardProgressHabit,
+  type BoardProgressResult,
+} from "./boardProgress";
+export {
   buildDayCells,
   checkInDaysMask,
   classifyScheduledDays,
@@ -43,6 +48,7 @@ export {
   habitsByIds,
   goalForHabit,
   goalForHabitFull,
+  goalsForHabits,
   checkInCount,
   recentCheckIns,
   checkInsInPeriod,
