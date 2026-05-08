@@ -149,7 +149,7 @@ const Card = ({ label, body }: { label: string; body: React.ReactNode }) => (
  * "no goal active" (rendered blank) or "daily goal missed" (rendered
  * red) depending on what the goal timeline says was active that day.
  */
-export const fillDays = (
+const fillDays = (
   history: HabitComplianceHistory,
   now: Date,
   dayCount: number,

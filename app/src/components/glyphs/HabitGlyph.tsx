@@ -27,7 +27,7 @@ export type HabitIconKind =
   | "mountain"
   | "check";
 
-export type HabitIconStyle = "line" | "filled" | "emoji";
+type HabitIconStyle = "line" | "filled" | "emoji";
 
 interface HabitGlyphProps {
   kind?: HabitIconKind | string | null;

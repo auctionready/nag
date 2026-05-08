@@ -1,17 +1,5 @@
 import type { Regularity } from "@nag/schema";
-import {
-  AllDays,
-  NoDays,
-  WeekDays,
-  WeekendDays,
-  weekDayEntries,
-} from "@nag/core";
-
-export const periodLabels: Record<Regularity, string> = {
-  day: "today",
-  week: "this week",
-  month: "this month",
-};
+import { AllDays, NoDays, WeekDays, WeekendDays } from "@nag/core";
 
 const periodWordShort: Record<Regularity, string> = {
   day: "day",
@@ -35,38 +23,12 @@ export const cadenceLabel = (goal: {
   return `${goal.frequency}× / ${periodWordShort[goal.regularity]}`;
 };
 
-const smallNumbers = [
-  "zero",
-  "one",
-  "two",
-  "three",
-  "four",
-  "five",
-  "six",
-  "seven",
-  "eight",
-  "nine",
-];
-
-export const formatCount = (n: number): string =>
-  n < smallNumbers.length ? smallNumbers[n] : String(n);
-
 /** 24-hour hour/minute → 12-hour label, e.g. `9:00 AM`. */
 export const formatTime = (hour: number, minute: number): string => {
   const m = String(minute).padStart(2, "0");
   const period = hour >= 12 ? "PM" : "AM";
   const h12 = hour % 12 || 12;
   return `${h12}:${m} ${period}`;
-};
-
-/** Comma-list of day abbreviations from a day-mask, with All/None shortcuts. */
-export const formatDays = (days: number): string => {
-  if (days === NoDays) return "No days";
-  if (days === AllDays) return "Every day";
-  return weekDayEntries
-    .filter(({ day }) => days & day)
-    .map(({ label }) => label)
-    .join(", ");
 };
 
 /**

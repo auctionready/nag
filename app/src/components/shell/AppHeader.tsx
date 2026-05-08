@@ -16,7 +16,7 @@ interface AppHeaderShellProps {
  * routes whose parent navigator doesn't provide a Stack header). For
  * Stack screens use `AppHeaderForStack`.
  */
-export const AppHeaderShell = ({ title, onBack }: AppHeaderShellProps) => {
+const AppHeaderShell = ({ title, onBack }: AppHeaderShellProps) => {
   const insets = useSafeAreaInsets();
   return (
     <View style={[styles.wrap, { paddingTop: insets.top }]}>
