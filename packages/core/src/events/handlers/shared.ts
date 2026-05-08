@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 import { goal, schedule } from "@nag/schema";
 import type { AnyDb } from "../../db";
 
@@ -43,12 +43,20 @@ export const computeFrequency = (g: ServerGoal): number => {
  * Replaces a habit's goal + schedule rows. Goal/schedule remain weak
  * entities (integer PKs minted by the DB), so callers don't see the new
  * ids — replays simply delete and reinsert.
+ *
+ * Schedules are deleted explicitly before the goal even though the FK
+ * cascades — SQLite's `update_hook` (what expo-sqlite's
+ * `addDatabaseChangeListener` is bound to) does NOT fire for foreign-key
+ * cascade actions. Without this, `useLiveQuery` consumers keyed on the
+ * `schedule` table miss the deletion when a habit transitions from
+ * scheduled → frequency-only and render against stale schedule rows.
  */
 export const writeGoalAndSchedules = async (
   db: AnyDb,
   habitId: string,
   goalPayload: ServerGoal,
 ): Promise<void> => {
+  await deleteSchedulesForHabit(db, habitId);
   await db.delete(goal).where(eq(goal.habitId, habitId));
   const [insertedGoal] = await db
     .insert(goal)
@@ -72,5 +80,26 @@ export const writeGoalAndSchedules = async (
       dayOfMonth: s.dayOfMonth,
       reminder: s.reminder ?? true,
     })),
+  );
+};
+
+/**
+ * Explicitly removes a habit's schedule rows so the change listener fires
+ * — see the note on `writeGoalAndSchedules` about FK cascade silence.
+ */
+export const deleteSchedulesForHabit = async (
+  db: AnyDb,
+  habitId: string,
+): Promise<void> => {
+  const goalRows = await db
+    .select({ id: goal.id })
+    .from(goal)
+    .where(eq(goal.habitId, habitId));
+  if (goalRows.length === 0) return;
+  await db.delete(schedule).where(
+    inArray(
+      schedule.goalId,
+      goalRows.map((g) => g.id),
+    ),
   );
 };
