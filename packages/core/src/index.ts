@@ -136,6 +136,8 @@ export {
   Day,
   NoDays,
   AllDays,
+  WeekDays,
+  WeekendDays,
   WeekdayNames,
   dayTitles,
   weekDayEntries,

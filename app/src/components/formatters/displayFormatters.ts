@@ -1,5 +1,11 @@
 import type { Regularity } from "@nag/schema";
-import { AllDays, Day, NoDays, weekDayEntries } from "@nag/core";
+import {
+  AllDays,
+  NoDays,
+  WeekDays,
+  WeekendDays,
+  weekDayEntries,
+} from "@nag/core";
 
 export const periodLabels: Record<Regularity, string> = {
   day: "today",
@@ -63,17 +69,21 @@ export const formatDays = (days: number): string => {
     .join(", ");
 };
 
-const WEEKDAYS_MASK = Day.Mon | Day.Tue | Day.Wed | Day.Thu | Day.Fri;
-const WEEKENDS_MASK = Day.Sat | Day.Sun;
-
 /**
  * Friendly summary for a day-mask — `every day` / `weekdays` / `weekends` /
  * `no days`, or `null` when no friendly label fits (caller renders pills).
  */
 export const friendlyDaysLabel = (days: number): string | null => {
-  if (days === NoDays) return "no days";
-  if (days === AllDays) return "every day";
-  if (days === WEEKDAYS_MASK) return "weekdays";
-  if (days === WEEKENDS_MASK) return "weekends";
-  return null;
+  switch (days) {
+    case NoDays:
+      return "no days";
+    case AllDays:
+      return "every day";
+    case WeekDays:
+      return "weekdays";
+    case WeekendDays:
+      return "weekends";
+    default:
+      return null;
+  }
 };

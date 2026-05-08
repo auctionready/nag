@@ -9,8 +9,12 @@ export enum Day {
 }
 
 export const NoDays = 0;
+
 export const AllDays =
   Day.Sun | Day.Mon | Day.Tue | Day.Wed | Day.Thu | Day.Fri | Day.Sat;
+
+export const WeekDays = Day.Mon | Day.Tue | Day.Wed | Day.Thu | Day.Fri;
+export const WeekendDays = Day.Sat | Day.Sun;
 
 const dayNames: Readonly<Record<Day, string>> = Object.freeze({
   [Day.Sun]: "Sun",
