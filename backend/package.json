@@ -8,6 +8,7 @@
     "openapi": "./scripts/generate-openapi.sh",
     "package:lambda": "./scripts/package-lambda.sh",
     "package:lambda:run": "./scripts/run-lambda-locally.sh",
+    "deploy": "pnpm package:lambda && cd ../infra && pulumi up --yes",
     "check": "concurrently -g \"pnpm check:format\" \"pnpm check:openapi\"",
     "check:format": "dotnet csharpier check .",
     "check:openapi": "pnpm --filter @nag/api-client generate && git diff --exit-code ../packages/api-client/src/endpoint-definition.ts"

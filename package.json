@@ -19,6 +19,7 @@
     "check:app": "concurrently -g \"pnpm typecheck\" \"pnpm lint\" \"pnpm test:app\" \"pnpm format:check:app\" \"pnpm --filter @nag/app check:circular\"",
     "check:backend": "pnpm --filter @nag/backend check",
     "check": "pnpm check:backend && pnpm check:app",
+    "deploy:backend": "pnpm --filter @nag/backend run deploy",
     "typecheck": "tsc -b",
     "typecheck:watch": "tsc -b --watch",
     "prepare": "lefthook install"
