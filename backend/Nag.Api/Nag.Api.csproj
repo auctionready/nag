@@ -1,6 +1,11 @@
 <Project Sdk="Microsoft.NET.Sdk.Web">
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
+    <!-- Listed (not set as RuntimeIdentifier) so a plain `dotnet restore`
+         produces RID-specific assets for the Lambda publish. Lets
+         scripts/package-lambda.sh run publish with `linux-arm64` and
+         `no-restore` without rewriting the developer's assets file. -->
+    <RuntimeIdentifiers>linux-arm64</RuntimeIdentifiers>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <!-- Drop the foreign-language satellite resource DLLs that

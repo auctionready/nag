@@ -21,6 +21,12 @@ jobs:
         with:
           dotnet-version: "10.0.x"
 
+      # package-lambda.sh runs with --no-restore so it doesn't churn local
+      # dev's package state; restore explicitly here before invoking it.
+      - name: Restore backend
+        working-directory: backend
+        run: dotnet restore
+
       - name: Package Lambda
         run: backend/scripts/package-lambda.sh
 
