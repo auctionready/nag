@@ -7,8 +7,12 @@ import { useNotificationResponseHandler } from "../infrastructure/notificationRe
 import { useForegroundNotificationSync } from "../infrastructure/foregroundSync";
 import { SyncStatusProvider } from "../infrastructure/syncStatus";
 import { TodayProvider } from "../infrastructure/today";
-import { SyncHaltedBanner } from "../components/SyncHaltedBanner";
-import { AppHeader } from "../components/AppHeader";
+import { SyncHaltedBanner } from "../components/sync";
+import {
+  AppHeader,
+  AnimatedSplash,
+  SPLASH_DURATION_MS,
+} from "../components/shell";
 import { getClerkPublishableKey, tokenCache } from "../infrastructure/clerk";
 import { ClerkProvider } from "@clerk/clerk-expo";
 import React from "react";
@@ -19,10 +23,6 @@ import * as SplashScreen from "expo-splash-screen";
 
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { DatabaseProvider } from "../db/DatabaseProvider";
-import {
-  AnimatedSplash,
-  SPLASH_DURATION_MS,
-} from "../components/AnimatedSplash";
 import { useShowSplash } from "../hooks/useShowSplash";
 
 // Keep the native splash up until fonts load and the JS animated splash mounts;
@@ -51,7 +51,7 @@ const InnerLayout = () => {
           name="(tabs)"
           options={{ title: "Nag HQ", headerShown: false }}
         />
-        <Stack.Screen name="admin" options={{ title: "Admin" }} />
+        <Stack.Screen name="admin/index" options={{ title: "Admin" }} />
         <Stack.Screen name="add-habit" options={{ title: "Add Habit" }} />
         <Stack.Screen name="habit/[id]" options={{ title: "Habit" }} />
         <Stack.Screen
@@ -62,7 +62,10 @@ const InnerLayout = () => {
           name="debug-notifications"
           options={{ title: "Scheduled Notifications" }}
         />
-        <Stack.Screen name="check-in-slot" options={{ title: "Check In" }} />
+        <Stack.Screen
+          name="check-in-slot/index"
+          options={{ title: "Check In" }}
+        />
       </Stack>
     </View>
   );

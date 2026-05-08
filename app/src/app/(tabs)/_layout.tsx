@@ -1,6 +1,6 @@
 import { withLayoutContext } from "expo-router";
 import { createMaterialTopTabNavigator } from "@react-navigation/material-top-tabs";
-import { SharedTopBar } from "../../components/SharedTopBar";
+import { SharedTopBar } from "../../components/shell";
 
 const { Navigator } = createMaterialTopTabNavigator();
 

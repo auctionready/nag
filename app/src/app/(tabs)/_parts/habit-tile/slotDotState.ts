@@ -1,0 +1,23 @@
+// Slot dot states used by tile progress dots:
+//   done    — ink fill (slot complete)
+//   ahead   — orange fill (more done than expected — e.g. extras)
+//   pending — empty + faint ring (upcoming slot)
+//   behind  — empty + orange ring (slot's time passed, action overdue)
+//   missed  — faint solid fill (gone, no recovery expected)
+export type SlotDotState = "done" | "ahead" | "pending" | "behind" | "missed";
+
+/**
+ * Yields a `done | pending | ahead` strip — first `min(count, target)` as
+ * `done`, the rest of `target` as `pending`, and any overflow as `ahead`.
+ * Caller spreads into an array.
+ */
+export function* slotStripStates(
+  target: number,
+  count: number,
+): Generator<SlotDotState> {
+  const done = Math.min(count, target);
+  const ahead = Math.max(0, count - target);
+  for (let i = 0; i < done; i++) yield "done";
+  for (let i = 0; i < target - done; i++) yield "pending";
+  for (let i = 0; i < ahead; i++) yield "ahead";
+}

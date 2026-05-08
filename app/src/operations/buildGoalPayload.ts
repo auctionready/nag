@@ -1,4 +1,4 @@
-import type { HabitFormData } from "../components/HabitForm";
+import type { HabitFormData } from "../components/habit-form";
 
 export const buildGoalPayload = (values: HabitFormData) => {
   if (values.regularity === "none") return undefined;
