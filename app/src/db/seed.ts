@@ -11,6 +11,7 @@ import {
   seqUuid,
 } from "@nag/schema";
 import {
+  AllDays,
   Day,
   getConsolidatedScheduler,
   getNotificationScheduler,
@@ -43,13 +44,14 @@ const TuTh = Day.Tue | Day.Thu;
 
 const sampleData: SeedEntry[] = [
   {
-    // Daily, every day at 7am — already done today.
+    // Every day at 7am. Modelled as a weekly goal because only weekly
+    // goals carry schedules — see commands/schemas.ts.
     command: {
       type: "CreateHabit",
       title: "Meditate",
       goal: {
-        regularity: "day",
-        schedules: [{ hour: 7, minute: 0 }],
+        regularity: "week",
+        schedules: [{ hour: 7, minute: 0, days: AllDays }],
       },
     },
     checkIns: [{ daysAgo: 0 }],
@@ -72,13 +74,13 @@ const sampleData: SeedEntry[] = [
     checkIns: [{ daysAgo: 0 }],
   },
   {
-    // Daily at 9pm, all week — nothing checked in yet.
+    // Every day at 9pm — nothing checked in yet.
     command: {
       type: "CreateHabit",
       title: "Read",
       goal: {
-        regularity: "day",
-        schedules: [{ hour: 21, minute: 0 }],
+        regularity: "week",
+        schedules: [{ hour: 21, minute: 0, days: AllDays }],
       },
     },
   },
