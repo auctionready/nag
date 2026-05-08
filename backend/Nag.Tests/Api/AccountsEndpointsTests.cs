@@ -4,6 +4,7 @@ using System.Net.Http.Json;
 using Marten;
 using Microsoft.Extensions.DependencyInjection;
 using Nag.Api.Auth;
+using Nag.Core;
 using Nag.Core.Contracts;
 using Nag.Core.Domain;
 using Nag.Tests.Infrastructure;
@@ -358,5 +359,112 @@ public class AccountsEndpointsTests : IClassFixture<AccountsEndpointsTests.Facto
         var response = await client.PostAsync("/accounts/unbind", content: null);
 
         response.StatusCode.ShouldBe(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
+    public async Task delete_me_removes_the_account_devices_and_per_account_data()
+    {
+        var (accountId, deviceId, client) = await RegisterAndUpgradeAsync("user_delete_me");
+
+        // Seed a habit so there's an event + read-model row tagged with
+        // this account's tenant id; verifies the cascade actually fires.
+        var habitId = Guid.NewGuid();
+        var seed = await client.PostAsJsonAsync(
+            "/events",
+            new
+            {
+                id = Guid.NewGuid(),
+                timestamp = DateTimeOffset.UtcNow,
+                events = new[]
+                {
+                    new { type = "HabitCreated", payload = new { habitId, title = "Read" } },
+                },
+            }
+        );
+        seed.StatusCode.ShouldBe(HttpStatusCode.Created);
+
+        var response = await client.DeleteAsync("/accounts/me");
+
+        response.StatusCode.ShouldBe(HttpStatusCode.OK);
+        var body = await response.Content.ReadFromJsonAsync<DeleteAccountResponse>();
+        body!.AccountId.ShouldBe(accountId);
+
+        using var scope = _factory.Services.CreateScope();
+        var session = scope.ServiceProvider.GetRequiredService<IDocumentSession>();
+        (await session.LoadAsync<Account>(accountId)).ShouldBeNull();
+        (await session.LoadAsync<Device>(deviceId)).ShouldBeNull();
+
+        // Tenanted reads use the account_id claim — go through the store
+        // directly with that tenant to confirm the per-account rows are
+        // gone, not just hidden by a different tenant context.
+        await using var tenanted = scope
+            .ServiceProvider.GetRequiredService<IDocumentStore>()
+            .LightweightSession(accountId.ToString("D"));
+        var events = await tenanted.Events.FetchStreamAsync(NagStreams.Root);
+        events.ShouldBeEmpty();
+    }
+
+    [Fact]
+    public async Task delete_me_lets_a_subsequent_clerk_token_for_the_same_identity_get_401()
+    {
+        var (_, _, client) = await RegisterAndUpgradeAsync("user_delete_then_clerk");
+
+        (await client.DeleteAsync("/accounts/me")).StatusCode.ShouldBe(HttpStatusCode.OK);
+
+        // The auth handler caches sub→accountId; the endpoint invalidates
+        // that cache so a Clerk-token request after delete fails with
+        // "no account is bound to this Clerk identity" (401), not 200
+        // against the now-dead account row.
+        _factory.ClerkVerifier.Behavior = _ =>
+            ClerkTokenVerificationResult.Success("user_delete_then_clerk");
+        var clerk = _factory.CreateClient();
+        clerk.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
+            "Bearer",
+            "ey.fake.clerk"
+        );
+        var response = await clerk.GetAsync("/home-board");
+        response.StatusCode.ShouldBe(HttpStatusCode.Unauthorized);
+    }
+
+    [Fact]
+    public async Task delete_me_without_a_token_returns_401()
+    {
+        var client = _factory.CreateClient();
+
+        var response = await client.DeleteAsync("/accounts/me");
+
+        response.StatusCode.ShouldBe(HttpStatusCode.Unauthorized);
+    }
+
+    [Fact]
+    public async Task delete_me_with_an_unknown_account_returns_404()
+    {
+        // Forged token: signature valid, but the account_id claim points at
+        // a row that was never persisted.
+        var token = _factory.IssueDeviceToken(Guid.NewGuid(), Guid.NewGuid());
+        var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        var response = await client.DeleteAsync("/accounts/me");
+
+        response.StatusCode.ShouldBe(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
+    public async Task delete_me_only_touches_the_callers_account()
+    {
+        var (victimAccountId, _, _) = await RegisterAndUpgradeAsync("user_victim");
+        var (attackerAccountId, _, attacker) = await RegisterAndUpgradeAsync("user_attacker");
+
+        // The endpoint reads the account id from the principal, never the
+        // request — so the attacker's call must leave the victim alone
+        // even if it could somehow hint at a different id.
+        var response = await attacker.DeleteAsync("/accounts/me");
+        response.StatusCode.ShouldBe(HttpStatusCode.OK);
+
+        using var scope = _factory.Services.CreateScope();
+        var session = scope.ServiceProvider.GetRequiredService<IDocumentSession>();
+        (await session.LoadAsync<Account>(attackerAccountId)).ShouldBeNull();
+        (await session.LoadAsync<Account>(victimAccountId)).ShouldNotBeNull();
     }
 }

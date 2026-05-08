@@ -15,3 +15,4 @@ export {
 export { getSync, type GetSyncResult } from "./getSync";
 export { pairDevice, type PairDeviceResult } from "./pairDevice";
 export { unbindAccount, type UnbindAccountResult } from "./unbindAccount";
+export { deleteAccount, type DeleteAccountResult } from "./deleteAccount";

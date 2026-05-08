@@ -40,6 +40,11 @@ export const UnbindAccountResponse = z
   .partial();
 export type UnbindAccountResponse = z.infer<typeof UnbindAccountResponse>;
 
+export const DeleteAccountResponse = z
+  .object({ accountId: z.uuid() })
+  .partial();
+export type DeleteAccountResponse = z.infer<typeof DeleteAccountResponse>;
+
 export const RebuildProjectionsRequest = z
   .object({ secret: z.string().nullable() })
   .partial();
@@ -573,6 +578,17 @@ export const SyncResponse = z
 export type SyncResponse = z.infer<typeof SyncResponse>;
 
 export const endpoints = makeApi([
+  {
+    method: "delete",
+    path: "/accounts/me",
+    alias: "deleteAccountsMe",
+    parameters: [],
+    response: z.object({ accountId: z.uuid() }).partial(),
+    errors: [
+      { status: 401, schema: ErrorResponse },
+      { status: 404, schema: ErrorResponse },
+    ],
+  },
   {
     method: "post",
     path: "/accounts/unbind",
