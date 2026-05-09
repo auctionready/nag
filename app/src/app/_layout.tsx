@@ -1,7 +1,13 @@
 // Sentry must initialize before any other module that may emit spans or
 // errors — notably the db module, which opens SQLite at import time.
 import { Sentry, navigationIntegration } from "../infrastructure/sentry";
-import "../db/devMenu";
+// Dev-menu registration is side-effect only and pulls in `devAuth` +
+// the dev-only imports of `@nag/core` it uses. Wrap in a `__DEV__`
+// guarded `require` so Metro drops the whole subtree from production
+// bundles instead of relying on minifier dead-code elimination.
+if (__DEV__) {
+  require("../db/devMenu");
+}
 import { init, postMigrationInit } from "../infrastructure/init";
 import { useNotificationResponseHandler } from "../infrastructure/notificationResponseHandler";
 import { useForegroundNotificationSync } from "../infrastructure/foregroundSync";

@@ -1,21 +1,12 @@
 import * as Sentry from "@sentry/react-native";
-import {
-  ensureDevAuthRegistered,
-  setNotificationScheduler,
-  setConsolidatedScheduler,
-} from "@nag/core";
-import { db } from "../db";
+import { setNotificationScheduler, setConsolidatedScheduler } from "@nag/core";
 import { expoNotificationScheduler } from "./expoNotificationScheduler";
 import { expoConsolidatedScheduler } from "./expoConsolidatedScheduler";
 import { installGlobalErrorHandlers } from "./globalErrorHandlers";
-import { fetchDevToken } from "./devAuth";
 import { getAuthMode } from "./devOverrides";
-import { postCommitBus } from "./postCommitBus";
-import { deviceTokenStore } from "./tokenStore";
 import { log } from "./log";
 
 const logger = log("init");
-const identityLogger = log("identity");
 
 export const init = () => {
   logger.info("app init");
@@ -34,26 +25,17 @@ export const init = () => {
  * user without a Clerk sign-in. In Clerk mode this is a no-op —
  * device registration still lives behind the post-Clerk-sign-in effect
  * in `account.tsx`.
+ *
+ * The dev-auth wiring is loaded via a `__DEV__`-guarded `require` so
+ * Metro drops `initDevAuth.ts` (and its `fetchDevToken` /
+ * `ensureDevAuthRegistered` imports) from production bundles. Keeping
+ * `getAuthMode()` as the inner check means the dev-menu's runtime
+ * "Switch backend → Cloud apidev" preset still works in dev clients.
  */
 export const postMigrationInit = () => {
+  if (!__DEV__) return;
   if (getAuthMode() !== "dev-auth") return;
+  const { runDevAuthRegistration } =
+    require("./initDevAuth") as typeof import("./initDevAuth");
   void runDevAuthRegistration();
-};
-
-const runDevAuthRegistration = async () => {
-  try {
-    const result = await ensureDevAuthRegistered({
-      db,
-      tokenStore: deviceTokenStore,
-      fetchDevToken,
-      log: identityLogger,
-    });
-    if (result.accountId) {
-      // Wake the sync loop now that we have credentials — same pattern
-      // as the post-`/accounts/upgrade` kick from the Account screen.
-      postCommitBus.emit();
-    }
-  } catch (error: unknown) {
-    identityLogger.error("dev-auth init threw unexpectedly", error);
-  }
 };
