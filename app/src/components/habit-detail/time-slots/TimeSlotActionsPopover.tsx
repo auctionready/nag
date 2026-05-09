@@ -8,8 +8,8 @@ import {
   Text,
   View,
 } from "react-native";
-import { CheckGlyph, SkipGlyph, UndoGlyph } from "../../components/glyphs";
-import { tokens } from "../../components/theme";
+import { CheckGlyph, SkipGlyph, UndoGlyph } from "../../../components/glyphs";
+import { tokens } from "../../../components/theme";
 
 export interface TimeSlotPillBounds {
   x: number;

@@ -10,6 +10,12 @@ interface CheckInsCardProps {
   eyebrow: string;
   /** True when scoped to a single calendar day; controls timestamp format. */
   singleDay: boolean;
+  /**
+   * True when scheduled time-slot pills are visible above the list — the
+   * empty-state hint then points at the pills as the primary way to log
+   * for a specific moment, alongside the Check-in long-press.
+   */
+  hasScheduleSlots?: boolean;
   onRemove: (id: string) => void;
   onEditTimestamp?: (id: string, timestamp: Date) => void;
 }
@@ -28,6 +34,7 @@ export const CheckInsCard = ({
   checkIns,
   eyebrow,
   singleDay,
+  hasScheduleSlots,
   onRemove,
   onEditTimestamp,
 }: CheckInsCardProps) => {
@@ -49,9 +56,15 @@ export const CheckInsCard = ({
       {checkIns.length === 0 ? (
         <View style={styles.empty}>
           <Text style={styles.emptyHeadline}>nothing logged this day.</Text>
+          {hasScheduleSlots && (
+            <Text style={styles.emptyHint}>
+              tap a <Text style={styles.emptyHintInk}>scheduled slot</Text>{" "}
+              above to log it
+            </Text>
+          )}
           <Text style={styles.emptyHint}>
-            long-press <Text style={styles.emptyHintInk}>Check-in</Text> to
-            back-fill
+            {hasScheduleSlots ? "or " : ""}long-press{" "}
+            <Text style={styles.emptyHintInk}>Check-in</Text> to back-fill
           </Text>
         </View>
       ) : (

@@ -1,7 +1,7 @@
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useLiveQuery } from "drizzle-orm/expo-sqlite";
 import { parse, format } from "date-fns";
-import { db } from "../../db";
+import { db } from "../../../db";
 import { getTitle, seqUuid } from "@nag/schema";
 import {
   habitById,
@@ -13,20 +13,17 @@ import {
   schedulesForHabit,
   tileColor,
 } from "@nag/core";
-import { dispatch } from "../../infrastructure/dispatch";
-import { useStartOfToday } from "../../infrastructure/today";
-import { HabitDetail } from "../../components/habit-detail";
-import { HabitHistoryView } from "../../components/habit-detail/HabitHistoryView";
-import { cadenceSummary } from "../../components/habit-detail/cadenceSummary";
-import { complianceColors } from "../../components/compliance";
+import { dispatch } from "../../../infrastructure/dispatch";
+import { useStartOfToday } from "../../../infrastructure/today";
+import { HabitDetail } from "../../../components/habit-detail";
+import { complianceColors } from "../../../components/compliance";
 
 const DAY_PARAM_FORMAT = "yyyy-MM-dd";
 
 const HabitScreen = () => {
-  const { id, day, view } = useLocalSearchParams<{
+  const { id, day } = useLocalSearchParams<{
     id: string;
     day?: string;
-    view?: string;
   }>();
   const router = useRouter();
   const habitId = id ?? "";
@@ -95,10 +92,6 @@ const HabitScreen = () => {
     });
   };
 
-  const handleSetView = (nextView: "detail" | "history") => {
-    router.setParams({ view: nextView === "history" ? "history" : undefined });
-  };
-
   const handleCheckInAt = async (timestamp: Date) => {
     await dispatch({
       type: "CreateCheckIn",
@@ -131,25 +124,9 @@ const HabitScreen = () => {
     });
   };
 
-  const summary = cadenceSummary({
-    regularity: goalData?.regularity ?? null,
-    frequency: goalData?.frequency ?? null,
-    schedules,
-  });
-  const historyView = habitData?.id ? (
-    <HabitHistoryView
-      habitExternalId={habitData.id}
-      title={habitData.title}
-      icon={habitData.icon ?? null}
-      cadenceSummary={summary}
-    />
-  ) : null;
-
   return (
     <HabitDetail
       loading={!habitData}
-      habitExternalId={habitData?.id ?? null}
-      historyView={historyView}
       title={habitData?.title ?? ""}
       icon={habitData?.icon ?? null}
       description={habitData?.description ?? null}
@@ -163,13 +140,16 @@ const HabitScreen = () => {
       complianceColor={compliance?.color}
       showSkip={showSkip}
       selectedDay={selectedDay}
-      view={view === "history" ? "history" : "detail"}
       onSelectDay={handleSelectDay}
-      onSetView={handleSetView}
       onCheckInAt={handleCheckInAt}
       onSkipAt={handleSkipAt}
-      onEdit={() => router.push(`/edit-habit/${habitId}`)}
+      onEdit={() => router.push(`/habit/${habitId}/edit`)}
       onBack={() => router.back()}
+      onOpenHistory={
+        habitData?.id
+          ? () => router.push(`/habit/${habitId}/history`)
+          : undefined
+      }
       onRemoveCheckIn={async (checkInId) => {
         await dispatch({ type: "DeleteCheckIn", checkInId });
       }}

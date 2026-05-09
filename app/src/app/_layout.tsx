@@ -61,11 +61,15 @@ const InnerLayout = () => {
         <Stack.Screen name="admin" options={{ title: "Admin" }} />
         <Stack.Screen name="add-habit" options={{ title: "Add Habit" }} />
         <Stack.Screen
-          name="habit/[id]"
+          name="habit/[id]/index"
           options={{ title: "Habit", headerShown: false }}
         />
         <Stack.Screen
-          name="edit-habit/[id]"
+          name="habit/[id]/history"
+          options={{ title: "Habit History", headerShown: false }}
+        />
+        <Stack.Screen
+          name="habit/[id]/edit"
           options={{ title: "Edit Habit" }}
         />
         <Stack.Screen

@@ -13,7 +13,6 @@ const render = (ui: ReactElement, now: Date = sundayAt(10)) =>
   renderWithToday(ui, { now });
 
 const baseProps = {
-  habitExternalId: "habit-1",
   title: "Exercise",
   description: null as string | null,
   icon: null as string | null,
@@ -31,9 +30,8 @@ const baseProps = {
   }[],
   showSkip: false,
   selectedDay: null as Date | null,
-  view: "detail" as "detail" | "history",
   onSelectDay: jest.fn(),
-  onSetView: jest.fn(),
+  onOpenHistory: jest.fn(),
   onCheckInAt: jest.fn(),
   onSkipAt: jest.fn(),
   onEdit: jest.fn(),
@@ -132,10 +130,10 @@ describe("HabitDetail", () => {
       expect(baseProps.onBack).toHaveBeenCalledTimes(1);
     });
 
-    it("History triggers onSetView('history')", () => {
+    it("History triggers onOpenHistory", () => {
       const view = render(<HabitDetail {...baseProps} />);
       fireEvent.press(view.getByLabelText("History"));
-      expect(baseProps.onSetView).toHaveBeenCalledWith("history");
+      expect(baseProps.onOpenHistory).toHaveBeenCalledTimes(1);
     });
   });
 
@@ -465,19 +463,6 @@ describe("HabitDetail", () => {
     it("renders a friendly empty state with a back-fill hint", () => {
       const view = render(<HabitDetail {...baseProps} />);
       expect(view.getByText("nothing logged this day.")).toBeTruthy();
-    });
-  });
-
-  describe("history view", () => {
-    it("renders the history page when view='history'", () => {
-      const view = render(<HabitDetail {...baseProps} view="history" />);
-      expect(view.getByText("history")).toBeTruthy();
-    });
-
-    it("Back button on the history page returns to detail view", () => {
-      const view = render(<HabitDetail {...baseProps} view="history" />);
-      fireEvent.press(view.getByLabelText("Back"));
-      expect(baseProps.onSetView).toHaveBeenCalledWith("detail");
     });
   });
 });

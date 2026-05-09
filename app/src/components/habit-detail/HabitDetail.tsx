@@ -18,7 +18,7 @@ import { tokens } from "../../components/theme";
 import { DetailHeader } from "./DetailHeader";
 import { HeroCard } from "./HeroCard";
 import { DetailWeekStrip } from "./DetailWeekStrip";
-import { TimeSlotsCard } from "./TimeSlotsCard";
+import { TimeSlotsCard } from "./time-slots";
 import { CheckInsCard } from "./CheckInsCard";
 import { ActionFooter } from "./ActionFooter";
 import { CheckInDatePickerModal } from "./CheckInDatePickerModal";
@@ -27,14 +27,6 @@ import type { RecentCheckInItem } from "./types";
 
 export interface HabitDetailProps {
   loading?: boolean;
-  /** Habit's external id — required so the history view can fetch compliance. */
-  habitExternalId: string | null;
-  /**
-   * Pre-rendered history sub-view, supplied by the screen so this
-   * component stays free of API/DB imports. Null in tests / contexts
-   * that don't need history navigation.
-   */
-  historyView?: React.ReactNode;
   title: string;
   description: string | null;
   icon?: string | null;
@@ -58,9 +50,8 @@ export interface HabitDetailProps {
   onSkipAt: (timestamp: Date) => void;
   onEdit: () => void;
   onBack: () => void;
-  /** Toggle between detail / history sub-views. */
-  onSetView: (view: "detail" | "history") => void;
-  view: "detail" | "history";
+  /** Navigate to the sibling history route. Hidden when not provided. */
+  onOpenHistory?: () => void;
   onRemoveCheckIn: (checkInId: string) => void;
   onEditCheckInTimestamp: (
     checkInId: string,
@@ -74,12 +65,10 @@ export interface HabitDetailProps {
  * → hero (icon · title · cadence · note) → week strip → today's
  * scheduled slots (when any) → check-ins for the selected day → sticky
  * check-in / skip footer. The "How am I doing" panel lives on a sibling
- * `view='history'` page reached from the bar-chart icon in the header.
+ * `history` route reached from the bar-chart icon in the header.
  */
 export const HabitDetail = ({
   loading,
-  habitExternalId,
-  historyView,
   title,
   description,
   icon,
@@ -98,8 +87,7 @@ export const HabitDetail = ({
   onSkipAt,
   onEdit,
   onBack,
-  onSetView,
-  view,
+  onOpenHistory,
   onRemoveCheckIn,
   onEditCheckInTimestamp,
 }: HabitDetailProps) => {
@@ -115,23 +103,6 @@ export const HabitDetail = ({
     return (
       <View style={styles.loadingContainer}>
         <Text>Loading...</Text>
-      </View>
-    );
-  }
-
-  if (view === "history") {
-    // Even without a `historyView` slot we still render the chrome so
-    // back navigation works and the user isn't stranded; the body just
-    // collapses to an empty area in that (test-only) case.
-    return (
-      <View style={styles.container}>
-        <DetailHeader
-          title="history"
-          onBack={() => onSetView("detail")}
-          showHistory={false}
-          showEdit={false}
-        />
-        {historyView ?? null}
       </View>
     );
   }
@@ -155,7 +126,7 @@ export const HabitDetail = ({
       onSkipAt={onSkipAt}
       onEdit={onEdit}
       onBack={onBack}
-      onOpenHistory={habitExternalId ? () => onSetView("history") : undefined}
+      onOpenHistory={onOpenHistory}
       onRemoveCheckIn={onRemoveCheckIn}
       onEditCheckInTimestamp={onEditCheckInTimestamp}
       now={now}
@@ -432,6 +403,7 @@ const DetailView = ({
           checkIns={filteredCheckIns}
           eyebrow={listEyebrow}
           singleDay={singleDay}
+          hasScheduleSlots={slotsForDay.length > 0}
           onRemove={onRemoveCheckIn}
           onEditTimestamp={(id, ts) =>
             setPickerState({

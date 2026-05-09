@@ -16,7 +16,7 @@ const AdminScreen = () => {
       <AdminList
         habits={habits ?? []}
         onAddHabit={() => router.push("/add-habit")}
-        onEditHabit={(id) => router.push(`/edit-habit/${id}`)}
+        onEditHabit={(id) => router.push(`/habit/${id}/edit`)}
       />
     </View>
   );

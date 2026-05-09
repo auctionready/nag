@@ -1,8 +1,8 @@
 import { forwardRef, useEffect, useRef } from "react";
 import { Animated, Pressable, StyleSheet, Text, View } from "react-native";
 import Svg, { Circle, Path } from "react-native-svg";
-import { tokens } from "../../components/theme";
-import { formatTime } from "../../components/formatters";
+import { tokens } from "../../../components/theme";
+import { formatTime } from "../../../components/formatters";
 
 export type TimeSlotPillState = "done" | "pending" | "owed" | "skipped";
 

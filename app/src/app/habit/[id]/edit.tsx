@@ -1,12 +1,12 @@
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useLiveQuery } from "drizzle-orm/expo-sqlite";
 import { useMemo } from "react";
-import { db } from "../../db";
+import { db } from "../../../db";
 import { habitById, goalForHabitFull, schedulesForGoal } from "@nag/core";
-import { dispatch } from "../../infrastructure/dispatch";
-import { HabitForm, type HabitFormData } from "../../components/habit-form";
-import type { HabitIconKind } from "../../components/glyphs";
-import { buildGoalPayload } from "../../operations";
+import { dispatch } from "../../../infrastructure/dispatch";
+import { HabitForm, type HabitFormData } from "../../../components/habit-form";
+import type { HabitIconKind } from "../../../components/glyphs";
+import { buildGoalPayload } from "../../../operations";
 
 const EditHabitScreen = () => {
   const { id } = useLocalSearchParams<{ id: string }>();

@@ -1,7 +1,7 @@
 import { useRef, useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import type { TimeSlotStatus } from "@nag/core";
-import { tokens } from "../../components/theme";
+import { tokens } from "../../../components/theme";
 import { TimeSlotPill, type TimeSlotPillState } from "./TimeSlotPill";
 import {
   TimeSlotActionsPopover,
