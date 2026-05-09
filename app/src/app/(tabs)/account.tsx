@@ -37,6 +37,7 @@ import {
   upgradeAccount,
 } from "../../infrastructure/apiClient";
 import { isClerkConfigured } from "../../infrastructure/clerk";
+import { getAuthMode, getApiBaseUrl } from "../../infrastructure/devOverrides";
 import { log } from "../../infrastructure/log";
 import { useSyncStatus } from "../../infrastructure/syncStatus";
 import { deviceTokenStore } from "../../infrastructure/tokenStore";
@@ -86,6 +87,25 @@ type CredentialFlow =
 type OAuthStrategy = "oauth_google" | "oauth_apple";
 
 const AccountScreen = () => {
+  if (getAuthMode() === "dev-auth") {
+    return (
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={styles.scrollContent}
+      >
+        <View style={styles.unconfigured}>
+          <Text style={styles.unconfiguredTitle}>signed in as dev user.</Text>
+          <Text style={styles.unconfiguredBody}>
+            This session is using a local HMAC device token from
+            <Text style={styles.code}> /dev/token</Text> against
+            <Text style={styles.code}> {getApiBaseUrl()}</Text>. The same
+            account is wired into Swagger UI. Use the dev menu to switch backend
+            or re-sign-in.
+          </Text>
+        </View>
+      </ScrollView>
+    );
+  }
   if (!isClerkConfigured()) {
     return (
       <ScrollView

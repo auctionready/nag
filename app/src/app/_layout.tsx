@@ -1,7 +1,13 @@
 // Sentry must initialize before any other module that may emit spans or
 // errors — notably the db module, which opens SQLite at import time.
 import { Sentry, navigationIntegration } from "../infrastructure/sentry";
-import "../db/devMenu";
+// Dev-menu registration is side-effect only and pulls in `devAuth` +
+// the dev-only imports of `@nag/core` it uses. Wrap in a `__DEV__`
+// guarded `require` so Metro drops the whole subtree from production
+// bundles instead of relying on minifier dead-code elimination.
+if (__DEV__) {
+  require("../db/devMenu");
+}
 import { init, postMigrationInit } from "../infrastructure/init";
 import { useNotificationResponseHandler } from "../infrastructure/notificationResponseHandler";
 import { useForegroundNotificationSync } from "../infrastructure/foregroundSync";
@@ -14,6 +20,7 @@ import {
   SPLASH_DURATION_MS,
 } from "../components/shell";
 import { getClerkPublishableKey, tokenCache } from "../infrastructure/clerk";
+import { bootstrapDevOverrides } from "../infrastructure/devOverrides";
 import { ClerkProvider } from "@clerk/clerk-expo";
 import React from "react";
 import { View } from "react-native";
@@ -93,6 +100,12 @@ const RootLayout = () => {
     "SpaceGrotesk-Bold": require("../../assets/fonts/SpaceGrotesk-Bold.otf"),
     "JetBrainsMono-Regular": require("../../assets/fonts/JetBrainsMono-Regular.ttf"),
   });
+  // Dev-menu backend overrides are stored in SecureStore (read async).
+  // Block render until they've been folded into the session-pinned
+  // `getAuthMode()` / `getApiBaseUrl()` constants — otherwise the
+  // first apiClient build or ClerkProvider render would see env values
+  // even when the user has overridden them.
+  const [overridesLoaded, setOverridesLoaded] = React.useState(false);
   const showSplash = useShowSplash({
     fontsLoaded: fontsLoaded ?? false,
     minShowMs: SPLASH_DURATION_MS,
@@ -104,10 +117,14 @@ const RootLayout = () => {
     }
   }, [ref]);
 
+  React.useEffect(() => {
+    bootstrapDevOverrides().finally(() => setOverridesLoaded(true));
+  }, []);
+
   // Native splash stays up until fonts load. Once we render
   // <AnimatedSplash />, it calls SplashScreen.hideAsync() on its first frame
   // so the icon stays visible across the hand-off.
-  if (!fontsLoaded) return null;
+  if (!fontsLoaded || !overridesLoaded) return null;
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>

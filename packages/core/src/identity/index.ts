@@ -1,5 +1,6 @@
 export {
   ensureDeviceRegistered,
+  ensureDevAuthRegistered,
   refreshDeviceToken,
   loadIdentity,
   getAccountId,
@@ -10,8 +11,15 @@ export {
   type TokenStore,
   type EnsureDeviceRegisteredOptions,
   type EnsureDeviceRegisteredResult,
+  type EnsureDevAuthRegisteredOptions,
+  type EnsureDevAuthRegisteredResult,
   type RefreshDeviceTokenOptions,
   type SwitchLocalAccountOptions,
   type ClearLocalAuthOptions,
 } from "./identity";
-export { type RegisterDeviceFn, type RegisterDeviceResult } from "./types";
+export {
+  type RegisterDeviceFn,
+  type RegisterDeviceResult,
+  type DevTokenResult,
+  type FetchDevTokenFn,
+} from "./types";
