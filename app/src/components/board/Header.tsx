@@ -4,13 +4,14 @@ import { tokens } from "../../components/theme";
 export interface HeaderProps {
   percent: number;
   line: string;
+  suffix: string;
 }
 
-export const Header = ({ percent, line }: HeaderProps) => (
+export const Header = ({ percent, line, suffix }: HeaderProps) => (
   <View style={styles.header}>
     <View style={styles.headerRow}>
       <Text style={styles.percent}>{percent}</Text>
-      <Text style={styles.percentSuffix}>% today</Text>
+      <Text style={styles.percentSuffix}>% {suffix}</Text>
     </View>
     <Text style={styles.headerLine}>{line}</Text>
   </View>

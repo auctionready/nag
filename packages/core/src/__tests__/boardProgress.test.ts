@@ -32,6 +32,7 @@ describe("boardProgress", () => {
       percent: 0,
       contributingHabits: 0,
       nothingDueYet: false,
+      hasFutureToday: false,
     });
   });
 
@@ -48,6 +49,7 @@ describe("boardProgress", () => {
         percent: 0,
         contributingHabits: 0,
         nothingDueYet: false,
+        hasFutureToday: false,
       });
     });
   });

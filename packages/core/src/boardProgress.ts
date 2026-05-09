@@ -21,6 +21,8 @@ export interface BoardProgressResult {
   contributingHabits: number;
   /** True when at least one habit has a goal but nothing is due yet today. */
   nothingDueYet: boolean;
+  /** True when at least one scheduled time-slot for today is still ahead of `now`. */
+  hasFutureToday: boolean;
 }
 
 /**
@@ -46,6 +48,7 @@ export const boardProgress = (
   let extras = 0;
   let anyGoaled = false;
   let contributingHabits = 0;
+  let hasFutureToday = false;
 
   for (const h of habits) {
     if (!h.goal || h.goal.frequency <= 0) continue;
@@ -63,6 +66,7 @@ export const boardProgress = (
         if (days !== 0 && (days & todayBit) === 0) continue;
         const timeSlotMinutes = s.hour * 60 + (s.minute ?? 0);
         if (timeSlotMinutes <= nowMinutes) habitExpected += 1;
+        else hasFutureToday = true;
       }
     }
 
@@ -80,5 +84,13 @@ export const boardProgress = (
 
   const percent = expected === 0 ? 0 : Math.round((done / expected) * 100);
   const nothingDueYet = anyGoaled && expected === 0;
-  return { expected, done, extras, percent, contributingHabits, nothingDueYet };
+  return {
+    expected,
+    done,
+    extras,
+    percent,
+    contributingHabits,
+    nothingDueYet,
+    hasFutureToday,
+  };
 };

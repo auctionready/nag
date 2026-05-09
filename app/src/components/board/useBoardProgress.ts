@@ -15,10 +15,13 @@ import {
   useCurrentEpochMinute,
   useStartOfToday,
 } from "../../infrastructure/today";
+import { boardHeaderText } from "./boardHeader";
 
 interface BoardProgress extends BoardProgressResult {
   /** Cheeky one-liner derived from the aggregate. */
   line: string;
+  /** Suffix for the big percent: "today" when nothing more is scheduled later, else "so far". */
+  suffix: string;
   /** Total habits on the board (including those with no goal). */
   totalCount: number;
 }
@@ -81,26 +84,7 @@ export const useBoardProgress = (habitIds: string[]): BoardProgress => {
     return {
       ...result,
       totalCount: habitIds.length,
-      line: lineFor(result, habitIds.length),
+      ...boardHeaderText(result, habitIds.length),
     };
   }, [habitIds, epochMinute, goals, schedules, checkIns]);
-};
-
-const lineFor = (r: BoardProgressResult, totalCount: number): string => {
-  if (totalCount === 0) return "set up your first habit.";
-  if (r.nothingDueYet) {
-    return r.extras > 0
-      ? `${r.extras} done early. nothing due yet.`
-      : "nothing due yet.";
-  }
-  if (r.expected === 0) return "no goals set. nothing to track.";
-  if (r.done === 0) return `0 of ${r.expected} due. tick tick tick.`;
-  if (r.done >= r.expected) {
-    return r.extras > 0
-      ? `caught up. ${r.extras} extra done.`
-      : "caught up so far. nice.";
-  }
-  const remaining = r.expected - r.done;
-  if (remaining === 1) return `${r.done} of ${r.expected} done. one to go.`;
-  return `${r.done} of ${r.expected} done. ${remaining} to go.`;
 };
