@@ -8,7 +8,7 @@ import {
   Text,
   View,
 } from "react-native";
-import Svg, { Path } from "react-native-svg";
+import { CheckGlyph, SkipGlyph, UndoGlyph } from "../../components/glyphs";
 import { tokens } from "../../components/theme";
 
 export interface TimeSlotPillBounds {
@@ -209,51 +209,6 @@ const PopButton = ({
       {label}
     </Text>
   </Pressable>
-);
-
-const CheckGlyph = ({ color }: { color: string }) => (
-  <Svg
-    width={11}
-    height={11}
-    viewBox="0 0 10 10"
-    fill="none"
-    stroke={color}
-    strokeWidth={1.9}
-    strokeLinecap="round"
-    strokeLinejoin="round"
-  >
-    <Path d="M2 5.2L4.2 7.4L8 3.2" />
-  </Svg>
-);
-
-const SkipGlyph = ({ color }: { color: string }) => (
-  <Svg
-    width={11}
-    height={11}
-    viewBox="0 0 10 10"
-    fill="none"
-    stroke={color}
-    strokeWidth={1.7}
-    strokeLinecap="round"
-  >
-    <Path d="M2.5 7.5L7.5 2.5" />
-  </Svg>
-);
-
-const UndoGlyph = ({ color }: { color: string }) => (
-  <Svg
-    width={12}
-    height={12}
-    viewBox="0 0 14 14"
-    fill="none"
-    stroke={color}
-    strokeWidth={1.6}
-    strokeLinecap="round"
-    strokeLinejoin="round"
-  >
-    <Path d="M3 5h6.5a3 3 0 0 1 0 6H6" />
-    <Path d="M5 3L2.5 5L5 7" />
-  </Svg>
 );
 
 const styles = StyleSheet.create({

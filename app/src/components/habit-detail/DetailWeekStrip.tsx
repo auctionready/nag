@@ -1,25 +1,9 @@
-import {
-  Pressable,
-  StyleSheet,
-  Text,
-  View,
-  type ViewStyle,
-} from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 import { addDays, isAfter, startOfWeek } from "date-fns";
-import Svg, { Line, Path } from "react-native-svg";
 import { dayTitles, isSameCalendarDay, mondayFirstDayLetters } from "@nag/core";
 import { useStartOfToday } from "../../infrastructure/today";
 import { tokens } from "../../components/theme";
-
-type CellState =
-  | "done"
-  | "today-done"
-  | "today"
-  | "partial"
-  | "today-partial"
-  | "missed"
-  | "future"
-  | "skip";
+import { CellGlyph, type CellState } from "./CellGlyph";
 
 interface DetailWeekStripProps {
   scheduledDaysMask: number;
@@ -150,82 +134,6 @@ const stateFor = ({
   return "skip";
 };
 
-const PARTIAL_RATIO = 0.5;
-
-const CellGlyph = ({ state }: { state: CellState }) => {
-  const cellStyle: ViewStyle[] = [styles.cell];
-  let inner: React.ReactNode = null;
-
-  switch (state) {
-    case "done":
-      cellStyle.push(styles.cellInk);
-      inner = <CheckMark />;
-      break;
-    case "today-done":
-      cellStyle.push(styles.cellInk, styles.cellTodayRing);
-      inner = <CheckMark />;
-      break;
-    case "today":
-      cellStyle.push(styles.cellTodayRing);
-      break;
-    case "partial":
-      cellStyle.push(styles.cellFaintRing);
-      inner = <PartialFill ratio={PARTIAL_RATIO} />;
-      break;
-    case "today-partial":
-      cellStyle.push(styles.cellTodayRing);
-      inner = <PartialFill ratio={PARTIAL_RATIO} />;
-      break;
-    case "missed":
-      cellStyle.push(styles.cellFaintRing);
-      inner = <SlashGlyph />;
-      break;
-    case "future":
-      cellStyle.push(styles.cellFaintRing);
-      break;
-    case "skip":
-      cellStyle.push(styles.cellSkip);
-      break;
-  }
-
-  return <View style={cellStyle}>{inner}</View>;
-};
-
-const CheckMark = () => (
-  <Svg width={10} height={10} viewBox="0 0 10 10" fill="none">
-    <Path
-      d="M2 5L4.2 7.2L8 3"
-      stroke={tokens.cream}
-      strokeWidth={1.6}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    />
-  </Svg>
-);
-
-const SlashGlyph = () => (
-  <Svg width="100%" height="100%" viewBox="0 0 22 22" fill="none">
-    <Line
-      x1={6}
-      y1={16}
-      x2={16}
-      y2={6}
-      stroke={tokens.mute}
-      strokeWidth={1.4}
-      strokeLinecap="round"
-    />
-  </Svg>
-);
-
-const PartialFill = ({ ratio }: { ratio: number }) => (
-  <View
-    style={[
-      styles.partialFill,
-      { height: `${Math.max(0, Math.min(1, ratio)) * 100}%` },
-    ]}
-  />
-);
-
 const styles = StyleSheet.create({
   card: {
     marginHorizontal: 14,
@@ -295,35 +203,5 @@ const styles = StyleSheet.create({
     fontSize: 9,
     color: tokens.mute,
     letterSpacing: 0.4,
-  },
-  cell: {
-    width: 26,
-    height: 26,
-    borderRadius: 6,
-    borderWidth: 1.5,
-    borderColor: "transparent",
-    alignItems: "center",
-    justifyContent: "center",
-    overflow: "hidden",
-    position: "relative",
-  },
-  cellInk: {
-    backgroundColor: tokens.ink,
-  },
-  cellTodayRing: {
-    borderColor: tokens.orange,
-  },
-  cellFaintRing: {
-    borderColor: tokens.faint,
-  },
-  cellSkip: {
-    backgroundColor: tokens.veryFaint,
-  },
-  partialFill: {
-    position: "absolute",
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: tokens.ink,
   },
 });

@@ -1,7 +1,12 @@
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import Svg, { Path, Rect } from "react-native-svg";
+import {
+  BarChartGlyph,
+  ChevronLeftGlyph,
+  EditGlyph,
+} from "../../components/glyphs";
 import { tokens } from "../../components/theme";
+import { IconButton } from "./IconButton";
 
 interface DetailHeaderProps {
   /** Eyebrow label centred in the header — defaults to "habit". */
@@ -37,20 +42,7 @@ export const DetailHeader = ({
         <IconButton
           accessibilityLabel="Back"
           onPress={onBack}
-          glyph={
-            <Svg
-              width={12}
-              height={12}
-              viewBox="0 0 11 11"
-              fill="none"
-              stroke={tokens.ink}
-              strokeWidth={1.7}
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <Path d="M7 1L2.5 5.5 7 10" />
-            </Svg>
-          }
+          glyph={<ChevronLeftGlyph color={tokens.ink} />}
         />
         <Text style={styles.eyebrow} numberOfLines={1}>
           {title}
@@ -60,43 +52,14 @@ export const DetailHeader = ({
             <IconButton
               accessibilityLabel="History"
               onPress={onOpenHistory}
-              glyph={
-                <Svg
-                  width={14}
-                  height={14}
-                  viewBox="0 0 14 14"
-                  fill="none"
-                  stroke={tokens.ink}
-                  strokeWidth={1.6}
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <Path d="M2 12h10" />
-                  <Rect x={3} y={7.5} width={2} height={3.5} rx={0.4} />
-                  <Rect x={6} y={5} width={2} height={6} rx={0.4} />
-                  <Rect x={9} y={2.5} width={2} height={8.5} rx={0.4} />
-                </Svg>
-              }
+              glyph={<BarChartGlyph color={tokens.ink} />}
             />
           )}
           {showEdit && (
             <IconButton
               accessibilityLabel="Edit"
               onPress={onEdit}
-              glyph={
-                <Svg
-                  width={14}
-                  height={14}
-                  viewBox="0 0 14 14"
-                  fill="none"
-                  stroke={tokens.ink}
-                  strokeWidth={1.7}
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <Path d="M9 2.5l2.5 2.5L4.5 12 2 12.5l.5-2.5L9 2.5z" />
-                </Svg>
-              }
+              glyph={<EditGlyph color={tokens.ink} strokeWidth={1.7} />}
             />
           )}
         </View>
@@ -104,31 +67,6 @@ export const DetailHeader = ({
     </View>
   );
 };
-
-const IconButton = ({
-  glyph,
-  onPress,
-  accessibilityLabel,
-}: {
-  glyph: React.ReactNode;
-  onPress?: () => void;
-  accessibilityLabel: string;
-}) => (
-  <Pressable
-    onPress={onPress}
-    hitSlop={8}
-    style={({ pressed }) => [
-      styles.iconBtn,
-      pressed && styles.pressed,
-      onPress ? null : styles.disabled,
-    ]}
-    disabled={!onPress}
-    accessibilityRole="button"
-    accessibilityLabel={accessibilityLabel}
-  >
-    {glyph}
-  </Pressable>
-);
 
 const styles = StyleSheet.create({
   wrap: {
@@ -140,20 +78,6 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-  },
-  iconBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: tokens.inkTint,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  pressed: {
-    opacity: 0.6,
-  },
-  disabled: {
-    opacity: 0,
   },
   eyebrow: {
     fontFamily: "JetBrainsMono",
