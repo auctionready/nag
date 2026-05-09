@@ -15,13 +15,19 @@ import {
 } from "@nag/core";
 import { dispatch } from "../../infrastructure/dispatch";
 import { useStartOfToday } from "../../infrastructure/today";
-import { HabitDetail, ComplianceHistory } from "../../components/habit-detail";
+import { HabitDetail } from "../../components/habit-detail";
+import { HabitHistoryView } from "../../components/habit-detail/HabitHistoryView";
+import { cadenceSummary } from "../../components/habit-detail/cadenceSummary";
 import { complianceColors } from "../../components/compliance";
 
 const DAY_PARAM_FORMAT = "yyyy-MM-dd";
 
 const HabitScreen = () => {
-  const { id, day } = useLocalSearchParams<{ id: string; day?: string }>();
+  const { id, day, view } = useLocalSearchParams<{
+    id: string;
+    day?: string;
+    view?: string;
+  }>();
   const router = useRouter();
   const habitId = id ?? "";
   const todayStart = useStartOfToday();
@@ -45,15 +51,10 @@ const HabitScreen = () => {
 
   // `day` query param (YYYY-MM-DD) is a routing construct, not component
   // state — it survives navigation and is bookmarkable. For weekly habits
-  // with a `days` mask we default to "today is selected" (highlight today
-  // in the week strip, scope the list to today's check-ins) — without that
-  // default, the week strip would show no selection and the long-press
-  // affordances on time-slot chips would feel disconnected from the strip above.
+  // with a `days` mask we default to "today is selected".
   const hasWeeklyDaysSchedule =
     goalData?.regularity === "week" && combineScheduleDays(schedules) !== 0;
   const parsedDay = day ? parse(day, DAY_PARAM_FORMAT, todayStart) : null;
-  // Ignore a `?day=` pointing at the future — a deep link shouldn't bypass
-  // the UI guard that prevents check-in / skip on days that haven't happened.
   const selectedDay =
     parsedDay && parsedDay <= todayStart
       ? parsedDay
@@ -88,13 +89,14 @@ const HabitScreen = () => {
     : null;
 
   const handleSelectDay = (nextDay: Date | null) => {
-    // Guard against future-day selection at the route-param boundary as
-    // well as the UI; the WeekStrip already disables future cells, but
-    // this keeps a stray `?day=` URL from bypassing the guard.
     if (nextDay && nextDay > todayStart) return;
     router.setParams({
       day: nextDay ? format(nextDay, DAY_PARAM_FORMAT) : undefined,
     });
+  };
+
+  const handleSetView = (nextView: "detail" | "history") => {
+    router.setParams({ view: nextView === "history" ? "history" : undefined });
   };
 
   const handleCheckInAt = async (timestamp: Date) => {
@@ -129,15 +131,27 @@ const HabitScreen = () => {
     });
   };
 
+  const summary = cadenceSummary({
+    regularity: goalData?.regularity ?? null,
+    frequency: goalData?.frequency ?? null,
+    schedules,
+  });
+  const historyView = habitData?.id ? (
+    <HabitHistoryView
+      habitExternalId={habitData.id}
+      title={habitData.title}
+      icon={habitData.icon ?? null}
+      cadenceSummary={summary}
+    />
+  ) : null;
+
   return (
     <HabitDetail
       loading={!habitData}
-      complianceHistorySlot={
-        habitData?.id ? (
-          <ComplianceHistory habitExternalId={habitData.id} />
-        ) : null
-      }
+      habitExternalId={habitData?.id ?? null}
+      historyView={historyView}
       title={habitData?.title ?? ""}
+      icon={habitData?.icon ?? null}
       description={habitData?.description ?? null}
       goalText={goalText}
       regularity={goalData?.regularity ?? null}
@@ -149,10 +163,13 @@ const HabitScreen = () => {
       complianceColor={compliance?.color}
       showSkip={showSkip}
       selectedDay={selectedDay}
+      view={view === "history" ? "history" : "detail"}
       onSelectDay={handleSelectDay}
+      onSetView={handleSetView}
       onCheckInAt={handleCheckInAt}
       onSkipAt={handleSkipAt}
       onEdit={() => router.push(`/edit-habit/${habitId}`)}
+      onBack={() => router.back()}
       onRemoveCheckIn={async (checkInId) => {
         await dispatch({ type: "DeleteCheckIn", checkInId });
       }}
