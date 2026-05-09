@@ -23,7 +23,7 @@ const LOCAL_BACKEND_URL = "http://localhost:5266/";
 // User fills in the real apidev URL in app/.env or app/.env.local. The
 // dev-menu preset falls back to whatever's currently in env if the
 // constant below is left at the placeholder.
-const APIDEV_BACKEND_URL_PLACEHOLDER = "https://apidev.<FILL_ME_IN>/";
+const APIDEV_BACKEND_URL_PLACEHOLDER = "https://nagapi.auctionready.co.nz/";
 
 const wipeForBackendSwitch = async () => {
   await clearLocalAuth({ db, tokenStore: deviceTokenStore });

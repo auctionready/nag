@@ -1,14 +1,5 @@
-import { useMemo, useRef, useState } from "react";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
-import {
-  Alert,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from "react-native";
-import { Gesture, GestureDetector } from "react-native-gesture-handler";
+import { useMemo, useState } from "react";
+import { ScrollView, StyleSheet, Text, View } from "react-native";
 import { format, startOfDay, endOfDay, startOfMonth } from "date-fns";
 import type { Regularity } from "@nag/schema";
 import {
@@ -23,53 +14,44 @@ import {
   useCurrentEpochMinute,
 } from "../../infrastructure/today";
 import { complianceColors } from "../../components/compliance";
-import { TodayCard } from "./TodayCard";
-import { WeekStrip } from "./WeekStrip";
-import { RecentCheckIns, type RecentCheckInItem } from "./RecentCheckIns";
+import { tokens } from "../../components/theme";
+import { DetailHeader } from "./DetailHeader";
+import { HeroCard } from "./HeroCard";
+import { DetailWeekStrip } from "./DetailWeekStrip";
+import { TimeSlotsCard } from "./time-slots";
+import { CheckInsCard } from "./CheckInsCard";
+import { ActionFooter } from "./ActionFooter";
 import { CheckInDatePickerModal } from "./CheckInDatePickerModal";
+import { cadenceSummary } from "./cadenceSummary";
+import type { RecentCheckInItem } from "./types";
 
 export interface HabitDetailProps {
   loading?: boolean;
-  /**
-   * Optional time-slot for the "How am I doing" card — rendered after the
-   * recent check-ins list. Passed in by the screen so this component
-   * stays free of API/DB imports and remains trivially testable.
-   */
-  complianceHistorySlot?: React.ReactNode;
   title: string;
   description: string | null;
+  icon?: string | null;
   goalText: string | null;
   regularity: Regularity | null;
   frequency: number | null;
-  /** Goal creation time — used by the weekly traffic-light to avoid
-   * penalising the current week when the goal was just created. */
+  /** Goal creation time — used by the weekly traffic-light. */
   goalCreatedAt?: Date | null;
   /** Check-ins within the current period (for frequency-only progress). */
   checkInsThisPeriod: number;
   schedules: ScheduleInfo[];
   checkIns: RecentCheckInItem[];
-  /** Compliance color for today (used to tint the progress ring and today circle). */
+  /** Compliance color for today (used to tint within-day overlays). */
   complianceColor?: string;
   showSkip: boolean;
-  /**
-   * The day the user has tapped on the week strip, or `null` when no day is
-   * selected (show the current period). Controls:
-   *  - the TodayCard anchor & weekday label
-   *  - the RecentCheckIns title + window filter
-   *  - the WeekStrip's highlighted cell
-   */
+  /** The day the user has tapped on the week strip. */
   selectedDay: Date | null;
-  /** Called when the week strip is tapped. Pass `null` to clear selection. */
   onSelectDay: (day: Date | null) => void;
-  /**
-   * Record a check-in with the given deemed timestamp. Footer "Check-in"
-   * passes `new Date()` (or a moment on the selected day); long-press on a
-   * missed time-slot chip passes the time-slot's timestamp on the selected day.
-   */
+  /** Record a check-in / skip with the given deemed timestamp. */
   onCheckInAt: (timestamp: Date) => void;
-  /** Skip with the given deemed timestamp (symmetric with `onCheckInAt`). */
   onSkipAt: (timestamp: Date) => void;
   onEdit: () => void;
+  onBack: () => void;
+  /** Navigate to the sibling history route. Hidden when not provided. */
+  onOpenHistory?: () => void;
   onRemoveCheckIn: (checkInId: string) => void;
   onEditCheckInTimestamp: (
     checkInId: string,
@@ -78,62 +60,143 @@ export interface HabitDetailProps {
   ) => void;
 }
 
-const periodTitle = (regularity: Regularity | null): string => {
-  if (regularity === "week") return "This Week's Check-ins";
-  if (regularity === "month") return "This Month's Check-ins";
-  return "Today's Check-ins";
-};
-
+/**
+ * Habit detail screen — header (back · "habit" eyebrow · history + edit)
+ * → hero (icon · title · cadence · note) → week strip → today's
+ * scheduled slots (when any) → check-ins for the selected day → sticky
+ * check-in / skip footer. The "How am I doing" panel lives on a sibling
+ * `history` route reached from the bar-chart icon in the header.
+ */
 export const HabitDetail = ({
   loading,
-  complianceHistorySlot,
   title,
   description,
-  goalText,
+  icon,
+  goalText: _goalText,
   regularity,
   frequency,
   goalCreatedAt,
   checkInsThisPeriod,
   schedules,
   checkIns,
-  complianceColor,
+  complianceColor: _complianceColor,
   showSkip,
   selectedDay,
   onSelectDay,
   onCheckInAt,
   onSkipAt,
   onEdit,
+  onBack,
+  onOpenHistory,
   onRemoveCheckIn,
   onEditCheckInTimestamp,
 }: HabitDetailProps) => {
-  const { bottom: safeBottom } = useSafeAreaInsets();
-  // `epochMinute` is stable across renders within the same minute, so every
-  // useMemo below caches across re-render storms (e.g. `useLiveQuery`
-  // refiring) and only recomputes when the clock crosses a minute
-  // boundary or the calendar day rolls over.
   const epochMinute = useCurrentEpochMinute();
   const now = useMemo(() => epochMinuteToDate(epochMinute), [epochMinute]);
 
+  const summary = useMemo(
+    () => cadenceSummary({ regularity, frequency, schedules }),
+    [regularity, frequency, schedules],
+  );
+
+  if (loading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <Text>Loading...</Text>
+      </View>
+    );
+  }
+
+  return (
+    <DetailView
+      title={title}
+      description={description}
+      icon={icon}
+      summary={summary}
+      regularity={regularity}
+      frequency={frequency}
+      goalCreatedAt={goalCreatedAt}
+      checkInsThisPeriod={checkInsThisPeriod}
+      schedules={schedules}
+      checkIns={checkIns}
+      showSkip={showSkip}
+      selectedDay={selectedDay}
+      onSelectDay={onSelectDay}
+      onCheckInAt={onCheckInAt}
+      onSkipAt={onSkipAt}
+      onEdit={onEdit}
+      onBack={onBack}
+      onOpenHistory={onOpenHistory}
+      onRemoveCheckIn={onRemoveCheckIn}
+      onEditCheckInTimestamp={onEditCheckInTimestamp}
+      now={now}
+    />
+  );
+};
+
+interface DetailViewProps {
+  title: string;
+  description: string | null;
+  icon?: string | null;
+  summary: string | null;
+  regularity: Regularity | null;
+  frequency: number | null;
+  goalCreatedAt?: Date | null;
+  checkInsThisPeriod: number;
+  schedules: ScheduleInfo[];
+  checkIns: RecentCheckInItem[];
+  showSkip: boolean;
+  selectedDay: Date | null;
+  onSelectDay: (day: Date | null) => void;
+  onCheckInAt: (timestamp: Date) => void;
+  onSkipAt: (timestamp: Date) => void;
+  onEdit: () => void;
+  onBack: () => void;
+  onOpenHistory?: () => void;
+  onRemoveCheckIn: (checkInId: string) => void;
+  onEditCheckInTimestamp: (
+    checkInId: string,
+    timestamp: Date,
+    skipped?: boolean,
+  ) => void;
+  now: Date;
+}
+
+const DetailView = ({
+  title,
+  description,
+  icon,
+  summary,
+  regularity,
+  frequency,
+  goalCreatedAt,
+  checkInsThisPeriod,
+  schedules,
+  checkIns,
+  showSkip,
+  selectedDay,
+  onSelectDay,
+  onCheckInAt,
+  onSkipAt,
+  onEdit,
+  onBack,
+  onOpenHistory,
+  onRemoveCheckIn,
+  onEditCheckInTimestamp,
+  now,
+}: DetailViewProps) => {
   const cardAnchor: Date = useMemo(
     () =>
       !selectedDay
         ? now
         : isSameCalendarDay(selectedDay, now)
           ? now
-          : // Past day → end-of-day so unfilled timeSlots read as "missed" (red).
-            // Future day → start-of-day so unfilled time-slots read as "upcoming"
-            // (white). Without this split, future days would erroneously
-            // paint upcoming time-slots red.
-            selectedDay < now
+          : selectedDay < now
             ? endOfDay(selectedDay)
             : startOfDay(selectedDay),
     [selectedDay, now],
   );
 
-  // Scope check-ins to the current period so prior-period back-fills
-  // don't leak into this period's masks. Uses periodStart (Monday-first
-  // for `week`), which fixes the Sunday-boundary bug the old inline
-  // `start.setDate(start.getDate() - start.getDay())` introduced.
   const snap = useMemo(() => {
     const periodStartDate = regularity ? periodStart(regularity, now) : null;
     const goal =
@@ -163,33 +226,30 @@ export const HabitDetail = ({
     cardAnchor,
   ]);
 
-  const match = snap.timeSlots;
-  const cardIsToday = snap.headline.isToday;
-  const notScheduledForDay = snap.anchorKind === "off-day";
-  const scheduledDaysMask = snap.scheduledDaysMask;
-  const checkedInDaysMask = snap.completedDaysMask;
-  const partialDaysMask = snap.partialDaysMask;
-  // Dim-fill any unscheduled day the user still checked in on, so those
-  // back-fills aren't invisible in the week strip.
-  const anyCheckInDaysMask = snap.anyCheckInDaysMask;
-
-  const { windowStart, windowEnd, listTitle, singleDay } = useMemo(() => {
-    if (selectedDay) {
+  const { windowStart, windowEnd, listEyebrow, slotsEyebrow, singleDay } =
+    useMemo(() => {
+      if (selectedDay) {
+        const isToday = isSameCalendarDay(selectedDay, now);
+        const dayLabel = isToday
+          ? "today"
+          : format(selectedDay, "EEE · MMM d").toLowerCase();
+        return {
+          windowStart: startOfDay(selectedDay),
+          windowEnd: endOfDay(selectedDay),
+          listEyebrow: `${dayLabel} · check-ins`,
+          slotsEyebrow: `${dayLabel} · schedule`,
+          singleDay: true,
+        };
+      }
+      const { start, end } = periodWindow(regularity, now);
       return {
-        windowStart: startOfDay(selectedDay),
-        windowEnd: endOfDay(selectedDay),
-        listTitle: `${format(selectedDay, "EEEE")}'s Check-ins`,
-        singleDay: true,
+        windowStart: start,
+        windowEnd: end,
+        listEyebrow: periodEyebrow(regularity),
+        slotsEyebrow: "today · schedule",
+        singleDay: regularity === "day" || regularity === null,
       };
-    }
-    const { start, end } = periodWindow(regularity, now);
-    return {
-      windowStart: start,
-      windowEnd: end,
-      listTitle: periodTitle(regularity),
-      singleDay: regularity === "day" || regularity === null,
-    };
-  }, [selectedDay, regularity, now]);
+    }, [selectedDay, regularity, now]);
 
   const filteredCheckIns = useMemo(
     () =>
@@ -199,8 +259,9 @@ export const HabitDetail = ({
     [checkIns, windowStart, windowEnd],
   );
 
-  const ringColor = complianceColor ?? complianceColors.default;
-  const showWeekStrip = regularity === "week" && scheduledDaysMask !== 0;
+  const showWeekStrip = regularity === "week" && snap.scheduledDaysMask !== 0;
+  const slotsForDay = snap.timeSlots?.timeSlots ?? [];
+  const cardIsToday = isSameCalendarDay(cardAnchor, now);
 
   type PickerIntent =
     | { kind: "edit"; checkInId: string }
@@ -217,8 +278,6 @@ export const HabitDetail = ({
       return {
         mode: "time" as const,
         minimumDate: startOfDay(selectedDay),
-        // Cap at now when editing a check-in on today so the user can't pick
-        // a future time; past selected days are fully open (end-of-day).
         maximumDate: isSameCalendarDay(selectedDay, now)
           ? now
           : endOfDay(selectedDay),
@@ -257,55 +316,9 @@ export const HabitDetail = ({
     setPickerState(null);
   };
 
-  // Refs track whether a long press just fired so the Pressable.onPress
-  // handler (which fires on finger-up) can skip the regular action.
-  // Using Gesture.LongPress() instead of Pressable.onLongPress because
-  // GestureHandlerRootView intercepts touches at the root and makes
-  // Pressable.onLongPress unreliable — the same reason Time-slotChip and
-  // HabitTileView use the gesture-handler API.
-  const didCheckInLongPress = useRef(false);
-  const didSkipLongPress = useRef(false);
-
-  const checkInLongPressGesture = Gesture.LongPress()
-    .minDuration(500)
-    .onStart(() => {
-      didCheckInLongPress.current = true;
-      setPickerState({
-        intent: { kind: "new-checkin" },
-        timestamp: buildFooterTimestamp(selectedDay, new Date()),
-      });
-    });
-
-  const skipLongPressGesture = Gesture.LongPress()
-    .minDuration(500)
-    .onStart(() => {
-      didSkipLongPress.current = true;
-      setPickerState({
-        intent: { kind: "new-skip" },
-        timestamp: buildFooterTimestamp(selectedDay, new Date()),
-      });
-    });
-
-  const handleCheckInFooter = () => {
-    if (didCheckInLongPress.current) {
-      didCheckInLongPress.current = false;
-      return;
-    }
-    // Use a fresh `new Date()` (not the captured-at-render `now` prop) so
-    // the deemed timestamp matches `createdAt` for an immediate check-in.
-    onCheckInAt(buildFooterTimestamp(selectedDay, new Date()));
-  };
-  const handleSkipFooter = () => {
-    if (didSkipLongPress.current) {
-      didSkipLongPress.current = false;
-      return;
-    }
-    onSkipAt(buildFooterTimestamp(selectedDay, new Date()));
-  };
-
-  const handleAddCheckInForTimeSlot = (hour: number, minute: number) => {
+  const timeSlotTimestamp = (hour: number, minute: number): Date => {
     const anchor = selectedDay ?? now;
-    const ts = new Date(
+    return new Date(
       anchor.getFullYear(),
       anchor.getMonth(),
       anchor.getDate(),
@@ -314,80 +327,83 @@ export const HabitDetail = ({
       0,
       0,
     );
-    // Long-press is overloaded: the user might want to record the time-slot as
-    // done, OR record it as skipped (e.g. "I missed my 8 a.m. run, but I
-    // intentionally skipped it"). Prompt to disambiguate before writing.
-    Alert.alert("Back-fill check-in?", `For ${format(ts, "h:mm a")}`, [
-      { text: "Cancel", style: "cancel" },
-      { text: "As Skip", onPress: () => onSkipAt(ts) },
-      { text: "Check In", onPress: () => onCheckInAt(ts) },
-    ]);
+  };
+  const handleCheckInForTimeSlot = (hour: number, minute: number) => {
+    onCheckInAt(timeSlotTimestamp(hour, minute));
+  };
+  const handleSkipForTimeSlot = (hour: number, minute: number) => {
+    onSkipAt(timeSlotTimestamp(hour, minute));
+  };
+  const handleDeleteForTimeSlot = (matchedAt: Date) => {
+    const ms = matchedAt.getTime();
+    const match = checkIns.find((c) => c.timestamp.getTime() === ms);
+    if (match) onRemoveCheckIn(match.id);
   };
 
-  if (loading) {
-    return (
-      <View style={styles.loadingContainer}>
-        <Text>Loading...</Text>
-      </View>
-    );
-  }
+  const handleCheckInTap = () => {
+    onCheckInAt(buildFooterTimestamp(selectedDay, new Date()));
+  };
+  const handleSkipTap = () => {
+    onSkipAt(buildFooterTimestamp(selectedDay, new Date()));
+  };
+  const handleCheckInLongPress = () => {
+    setPickerState({
+      intent: { kind: "new-checkin" },
+      timestamp: buildFooterTimestamp(selectedDay, new Date()),
+    });
+  };
+  const handleSkipLongPress = () => {
+    setPickerState({
+      intent: { kind: "new-skip" },
+      timestamp: buildFooterTimestamp(selectedDay, new Date()),
+    });
+  };
 
   return (
     <View style={styles.container}>
+      <DetailHeader
+        onBack={onBack}
+        onEdit={onEdit}
+        onOpenHistory={onOpenHistory}
+      />
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={styles.scrollContent}
       >
-        <Text style={styles.title}>{title}</Text>
-        {description && <Text style={styles.description}>{description}</Text>}
-        {goalText && (
-          <View style={styles.goalPill}>
-            <Text style={styles.goalPillText}>{goalText}</Text>
-          </View>
-        )}
-
-        {(match !== null ||
-          (frequency !== null && frequency > 0 && regularity !== null)) && (
-          <TodayCard
-            selectedDay={cardAnchor}
-            isToday={cardIsToday}
-            // Only pass `match` when there are time-slots for the day; otherwise
-            // suppress it so the card falls through to "Not scheduled" or
-            // the frequency-only fallback.
-            match={match !== null && match.total > 0 ? match : null}
-            notScheduledForDay={notScheduledForDay}
-            fallback={
-              // Frequency-only fallback only applies when the habit has no
-              // per-day schedules at all. If schedules exist but none for
-              // the selected day, `notScheduledForDay` takes precedence.
-              schedules.length === 0 && frequency !== null && frequency > 0
-                ? {
-                    completed: checkInsThisPeriod,
-                    frequency,
-                  }
-                : undefined
-            }
-            ringColor={ringColor}
-            onAddCheckInForTimeSlot={handleAddCheckInForTimeSlot}
-          />
-        )}
+        <HeroCard
+          icon={icon}
+          title={title}
+          cadenceSummary={summary}
+          note={description}
+        />
 
         {showWeekStrip && (
-          <WeekStrip
-            scheduledDaysMask={scheduledDaysMask}
-            checkedInDaysMask={checkedInDaysMask}
-            partialDaysMask={partialDaysMask}
-            anyCheckInDaysMask={anyCheckInDaysMask}
-            todayColor={complianceColor}
+          <DetailWeekStrip
+            scheduledDaysMask={snap.scheduledDaysMask}
+            checkedInDaysMask={snap.completedDaysMask}
+            partialDaysMask={snap.partialDaysMask}
+            anyCheckInDaysMask={snap.anyCheckInDaysMask}
             selectedDay={selectedDay}
             onSelectDay={onSelectDay}
           />
         )}
 
-        <RecentCheckIns
+        {slotsForDay.length > 0 && (
+          <TimeSlotsCard
+            eyebrow={slotsEyebrow}
+            slots={slotsForDay}
+            isToday={cardIsToday}
+            onCheckInForTimeSlot={handleCheckInForTimeSlot}
+            onSkipForTimeSlot={handleSkipForTimeSlot}
+            onDeleteForTimeSlot={handleDeleteForTimeSlot}
+          />
+        )}
+
+        <CheckInsCard
           checkIns={filteredCheckIns}
-          title={listTitle}
+          eyebrow={listEyebrow}
           singleDay={singleDay}
+          hasScheduleSlots={slotsForDay.length > 0}
           onRemove={onRemoveCheckIn}
           onEditTimestamp={(id, ts) =>
             setPickerState({
@@ -396,32 +412,15 @@ export const HabitDetail = ({
             })
           }
         />
-
-        {complianceHistorySlot}
       </ScrollView>
 
-      <View
-        style={[
-          styles.footer,
-          safeBottom > 0 && { paddingBottom: 16 + safeBottom },
-        ]}
-      >
-        <GestureDetector gesture={checkInLongPressGesture}>
-          <Pressable style={styles.checkInButton} onPress={handleCheckInFooter}>
-            <Text style={styles.checkInButtonText}>Check-in</Text>
-          </Pressable>
-        </GestureDetector>
-        {showSkip && (
-          <GestureDetector gesture={skipLongPressGesture}>
-            <Pressable style={styles.skipButton} onPress={handleSkipFooter}>
-              <Text style={styles.skipButtonText}>Skip</Text>
-            </Pressable>
-          </GestureDetector>
-        )}
-        <Pressable style={styles.editButton} onPress={onEdit}>
-          <Text style={styles.editButtonText}>Edit</Text>
-        </Pressable>
-      </View>
+      <ActionFooter
+        showSkip={showSkip}
+        onCheckIn={handleCheckInTap}
+        onLongPressCheckIn={handleCheckInLongPress}
+        onSkip={handleSkipTap}
+        onLongPressSkip={handleSkipLongPress}
+      />
 
       {pickerState && (
         <CheckInDatePickerModal
@@ -450,6 +449,12 @@ export const HabitDetail = ({
   );
 };
 
+const periodEyebrow = (regularity: Regularity | null): string => {
+  if (regularity === "week") return "this week · check-ins";
+  if (regularity === "month") return "this month · check-ins";
+  return "today · check-ins";
+};
+
 const buildFooterTimestamp = (selectedDay: Date | null, now: Date): Date => {
   if (!selectedDay || isSameCalendarDay(selectedDay, now)) return now;
   return new Date(
@@ -466,85 +471,19 @@ const buildFooterTimestamp = (selectedDay: Date | null, now: Date): Date => {
 const styles = StyleSheet.create({
   loadingContainer: {
     flex: 1,
-    backgroundColor: "#fff",
+    backgroundColor: tokens.cream,
     justifyContent: "center",
     alignItems: "center",
   },
   container: {
     flex: 1,
-    backgroundColor: "#fff",
+    backgroundColor: tokens.cream,
   },
   scroll: {
     flex: 1,
   },
   scrollContent: {
-    padding: 16,
-    gap: 16,
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: "700",
-  },
-  description: {
-    fontSize: 15,
-    color: "#666",
-    marginTop: -8,
-  },
-  goalPill: {
-    alignSelf: "flex-start",
-    backgroundColor: complianceColors.default,
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 12,
-    marginTop: -8,
-  },
-  goalPillText: {
-    color: "#fff",
-    fontSize: 13,
-    fontWeight: "600",
-  },
-  footer: {
-    flexDirection: "row",
     gap: 12,
-    padding: 16,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: "#e0e0e0",
-  },
-  checkInButton: {
-    flex: 1,
-    backgroundColor: complianceColors.default,
-    padding: 16,
-    borderRadius: 8,
-    alignItems: "center",
-  },
-  checkInButtonText: {
-    color: "#fff",
-    fontSize: 16,
-    fontWeight: "600",
-  },
-  skipButton: {
-    flex: 1,
-    padding: 16,
-    borderRadius: 8,
-    alignItems: "center",
-    backgroundColor: complianceColors.partial,
-  },
-  skipButtonText: {
-    color: "#fff",
-    fontSize: 16,
-    fontWeight: "600",
-  },
-  editButton: {
-    flex: 1,
-    padding: 16,
-    borderRadius: 8,
-    alignItems: "center",
-    borderWidth: 1,
-    borderColor: complianceColors.default,
-  },
-  editButtonText: {
-    color: complianceColors.default,
-    fontSize: 16,
-    fontWeight: "600",
+    paddingBottom: 18,
   },
 });

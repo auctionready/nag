@@ -1,2 +1,3 @@
 export { HabitDetail } from "./HabitDetail";
-export { ComplianceHistory } from "./ComplianceHistory";
+export type { HabitDetailProps } from "./HabitDetail";
+export type { RecentCheckInItem } from "./types";
