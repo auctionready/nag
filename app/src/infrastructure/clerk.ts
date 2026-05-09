@@ -2,6 +2,7 @@ import Constants from "expo-constants";
 import * as SecureStore from "expo-secure-store";
 import type { TokenCache } from "@clerk/clerk-expo";
 import { log } from "./log";
+import { getAuthMode } from "./devOverrides";
 
 const logger = log("clerk");
 
@@ -11,7 +12,15 @@ type Extra = {
 
 const extra = (): Extra => (Constants.expoConfig?.extra as Extra) ?? {};
 
+/**
+ * Effective Clerk publishable key for this session. Returns `null`
+ * (so `<ClerkOrPassthrough>` skips `<ClerkProvider>` entirely) when
+ * the session is in dev-auth mode, even if a key is set in env —
+ * dev-auth talks to the local backend's `/dev/token` and never wants
+ * Clerk in the picture.
+ */
 export const getClerkPublishableKey = (): string | null => {
+  if (getAuthMode() === "dev-auth") return null;
   const { clerkPublishableKey } = extra();
   return clerkPublishableKey && clerkPublishableKey.length > 0
     ? clerkPublishableKey

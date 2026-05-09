@@ -12,6 +12,7 @@ import {
 import { setupTestDb } from "../../__tests__/testDb";
 import {
   ensureDeviceRegistered,
+  ensureDevAuthRegistered,
   refreshDeviceToken,
   loadIdentity,
   getAccountId,
@@ -19,7 +20,7 @@ import {
   clearLocalAuth,
   type TokenStore,
 } from "../identity";
-import type { RegisterDeviceResult } from "../types";
+import type { DevTokenResult, RegisterDeviceResult } from "../types";
 
 const getDb = setupTestDb("identity-test.db");
 
@@ -509,5 +510,124 @@ describe("getAccountId", () => {
   it("returns the accountId once registered", async () => {
     const db = getDb();
     expect(await getAccountId(db)).toBe("00000000-0000-4000-8000-0000000000aa");
+  });
+});
+
+describe("ensureDevAuthRegistered", () => {
+  const DEV_ACCOUNT = "11111111-1111-1111-1111-111111111111";
+  const DEV_DEVICE = "22222222-2222-2222-2222-222222222222";
+
+  it("on first launch: persists the server-supplied dev pair and token", async () => {
+    const db = getDb();
+    await db.delete(identity); // simulate fresh install — no row yet
+
+    const tokenStore = new InMemoryTokenStore();
+    const fetchDevToken = vi.fn(
+      async (): Promise<DevTokenResult> => ({
+        ok: true,
+        accountId: DEV_ACCOUNT,
+        deviceId: DEV_DEVICE,
+        deviceToken: "dev-tok",
+      }),
+    );
+
+    const result = await ensureDevAuthRegistered({
+      db,
+      tokenStore,
+      fetchDevToken,
+    });
+
+    expect(fetchDevToken).toHaveBeenCalledOnce();
+    expect(result.accountId).toBe(DEV_ACCOUNT);
+    expect(result.deviceId).toBe(DEV_DEVICE);
+    expect(result.deviceToken).toBe("dev-tok");
+
+    const persisted = await loadIdentity(db);
+    expect(persisted?.deviceId).toBe(DEV_DEVICE);
+    expect(persisted?.accountId).toBe(DEV_ACCOUNT);
+    expect(persisted?.registeredAt).toBeInstanceOf(Date);
+    expect(await tokenStore.get()).toBe("dev-tok");
+  });
+
+  it("overwrites a locally-generated deviceId with the server's dev deviceId", async () => {
+    const db = getDb();
+    await db.delete(identity);
+    // Simulate a prior anonymous registration that minted its own
+    // deviceId — dev-auth must replace it with the fixed server pair.
+    await db.insert(identity).values({
+      id: 1,
+      deviceId: "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee",
+      accountId: null,
+    });
+
+    const tokenStore = new InMemoryTokenStore();
+    const fetchDevToken = vi.fn(
+      async (): Promise<DevTokenResult> => ({
+        ok: true,
+        accountId: DEV_ACCOUNT,
+        deviceId: DEV_DEVICE,
+        deviceToken: "dev-tok",
+      }),
+    );
+
+    await ensureDevAuthRegistered({ db, tokenStore, fetchDevToken });
+
+    const persisted = await loadIdentity(db);
+    expect(persisted?.deviceId).toBe(DEV_DEVICE);
+    expect(persisted?.accountId).toBe(DEV_ACCOUNT);
+  });
+
+  it("when already registered (accountId + token cached): no-op", async () => {
+    const db = getDb();
+    await db.delete(identity);
+    await db.insert(identity).values({
+      id: 1,
+      deviceId: DEV_DEVICE,
+      accountId: DEV_ACCOUNT,
+      registeredAt: new Date("2026-04-25T00:00:00.000Z"),
+    });
+    const tokenStore = new InMemoryTokenStore("cached-tok");
+
+    const fetchDevToken = vi.fn(async (): Promise<DevTokenResult> => {
+      throw new Error("fetchDevToken should not be called when cached");
+    });
+
+    const result = await ensureDevAuthRegistered({
+      db,
+      tokenStore,
+      fetchDevToken,
+    });
+
+    expect(fetchDevToken).not.toHaveBeenCalled();
+    expect(result.accountId).toBe(DEV_ACCOUNT);
+    expect(result.deviceToken).toBe("cached-tok");
+    expect(result.result).toEqual({ ok: true, cached: true });
+  });
+
+  it("on a non-retriable failure (e.g. /dev/token 404'd in non-DEBUG): leaves accountId null", async () => {
+    const db = getDb();
+    await db.delete(identity);
+    const tokenStore = new InMemoryTokenStore();
+
+    const fetchDevToken = vi.fn(
+      async (): Promise<DevTokenResult> => ({
+        ok: false,
+        kind: "non-retriable",
+        status: 404,
+        message: "Not Found",
+      }),
+    );
+
+    const result = await ensureDevAuthRegistered({
+      db,
+      tokenStore,
+      fetchDevToken,
+    });
+
+    expect(result.accountId).toBeNull();
+    expect(result.deviceToken).toBeNull();
+    expect(await tokenStore.get()).toBeNull();
+    // Identity row was empty before; failure shouldn't fabricate one.
+    expect(await loadIdentity(db)).toBeNull();
   });
 });

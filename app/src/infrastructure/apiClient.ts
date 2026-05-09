@@ -1,4 +1,3 @@
-import Constants from "expo-constants";
 import {
   createNagApiClient,
   postEvents as apiPostEvents,
@@ -28,15 +27,10 @@ import {
 import { db } from "../db";
 import { log } from "./log";
 import { deviceTokenStore } from "./tokenStore";
-
-type Extra = {
-  apiBaseUrl?: string;
-};
+import { getApiBaseUrl, getAuthMode } from "./devOverrides";
 
 const logger = log("api");
 const identityLogger = log("identity");
-
-const extra = (): Extra => (Constants.expoConfig?.extra as Extra) ?? {};
 
 let singleton: NagApiClient | null = null;
 
@@ -58,11 +52,11 @@ let singleton: NagApiClient | null = null;
  */
 const getApiClient = (): NagApiClient => {
   if (singleton) return singleton;
-  const { apiBaseUrl } = extra();
+  const apiBaseUrl = getApiBaseUrl();
   if (!apiBaseUrl) {
     throw new Error(
       "API client not configured: set NAG_API_BASE_URL " +
-        "(see app.config.ts → extra).",
+        "(see app.config.ts → extra) or pick a backend from the dev menu.",
     );
   }
   logger.debug(`creating client baseUrl=${apiBaseUrl}`);
@@ -96,16 +90,13 @@ const getApiClient = (): NagApiClient => {
   return singleton;
 };
 
-export const isApiConfigured = (): boolean => {
-  const { apiBaseUrl } = extra();
-  return Boolean(apiBaseUrl);
-};
+export const isApiConfigured = (): boolean => Boolean(getApiBaseUrl());
 
 /** One-time startup announcement of the API configuration state. */
 export const logApiConfig = (): void => {
-  const { apiBaseUrl } = extra();
+  const apiBaseUrl = getApiBaseUrl();
   logger.info(
-    `config apiBaseUrl=${apiBaseUrl || "<missing>"} configured=${isApiConfigured()}`,
+    `config apiBaseUrl=${apiBaseUrl || "<missing>"} authMode=${getAuthMode()} configured=${isApiConfigured()}`,
   );
 };
 

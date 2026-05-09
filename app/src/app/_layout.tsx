@@ -14,6 +14,7 @@ import {
   SPLASH_DURATION_MS,
 } from "../components/shell";
 import { getClerkPublishableKey, tokenCache } from "../infrastructure/clerk";
+import { bootstrapDevOverrides } from "../infrastructure/devOverrides";
 import { ClerkProvider } from "@clerk/clerk-expo";
 import React from "react";
 import { View } from "react-native";
@@ -93,6 +94,12 @@ const RootLayout = () => {
     "SpaceGrotesk-Bold": require("../../assets/fonts/SpaceGrotesk-Bold.otf"),
     "JetBrainsMono-Regular": require("../../assets/fonts/JetBrainsMono-Regular.ttf"),
   });
+  // Dev-menu backend overrides are stored in SecureStore (read async).
+  // Block render until they've been folded into the session-pinned
+  // `getAuthMode()` / `getApiBaseUrl()` constants — otherwise the
+  // first apiClient build or ClerkProvider render would see env values
+  // even when the user has overridden them.
+  const [overridesLoaded, setOverridesLoaded] = React.useState(false);
   const showSplash = useShowSplash({
     fontsLoaded: fontsLoaded ?? false,
     minShowMs: SPLASH_DURATION_MS,
@@ -104,10 +111,14 @@ const RootLayout = () => {
     }
   }, [ref]);
 
+  React.useEffect(() => {
+    bootstrapDevOverrides().finally(() => setOverridesLoaded(true));
+  }, []);
+
   // Native splash stays up until fonts load. Once we render
   // <AnimatedSplash />, it calls SplashScreen.hideAsync() on its first frame
   // so the icon stays visible across the hand-off.
-  if (!fontsLoaded) return null;
+  if (!fontsLoaded || !overridesLoaded) return null;
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
