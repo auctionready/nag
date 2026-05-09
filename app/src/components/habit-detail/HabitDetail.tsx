@@ -18,7 +18,7 @@ import { tokens } from "../../components/theme";
 import { DetailHeader } from "./DetailHeader";
 import { HeroCard } from "./HeroCard";
 import { DetailWeekStrip } from "./DetailWeekStrip";
-import { SlotsCard } from "./SlotsCard";
+import { TimeSlotsCard } from "./TimeSlotsCard";
 import { CheckInsCard } from "./CheckInsCard";
 import { ActionFooter } from "./ActionFooter";
 import { CheckInDatePickerModal } from "./CheckInDatePickerModal";
@@ -345,9 +345,9 @@ const DetailView = ({
     setPickerState(null);
   };
 
-  const handleAddCheckInForSlot = (hour: number, minute: number) => {
+  const timeSlotTimestamp = (hour: number, minute: number): Date => {
     const anchor = selectedDay ?? now;
-    const ts = new Date(
+    return new Date(
       anchor.getFullYear(),
       anchor.getMonth(),
       anchor.getDate(),
@@ -356,10 +356,17 @@ const DetailView = ({
       0,
       0,
     );
-    setPickerState({
-      intent: { kind: "new-checkin" },
-      timestamp: ts,
-    });
+  };
+  const handleCheckInForTimeSlot = (hour: number, minute: number) => {
+    onCheckInAt(timeSlotTimestamp(hour, minute));
+  };
+  const handleSkipForTimeSlot = (hour: number, minute: number) => {
+    onSkipAt(timeSlotTimestamp(hour, minute));
+  };
+  const handleDeleteForTimeSlot = (matchedAt: Date) => {
+    const ms = matchedAt.getTime();
+    const match = checkIns.find((c) => c.timestamp.getTime() === ms);
+    if (match) onRemoveCheckIn(match.id);
   };
 
   const handleCheckInTap = () => {
@@ -411,11 +418,13 @@ const DetailView = ({
         )}
 
         {slotsForDay.length > 0 && (
-          <SlotsCard
+          <TimeSlotsCard
             eyebrow={slotsEyebrow}
             slots={slotsForDay}
             isToday={cardIsToday}
-            onLongPressSlot={handleAddCheckInForSlot}
+            onCheckInForTimeSlot={handleCheckInForTimeSlot}
+            onSkipForTimeSlot={handleSkipForTimeSlot}
+            onDeleteForTimeSlot={handleDeleteForTimeSlot}
           />
         )}
 

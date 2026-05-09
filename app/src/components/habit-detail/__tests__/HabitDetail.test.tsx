@@ -184,7 +184,7 @@ describe("HabitDetail", () => {
       expect(view.getByText("1 / 3")).toBeTruthy();
     });
 
-    it("missed pills are interactive (long-press to back-fill)", () => {
+    it("missed pills are interactive (tap → opens actions popover)", () => {
       const view = render(
         <HabitDetail
           {...baseProps}
@@ -195,14 +195,13 @@ describe("HabitDetail", () => {
         // 14:00 → 8AM and 12PM are past + unfilled (missed → owed pills).
         sundayAt(14),
       );
-      // The owed (past, unfilled) pill exposes a back-fill long-press
-      // affordance so back-filling specific gaps is discoverable via a11y.
-      expect(
-        view.queryByLabelText("Long-press to back-fill 8:00 AM"),
-      ).not.toBeNull();
+      // The owed (past, unfilled) pill exposes a tap-to-act affordance so
+      // back-filling specific gaps is discoverable via a11y.
+      expect(view.queryByLabelText("Open actions for 8:00 AM")).not.toBeNull();
     });
 
-    it("done pills are not interactive", () => {
+    it("done pills open the delete-mode popover (no log actions)", () => {
+      const checkInTs = sundayAt(8, 30);
       const view = render(
         <HabitDetail
           {...baseProps}
@@ -212,18 +211,100 @@ describe("HabitDetail", () => {
           checkIns={[
             {
               id: "ci-1",
-              timestamp: sundayAt(8, 30),
-              createdAt: sundayAt(8, 30),
-              updatedAt: sundayAt(8, 30),
+              timestamp: checkInTs,
+              createdAt: checkInTs,
+              updatedAt: checkInTs,
               skipped: null,
             },
           ]}
         />,
         sundayAt(14),
       );
-      expect(
-        view.queryByLabelText("Long-press to back-fill 8:00 AM"),
-      ).toBeNull();
+      fireEvent.press(view.getByLabelText("Open actions for 8:00 AM"));
+      // Undo is the only action in undo mode — check-in/skip absent.
+      expect(view.queryByLabelText("check in")).toBeNull();
+      expect(view.queryByLabelText("skip")).toBeNull();
+      fireEvent.press(view.getByLabelText("undo check-in"));
+      expect(baseProps.onRemoveCheckIn).toHaveBeenCalledWith("ci-1");
+    });
+
+    it("skipped pills open undo-skip popover", () => {
+      const skipTs = sundayAt(8, 30);
+      const view = render(
+        <HabitDetail
+          {...baseProps}
+          regularity="day"
+          frequency={3}
+          schedules={schedules}
+          checkIns={[
+            {
+              id: "ci-skip-1",
+              timestamp: skipTs,
+              createdAt: skipTs,
+              updatedAt: skipTs,
+              skipped: true,
+            },
+          ]}
+        />,
+        sundayAt(14),
+      );
+      fireEvent.press(view.getByLabelText("Open actions for 8:00 AM"));
+      fireEvent.press(view.getByLabelText("undo skip"));
+      expect(baseProps.onRemoveCheckIn).toHaveBeenCalledWith("ci-skip-1");
+    });
+
+    it("future upcoming pills (beyond next-up) stay inert", () => {
+      // 6:00 — well before any of 8/12/18, so 8AM is the next-up upcoming
+      // and 12PM/6PM are still inert future slots.
+      const view = render(
+        <HabitDetail
+          {...baseProps}
+          regularity="day"
+          frequency={3}
+          schedules={schedules}
+        />,
+        sundayAt(6),
+      );
+      expect(view.queryByLabelText("Open actions for 8:00 AM")).not.toBeNull();
+      expect(view.queryByLabelText("Open actions for 12:00 PM")).toBeNull();
+    });
+
+    it("tapping an owed pill → popover → check-in records at slot's time", () => {
+      const view = render(
+        <HabitDetail
+          {...baseProps}
+          regularity="day"
+          frequency={3}
+          schedules={schedules}
+        />,
+        sundayAt(14),
+      );
+      fireEvent.press(view.getByLabelText("Open actions for 8:00 AM"));
+      // Popover renders inside a Modal — the "check in" button has an
+      // explicit accessibility label.
+      fireEvent.press(view.getByLabelText("check in"));
+      expect(baseProps.onCheckInAt).toHaveBeenCalledTimes(1);
+      const [called] = baseProps.onCheckInAt.mock.calls[0];
+      expect((called as Date).getHours()).toBe(8);
+      expect((called as Date).getMinutes()).toBe(0);
+    });
+
+    it("tapping an owed pill → popover → skip records at slot's time", () => {
+      const view = render(
+        <HabitDetail
+          {...baseProps}
+          regularity="day"
+          frequency={3}
+          schedules={schedules}
+        />,
+        sundayAt(14),
+      );
+      fireEvent.press(view.getByLabelText("Open actions for 12:00 PM"));
+      fireEvent.press(view.getByLabelText("skip"));
+      expect(baseProps.onSkipAt).toHaveBeenCalledTimes(1);
+      const [called] = baseProps.onSkipAt.mock.calls[0];
+      expect((called as Date).getHours()).toBe(12);
+      expect((called as Date).getMinutes()).toBe(0);
     });
   });
 
