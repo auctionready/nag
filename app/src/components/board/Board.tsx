@@ -21,7 +21,7 @@ export interface BoardProps {
 export const Board = ({ habits, onAddHabit, renderTile }: BoardProps) => {
   const insets = useSafeAreaInsets();
   const habitIds = useMemo(() => habits.map((h) => h.id), [habits]);
-  const { percent, line } = useBoardProgress(habitIds);
+  const { percent, line, suffix } = useBoardProgress(habitIds);
 
   if (!habits.length) {
     return <EmptyBoard onAddHabit={onAddHabit} />;
@@ -37,7 +37,7 @@ export const Board = ({ habits, onAddHabit, renderTile }: BoardProps) => {
         ]}
         showsVerticalScrollIndicator={false}
       >
-        <Header percent={percent} line={line} />
+        <Header percent={percent} line={line} suffix={suffix} />
         <View style={styles.grid}>
           {habits.map((item) => (
             <View key={item.id} style={styles.cell}>
