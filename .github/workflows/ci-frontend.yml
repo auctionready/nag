@@ -1,0 +1,51 @@
+name: CI frontend
+
+on:
+  push:
+    paths:
+      - "app/**"
+      - "packages/**"
+      - "tools/**"
+      - "patches/**"
+      - "docs/**"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+      - "tsconfig.json"
+      - "eslint.config.mjs"
+      - ".prettierrc"
+      - ".prettierignore"
+      - "turbo.json"
+      - ".github/workflows/ci-frontend.yml"
+
+jobs:
+  frontend:
+    runs-on: ubuntu-latest
+    env:
+      TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
+      TURBO_TEAM: ${{ vars.TURBO_TEAM }}
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: volta-cli/action@v5
+
+      - uses: pnpm/action-setup@v5
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: package.json
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile --prefer-offline
+
+      - run: pnpm exec turbo run typecheck test check:circular //#lint //#format:check:app --filter=!@nag/backend
+
+      - uses: dorny/test-reporter@v3
+        if: always()
+        with:
+          name: Jest Test Report
+          path: app/junit/results.xml
+          reporter: jest-junit
+
+      - run: npx expo export --platform ios
+        working-directory: app
