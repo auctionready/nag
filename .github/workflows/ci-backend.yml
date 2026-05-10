@@ -1,0 +1,47 @@
+name: CI backend
+
+on:
+  push:
+    paths:
+      - "backend/**"
+      - "packages/api-client/**"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+      - "turbo.json"
+      - ".github/workflows/ci-backend.yml"
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    env:
+      TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
+      TURBO_TEAM: ${{ vars.TURBO_TEAM }}
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: "10.0.x"
+
+      - uses: volta-cli/action@v5
+
+      - uses: pnpm/action-setup@v5
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: package.json
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile --prefer-offline
+
+      - run: dotnet tool restore
+        working-directory: backend
+
+      - run: pnpm exec turbo run check:format build test //#check:openapi --filter=@nag/backend
+
+      - uses: dorny/test-reporter@v3
+        if: always()
+        with:
+          name: .NET Test Report
+          path: backend/**/TestResults/*.trx
+          reporter: dotnet-trx

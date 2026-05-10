@@ -5,16 +5,7 @@
     "moduleResolution": "bundler",
     "strict": true,
     "esModuleInterop": true,
-    "skipLibCheck": true,
-    "declaration": true,
-    "outDir": "./dist",
-    "rootDir": "./src"
+    "skipLibCheck": true
   },
-  "files": [],
-  "references": [
-    { "path": "packages/schema" },
-    { "path": "packages/core" },
-    { "path": "packages/api-client" },
-    { "path": "app" }
-  ]
+  "files": []
 }

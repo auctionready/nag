@@ -6,6 +6,7 @@ dist/
 ios/
 android/
 *.db
+.eslintcache
 
 # Beads / Dolt files (added by bd init)
 .dolt/
@@ -14,3 +15,6 @@ app/junit.xml
 .claude/settings.local.json
 .env.local
 backend/Nag.Api/OpenApi/openapi.json
+
+# Turborepo
+.turbo
