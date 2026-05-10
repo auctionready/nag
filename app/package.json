@@ -6,7 +6,7 @@
     "start": "expo start",
     "android": "expo run:android",
     "ios": "expo run:ios",
-    "test": "jest --passWithNoTests",
+    "test": "jest --passWithNoTests --reporters=default --reporters=jest-junit",
     "test:ui": "maestro test .maestro/",
     "typecheck": "tsc --noEmit",
     "check:circular": "dpdm --no-warning --no-tree --exit-code circular:1 'src/**/*.{ts,tsx}'"
@@ -17,6 +17,10 @@
       "/node_modules/",
       "/dist/"
     ]
+  },
+  "jest-junit": {
+    "outputDirectory": "./junit",
+    "outputName": "results.xml"
   },
   "dependencies": {
     "@clerk/clerk-expo": "^2.19.31",

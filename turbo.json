@@ -50,7 +50,7 @@
         "tsconfig*.json",
         "package.json"
       ],
-      "outputs": []
+      "outputs": ["junit/**"]
     },
     "@nag/app#check:circular": {
       "inputs": ["src/**/*.{ts,tsx}", "package.json"],

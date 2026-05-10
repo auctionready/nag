@@ -133,12 +133,7 @@ jobs:
       - run: pnpm install --frozen-lockfile --prefer-offline
         if: steps.pnpm-modules.outputs.cache-hit != 'true'
 
-      - run: pnpm exec turbo run test --filter='./packages/**'
-
-      - run: pnpm --filter=@nag/app exec jest --passWithNoTests --reporters=default --reporters=jest-junit
-        env:
-          JEST_JUNIT_OUTPUT_DIR: ./junit
-          JEST_JUNIT_OUTPUT_NAME: results.xml
+      - run: pnpm exec turbo run test --filter=!@nag/backend
 
       - uses: dorny/test-reporter@v3
         if: always()
