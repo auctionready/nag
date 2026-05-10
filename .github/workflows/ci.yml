@@ -54,7 +54,18 @@ jobs:
           node-version-file: package.json
           cache: pnpm
 
-      - run: pnpm install --frozen-lockfile
+      - uses: actions/cache@v4
+        id: pnpm-modules
+        with:
+          path: |
+            node_modules
+            app/node_modules
+            packages/*/node_modules
+            backend/node_modules
+          key: pnpm-modules-${{ runner.os }}-${{ runner.arch }}-node${{ hashFiles('package.json') }}-${{ hashFiles('pnpm-lock.yaml') }}
+
+      - run: pnpm install --frozen-lockfile --prefer-offline
+        if: steps.pnpm-modules.outputs.cache-hit != 'true'
 
       - run: pnpm exec turbo run typecheck check:circular //#lint //#format:check:app --filter=!@nag/backend
 
@@ -74,7 +85,18 @@ jobs:
           node-version-file: package.json
           cache: pnpm
 
-      - run: pnpm install --frozen-lockfile
+      - uses: actions/cache@v4
+        id: pnpm-modules
+        with:
+          path: |
+            node_modules
+            app/node_modules
+            packages/*/node_modules
+            backend/node_modules
+          key: pnpm-modules-${{ runner.os }}-${{ runner.arch }}-node${{ hashFiles('package.json') }}-${{ hashFiles('pnpm-lock.yaml') }}
+
+      - run: pnpm install --frozen-lockfile --prefer-offline
+        if: steps.pnpm-modules.outputs.cache-hit != 'true'
 
       - run: npx expo export --platform ios
         working-directory: app
@@ -98,7 +120,18 @@ jobs:
           node-version-file: package.json
           cache: pnpm
 
-      - run: pnpm install --frozen-lockfile
+      - uses: actions/cache@v4
+        id: pnpm-modules
+        with:
+          path: |
+            node_modules
+            app/node_modules
+            packages/*/node_modules
+            backend/node_modules
+          key: pnpm-modules-${{ runner.os }}-${{ runner.arch }}-node${{ hashFiles('package.json') }}-${{ hashFiles('pnpm-lock.yaml') }}
+
+      - run: pnpm install --frozen-lockfile --prefer-offline
+        if: steps.pnpm-modules.outputs.cache-hit != 'true'
 
       - run: pnpm exec turbo run test --filter='./packages/**'
 
@@ -137,7 +170,18 @@ jobs:
           node-version-file: package.json
           cache: pnpm
 
-      - run: pnpm install --frozen-lockfile
+      - uses: actions/cache@v4
+        id: pnpm-modules
+        with:
+          path: |
+            node_modules
+            app/node_modules
+            packages/*/node_modules
+            backend/node_modules
+          key: pnpm-modules-${{ runner.os }}-${{ runner.arch }}-node${{ hashFiles('package.json') }}-${{ hashFiles('pnpm-lock.yaml') }}
+
+      - run: pnpm install --frozen-lockfile --prefer-offline
+        if: steps.pnpm-modules.outputs.cache-hit != 'true'
         working-directory: .
 
       - run: dotnet tool restore
