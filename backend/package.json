@@ -3,8 +3,8 @@
   "private": true,
   "scripts": {
     "format": "dotnet csharpier format .",
-    "test": "dotnet test",
-    "build": "dotnet build",
+    "test": "dotnet test --no-build --configuration Release --logger \"trx;LogFileName=results.trx\"",
+    "build": "dotnet build --configuration Release",
     "openapi": "./scripts/generate-openapi.sh",
     "package:lambda": "./scripts/package-lambda.sh",
     "package:lambda:run": "./scripts/run-lambda-locally.sh",

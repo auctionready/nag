@@ -56,6 +56,42 @@
       "inputs": ["src/**/*.{ts,tsx}", "package.json"],
       "outputs": []
     },
+    "@nag/backend#build": {
+      "inputs": [
+        "**/*.cs",
+        "**/*.csproj",
+        "**/*.slnx",
+        "Directory.Build.props",
+        "Directory.Build.targets",
+        ".config/dotnet-tools.json",
+        "global.json",
+        "package.json"
+      ],
+      "outputs": ["**/bin/**", "**/obj/**"]
+    },
+    "@nag/backend#test": {
+      "dependsOn": ["@nag/backend#build"],
+      "inputs": [
+        "**/*.cs",
+        "**/*.csproj",
+        "**/*.slnx",
+        "Directory.Build.props",
+        "Directory.Build.targets",
+        "**/appsettings*.json",
+        "global.json",
+        "package.json"
+      ],
+      "outputs": ["**/TestResults/**"]
+    },
+    "@nag/backend#check:format": {
+      "inputs": [
+        "**/*.cs",
+        ".csharpierrc*",
+        "Directory.Build.props",
+        ".config/dotnet-tools.json"
+      ],
+      "outputs": []
+    },
     "//#lint": {
       "inputs": [
         "app/**/*.{ts,tsx,js,jsx,cjs,mjs}",

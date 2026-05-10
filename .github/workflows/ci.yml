@@ -77,9 +77,9 @@ jobs:
     needs: changes
     if: needs.changes.outputs.backend == 'true'
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: backend
+    env:
+      TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
+      TURBO_TEAM: ${{ vars.TURBO_TEAM }}
     steps:
       - uses: actions/checkout@v6
 
@@ -102,27 +102,21 @@ jobs:
           key: pnpm-virtualstore-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('pnpm-lock.yaml') }}
 
       - run: pnpm install --frozen-lockfile --prefer-offline
-        working-directory: .
 
       - run: dotnet tool restore
+        working-directory: backend
 
-      - run: dotnet csharpier check .
-
-      - run: dotnet restore
-
-      - run: dotnet build --configuration Release --no-restore
-
-      - run: dotnet test --configuration Release --no-build --logger "trx;LogFileName=results.trx"
+      - run: pnpm exec turbo run check:format build test --filter=@nag/backend
 
       - uses: dorny/test-reporter@v3
         if: always()
         with:
           name: .NET Test Report
-          path: backend/**/TestResults/results.trx
+          path: backend/**/TestResults/*.trx
           reporter: dotnet-trx
 
       # Fails if a backend change drifts packages/api-client/src/endpoint-definition.ts
       # from what's committed. openapi.json is generated as an intermediate
       # artifact and is gitignored.
       - name: endpoint-definition.ts is up to date
-        run: pnpm check:openapi
+        run: pnpm --filter @nag/backend check:openapi
