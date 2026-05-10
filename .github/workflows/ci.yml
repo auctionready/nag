@@ -54,7 +54,7 @@ jobs:
           node-version-file: package.json
           cache: pnpm
 
-      - uses: actions/cache@v4
+      - uses: actions/cache@v5
         id: pnpm-modules
         with:
           path: |
@@ -85,7 +85,7 @@ jobs:
           node-version-file: package.json
           cache: pnpm
 
-      - uses: actions/cache@v4
+      - uses: actions/cache@v5
         id: pnpm-modules
         with:
           path: |
@@ -120,7 +120,7 @@ jobs:
           node-version-file: package.json
           cache: pnpm
 
-      - uses: actions/cache@v4
+      - uses: actions/cache@v5
         id: pnpm-modules
         with:
           path: |
@@ -170,7 +170,7 @@ jobs:
           node-version-file: package.json
           cache: pnpm
 
-      - uses: actions/cache@v4
+      - uses: actions/cache@v5
         id: pnpm-modules
         with:
           path: |
