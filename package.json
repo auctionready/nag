@@ -3,25 +3,23 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "clean": "tsc -b --clean",
     "dev": "pnpm typecheck && pnpm lint",
-    "lint": "eslint .",
+    "lint": "eslint . --cache --cache-location .eslintcache",
     "lint:fix": "eslint . --fix",
     "format": "concurrently -g \"pnpm format:app\" \"pnpm format:backend\"",
     "format:app": "prettier --write .",
     "format:check": "concurrently -g \"pnpm format:check:app\" \"pnpm format:check:backend\"",
-    "format:check:app": "prettier --check .",
+    "format:check:app": "prettier --check . --cache --cache-location node_modules/.cache/prettier/check",
     "format:check:backend": "pnpm --filter @nag/backend check:format",
     "format:backend": "pnpm --filter @nag/backend format",
     "test": "pnpm test:app && pnpm test:backend",
-    "test:app": "pnpm -r --filter !@nag/backend --filter !nag run test",
+    "test:app": "turbo run test --filter=!@nag/backend",
     "test:backend": "pnpm --filter @nag/backend test",
-    "check:app": "concurrently -g \"pnpm typecheck\" \"pnpm lint\" \"pnpm test:app\" \"pnpm format:check:app\" \"pnpm --filter @nag/app check:circular\"",
+    "check:app": "turbo run typecheck test check:circular //#lint //#format:check:app --filter=!@nag/backend",
     "check:backend": "pnpm --filter @nag/backend check",
     "check": "pnpm check:backend && pnpm check:app",
     "deploy:backend": "pnpm --filter @nag/backend run deploy",
-    "typecheck": "tsc -b",
-    "typecheck:watch": "tsc -b --watch",
+    "typecheck": "turbo run typecheck",
     "prepare": "lefthook install"
   },
   "pnpm": {
@@ -47,6 +45,7 @@
     "eslint-plugin-react-compiler": "19.1.0-rc.2",
     "lefthook": "^2.1.6",
     "prettier": "^3.8.3",
+    "turbo": "^2.9.12",
     "typescript": "catalog:"
   }
 }

@@ -1,0 +1,64 @@
+{
+  "$schema": "https://turborepo.com/schema.json",
+  "ui": "stream",
+  "globalDependencies": [
+    "tsconfig.json",
+    "pnpm-lock.yaml",
+    "pnpm-workspace.yaml"
+  ],
+  "tasks": {
+    "typecheck": {
+      "dependsOn": ["^typecheck"],
+      "inputs": [
+        "src/**",
+        "*.ts",
+        "*.tsx",
+        "tsconfig*.json",
+        "package.json",
+        ".expo/types/**",
+        "expo-env.d.ts"
+      ],
+      "outputs": []
+    },
+    "test": {
+      "dependsOn": ["^typecheck"],
+      "inputs": [
+        "src/**",
+        "vitest.config.*",
+        "vitest.setup.*",
+        "jest.config.*",
+        "jest.setup.*",
+        "tsconfig*.json",
+        "package.json"
+      ],
+      "outputs": []
+    },
+    "check:circular": {
+      "inputs": ["src/**", "package.json"],
+      "outputs": []
+    },
+    "//#lint": {
+      "inputs": [
+        "app/**/*.{ts,tsx,js,jsx,cjs,mjs}",
+        "packages/*/src/**/*.{ts,tsx,js,jsx,cjs,mjs}",
+        "packages/*/*.{ts,js,cjs,mjs}",
+        "eslint.config.*",
+        ".eslintrc*",
+        "*.config.{ts,js,cjs,mjs}",
+        "package.json"
+      ],
+      "outputs": [".eslintcache"]
+    },
+    "//#format:check:app": {
+      "inputs": [
+        "app/**/*.{ts,tsx,js,jsx,json,md,yml,yaml}",
+        "packages/**/*.{ts,tsx,js,jsx,json,md,yml,yaml}",
+        "*.{ts,tsx,js,jsx,json,md,yml,yaml}",
+        ".prettierrc*",
+        ".prettierignore",
+        "package.json"
+      ],
+      "outputs": ["node_modules/.cache/prettier/**"]
+    }
+  }
+}

@@ -8,6 +8,7 @@
     "ios": "expo run:ios",
     "test": "jest --passWithNoTests",
     "test:ui": "maestro test .maestro/",
+    "typecheck": "tsc --noEmit",
     "check:circular": "dpdm --no-warning --no-tree --exit-code circular:1 'src/**/*.{ts,tsx}'"
   },
   "jest": {
