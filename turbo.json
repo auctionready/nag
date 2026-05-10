@@ -65,7 +65,9 @@
         "Directory.Build.targets",
         ".config/dotnet-tools.json",
         "global.json",
-        "package.json"
+        "package.json",
+        "!**/bin/**",
+        "!**/obj/**"
       ],
       "outputs": ["**/bin/**", "**/obj/**"]
     },
@@ -79,7 +81,10 @@
         "Directory.Build.targets",
         "**/appsettings*.json",
         "global.json",
-        "package.json"
+        "package.json",
+        "!**/bin/**",
+        "!**/obj/**",
+        "!**/TestResults/**"
       ],
       "outputs": ["**/TestResults/**"]
     },
@@ -88,7 +93,9 @@
         "**/*.cs",
         ".csharpierrc*",
         "Directory.Build.props",
-        ".config/dotnet-tools.json"
+        ".config/dotnet-tools.json",
+        "!**/bin/**",
+        "!**/obj/**"
       ],
       "outputs": []
     },
@@ -103,6 +110,25 @@
         "package.json"
       ],
       "outputs": [".eslintcache"]
+    },
+    "//#check:openapi": {
+      "inputs": [
+        "backend/Nag.Api/**/*.cs",
+        "backend/Nag.Api/**/*.csproj",
+        "backend/Nag.Core/**/*.cs",
+        "backend/Nag.Core/**/*.csproj",
+        "backend/Directory.Build.props",
+        "backend/Directory.Build.targets",
+        "backend/global.json",
+        "backend/scripts/generate-openapi.sh",
+        "backend/package.json",
+        "packages/api-client/scripts/**",
+        "packages/api-client/src/endpoint-definition.ts",
+        "packages/api-client/package.json",
+        "!backend/**/bin/**",
+        "!backend/**/obj/**"
+      ],
+      "outputs": []
     },
     "//#format:check:app": {
       "inputs": [
