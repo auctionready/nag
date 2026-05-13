@@ -7,3 +7,5 @@ corepack = true
 
 [env]
 _.path = ["{{config_root}}/node_modules/.bin"]
+TURBO_TEAM = "alan-4087s-projects"
+

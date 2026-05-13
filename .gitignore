@@ -18,3 +18,4 @@ backend/Nag.Api/OpenApi/openapi.json
 
 # Turborepo
 .turbo
+app/junit/results.xml
