@@ -22,13 +22,13 @@ jobs:
 
       - uses: ./.github/actions/node-setup
 
-      - uses: actions/cache@v4
+      - uses: actions/cache@v5
         with:
           path: ~/.nuget/packages
           key: nuget-${{ runner.os }}-${{ hashFiles('backend/**/*.csproj', 'backend/global.json', 'backend/Directory.Build.props', 'backend/.config/dotnet-tools.json') }}
           restore-keys: nuget-${{ runner.os }}-
 
-      - uses: actions/cache@v4
+      - uses: actions/cache@v5
         with:
           path: |
             backend/**/bin
