@@ -7,12 +7,16 @@ on:
       - "packages/api-client/**"
       - "pnpm-lock.yaml"
       - "pnpm-workspace.yaml"
+      - "turbo.json"
       - ".github/workflows/ci-backend.yml"
       - ".github/actions/node-setup/**"
 
 jobs:
   backend:
     runs-on: ubuntu-latest
+    env:
+      TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
+      TURBO_TEAM: ${{ vars.TURBO_TEAM }}
     steps:
       - uses: actions/checkout@v6
 
@@ -28,30 +32,10 @@ jobs:
           key: nuget-${{ runner.os }}-${{ hashFiles('backend/**/*.csproj', 'backend/global.json', 'backend/Directory.Build.props', 'backend/.config/dotnet-tools.json') }}
           restore-keys: nuget-${{ runner.os }}-
 
-      - uses: actions/cache@v5
-        with:
-          path: |
-            backend/**/bin
-            backend/**/obj
-          key: dotnet-build-${{ runner.os }}-${{ hashFiles('backend/**/*.cs', 'backend/**/*.csproj', 'backend/Directory.Build.props', 'backend/global.json') }}
-          restore-keys: dotnet-build-${{ runner.os }}-
-
       - run: dotnet tool restore
         working-directory: backend
 
-      - run: dotnet restore -p:Configuration=Debug
-        working-directory: backend
-
-      - run: dotnet csharpier check .
-        working-directory: backend
-
-      - run: dotnet build --configuration Release --no-restore
-        working-directory: backend
-
-      - run: dotnet test --no-build --configuration Release --logger "trx;LogFileName=results.trx"
-        working-directory: backend
-
-      - run: pnpm check:openapi
+      - run: pnpm exec turbo run check:format build test //#check:openapi --filter=@nag/backend
 
       - uses: dorny/test-reporter@v3
         if: always()
