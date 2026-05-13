@@ -35,4 +35,8 @@
     <PackageReference Include="dotenv.net" Version="3.2.0" />
     <PackageReference Include="Swashbuckle.AspNetCore" Version="10.1.7" />
   </ItemGroup>
+
+  <ItemGroup Condition="'$(Configuration)' != 'Debug'">
+    <Compile Remove="OpenApi/**/*.cs" />
+  </ItemGroup>
 </Project>
