@@ -17,7 +17,9 @@ See [`docs/Backend.md`](../docs/Backend.md) for the architecture overview.
 
 ## Local development
 
-Requires .NET 10 SDK and Docker.
+Requires .NET 10 SDK and Docker. The exact SDK version is pinned in
+[`backend/global.json`](./global.json); see
+[Updating the .NET SDK](#updating-the-net-sdk) below.
 
 ```bash
 # 1. Start a local Postgres
@@ -130,6 +132,25 @@ Production assumes:
   URI); `LambdaSecrets` parses it into Npgsql key=value form.
 - Sentry DSN passed as `SENTRY_DSN` (plus optional `SENTRY_ENVIRONMENT`
   / `SENTRY_RELEASE`); when unset the SDK initializes in disabled mode
+
+### Updating the .NET SDK
+
+The SDK version is pinned in [`global.json`](./global.json) with
+`rollForward: disable` so CI and local builds use the exact same SDK.
+The root `pnpm install` runs
+[`tools/check-dotnet-version.mjs`](../tools/check-dotnet-version.mjs),
+which warns when a newer SDK is published on the pinned channel.
+
+To bump:
+
+1. Pick the new version from
+   [dotnet.microsoft.com/download](https://dotnet.microsoft.com/en-us/download/dotnet/10.0)
+   (or the channel's `releases.json`, which the postinstall script
+   reads).
+2. Edit the `sdk.version` field in `global.json`.
+3. Install it locally (`dotnet --list-sdks` to confirm) and run
+   `pnpm check:backend` before pushing — CI uses the same `global.json`
+   via `actions/setup-dotnet`'s `global-json-file` input.
 
 ### Database migrations
 

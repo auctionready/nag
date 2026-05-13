@@ -21,7 +21,8 @@
     "check": "pnpm check:backend && pnpm check:app",
     "deploy:backend": "pnpm --filter @nag/backend run deploy",
     "typecheck": "turbo run typecheck",
-    "prepare": "lefthook install"
+    "prepare": "lefthook install",
+    "postinstall": "node tools/check-dotnet-version.mjs"
   },
   "packageManager": "pnpm@11.1.1",
   "devDependencies": {
