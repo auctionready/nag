@@ -12,7 +12,7 @@ Sentry.init({
 
   enableLogs: true,
 
-  replaysSessionSampleRate: 0.1,
+  replaysSessionSampleRate: 0,
   replaysOnErrorSampleRate: 1,
   // Sample all traces in dev/preview so we can see startup bottlenecks; sample a
   // tenth of production traces to keep event volume reasonable.
