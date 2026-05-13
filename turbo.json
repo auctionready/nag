@@ -56,49 +56,6 @@
       "inputs": ["src/**/*.{ts,tsx}", "package.json"],
       "outputs": []
     },
-    "@nag/backend#build": {
-      "inputs": [
-        "**/*.cs",
-        "**/*.csproj",
-        "**/*.slnx",
-        "Directory.Build.props",
-        "Directory.Build.targets",
-        ".config/dotnet-tools.json",
-        "global.json",
-        "package.json",
-        "!**/bin/**",
-        "!**/obj/**"
-      ],
-      "outputs": ["**/bin/**", "**/obj/**"]
-    },
-    "@nag/backend#test": {
-      "dependsOn": ["@nag/backend#build"],
-      "inputs": [
-        "**/*.cs",
-        "**/*.csproj",
-        "**/*.slnx",
-        "Directory.Build.props",
-        "Directory.Build.targets",
-        "**/appsettings*.json",
-        "global.json",
-        "package.json",
-        "!**/bin/**",
-        "!**/obj/**",
-        "!**/TestResults/**"
-      ],
-      "outputs": ["**/TestResults/**"]
-    },
-    "@nag/backend#check:format": {
-      "inputs": [
-        "**/*.cs",
-        ".csharpierrc*",
-        "Directory.Build.props",
-        ".config/dotnet-tools.json",
-        "!**/bin/**",
-        "!**/obj/**"
-      ],
-      "outputs": []
-    },
     "//#lint": {
       "inputs": [
         "app/**/*.{ts,tsx,js,jsx,cjs,mjs}",
@@ -110,25 +67,6 @@
         "package.json"
       ],
       "outputs": [".eslintcache"]
-    },
-    "//#check:openapi": {
-      "inputs": [
-        "backend/Nag.Api/**/*.cs",
-        "backend/Nag.Api/**/*.csproj",
-        "backend/Nag.Core/**/*.cs",
-        "backend/Nag.Core/**/*.csproj",
-        "backend/Directory.Build.props",
-        "backend/Directory.Build.targets",
-        "backend/global.json",
-        "backend/scripts/generate-openapi.sh",
-        "backend/package.json",
-        "packages/api-client/scripts/**",
-        "packages/api-client/src/endpoint-definition.ts",
-        "packages/api-client/package.json",
-        "!backend/**/bin/**",
-        "!backend/**/obj/**"
-      ],
-      "outputs": []
     },
     "//#format:check:app": {
       "inputs": [
