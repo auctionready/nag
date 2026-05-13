@@ -15,8 +15,5 @@
   },
   "devDependencies": {
     "concurrently": "catalog:"
-  },
-  "volta": {
-    "extends": "../package.json"
   }
 }

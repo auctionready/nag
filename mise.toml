@@ -1,0 +1,8 @@
+[tools]
+node = "24.14.1"
+
+[settings.node]
+corepack = true
+
+[env]
+_.path = ["{{config_root}}/node_modules/.bin"]

@@ -21,8 +21,5 @@
     "openapi-zod-client": "^1.18.3",
     "typescript": "catalog:",
     "vitest": "catalog:"
-  },
-  "volta": {
-    "extends": "../../package.json"
   }
 }

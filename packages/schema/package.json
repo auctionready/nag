@@ -26,9 +26,6 @@
     "typescript": "catalog:",
     "vitest": "catalog:"
   },
-  "volta": {
-    "extends": "../../package.json"
-  },
   "dependencies": {
     "uuidv7": "^1.2.1"
   }

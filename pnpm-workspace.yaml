@@ -4,7 +4,17 @@ packages:
   - "backend"
 dedupePeerDependents: true
 allowBuilds:
+  "@clerk/shared": false
   "@pulumi/neon": true
+  "@sentry/cli": true
+  better-sqlite3: true
+  browser-tabs-lock: false
+  bufferutil: false
+  core-js: false
+  esbuild: false
+  lefthook: true
+  unrs-resolver: false
+  utf-8-validate: false
 approveBuilds: better-sqlite3
 
 catalog:
@@ -17,3 +27,5 @@ catalog:
   typescript: ~5.9.3
   vitest: ^4.1.5
   zod: ^4.4.3
+patchedDependencies:
+  "@expo/dom-webview@55.0.3": patches/@expo__dom-webview@55.0.3.patch

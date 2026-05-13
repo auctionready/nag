@@ -23,20 +23,9 @@
     "typecheck": "turbo run typecheck",
     "prepare": "lefthook install"
   },
-  "pnpm": {
-    "onlyBuiltDependencies": [
-      "@sentry/cli",
-      "better-sqlite3",
-      "lefthook"
-    ],
-    "patchedDependencies": {
-      "@expo/dom-webview@55.0.3": "patches/@expo__dom-webview@55.0.3.patch"
-    }
-  },
-  "packageManager": "pnpm@10.33.2",
-  "volta": {
-    "node": "24.14.1",
-    "pnpm": "10.33.2"
+  "packageManager": "pnpm@11.1.1",
+  "engines": {
+    "node": "24.14.1"
   },
   "devDependencies": {
     "concurrently": "catalog:",
