@@ -24,11 +24,7 @@ cd "$BACKEND_DIR"
 # Custom Swashbuckle filters (CommandSchemasFilter, EnumSchemaFilter) are
 # wrapped in `#if DEBUG`, so generation only works against a Debug build.
 dotnet tool restore
-# Force a Debug-config restore so Swashbuckle (Debug-only PackageReference) is
-# resolved even when a prior Release build left obj/project.assets.json
-# pointing at the Release dependency set.
-dotnet restore Nag.Api/Nag.Api.csproj -p:Configuration=Debug
-dotnet build Nag.Api/Nag.Api.csproj -c Debug --no-restore --nologo -v quiet
+dotnet build Nag.Api/Nag.Api.csproj -c Debug --nologo -v quiet
 
 # Throwaway config so Program.Main can construct the host. Marten validates
 # the DSN format but doesn't open a connection during host build, and the
