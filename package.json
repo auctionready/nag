@@ -24,9 +24,6 @@
     "prepare": "lefthook install"
   },
   "packageManager": "pnpm@11.1.1",
-  "engines": {
-    "node": "24.14.1"
-  },
   "devDependencies": {
     "concurrently": "catalog:",
     "eslint": "^9.39.4",

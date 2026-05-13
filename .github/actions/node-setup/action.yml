@@ -1,0 +1,16 @@
+name: Setup Node and pnpm
+description: Install Node via mise, cache the pnpm store, and run pnpm install.
+
+runs:
+  using: composite
+  steps:
+    - uses: jdx/mise-action@v2
+
+    - uses: actions/cache@v4
+      with:
+        path: ~/.local/share/pnpm/store
+        key: pnpm-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+        restore-keys: pnpm-${{ runner.os }}-
+
+    - shell: bash
+      run: pnpm install --frozen-lockfile --prefer-offline
