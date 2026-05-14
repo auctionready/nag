@@ -16,7 +16,7 @@ public static class EventsEndpoints
     /// Idempotent on <see cref="WriteEventEnvelope.Id"/>; the events are
     /// appended atomically — partial failures roll back. Empty
     /// <c>events</c> arrays reserve the envelope id and behave like an
-    /// accepted-but-empty append.
+    /// accepted-but-empty appending.
     ///
     /// Response shape (REST 201/200 with the new resource's
     /// representation, per RFC 7231 §6.3.2):

@@ -1,27 +1,12 @@
-using System.IO.Compression;
 using FluentValidation;
 using JasperFx;
-using JasperFx.CodeGeneration;
-using JasperFx.Events.Projections;
-using Marten;
-using Microsoft.AspNetCore.ResponseCompression;
-using Microsoft.IdentityModel.Protocols;
-using Microsoft.IdentityModel.Protocols.OpenIdConnect;
 using Nag.Api.Auth;
+using Nag.Api.Configuration;
 using Nag.Api.Infrastructure;
-using Nag.Core.Contracts;
-using Nag.Core.Domain;
-using Nag.Core.Handlers;
-using Nag.Core.Idempotency;
-using Nag.Core.Projections;
-using Nag.Core.ReadModels;
 using Nag.Core.Validation;
 using Serilog;
-using Wolverine;
 using Wolverine.Http;
-using Wolverine.Http.Marten;
 #if DEBUG
-using Microsoft.OpenApi;
 using Nag.Api.OpenApi;
 
 dotenv.net.DotEnv.Load(
@@ -33,270 +18,25 @@ var builder = WebApplication.CreateBuilder(args);
 
 LambdaSecrets.HydrateFromEnvironment(builder.Configuration);
 
-// Sentry: read all options from the `Sentry` config section. DSN comes from
-// `Sentry:Dsn` (env var `SENTRY_DSN` in Lambda, hydrated by LambdaSecrets);
-// when unset, pass an empty string to start the SDK in disabled mode (the
-// only opt-out the SDK accepts — null throws). This matters for the
-// Swashbuckle CLI host that builds the spec without any deployment config.
-builder.WebHost.UseSentry(o =>
-{
-    if (string.IsNullOrWhiteSpace(o.Dsn))
-    {
-        o.Dsn = string.Empty;
-    }
-    o.Environment ??= builder.Environment.EnvironmentName;
-    // ASP.NET Core's pipeline is async, so events are queued on a
-    // background worker. In Lambda the host is frozen between
-    // invocations — flush the queue at the end of each request so we
-    // don't lose events.
-    o.FlushOnCompletedRequest = true;
-    // Defense in depth: even with MaxRequestBodySize=None, scrub the
-    // request body and query string on routes that carry high-value
-    // secrets in the body (Clerk JWTs, admin pre-shared secret) so a
-    // future config flip can't silently exfiltrate them.
-    o.SetBeforeSend(SentryScrubbing.ScrubSensitiveRequests);
-});
-
-builder.Host.UseSerilog(
-    (ctx, lc) =>
-    {
-        lc.ReadFrom.Configuration(ctx.Configuration)
-            .Enrich.FromLogContext()
-            .WriteTo.Console() // new Serilog.Formatting.Json.JsonFormatter()
-            .WriteTo.Sentry(s =>
-            {
-                // Piggy-back on the SDK already initialized by `UseSentry`
-                // above. Without this, the sink calls `SentrySdk.Init`
-                // itself and throws when no DSN is configured (e.g.
-                // `dotnet swagger tofile` builds the host without one).
-                s.InitializeSdk = false;
-                // Warning+ becomes a Sentry event; Information+ rides along
-                // as a breadcrumb on whatever event captures next.
-                s.MinimumEventLevel = Serilog.Events.LogEventLevel.Warning;
-                s.MinimumBreadcrumbLevel = Serilog.Events.LogEventLevel.Information;
-            });
-#if DEBUG
-        // `dotnet swagger tofile` enumerates ApiExplorer, which queries MVC's
-        // descriptor provider. We use Wolverine endpoints (not MVC), so it logs
-        // a misleading "No action descriptors found" at Information level. In
-        // Release nothing enumerates ApiExplorer, so the warning never fires.
-        lc.MinimumLevel.Override(
-            "Microsoft.AspNetCore.Mvc.Infrastructure.DefaultActionDescriptorCollectionProvider",
-            Serilog.Events.LogEventLevel.Warning
-        );
-#endif
-    }
-);
+builder.AddNagSentry();
+builder.AddNagSerilog();
 
 builder.Services.AddAWSLambdaHosting(LambdaEventSource.HttpApi);
 
-builder.Services.AddSingleton(NagJsonOptions.Default);
-builder.Services.ConfigureHttpJsonOptions(opts =>
-{
-    foreach (var c in NagJsonOptions.Default.Converters)
-        opts.SerializerOptions.Converters.Add(c);
-    opts.SerializerOptions.DefaultIgnoreCondition = NagJsonOptions.Default.DefaultIgnoreCondition;
-});
-
-builder.Services.AddResponseCompression(opts =>
-{
-    opts.EnableForHttps = true;
-    opts.Providers.Add<BrotliCompressionProvider>();
-    opts.Providers.Add<GzipCompressionProvider>();
-    opts.MimeTypes = ResponseCompressionDefaults.MimeTypes.Concat(["application/json"]);
-});
-builder.Services.Configure<BrotliCompressionProviderOptions>(o =>
-    o.Level = CompressionLevel.Fastest
-);
-builder.Services.Configure<GzipCompressionProviderOptions>(o => o.Level = CompressionLevel.Fastest);
-
+builder.Services.AddNagJson();
+builder.Services.AddNagResponseCompression();
 builder.Services.AddSingleton(TimeProvider.System);
 
-var connectionString =
-    builder.Configuration.GetConnectionString("Nag")
-    ?? throw new InvalidOperationException("ConnectionStrings:Nag is not configured.");
-
-var schemaName = builder.Configuration["Nag:SchemaName"];
-
-builder
-    .Services.AddMarten(opts =>
-    {
-        opts.Connection(connectionString);
-        if (!string.IsNullOrWhiteSpace(schemaName))
-        {
-            opts.DatabaseSchemaName = schemaName;
-            opts.Events.DatabaseSchemaName = schemaName;
-        }
-        opts.Events.StreamIdentity = JasperFx.Events.StreamIdentity.AsGuid;
-
-        // Per-account isolation. Conjoined tenancy tags every event row with
-        // a `tenant_id`; documents flagged below get the same column. The
-        // `IDocumentSession` injected into authenticated handlers is already
-        // tenanted by Wolverine HTTP (see `opts.TenantId.IsClaimTypeNamed`
-        // below), so every existing `session.Events.Append(NagStreams.Root, …)`
-        // and `session.LoadAsync<HomeBoard>(NagStreams.Root, …)` automatically
-        // scopes to the calling account.
-        //
-        // `Account` and `Device` stay single-tenant on purpose: they're how
-        // we *find* the tenant in the first place (sub → account, deviceId
-        // → device), so they have to be queryable without a tenant context.
-        opts.Events.TenancyStyle = Marten.Storage.TenancyStyle.Conjoined;
-
-        // Skip per-cold-start pg_catalog introspection in production. Schema
-        // changes are applied out-of-band (one-shot migration), so the Lambda
-        // can assume the schema already matches.
-        if (builder.Environment.IsProduction())
-        {
-            opts.AutoCreateSchemaObjects = AutoCreate.None;
-        }
-
-        // The server appends only past-tense events. Every event type
-        // the client may emit must be registered with Marten.
-        foreach (var t in EventRegistry.All)
-        {
-            opts.Events.AddEventType(t);
-        }
-
-        // Register every document type the API stores or loads, so that
-        // `db-apply` (which we run out-of-band; see `infra/src/migrations.ts`)
-        // can plan their tables. With AutoCreate.None, Marten doesn't
-        // auto-discover documents on first use, so any unregistered type
-        // would 5xx with a missing-relation error.
-        opts.Schema.For<Account>();
-        opts.Schema.For<Device>();
-        opts.Schema.For<ProcessedEnvelope>().MultiTenanted();
-        opts.Schema.For<HomeBoard>().MultiTenanted();
-        // Past-tense event projections introduced alongside the
-        // server-side switch — same per-account isolation rule as
-        // HomeBoard / ProcessedEnvelope.
-        opts.Schema.For<CheckInState>().MultiTenanted();
-        opts.Schema.For<MonthlyCheckInSummary>().MultiTenanted();
-        opts.Schema.For<WeeklyCheckInSummary>().MultiTenanted();
-        opts.Schema.For<HabitComplianceHistory>().MultiTenanted();
-
-        opts.Projections.Add<HomeBoardProjection>(ProjectionLifecycle.Inline);
-        opts.Projections.Add<CheckInIndexProjection>(ProjectionLifecycle.Inline);
-        opts.Projections.Add<MonthlyCheckInSummaryProjection>(ProjectionLifecycle.Inline);
-        opts.Projections.Add<WeeklyCheckInSummaryProjection>(ProjectionLifecycle.Inline);
-        opts.Projections.Add<HabitComplianceHistoryProjection>(ProjectionLifecycle.Inline);
-    })
-    .UseLightweightSessions();
-
-builder.Host.UseWolverine(opts =>
-{
-    opts.Durability.Mode = DurabilityMode.Serverless;
-    opts.Discovery.IncludeAssembly(typeof(EventDispatcher).Assembly);
-
-    // In production, load handler types pre-generated at build time
-    // (via `codegen write`) rather than compiling them on first invocation.
-    // Cuts several seconds off Lambda cold start. Dev/test still use the
-    // default dynamic mode so unit tests don't need the pre-built assembly.
-    if (builder.Environment.IsProduction())
-    {
-        opts.CodeGeneration.TypeLoadMode = TypeLoadMode.Static;
-    }
-});
-
-builder.Services.AddWolverineHttp();
-
-// Wire the per-request tenant id (from the `account_id` claim populated by
-// our auth handler) into the `IDocumentSession`/`IQuerySession` that Marten
-// resolves from DI. Without this, `opts.TenantId.IsClaimTypeNamed(...)`
-// below only feeds the Wolverine message-context and `AssertExists`
-// ProblemDetails path — DI sessions stay non-tenanted and conjoined-tenant
-// reads/writes silently fall through to `*DEFAULT*`, defeating isolation.
-builder.Services.AddMartenTenancyDetection(opts =>
-{
-    opts.IsClaimTypeNamed(NagClaimTypes.AccountId);
-});
-
-builder.Services.AddScoped<EventDispatcher>();
-builder.Services.AddScoped<EventsReader>();
-builder.Services.AddScoped<SyncCoordinator>();
-
-// Clerk verifier — registered in both modes. When Nag:ClerkIssuer is unset
-// (mobile-only deployments) we register a no-op that always 401s, so the
-// auth handler can still construct without a missing dependency.
-var clerkIssuer = builder.Configuration["Nag:ClerkIssuer"];
-if (!string.IsNullOrWhiteSpace(clerkIssuer))
-{
-    builder.Services.Configure<ClerkOptions>(opts => opts.Issuer = clerkIssuer);
-    builder.Services.AddHttpClient("clerk-jwks");
-    builder.Services.AddSingleton<IConfigurationManager<OpenIdConnectConfiguration>>(sp =>
-    {
-        var http = sp.GetRequiredService<IHttpClientFactory>().CreateClient("clerk-jwks");
-        var metadataAddress = $"{clerkIssuer.TrimEnd('/')}/.well-known/openid-configuration";
-        return new ConfigurationManager<OpenIdConnectConfiguration>(
-            metadataAddress,
-            new OpenIdConnectConfigurationRetriever(),
-            new HttpDocumentRetriever(http)
-        );
-    });
-    builder.Services.AddSingleton<IClerkTokenVerifier, ClerkTokenVerifier>();
-    builder.Services.AddHostedService<JwksWarmupService>();
-}
-else
-{
-    builder.Services.AddSingleton<IClerkTokenVerifier, NullClerkTokenVerifier>();
-}
-
-// Device-token issuance + validation (HMAC-signed envelope).
-builder.Services.Configure<DeviceTokenOptions>(builder.Configuration.GetSection("Nag:DeviceToken"));
-builder.Services.AddSingleton<DeviceTokenService>();
-builder.Services.AddSingleton<IDeviceTokenIssuer>(sp =>
-    sp.GetRequiredService<DeviceTokenService>()
-);
-builder.Services.AddSingleton<IDeviceTokenValidator>(sp =>
-    sp.GetRequiredService<DeviceTokenService>()
-);
-builder.Services.AddMemoryCache();
-builder.Services.AddSingleton<IDeviceAccountResolver, DeviceAccountResolver>();
-
-// ASP.NET Core authentication: a single "Nag" scheme whose handler
-// branches on the bearer token shape (HMAC device token vs. Clerk JWT).
-builder
-    .Services.AddAuthentication(NagAuthenticationOptions.SchemeName)
-    .AddScheme<NagAuthenticationOptions, NagAuthenticationHandler>(
-        NagAuthenticationOptions.SchemeName,
-        _ => { }
-    );
-builder.Services.AddAuthorization(opts =>
-{
-    // Every endpoint requires authentication unless explicitly [AllowAnonymous].
-    opts.FallbackPolicy = opts.DefaultPolicy;
-});
+builder.AddNagMarten();
+builder.AddNagWolverine();
+builder.AddNagAuthentication();
 
 builder.Services.AddValidatorsFromAssemblyContaining<HabitCreatedValidator>(filter: result =>
     result.ValidatorType != typeof(ScheduleEntryValidator)
 );
 
 #if DEBUG
-builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen(c =>
-{
-    c.UseAllOfToExtendReferenceSchemas();
-    c.SchemaFilter<EnumSchemaFilter>();
-    c.DocumentFilter<CommandSchemasFilter>();
-    c.OperationFilter<AllowAnonymousSecurityFilter>();
-    c.AddSecurityDefinition(
-        "Bearer",
-        new OpenApiSecurityScheme
-        {
-            Type = SecuritySchemeType.Http,
-            Scheme = "bearer",
-            BearerFormat = "Token",
-            In = ParameterLocation.Header,
-            Name = "Authorization",
-            Description =
-                "Either a per-device HMAC token (issued at /devices/register, "
-                + "/devices/pair, or /accounts/upgrade) or a Clerk JWT.",
-        }
-    );
-    c.AddSecurityRequirement(doc => new OpenApiSecurityRequirement
-    {
-        { new OpenApiSecuritySchemeReference("Bearer", doc), new List<string>() },
-    });
-});
+builder.Services.AddNagSwagger();
 #endif
 
 var app = builder.Build();
@@ -309,7 +49,7 @@ app.UseSentryTracing();
 app.UseSerilogRequestLogging();
 
 #if DEBUG
-// Swagger middleware must run before UseAuthentication / UseAuthorization
+// Swagger middleware must run before UseAuthentication / UseAuthorization,
 // so the docs UI is reachable without a bearer. The injected script
 // pre-authorizes the UI against /dev/token, so every "Try it out" runs
 // with a real HMAC-signed dev bearer.

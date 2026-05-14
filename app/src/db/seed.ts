@@ -414,6 +414,7 @@ export const seedSampleData = async () => {
   const realConsolidated = getConsolidatedScheduler();
   const realNotification = getNotificationScheduler();
   const noopConsolidated = {
+    requestPermissions: async () => true,
     cancelAllTimeSlotNotifications: async () => {},
     scheduleTimeSlotNotification: async () => {},
   };
@@ -424,10 +425,27 @@ export const seedSampleData = async () => {
   setConsolidatedScheduler(noopConsolidated);
   setNotificationScheduler(noopNotification);
 
+  // Seed data is for demo/visual purposes — never enable reminders so
+  // loading sample data can't trigger the iOS permission prompt or queue
+  // real local notifications.
+  const withoutReminders = (
+    g: GoalPayload | undefined,
+  ): GoalPayload | undefined => {
+    if (!g || !g.schedules) return g;
+    return {
+      ...g,
+      schedules: g.schedules.map((s) => ({ ...s, reminder: false })),
+    };
+  };
+
   try {
     for (const entry of sampleData) {
       const habitId = seqUuid();
-      await processCommand(db, { ...entry.command, habitId });
+      await processCommand(db, {
+        ...entry.command,
+        habitId,
+        goal: withoutReminders(entry.command.goal),
+      });
 
       if (entry.command.goal) {
         const createdAt = subDays(now, entry.goalDaysAgo ?? 30);
@@ -454,7 +472,7 @@ export const seedSampleData = async () => {
         await processCommand(db, {
           type: "UpdateHabit",
           habitId,
-          goal: entry.update.goal,
+          goal: withoutReminders(entry.update.goal),
         });
         const createdAt = subDays(now, entry.update.daysAgo);
         await db

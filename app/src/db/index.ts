@@ -9,6 +9,21 @@ const expoDb = Sentry.startSpan({ name: "db.open(listener)", op: "db" }, () =>
 export const db = drizzle(expoDb, { schema });
 
 /**
+ * Detects a fresh install (or first launch after the dev "Clear whole
+ * device" tool dropped every table) by checking whether drizzle's
+ * migration tracking table has been created yet. On iOS the SQLite
+ * file lives in the app sandbox and is deleted on reinstall, so this
+ * is reliable as a "this install is brand new" signal — unlike
+ * SecureStore (Keychain), which survives reinstall.
+ */
+export const isLocalDatabaseEmpty = (): boolean => {
+  const row = expoDb.getFirstSync<{ name: string }>(
+    "SELECT name FROM sqlite_master WHERE type='table' AND name='__drizzle_migrations'",
+  );
+  return row === null;
+};
+
+/**
  * Drops every table including drizzle's `__drizzle_migrations` tracking
  * table, so the next launch (via `DevSettings.reload()`) re-runs the
  * migrator from scratch. Required after a schema-breaking change —

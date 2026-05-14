@@ -35,28 +35,18 @@ public interface IClerkTokenVerifier
 /// session tokens don't always carry an <c>aud</c>, and the issuer pin
 /// already binds the token to our Clerk instance.
 /// </summary>
-public sealed class ClerkTokenVerifier : IClerkTokenVerifier
+public sealed class ClerkTokenVerifier(
+    IOptions<ClerkOptions> options,
+    IConfigurationManager<OpenIdConnectConfiguration> configManager
+) : IClerkTokenVerifier
 {
-    private readonly string _issuer;
-    private readonly IConfigurationManager<OpenIdConnectConfiguration> _configManager;
+    private readonly string _issuer = !string.IsNullOrWhiteSpace(options.Value.Issuer)
+        ? options.Value.Issuer
+        : throw new InvalidOperationException(
+            "Nag:ClerkIssuer is not configured. Set the Clerk Frontend API URL "
+                + "(e.g. https://your-instance.clerk.accounts.dev)."
+        );
     private readonly JsonWebTokenHandler _handler = new();
-
-    public ClerkTokenVerifier(
-        IOptions<ClerkOptions> options,
-        IConfigurationManager<OpenIdConnectConfiguration> configManager
-    )
-    {
-        var issuer = options.Value.Issuer;
-        if (string.IsNullOrWhiteSpace(issuer))
-        {
-            throw new InvalidOperationException(
-                "Nag:ClerkIssuer is not configured. Set the Clerk Frontend API URL "
-                    + "(e.g. https://your-instance.clerk.accounts.dev)."
-            );
-        }
-        _issuer = issuer;
-        _configManager = configManager;
-    }
 
     public async Task<ClerkTokenVerificationResult> VerifyAsync(string token, CancellationToken ct)
     {
@@ -68,7 +58,7 @@ public sealed class ClerkTokenVerifier : IClerkTokenVerifier
         OpenIdConnectConfiguration config;
         try
         {
-            config = await _configManager.GetConfigurationAsync(ct);
+            config = await configManager.GetConfigurationAsync(ct);
         }
         catch (Exception ex)
         {

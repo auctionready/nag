@@ -11,33 +11,26 @@ namespace Nag.Api.Auth;
 /// <c>payload = deviceId(16 BE) || accountId(16 BE) || expiryUnix(8 BE)</c>
 /// and <c>hmac = HMACSHA256(secret, payload)</c>.
 /// </summary>
-public sealed class DeviceTokenService : IDeviceTokenIssuer, IDeviceTokenValidator
+public sealed class DeviceTokenService(IOptions<DeviceTokenOptions> options, TimeProvider clock)
+    : IDeviceTokenIssuer,
+        IDeviceTokenValidator
 {
     private const int PayloadLength = 16 + 16 + 8;
     private const int MacLength = 32;
 
-    private readonly byte[] _key;
-    private readonly TimeSpan _lifetime;
-    private readonly TimeProvider _clock;
-
-    public DeviceTokenService(IOptions<DeviceTokenOptions> options, TimeProvider clock)
-    {
-        var secret = options.Value.Secret;
-        if (string.IsNullOrWhiteSpace(secret))
-        {
-            throw new InvalidOperationException(
+    private readonly byte[] _key = Encoding.UTF8.GetBytes(
+        !string.IsNullOrWhiteSpace(options.Value.Secret)
+            ? options.Value.Secret
+            : throw new InvalidOperationException(
                 "Nag:DeviceToken:Secret is not configured. Set the DEVICE_TOKEN_SECRET "
                     + "environment variable (or Nag__DeviceToken__Secret)."
-            );
-        }
-        _key = Encoding.UTF8.GetBytes(secret);
-        _lifetime = options.Value.Lifetime;
-        _clock = clock;
-    }
+            )
+    );
+    private readonly TimeSpan _lifetime = options.Value.Lifetime;
 
     public string Issue(Guid accountId, Guid deviceId, DateTimeOffset? expiresAt = null)
     {
-        var expiry = expiresAt ?? _clock.GetUtcNow().Add(_lifetime);
+        var expiry = expiresAt ?? clock.GetUtcNow().Add(_lifetime);
 
         var payload = new byte[PayloadLength];
         WriteGuidBigEndian(deviceId, payload.AsSpan(0, 16));
@@ -82,7 +75,7 @@ public sealed class DeviceTokenService : IDeviceTokenIssuer, IDeviceTokenValidat
         var expiryUnix = BinaryPrimitives.ReadInt64BigEndian(payload.AsSpan(32, 8));
         var expiry = DateTimeOffset.FromUnixTimeSeconds(expiryUnix);
 
-        if (expiry <= _clock.GetUtcNow())
+        if (expiry <= clock.GetUtcNow())
             return DeviceTokenValidationResult.Failure("token is expired");
 
         return DeviceTokenValidationResult.Success(accountId, deviceId);

@@ -90,22 +90,15 @@ if (__DEV__) {
       },
     },
     {
-      name: "Clear whole device",
-      callback: async () => {
-        // Like "Clear database (no refetch from server)" but also clears
-        // the secure-store device token *and* Clerk's persisted session,
-        // so the next launch is a true first-install: new deviceId, no
-        // leftover device token, no accountId, and no signed-in Clerk
-        // user (otherwise the post-Clerk-sign-in effect would immediately
-        // re-register the just-wiped device). Server-side state is
-        // untouched.
-        //
-        // Drops every table (including drizzle's migration tracking)
-        // rather than truncating rows so the migrator re-runs from
-        // scratch on reload — covers schema-breaking changes that
-        // `clearAll` can't recover from.
-        await deviceTokenStore.clear();
-        await clearAllClerkTokens();
+      name: "Clear whole device (simulate reinstall)",
+      callback: () => {
+        // Simulates an iOS reinstall: drops every local table (including
+        // drizzle's migration tracking) and reloads. On the next launch
+        // the fresh-install wipe in `wipeSecureStoreIfFreshInstall` sees
+        // no migrations table and clears the secure-store device token
+        // and Clerk JWT for us — exactly the same code path that runs
+        // after a real uninstall + reinstall on iOS. Server-side state
+        // is untouched.
         resetDatabaseSchema();
         DevSettings.reload();
       },

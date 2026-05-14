@@ -14,6 +14,7 @@ import {
 } from "../components/shell";
 import { getClerkPublishableKey, tokenCache } from "../infrastructure/clerk";
 import { bootstrapDevOverrides } from "../infrastructure/devOverrides";
+import { wipeSecureStoreIfFreshInstall } from "../infrastructure/freshInstall";
 import { ClerkProvider } from "@clerk/clerk-expo";
 import React from "react";
 import { View } from "react-native";
@@ -112,7 +113,9 @@ const RootLayout = () => {
   // Block render until they've been folded into the session-pinned
   // `getAuthMode()` / `getApiBaseUrl()` constants — otherwise the
   // first apiClient build or ClerkProvider render would see env values
-  // even when the user has overridden them.
+  // even when the user has overridden them. The same gate also waits
+  // for the fresh-install secure-store wipe, so `ClerkProvider` never
+  // sees a Keychain-cached JWT from a previous install.
   const [overridesLoaded, setOverridesLoaded] = React.useState(false);
   const showSplash = useShowSplash({
     fontsLoaded: fontsLoaded ?? false,
@@ -126,7 +129,10 @@ const RootLayout = () => {
   }, [ref]);
 
   React.useEffect(() => {
-    bootstrapDevOverrides().finally(() => setOverridesLoaded(true));
+    Promise.all([
+      bootstrapDevOverrides(),
+      wipeSecureStoreIfFreshInstall(),
+    ]).finally(() => setOverridesLoaded(true));
   }, []);
 
   // Native splash stays up until fonts load. Once we render

@@ -39,13 +39,8 @@ public static class SentryScrubbing
         return queryIndex < 0 ? url : url[..queryIndex];
     }
 
-    private static bool IsSensitive(string path)
-    {
-        foreach (var prefix in SensitivePathPrefixes)
-        {
-            if (path.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
-                return true;
-        }
-        return false;
-    }
+    private static bool IsSensitive(string path) =>
+        SensitivePathPrefixes.Any(prefix =>
+            path.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)
+        );
 }

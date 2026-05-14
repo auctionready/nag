@@ -1,7 +1,4 @@
 #if DEBUG
-using Microsoft.AspNetCore.Builder;
-using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Routing;
 using Nag.Api.Auth;
 
 namespace Nag.Api.OpenApi;
