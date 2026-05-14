@@ -188,9 +188,9 @@ builder.Host.UseWolverine(opts =>
     opts.Discovery.IncludeAssembly(typeof(EventDispatcher).Assembly);
 
     // In production, load handler types pre-generated at build time
-    // (via `codegen write`) rather than compiling them on first invocation.
+    // (via `codegen write`) rather than compiling them on the first invocation.
     // Cuts several seconds off Lambda cold start. Dev/test still use the
-    // default dynamic mode so unit tests don't need the pre-built assembly.
+    // default dynamic mode, so unit tests don't need the pre-built assembly.
     if (builder.Environment.IsProduction())
     {
         opts.CodeGeneration.TypeLoadMode = TypeLoadMode.Static;

@@ -23,7 +23,7 @@ public sealed class AllowAnonymousSecurityFilter : IOperationFilter
             .Any();
         if (anonymous)
         {
-            operation.Security = new List<OpenApiSecurityRequirement>();
+            operation.Security = [];
         }
     }
 }

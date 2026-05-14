@@ -21,7 +21,7 @@ public interface IDeviceAccountResolver
 
     /// <summary>
     /// Drops the cached mapping. Called by the upgrade endpoint once it
-    /// has bound a (possibly new) account to a subject so the next
+    /// has bound a (possibly new) account to a subject, so the next
     /// authenticated request sees the fresh mapping rather than a stale
     /// "not found".
     /// </summary>
@@ -29,7 +29,7 @@ public interface IDeviceAccountResolver
 
     /// <summary>
     /// Drops the cached account-exists result. Called by the delete
-    /// endpoint so a still-valid device token for the just-deleted
+    /// endpoint, so a still-valid device token for the just-deleted
     /// account fails the next request rather than authenticating off a
     /// stale "exists=true".
     /// </summary>
