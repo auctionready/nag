@@ -7,3 +7,4 @@ backend/Nag.Api/OpenApi/openapi.json
 bin/
 obj/
 dotnet-tools.json
+app/expo-env.d.ts
