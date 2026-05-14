@@ -2,7 +2,6 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 import { addDays, isSameDay } from "date-fns";
 import { tokens } from "../theme";
 import { CellGlyph } from "../habit-detail/CellGlyph";
-import { HabitGlyph } from "../glyphs";
 import type { WeekRow } from "./useCalendarData";
 
 const DAY_LETTERS = ["M", "T", "W", "T", "F", "S", "S"];
@@ -90,14 +89,6 @@ export const WeekView = ({
               >
                 <View style={styles.habitLabelCell}>
                   {isSelHabit && <View style={styles.habitRowStripe} />}
-                  <View style={styles.habitIconSwatch}>
-                    <HabitGlyph
-                      kind={row.habit.icon}
-                      size={11}
-                      style="line"
-                      color={tokens.ink}
-                    />
-                  </View>
                   <Text
                     style={[
                       styles.habitTitle,
@@ -150,7 +141,7 @@ const styles = StyleSheet.create({
   },
   headerLabelCell: {
     width: 70,
-    paddingLeft: 4,
+    paddingLeft: 8,
   },
   headerLabelText: {
     fontFamily: "JetBrainsMono",
@@ -211,7 +202,7 @@ const styles = StyleSheet.create({
   },
   habitRowStripe: {
     position: "absolute",
-    left: -2,
+    left: 0,
     top: 2,
     bottom: 2,
     width: 3,
@@ -222,21 +213,12 @@ const styles = StyleSheet.create({
     width: 70,
     flexDirection: "row",
     alignItems: "center",
-    gap: 6,
-    paddingLeft: 6,
+    paddingLeft: 8,
     position: "relative",
-  },
-  habitIconSwatch: {
-    width: 18,
-    height: 18,
-    borderRadius: 5,
-    backgroundColor: tokens.veryFaint,
-    alignItems: "center",
-    justifyContent: "center",
   },
   habitTitle: {
     flex: 1,
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: "600",
     color: tokens.ink,
     letterSpacing: -0.05,

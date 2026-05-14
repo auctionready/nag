@@ -98,20 +98,12 @@ const DayCheckInsList = ({ day, today, groups }: DayCheckInsListProps) => {
     },
     { total: 0, done: 0, skip: 0 },
   );
-  const compact = groups.length >= 6;
-
   return (
     <View style={styles.section}>
       <DayHeader day={day} today={today} totals={totals} />
       {groups.length === 0 ? (
         <View style={styles.emptyWrap}>
           <Text style={styles.emptyText}>No check-ins this day.</Text>
-        </View>
-      ) : compact ? (
-        <View style={styles.compactCard}>
-          {groups.map((g, i) => (
-            <CompactRow key={g.habitId} group={g} divider={i > 0} />
-          ))}
         </View>
       ) : (
         <View style={styles.cardsStack}>
@@ -124,33 +116,13 @@ const DayCheckInsList = ({ day, today, groups }: DayCheckInsListProps) => {
   );
 };
 
-const CompactRow = ({
-  group,
-  divider,
-}: {
-  group: DayCheckInGroup;
-  divider: boolean;
-}) => (
-  <View style={[styles.compactRow, divider && styles.compactRowDivider]}>
-    <HabitSwatch icon={group.icon} size="sm" />
-    <Text style={styles.rowTitle} numberOfLines={1}>
-      {group.title}
-    </Text>
-    <View style={styles.dotRow}>
-      {group.checkIns.map((c) => (
-        <SlotDot key={c.id} kind={c.skipped ? "skip" : "done"} />
-      ))}
-    </View>
-  </View>
-);
-
 const CardRow = ({ group }: { group: DayCheckInGroup }) => {
   const done = group.checkIns.filter((c) => !c.skipped).length;
   const skip = group.checkIns.length - done;
   const note = skip > 0 ? `${done} done · ${skip} skip` : `${done} done`;
   return (
     <View style={styles.card}>
-      <HabitSwatch icon={group.icon} size="md" />
+      <HabitSwatch icon={group.icon} />
       <View style={styles.cardText}>
         <Text style={styles.rowTitle} numberOfLines={1}>
           {group.title}
@@ -501,20 +473,9 @@ const DayHeader = ({ day, today, totals, trailing }: DayHeaderProps) => {
   );
 };
 
-const HabitSwatch = ({
-  icon,
-  size,
-}: {
-  icon: DayCheckInGroup["icon"];
-  size: "sm" | "md";
-}) => (
-  <View style={[styles.swatch, size === "md" && styles.swatchMd]}>
-    <HabitGlyph
-      kind={icon}
-      size={size === "sm" ? 13 : 16}
-      style="line"
-      color={tokens.ink}
-    />
+const HabitSwatch = ({ icon }: { icon: DayCheckInGroup["icon"] }) => (
+  <View style={styles.swatch}>
+    <HabitGlyph kind={icon} size={16} style="line" color={tokens.ink} />
   </View>
 );
 
@@ -633,25 +594,6 @@ const styles = StyleSheet.create({
     marginTop: 2,
     letterSpacing: 0.3,
   },
-  compactCard: {
-    marginHorizontal: 16,
-    backgroundColor: tokens.surface,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: tokens.border,
-    overflow: "hidden",
-  },
-  compactRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: 7,
-    paddingHorizontal: 10,
-    gap: 10,
-  },
-  compactRowDivider: {
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: tokens.border,
-  },
   rowTitle: {
     flex: 1,
     fontSize: 12.5,
@@ -660,17 +602,12 @@ const styles = StyleSheet.create({
     letterSpacing: -0.05,
   },
   swatch: {
-    width: 22,
-    height: 22,
-    borderRadius: 6,
-    backgroundColor: tokens.veryFaint,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  swatchMd: {
     width: 28,
     height: 28,
     borderRadius: 8,
+    backgroundColor: tokens.veryFaint,
+    alignItems: "center",
+    justifyContent: "center",
   },
   dotRow: {
     flexDirection: "row",
