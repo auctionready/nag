@@ -53,17 +53,26 @@ public sealed class NagAuthenticationHandler : AuthenticationHandler<NagAuthenti
         var dotCount = CountDots(token);
         return dotCount switch
         {
-            1 => HandleDeviceToken(token),
+            1 => await HandleDeviceToken(token, Context.RequestAborted),
             2 => await HandleClerkToken(token, Context.RequestAborted),
             _ => AuthenticateResult.Fail("token format not recognized"),
         };
     }
 
-    private AuthenticateResult HandleDeviceToken(string token)
+    private async Task<AuthenticateResult> HandleDeviceToken(string token, CancellationToken ct)
     {
         var result = _deviceTokens.Validate(token);
         if (!result.Ok)
             return AuthenticateResult.Fail(result.FailureReason ?? "invalid device token");
+
+        // Bind the still-valid HMAC to a live Account row. Without this an
+        // out-of-band `DELETE /accounts/me` (or any other path that removes
+        // the row) would leave the token authenticating against an orphan
+        // tenant id — the dispatcher would happily append events under that
+        // tenant, silently re-creating per-tenant state for a "deleted"
+        // account.
+        if (!await _resolver.AccountExists(result.AccountId, ct))
+            return AuthenticateResult.Fail("account is no longer active");
 
         var identity = new ClaimsIdentity(
             new[]

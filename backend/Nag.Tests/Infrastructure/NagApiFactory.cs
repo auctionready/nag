@@ -4,6 +4,7 @@ using Marten;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.DependencyInjection;
 using Nag.Api.Auth;
+using Nag.Core.Domain;
 
 namespace Nag.Tests.Infrastructure;
 
@@ -59,13 +60,34 @@ public class NagApiFactory : IAsyncLifetime
 
     /// <summary>
     /// Mints an HMAC device token without going through
-    /// <c>/devices/register</c>. Useful for tests that exercise
-    /// already-protected endpoints and don't care about the bootstrap
-    /// flow — the auth handler validates the signature, not whether the
-    /// referenced account/device actually exists in Marten.
+    /// <c>/devices/register</c>, and (by default) seeds an <c>Account</c>
+    /// row so the auth handler's live-account check passes. Pass
+    /// <paramref name="seedAccount"/>=<c>false</c> to mint a token whose
+    /// account does not exist — used by the negative tests that exercise
+    /// the "forged token against a missing account" path.
     /// </summary>
-    public string IssueDeviceToken(Guid? accountId = null, Guid? deviceId = null) =>
-        DeviceTokens.Issue(accountId ?? Guid.NewGuid(), deviceId ?? Guid.NewGuid());
+    public string IssueDeviceToken(
+        Guid? accountId = null,
+        Guid? deviceId = null,
+        bool seedAccount = true
+    )
+    {
+        var aid = accountId ?? Guid.NewGuid();
+        var did = deviceId ?? Guid.NewGuid();
+        if (seedAccount)
+        {
+            SeedAccount(aid);
+        }
+        return DeviceTokens.Issue(aid, did);
+    }
+
+    private void SeedAccount(Guid accountId)
+    {
+        using var scope = Services.CreateScope();
+        var session = scope.ServiceProvider.GetRequiredService<IDocumentSession>();
+        session.Store(new Account { Id = accountId, CreatedAt = DateTimeOffset.UtcNow });
+        session.SaveChangesAsync().GetAwaiter().GetResult();
+    }
 
     public HttpClient CreateClient() => GetHost().Server.CreateClient();
 

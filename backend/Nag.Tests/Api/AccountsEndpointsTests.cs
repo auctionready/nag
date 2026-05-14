@@ -348,17 +348,19 @@ public class AccountsEndpointsTests : IClassFixture<AccountsEndpointsTests.Facto
     }
 
     [Fact]
-    public async Task unbind_with_an_unknown_account_returns_404()
+    public async Task unbind_with_an_unknown_account_returns_401()
     {
         // Forge a device token whose account_id claim points at an account
-        // that was never persisted.
-        var token = _factory.IssueDeviceToken(Guid.NewGuid(), Guid.NewGuid());
+        // that was never persisted. The auth handler's live-account check
+        // rejects the token before the endpoint runs, so the response is
+        // 401 (not 404 from the endpoint's own LoadAsync<Account>).
+        var token = _factory.IssueDeviceToken(Guid.NewGuid(), Guid.NewGuid(), seedAccount: false);
         var client = _factory.CreateClient();
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
         var response = await client.PostAsync("/accounts/unbind", content: null);
 
-        response.StatusCode.ShouldBe(HttpStatusCode.NotFound);
+        response.StatusCode.ShouldBe(HttpStatusCode.Unauthorized);
     }
 
     [Fact]
@@ -405,6 +407,24 @@ public class AccountsEndpointsTests : IClassFixture<AccountsEndpointsTests.Facto
     }
 
     [Fact]
+    public async Task delete_me_invalidates_the_device_token()
+    {
+        var (_, _, client) = await RegisterAndUpgradeAsync("user_delete_then_device");
+
+        // Sanity: the device token works against a protected endpoint
+        // before deletion.
+        (await client.GetAsync("/home-board")).StatusCode.ShouldBe(HttpStatusCode.OK);
+
+        (await client.DeleteAsync("/accounts/me")).StatusCode.ShouldBe(HttpStatusCode.OK);
+
+        // The very same client + bearer now fails — the auth handler's
+        // live-account check sees the row is gone (cache was invalidated
+        // by the delete endpoint) and rejects the token. Without that
+        // check, the orphan tenant id would silently accept writes.
+        (await client.GetAsync("/home-board")).StatusCode.ShouldBe(HttpStatusCode.Unauthorized);
+    }
+
+    [Fact]
     public async Task delete_me_lets_a_subsequent_clerk_token_for_the_same_identity_get_401()
     {
         var (_, _, client) = await RegisterAndUpgradeAsync("user_delete_then_clerk");
@@ -437,17 +457,18 @@ public class AccountsEndpointsTests : IClassFixture<AccountsEndpointsTests.Facto
     }
 
     [Fact]
-    public async Task delete_me_with_an_unknown_account_returns_404()
+    public async Task delete_me_with_an_unknown_account_returns_401()
     {
         // Forged token: signature valid, but the account_id claim points at
-        // a row that was never persisted.
-        var token = _factory.IssueDeviceToken(Guid.NewGuid(), Guid.NewGuid());
+        // a row that was never persisted. The auth handler's live-account
+        // check rejects this before the endpoint runs.
+        var token = _factory.IssueDeviceToken(Guid.NewGuid(), Guid.NewGuid(), seedAccount: false);
         var client = _factory.CreateClient();
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
         var response = await client.DeleteAsync("/accounts/me");
 
-        response.StatusCode.ShouldBe(HttpStatusCode.NotFound);
+        response.StatusCode.ShouldBe(HttpStatusCode.Unauthorized);
     }
 
     [Fact]

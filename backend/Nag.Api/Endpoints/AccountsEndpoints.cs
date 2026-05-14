@@ -274,6 +274,11 @@ public static class AccountsEndpoints
         if (!string.IsNullOrEmpty(account.IdpSubject))
             resolver.Invalidate(account.IdpSubject);
 
+        // Drop the cached account-exists result so any still-valid device
+        // token for this account fails its next authentication attempt
+        // (rather than riding a stale "exists=true" for the cache TTL).
+        resolver.InvalidateAccount(accountId);
+
         return Results.Ok(new DeleteAccountResponse(accountId));
     }
 }

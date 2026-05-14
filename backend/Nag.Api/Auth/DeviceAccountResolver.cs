@@ -11,7 +11,7 @@ public sealed class DeviceAccountResolver(IDocumentStore store, IMemoryCache cac
 
     public async ValueTask<Guid?> AccountIdForSubject(string sub, CancellationToken ct)
     {
-        if (cache.TryGetValue<Guid>(CacheKey(sub), out var cached))
+        if (cache.TryGetValue<Guid>(SubKey(sub), out var cached))
             return cached;
 
         await using var session = store.LightweightSession();
@@ -24,11 +24,27 @@ public sealed class DeviceAccountResolver(IDocumentStore store, IMemoryCache cac
         if (accountId == Guid.Empty)
             return null;
 
-        cache.Set(CacheKey(sub), accountId, CacheTtl);
+        cache.Set(SubKey(sub), accountId, CacheTtl);
         return accountId;
     }
 
-    public void Invalidate(string sub) => cache.Remove(CacheKey(sub));
+    public async ValueTask<bool> AccountExists(Guid accountId, CancellationToken ct)
+    {
+        if (cache.TryGetValue<bool>(AccountKey(accountId), out var cached))
+            return cached;
 
-    private static string CacheKey(string sub) => $"sub:{sub}";
+        await using var session = store.LightweightSession();
+        var exists = await session.Query<Account>().Where(a => a.Id == accountId).AnyAsync(ct);
+
+        cache.Set(AccountKey(accountId), exists, CacheTtl);
+        return exists;
+    }
+
+    public void Invalidate(string sub) => cache.Remove(SubKey(sub));
+
+    public void InvalidateAccount(Guid accountId) => cache.Remove(AccountKey(accountId));
+
+    private static string SubKey(string sub) => $"sub:{sub}";
+
+    private static string AccountKey(Guid id) => $"acct:{id:D}";
 }
