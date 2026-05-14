@@ -1,13 +1,6 @@
 // Sentry must initialize before any other module that may emit spans or
 // errors — notably the db module, which opens SQLite at import time.
 import { Sentry, navigationIntegration } from "../infrastructure/sentry";
-// Dev-menu registration is side-effect only and pulls in `devAuth` +
-// the dev-only imports of `@nag/core` it uses. Wrap in a `__DEV__`
-// guarded `require` so Metro drops the whole subtree from production
-// bundles instead of relying on minifier dead-code elimination.
-if (__DEV__) {
-  require("../db/devMenu");
-}
 import { init, postMigrationInit } from "../infrastructure/init";
 import { useNotificationResponseHandler } from "../infrastructure/notificationResponseHandler";
 import { useForegroundNotificationSync } from "../infrastructure/foregroundSync";
@@ -31,6 +24,14 @@ import * as SplashScreen from "expo-splash-screen";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { DatabaseProvider } from "../db/DatabaseProvider";
 import { useShowSplash } from "../hooks/useShowSplash";
+// Dev-menu registration is side-effect only and pulls in `devAuth` +
+// the dev-only imports of `@nag/core` it uses. Wrap in a `__DEV__`
+// guarded `require` so Metro drops the whole subtree from production
+// bundles instead of relying on minifier dead-code elimination.
+if (__DEV__) {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  require("../db/devMenu");
+}
 
 // Keep the native splash up until fonts load and the JS animated splash mounts;
 // then we hide it and run the reveal animation.
