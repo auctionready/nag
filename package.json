@@ -2,6 +2,9 @@
   "name": "nag",
   "private": true,
   "type": "module",
+  "engines": {
+    "node": ">=24"
+  },
   "scripts": {
     "dev": "pnpm typecheck && pnpm lint",
     "lint": "eslint . --cache --cache-location .eslintcache",
