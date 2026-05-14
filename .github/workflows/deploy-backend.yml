@@ -19,7 +19,7 @@ jobs:
 
       - uses: actions/setup-dotnet@v5
         with:
-          dotnet-version: "10.0.x"
+          global-json-file: backend/global.json
 
       # package-lambda.sh runs with --no-restore so it doesn't churn local
       # dev's package state; restore explicitly here before invoking it.
