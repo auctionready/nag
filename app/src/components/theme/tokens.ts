@@ -14,6 +14,7 @@ export const tokens = {
   midFaint: "rgba(26,20,16,0.12)",
   veryFaint: "rgba(26,20,16,0.06)",
   inkTint: "rgba(26,20,16,0.04)",
+  inkSkipped: "rgba(26,20,16,0.32)",
   chipTint: "rgba(26,20,16,0.035)",
   orange: "#FF5A36",
 };

@@ -60,7 +60,7 @@ export const recentCheckIns = (
  */
 export const checkInsInPeriod = (db: AnyDb, habitId: string, since: Date) =>
   db
-    .select({ timestamp: checkIn.timestamp })
+    .select({ timestamp: checkIn.timestamp, skipped: checkIn.skipped })
     .from(checkIn)
     .where(and(eq(checkIn.habitId, habitId), gte(checkIn.timestamp, since)))
     .orderBy(desc(checkIn.timestamp));

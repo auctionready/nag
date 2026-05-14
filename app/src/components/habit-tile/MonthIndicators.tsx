@@ -1,11 +1,11 @@
 import { StyleSheet, View, type ViewStyle } from "react-native";
-import Svg, { Path } from "react-native-svg";
+import Svg, { Line, Path } from "react-native-svg";
 import { buildMonthCells, type MonthDayCell } from "@nag/core";
 import { useStartOfToday } from "../../infrastructure/today";
 import { tokens } from "../../components/theme";
 
 interface MonthIndicatorsProps {
-  checkIns: { timestamp: Date }[];
+  checkIns: { timestamp: Date; skipped?: boolean | null }[];
 }
 
 // Cell language for the monthly strip. Monthly habits don't carry a per-day
@@ -44,11 +44,14 @@ export const MonthIndicators = ({ checkIns }: MonthIndicatorsProps) => {
 };
 
 const MonthCell = ({ day }: { day: MonthDayCell }) => {
-  const { hasCheckIn, isToday, isFuture } = day;
+  const { hasCheckIn, isSkipped, isToday, isFuture } = day;
   const cellStyle: ViewStyle[] = [styles.cell];
   let inner: React.ReactNode = null;
 
-  if (hasCheckIn) {
+  if (isSkipped) {
+    cellStyle.push(styles.cellSkipped);
+    inner = <SkippedDashGlyph />;
+  } else if (hasCheckIn) {
     cellStyle.push(styles.cellInk);
     inner = <CheckGlyph />;
   } else if (isToday) {
@@ -61,6 +64,20 @@ const MonthCell = ({ day }: { day: MonthDayCell }) => {
 
   return <View style={cellStyle}>{inner}</View>;
 };
+
+const SkippedDashGlyph = () => (
+  <Svg width={9} height={9} viewBox="0 0 9 9" fill="none">
+    <Line
+      x1={2}
+      y1={4.5}
+      x2={7}
+      y2={4.5}
+      stroke={tokens.cream}
+      strokeWidth={1.5}
+      strokeLinecap="round"
+    />
+  </Svg>
+);
 
 const CheckGlyph = () => (
   <Svg width={9} height={9} viewBox="0 0 9 9" fill="none">
@@ -95,6 +112,9 @@ const styles = StyleSheet.create({
   },
   cellInk: {
     backgroundColor: tokens.ink,
+  },
+  cellSkipped: {
+    backgroundColor: tokens.inkSkipped,
   },
   todayDot: {
     width: 3,

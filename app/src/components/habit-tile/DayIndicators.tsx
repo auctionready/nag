@@ -8,6 +8,8 @@ interface DayIndicatorsProps {
   scheduledDaysMask: number;
   checkedInDaysMask: number;
   partialDaysMask?: number;
+  /** Days where the user only logged skip check-ins (no real completions). */
+  skippedDaysMask?: number;
   anyCheckInDaysMask?: number;
   todayColor?: string;
   partialColor?: string;
@@ -18,6 +20,7 @@ interface BuildCellsArgs {
   scheduledDaysMask: number;
   checkedInDaysMask: number;
   partialDaysMask?: number;
+  skippedDaysMask?: number;
   anyCheckInDaysMask?: number;
   now: Date;
 }
@@ -31,6 +34,8 @@ interface BuildCellsArgs {
 //   today-partial  — partial + orange ring
 //   missed         — past scheduled day with no check-in — faint ring + slash
 //   future         — upcoming scheduled day — faint ring
+//   skipped        — scheduled day the user intentionally set aside — soft
+//                    ink fill + cream dash (reads closer to done than missed)
 //   skip           — not scheduled — past gets a faint fill, future a lighter
 //                    fill (calendar negative space, with a subtle past/future
 //                    shade difference)
@@ -42,6 +47,7 @@ type CellState =
   | "today-partial"
   | "missed"
   | "future"
+  | "skipped"
   | "skip";
 
 interface Cell {
@@ -55,6 +61,7 @@ const buildCells = ({
   scheduledDaysMask,
   checkedInDaysMask,
   partialDaysMask = 0,
+  skippedDaysMask = 0,
   anyCheckInDaysMask = 0,
   now,
 }: BuildCellsArgs): Cell[] => {
@@ -66,11 +73,16 @@ const buildCells = ({
     const scheduled = (scheduledDaysMask & day) !== 0;
     const checkedIn = (checkedInDaysMask & day) !== 0;
     const partial = (partialDaysMask & day) !== 0;
+    const skipped = (skippedDaysMask & day) !== 0;
     const anyCheckIn = (anyCheckInDaysMask & day) !== 0;
     const isToday = day === todayBit;
     const isPast = i < todayIndex;
     let state: CellState;
-    if (scheduled && checkedIn) state = isToday ? "today-done" : "done";
+    // Skipped is checked before completed: a fully-skipped day is also in
+    // `checkedInDaysMask` (skips cover the schedule) but should read as
+    // intentionally set aside, not as done.
+    if (scheduled && skipped) state = "skipped";
+    else if (scheduled && checkedIn) state = isToday ? "today-done" : "done";
     else if (!scheduled && anyCheckIn) state = "done";
     else if (scheduled && partial)
       state = isToday ? "today-partial" : "partial";
@@ -130,6 +142,10 @@ const Cell = ({ letter, state, isToday, isPast }: Cell) => {
     case "future":
       cellStyle.push(styles.cellFaintRing);
       break;
+    case "skipped":
+      cellStyle.push(styles.cellSkipped);
+      inner = <SkippedDashGlyph />;
+      break;
     case "skip":
       cellStyle.push(isPast ? styles.cellEmptyPast : styles.cellEmptyFuture);
       break;
@@ -153,6 +169,20 @@ const CheckGlyph = () => (
       strokeWidth={1.5}
       strokeLinecap="round"
       strokeLinejoin="round"
+    />
+  </Svg>
+);
+
+const SkippedDashGlyph = () => (
+  <Svg width={9} height={9} viewBox="0 0 9 9" fill="none">
+    <Line
+      x1={2}
+      y1={4.5}
+      x2={7}
+      y2={4.5}
+      stroke={tokens.cream}
+      strokeWidth={1.5}
+      strokeLinecap="round"
     />
   </Svg>
 );
@@ -220,6 +250,9 @@ const styles = StyleSheet.create({
   },
   cellFaintRing: {
     borderColor: tokens.faint,
+  },
+  cellSkipped: {
+    backgroundColor: tokens.inkSkipped,
   },
   cellEmptyPast: {
     backgroundColor: tokens.midFaint,

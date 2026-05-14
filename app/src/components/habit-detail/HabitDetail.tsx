@@ -382,6 +382,7 @@ const DetailView = ({
             scheduledDaysMask={snap.scheduledDaysMask}
             checkedInDaysMask={snap.completedDaysMask}
             partialDaysMask={snap.partialDaysMask}
+            skippedDaysMask={snap.skippedDaysMask}
             anyCheckInDaysMask={snap.anyCheckInDaysMask}
             selectedDay={selectedDay}
             onSelectDay={onSelectDay}

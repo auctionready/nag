@@ -85,6 +85,7 @@ export const HabitTile = ({ id, title, icon }: HabitTileProps) => {
           scheduledDaysMask: ALL_DAYS_MASK,
           checkedInDaysMask: dailyMasks.completedDaysMask,
           partialDaysMask: dailyMasks.partialDaysMask,
+          skippedDaysMask: dailyMasks.skippedDaysMask,
         }
       : isWeekly
         ? {
@@ -92,6 +93,7 @@ export const HabitTile = ({ id, title, icon }: HabitTileProps) => {
             scheduledDaysMask: effectiveScheduledMask,
             checkedInDaysMask: effectiveCheckedInMask,
             partialDaysMask: hasSchedule ? snap.partialDaysMask : 0,
+            skippedDaysMask: hasSchedule ? snap.skippedDaysMask : 0,
             anyCheckInDaysMask: effectiveAnyCheckInMask,
           }
         : undefined;

@@ -36,6 +36,7 @@ export const postMigrationInit = () => {
   if (!__DEV__) return;
   if (getAuthMode() !== "dev-auth") return;
   const { runDevAuthRegistration } =
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
     require("./initDevAuth") as typeof import("./initDevAuth");
   void runDevAuthRegistration();
 };
