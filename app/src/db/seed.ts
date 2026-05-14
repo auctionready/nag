@@ -13,6 +13,8 @@ import {
 import {
   AllDays,
   Day,
+  WeekDays,
+  WeekendDays,
   getConsolidatedScheduler,
   getNotificationScheduler,
   processCommand,
@@ -20,32 +22,127 @@ import {
   setNotificationScheduler,
   syncAllNotifications,
   type CreateHabit,
+  type GoalPayload,
   type TokenStore,
 } from "@nag/core";
 import { db } from "./index";
 
-interface SeedEntry {
-  command: Omit<CreateHabit, "habitId">;
-  checkIns?: { daysAgo: number }[];
-}
-
 // ── Day helpers ─────────────────────────────────────────────────────
-const Weekdays = Day.Mon | Day.Tue | Day.Wed | Day.Thu | Day.Fri;
 const MWF = Day.Mon | Day.Wed | Day.Fri;
 const TuTh = Day.Tue | Day.Thu;
+const MW = Day.Mon | Day.Wed;
+
+// ── Pattern-based check-in generator ────────────────────────────────
+// Personas have realistic histories with mixed completions, skips, and
+// misses. A pattern controls the completion rate and how often a
+// completion is recorded as a skip. Pattern arrays split the history
+// into equal phases — `["solid", "patchyMissing"]` is "solid then
+// faded".
+
+type Pattern =
+  | "solid"
+  | "fewMisses"
+  | "patchyMissing"
+  | "patchySkipping"
+  | "sparse";
+
+const patternConfigs: Record<
+  Pattern,
+  { completionRate: number; skipRatio: number }
+> = {
+  solid: { completionRate: 0.92, skipRatio: 0.05 },
+  fewMisses: { completionRate: 0.78, skipRatio: 0.1 },
+  patchyMissing: { completionRate: 0.45, skipRatio: 0.1 },
+  patchySkipping: { completionRate: 0.55, skipRatio: 0.55 },
+  sparse: { completionRate: 0.25, skipRatio: 0.15 },
+};
+
+// Tiny deterministic PRNG (mulberry32) — same seed gives same history.
+const mulberry32 = (seed: number) => () => {
+  let t = (seed = (seed + 0x6d2b79f5) | 0);
+  t = Math.imul(t ^ (t >>> 15), t | 1);
+  t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+  return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+};
+
+interface HistoryConfig {
+  startDaysAgo: number;
+  endDaysAgo?: number;
+  pattern: Pattern | Pattern[];
+  /** Ignore scheduled days — one slot per calendar day. */
+  anyDay?: boolean;
+  seed: number;
+}
+
+interface GeneratedCheckIn {
+  daysAgo: number;
+  skipped?: boolean;
+}
+
+const generateCheckIns = (
+  schedules: readonly { days: number }[],
+  cfg: HistoryConfig,
+  now: Date,
+): GeneratedCheckIn[] => {
+  const rng = mulberry32(cfg.seed);
+  const end = cfg.endDaysAgo ?? 0;
+  const span = cfg.startDaysAgo - end + 1;
+  const patterns = Array.isArray(cfg.pattern) ? cfg.pattern : [cfg.pattern];
+  const result: GeneratedCheckIn[] = [];
+
+  for (let i = 0; i < span; i++) {
+    const daysAgo = cfg.startDaysAgo - i;
+    const date = subDays(now, daysAgo);
+    const phaseIdx = Math.min(
+      Math.floor((i / span) * patterns.length),
+      patterns.length - 1,
+    );
+    const phase = patternConfigs[patterns[phaseIdx]];
+
+    const slots = cfg.anyDay
+      ? 1
+      : schedules.reduce(
+          (n, s) => n + ((s.days & (1 << date.getDay())) !== 0 ? 1 : 0),
+          0,
+        );
+
+    for (let s = 0; s < slots; s++) {
+      if (rng() > phase.completionRate) continue;
+      const skipped = rng() < phase.skipRatio;
+      result.push(skipped ? { daysAgo, skipped: true } : { daysAgo });
+    }
+  }
+  return result;
+};
+
+const goalSchedules = (
+  command: Omit<CreateHabit, "habitId">,
+): { days: number }[] => {
+  const g = command.goal;
+  if (!g || g.regularity !== "week" || !g.schedules) return [];
+  return g.schedules.map((s) => ({ days: s.days }));
+};
 
 // ── Sample data ──────────────────────────────────────────────────────
-// Edit this array to change what gets seeded. Each entry is a CreateHabit
-// command that the seeder fans out via `processCommand`, so the same
-// rows that land locally also queue in the outbox and replicate to the
-// backend on the next sync.
-//
-// daysAgo: 0 = today, 1 = yesterday, etc.
+// Persona "Sam" — picked up a few habits over the last two months,
+// some sticking better than others. Mix of solid streaks, fading
+// resolve, fresh starts, and a goal change mid-stream. Edit freely.
+
+interface SeedEntry {
+  command: Omit<CreateHabit, "habitId">;
+  /** How many days ago the (current) goal was created. Defaults to 30. */
+  goalDaysAgo?: number;
+  /** Generated history. */
+  history?: HistoryConfig;
+  /** Hand-picked extras on top of generated ones. */
+  checkIns?: GeneratedCheckIn[];
+  /** Applies an UpdateHabit partway through and re-stamps goal.createdAt. */
+  update?: { daysAgo: number; goal: GoalPayload };
+}
 
 const sampleData: SeedEntry[] = [
+  // Rock-solid — 60-day daily meditation streak with a handful of misses.
   {
-    // Every day at 7am. Modelled as a weekly goal because only weekly
-    // goals carry schedules — see commands/schemas.ts.
     command: {
       type: "CreateHabit",
       title: "Meditate",
@@ -54,27 +151,36 @@ const sampleData: SeedEntry[] = [
         schedules: [{ hour: 7, minute: 0, days: AllDays }],
       },
     },
-    checkIns: [{ daysAgo: 0 }],
+    goalDaysAgo: 60,
+    history: {
+      startDaysAgo: 60,
+      pattern: "solid",
+      anyDay: true,
+      seed: 11,
+    },
   },
+  // Started strong, faded — twice-daily weekday workouts now slipping.
   {
-    // Twice a day on weekdays (morning + evening). Modelled as a weekly
-    // habit so the schedules can carry day-of-week filters; the handler
-    // counts popcount(days) across schedules to derive frequency = 10.
     command: {
       type: "CreateHabit",
       title: "Exercise",
       goal: {
         regularity: "week",
         schedules: [
-          { hour: 6, minute: 30, days: Weekdays },
-          { hour: 18, minute: 0, days: Weekdays },
+          { hour: 6, minute: 30, days: WeekDays },
+          { hour: 18, minute: 0, days: WeekDays },
         ],
       },
     },
-    checkIns: [{ daysAgo: 0 }],
+    goalDaysAgo: 60,
+    history: {
+      startDaysAgo: 60,
+      pattern: ["solid", "fewMisses", "patchyMissing"],
+      seed: 22,
+    },
   },
+  // Just created — no history yet.
   {
-    // Every day at 9pm — nothing checked in yet.
     command: {
       type: "CreateHabit",
       title: "Read",
@@ -83,9 +189,10 @@ const sampleData: SeedEntry[] = [
         schedules: [{ hour: 21, minute: 0, days: AllDays }],
       },
     },
+    goalDaysAgo: 1,
   },
+  // Patchy, lots of skips — journaling never quite landed.
   {
-    // MWF mornings + Tue/Thu evenings (5 time-slots across the week).
     command: {
       type: "CreateHabit",
       title: "Journal",
@@ -97,16 +204,16 @@ const sampleData: SeedEntry[] = [
         ],
       },
     },
-    checkIns: [
-      { daysAgo: 0 },
-      { daysAgo: 1 },
-      { daysAgo: 2 },
-      { daysAgo: 3 },
-      { daysAgo: 5 },
-    ],
+    goalDaysAgo: 45,
+    history: {
+      startDaysAgo: 45,
+      pattern: "patchySkipping",
+      seed: 33,
+    },
   },
+  // Goal change — used to be 3×/week (MWF), dropped to 2×/week (MW)
+  // about 25 days ago when the Friday runs kept getting missed.
   {
-    // 3× per week, scheduled MWF at 6am.
     command: {
       type: "CreateHabit",
       title: "Run 5k",
@@ -115,54 +222,124 @@ const sampleData: SeedEntry[] = [
         schedules: [{ hour: 6, minute: 0, days: MWF }],
       },
     },
-    checkIns: [{ daysAgo: 1 }],
+    goalDaysAgo: 60,
+    history: {
+      startDaysAgo: 60,
+      pattern: ["fewMisses", "patchyMissing"],
+      seed: 44,
+    },
+    update: {
+      daysAgo: 25,
+      goal: {
+        regularity: "week",
+        schedules: [{ hour: 6, minute: 0, days: MW }],
+      },
+    },
   },
+  // Weekend-only — guitar with plenty of skips.
   {
-    // Weekend-only habit, one time-slot on Sat + Sun.
     command: {
       type: "CreateHabit",
       title: "Practice guitar",
       goal: {
         regularity: "week",
-        schedules: [{ hour: 10, minute: 0, days: Day.Sat | Day.Sun }],
+        schedules: [{ hour: 10, minute: 0, days: WeekendDays }],
       },
     },
-    checkIns: [{ daysAgo: 3 }],
+    goalDaysAgo: 60,
+    history: {
+      startDaysAgo: 60,
+      pattern: "patchySkipping",
+      seed: 55,
+    },
   },
+  // Fresh — solid 10-day streak on a 3-slot weekday habit.
   {
-    // Three time-slots per day on weekdays (morning, lunch, evening).
     command: {
       type: "CreateHabit",
       title: "Drink water",
       goal: {
         regularity: "week",
         schedules: [
-          { hour: 8, minute: 0, days: Weekdays },
-          { hour: 12, minute: 30, days: Weekdays },
-          { hour: 17, minute: 0, days: Weekdays },
+          { hour: 8, minute: 0, days: WeekDays },
+          { hour: 12, minute: 30, days: WeekDays },
+          { hour: 17, minute: 0, days: WeekDays },
         ],
       },
     },
-    checkIns: [{ daysAgo: 0 }, { daysAgo: 0 }],
+    goalDaysAgo: 10,
+    history: {
+      startDaysAgo: 10,
+      pattern: "solid",
+      seed: 66,
+    },
   },
+  // Consistent monthly habit — 4×/month for two months, hand-picked.
   {
-    // Monthly, no schedule — frequency-only goal.
     command: {
       type: "CreateHabit",
       title: "Call family",
       goal: { regularity: "month", frequency: 4 },
     },
+    goalDaysAgo: 60,
     checkIns: [
       { daysAgo: 2 },
-      { daysAgo: 8 },
-      { daysAgo: 15 },
-      { daysAgo: 22 },
+      { daysAgo: 10 },
+      { daysAgo: 17 },
+      { daysAgo: 26 },
+      { daysAgo: 33 },
+      { daysAgo: 41 },
+      { daysAgo: 49 },
+      { daysAgo: 58 },
     ],
   },
+  // No goal — freeform stretching, sporadic.
   {
-    // No goal, no schedule — freeform.
     command: { type: "CreateHabit", title: "Stretch" },
-    checkIns: [{ daysAgo: 0 }],
+    checkIns: [
+      { daysAgo: 0 },
+      { daysAgo: 2 },
+      { daysAgo: 5 },
+      { daysAgo: 12 },
+      { daysAgo: 18, skipped: true },
+      { daysAgo: 24 },
+    ],
+  },
+  // Recent solid daily habit — washing dishes after dinner.
+  {
+    command: {
+      type: "CreateHabit",
+      title: "Wash dishes",
+      goal: {
+        regularity: "week",
+        schedules: [{ hour: 19, minute: 30, days: AllDays }],
+      },
+    },
+    goalDaysAgo: 20,
+    history: {
+      startDaysAgo: 20,
+      pattern: "fewMisses",
+      anyDay: true,
+      seed: 77,
+    },
+  },
+  // Started keen then gave up — phone-free evenings, very sparse lately.
+  {
+    command: {
+      type: "CreateHabit",
+      title: "Phone-free evening",
+      goal: {
+        regularity: "week",
+        schedules: [{ hour: 20, minute: 0, days: AllDays }],
+      },
+    },
+    goalDaysAgo: 50,
+    history: {
+      startDaysAgo: 50,
+      pattern: ["fewMisses", "sparse"],
+      anyDay: true,
+      seed: 88,
+    },
   },
 ];
 
@@ -217,14 +394,22 @@ export const clearAll = async (
  *
  * The notification schedulers are stubbed for the duration of the seed
  * so the post-commit `syncAllNotifications` call (one per `processCommand`)
- * doesn't fan out to slow native I/O across ~20 iterations. After the seed
- * completes we restore the real schedulers and run the sync once. This also
- * reduces the storm of `expo-sqlite` change-listener fires that otherwise
- * makes `useLiveQuery` flicker through partial states on the board screen.
+ * doesn't fan out to slow native I/O across hundreds of iterations. After
+ * the seed completes we restore the real schedulers and run the sync once.
+ * This also reduces the storm of `expo-sqlite` change-listener fires that
+ * otherwise makes `useLiveQuery` flicker through partial states on the
+ * board screen.
+ *
+ * Goal-change entries (`update`) run their UpdateHabit *after* the
+ * back-dated check-ins are written. The new goal row's `createdAt` is
+ * then stamped to `update.daysAgo` so the UI shows the new goal as
+ * active from the change date forward. The earlier check-ins remain in
+ * place — there's no goal-history table, so they end up displayed
+ * against the post-change goal, which is the closest single-row model
+ * to "user changed their mind partway through".
  */
 export const seedSampleData = async () => {
   const now = new Date();
-  const goalCreatedAt = subDays(now, 30);
 
   const realConsolidated = getConsolidatedScheduler();
   const realNotification = getNotificationScheduler();
@@ -245,19 +430,37 @@ export const seedSampleData = async () => {
       await processCommand(db, { ...entry.command, habitId });
 
       if (entry.command.goal) {
+        const createdAt = subDays(now, entry.goalDaysAgo ?? 30);
         await db
           .update(goal)
-          .set({ createdAt: goalCreatedAt, updatedAt: goalCreatedAt })
+          .set({ createdAt, updatedAt: createdAt })
           .where(eq(goal.habitId, habitId));
       }
 
-      for (const ci of entry.checkIns ?? []) {
+      const generated = entry.history
+        ? generateCheckIns(goalSchedules(entry.command), entry.history, now)
+        : [];
+      for (const ci of [...generated, ...(entry.checkIns ?? [])]) {
         await processCommand(db, {
           type: "CreateCheckIn",
           checkInId: seqUuid(),
           habitId,
           timestamp: subDays(now, ci.daysAgo),
+          skipped: ci.skipped,
         });
+      }
+
+      if (entry.update) {
+        await processCommand(db, {
+          type: "UpdateHabit",
+          habitId,
+          goal: entry.update.goal,
+        });
+        const createdAt = subDays(now, entry.update.daysAgo);
+        await db
+          .update(goal)
+          .set({ createdAt, updatedAt: createdAt })
+          .where(eq(goal.habitId, habitId));
       }
     }
   } finally {
