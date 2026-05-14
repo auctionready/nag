@@ -84,20 +84,25 @@ export const MonthView = ({
             done > 0 ? `rgba(26,20,16,${heatRatio.toFixed(3)})` : "transparent";
           const useCreamText = done > 0 && heatRatio > 0.5 && !isToday;
 
+          // Selected day pops above the grid: cream background replaces
+          // the heat fill, 2px ink ring, slight upscale + drop shadow,
+          // and a higher z-index so it overlays neighbouring cells.
+          const showSelected = isSelected && !isToday;
+          const cellBg = showSelected ? tokens.surface : heatBg;
           return (
             <Pressable
               key={day.toISOString()}
               onPress={() => onSelectDay(day)}
-              style={styles.cell}
+              style={[styles.cell, showSelected && styles.cellLifted]}
               disabled={!inMonth}
             >
               <View
                 style={[
                   styles.inner,
-                  { backgroundColor: heatBg },
+                  { backgroundColor: cellBg },
                   !inMonth && styles.innerOutMonth,
                   isToday && styles.innerToday,
-                  isSelected && !isToday && styles.innerSelected,
+                  showSelected && styles.innerSelected,
                   inMonth &&
                     done === 0 &&
                     !isToday &&
@@ -110,7 +115,8 @@ export const MonthView = ({
                   style={[
                     styles.dayText,
                     isToday && styles.dayTextToday,
-                    useCreamText && styles.dayTextOnHeat,
+                    showSelected && styles.dayTextSelected,
+                    useCreamText && !showSelected && styles.dayTextOnHeat,
                     !inMonth && styles.dayTextOutMonth,
                     isFuture && inMonth && !isToday && styles.dayTextFuture,
                     (isSelected || isToday) && styles.dayTextBold,
@@ -155,6 +161,15 @@ const styles = StyleSheet.create({
     aspectRatio: 1,
     padding: 2,
   },
+  cellLifted: {
+    transform: [{ scale: 1.12 }],
+    zIndex: 5,
+    elevation: 6,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.22,
+    shadowRadius: 10,
+  },
   inner: {
     flex: 1,
     borderRadius: 8,
@@ -175,7 +190,7 @@ const styles = StyleSheet.create({
     borderColor: tokens.faint,
   },
   innerSelected: {
-    borderWidth: 1.5,
+    borderWidth: 2,
     borderColor: tokens.ink,
   },
   innerToday: {
@@ -193,6 +208,10 @@ const styles = StyleSheet.create({
   },
   dayTextOnHeat: {
     color: tokens.cream,
+  },
+  dayTextSelected: {
+    fontSize: 11,
+    color: tokens.ink,
   },
   dayTextBold: {
     fontWeight: "700",

@@ -65,7 +65,11 @@ const CalendarScreen = () => {
   const [view, setView] = useState<CalendarView>("month");
   const [monthDate, setMonthDate] = useState<Date>(todayMonthStart);
   const [weekStart, setWeekStart] = useState<Date>(todayWeekStart);
-  const [selectedDay, setSelectedDay] = useState<Date>(today);
+  // Week view may have nothing selected (showing the empty bottom),
+  // a habit only (week summary for that habit), a day only (day list),
+  // or both (single-habit slot detail for that day). Month view always
+  // has a day selected.
+  const [selectedDay, setSelectedDay] = useState<Date | null>(today);
   const [selectedHabitId, setSelectedHabitId] = useState<string | null>(null);
 
   // Navigation
@@ -97,63 +101,83 @@ const CalendarScreen = () => {
     setSelectedDay(today);
   }, [view, todayMonthStart, todayWeekStart, today]);
 
+  // Month view: tap a day to select; tapping the selected day is a no-op.
+  // Week view: tap a day to select; tap it again to clear (the bottom
+  // panel then collapses to the empty / habit-only state).
   const handleSelectDay = useCallback(
     (day: Date) => {
       if (isAfter(day, today)) return;
-      setSelectedDay(startOfDay(day));
+      const next = startOfDay(day);
+      setSelectedDay((prev) => {
+        if (view === "week" && prev && isSameDay(prev, next)) return null;
+        return next;
+      });
     },
-    [today],
+    [today, view],
   );
 
   const handleViewChange = useCallback(
     (next: CalendarView) => {
       setView(next);
-      // When switching views, anchor the new window on the currently
-      // selected day so the user doesn't lose their place.
+      // Anchor the new window on the currently-selected day so the user
+      // doesn't lose their place. If nothing is selected (week view's
+      // empty state), fall back to today.
+      const anchor = selectedDay ?? today;
       if (next === "month") {
-        setMonthDate(startOfMonth(selectedDay));
+        setMonthDate(startOfMonth(anchor));
+        // Month view always shows a day's check-ins.
+        if (!selectedDay) setSelectedDay(today);
+        setSelectedHabitId(null);
       } else {
-        setWeekStart(startOfWeek(selectedDay, { weekStartsOn: 1 }));
+        setWeekStart(startOfWeek(anchor, { weekStartsOn: 1 }));
       }
-      // Habit filter only makes sense on the week view.
-      if (next === "month") setSelectedHabitId(null);
     },
-    [selectedDay],
+    [selectedDay, today],
   );
 
-  // Labels and current/next-window state for the nav row
+  // Labels for the nav row. The "today" pill is disabled only when
+  // tapping it would do nothing — i.e. the visible window already
+  // covers today AND the selected day is today.
   const navState = useMemo(() => {
+    const selectedIsToday =
+      selectedDay !== null && isSameDay(selectedDay, today);
     if (view === "month") {
-      const onCurrent = isSameMonth(monthDate, today);
+      const onCurrentWindow = isSameMonth(monthDate, today);
       return {
         prev: format(subMonths(monthDate, 1), "MMM"),
         next: format(addMonths(monthDate, 1), "MMM"),
-        nextDisabled: onCurrent,
-        onCurrent,
-        todayLabel: "today",
+        nextDisabled: onCurrentWindow,
+        todayDisabled: onCurrentWindow && selectedIsToday,
       };
     }
     const prevStart = subDays(weekStart, 7);
     const prevEnd = endOfWeek(prevStart, { weekStartsOn: 1 });
     const nextStart = addDays(weekStart, 7);
     const nextEnd = endOfWeek(nextStart, { weekStartsOn: 1 });
-    const onCurrent = isSameDay(weekStart, todayWeekStart);
+    const onCurrentWindow = isSameDay(weekStart, todayWeekStart);
     return {
       prev: formatRange(prevStart, prevEnd),
       next: formatRange(nextStart, nextEnd),
-      nextDisabled: onCurrent,
-      onCurrent,
-      todayLabel: "this week",
+      nextDisabled: onCurrentWindow,
+      todayDisabled: onCurrentWindow && selectedIsToday,
     };
-  }, [view, monthDate, weekStart, today, todayWeekStart]);
+  }, [view, monthDate, weekStart, today, todayWeekStart, selectedDay]);
 
   const weekRowsData = useMemo(
     () => weekRows(weekStart),
     [weekRows, weekStart],
   );
   const groupsForSelectedDay = useMemo(
-    () => dayGroups(selectedDay),
+    () => (selectedDay ? dayGroups(selectedDay) : []),
     [dayGroups, selectedDay],
+  );
+
+  const weekRowForFilter = useMemo(
+    () =>
+      selectedHabitId
+        ? (weekRowsData.find((r) => r.habit.id === selectedHabitId) ?? null)
+        : null,
+    [weekRowsData, selectedHabitId],
   );
 
   const filteredHabit = useMemo(() => {
@@ -217,14 +241,13 @@ const CalendarScreen = () => {
 
       {/* Prev / today / next */}
       <CalNavRow
-        todayLabel={navState.todayLabel}
         prevLabel={navState.prev}
         nextLabel={navState.next}
         onPrev={goPrev}
         onNext={goNext}
         onToday={goToday}
         nextDisabled={navState.nextDisabled}
-        onCurrent={navState.onCurrent}
+        todayDisabled={navState.todayDisabled}
       />
 
       {/* Grid */}
@@ -248,12 +271,14 @@ const CalendarScreen = () => {
         />
       )}
 
-      {/* Selected day check-ins (or filtered habit detail) */}
+      {/* Bottom panel — empty / habit-only / day-only / day + habit. */}
       <SelectedDayCheckIns
         day={selectedDay}
         today={today}
+        weekStart={weekStart}
         groups={groupsForSelectedDay}
         filteredHabit={view === "week" ? filteredHabit : null}
+        weekRowForFilter={view === "week" ? weekRowForFilter : null}
         onClearFilter={() => setSelectedHabitId(null)}
       />
     </ScrollView>

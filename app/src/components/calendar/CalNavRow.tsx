@@ -3,8 +3,6 @@ import Svg, { Path } from "react-native-svg";
 import { tokens } from "../theme";
 
 interface CalNavRowProps {
-  /** Label for the center pill — "today" on month view, "this week" on week view. */
-  todayLabel: string;
   prevLabel: string;
   nextLabel: string;
   onPrev: () => void;
@@ -13,28 +11,29 @@ interface CalNavRowProps {
   /** Disables the "next" pill when we're already at the latest window. */
   nextDisabled?: boolean;
   /**
-   * True when the current window already covers today. The center pill
-   * is then muted; otherwise it lights up orange (the cue to jump back).
+   * True when tapping "today" would change nothing — i.e. the window
+   * already covers today AND the selected day is today. The center pill
+   * is then muted and disabled; otherwise it lights up orange to cue
+   * the user back to now.
    */
-  onCurrent: boolean;
+  todayDisabled: boolean;
 }
 
 /**
  * Three-piece bottom-aligned nav: previous-period pill on the left,
- * a center "today" pill that turns orange when the user has navigated
- * away from now, and a next-period pill on the right. The two outer
- * pills carry chevrons and the actual period label (e.g. "Apr 13–19"),
- * so the user can see exactly where prev/next will land.
+ * a center "today" pill that turns orange when tapping it would do
+ * something (different period, or different selected day), and a
+ * next-period pill on the right. The two outer pills carry chevrons
+ * and the actual period label (e.g. "Apr 13–19").
  */
 export const CalNavRow = ({
-  todayLabel,
   prevLabel,
   nextLabel,
   onPrev,
   onNext,
   onToday,
   nextDisabled,
-  onCurrent,
+  todayDisabled,
 }: CalNavRowProps) => (
   <View style={styles.row}>
     <NavPill label={prevLabel} direction="prev" onPress={onPrev} />
@@ -42,19 +41,19 @@ export const CalNavRow = ({
       onPress={onToday}
       style={[
         styles.centerPill,
-        onCurrent ? styles.centerPillCurrent : styles.centerPillOff,
+        todayDisabled ? styles.centerPillCurrent : styles.centerPillOff,
       ]}
-      disabled={onCurrent}
+      disabled={todayDisabled}
       accessibilityRole="button"
-      accessibilityLabel={`Jump to ${todayLabel}`}
+      accessibilityLabel="Jump to today"
     >
       <Text
         style={[
           styles.centerLabel,
-          onCurrent ? styles.centerLabelCurrent : styles.centerLabelOff,
+          todayDisabled ? styles.centerLabelCurrent : styles.centerLabelOff,
         ]}
       >
-        {todayLabel}
+        today
       </Text>
     </Pressable>
     <NavPill

@@ -45,15 +45,13 @@ export const WeekView = ({
           </View>
           {days.map((day, i) => {
             const isToday = isSameDay(day, today);
-            const isSel =
-              selectedDay && isSameDay(day, selectedDay) && !isToday;
+            const isSel = selectedDay && isSameDay(day, selectedDay);
             return (
               <Pressable
                 key={i}
                 onPress={() => onSelectDay(day)}
                 style={[
                   styles.headerDayCell,
-                  isToday && styles.headerDayCellToday,
                   isSel && styles.headerDayCellSelected,
                 ]}
               >
@@ -90,19 +88,14 @@ export const WeekView = ({
                   isSelHabit && styles.habitRowSelected,
                 ]}
               >
-                {isSelHabit && <View style={styles.habitRowStripe} />}
                 <View style={styles.habitLabelCell}>
-                  <View
-                    style={[
-                      styles.habitIconSwatch,
-                      isSelHabit && styles.habitIconSwatchActive,
-                    ]}
-                  >
+                  {isSelHabit && <View style={styles.habitRowStripe} />}
+                  <View style={styles.habitIconSwatch}>
                     <HabitGlyph
                       kind={row.habit.icon}
                       size={11}
                       style="line"
-                      color={isSelHabit ? tokens.cream : tokens.ink}
+                      color={tokens.ink}
                     />
                   </View>
                   <Text
@@ -176,9 +169,6 @@ const styles = StyleSheet.create({
     borderColor: "transparent",
     minHeight: HEADER_DOW_HEIGHT,
   },
-  headerDayCellToday: {
-    borderColor: tokens.orange,
-  },
   headerDayCellSelected: {
     borderColor: tokens.ink,
   },
@@ -221,9 +211,9 @@ const styles = StyleSheet.create({
   },
   habitRowStripe: {
     position: "absolute",
-    left: -8,
-    top: 6,
-    bottom: 6,
+    left: -2,
+    top: 2,
+    bottom: 2,
     width: 3,
     backgroundColor: tokens.orange,
     borderRadius: 2,
@@ -233,7 +223,8 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
-    paddingLeft: 2,
+    paddingLeft: 6,
+    position: "relative",
   },
   habitIconSwatch: {
     width: 18,
@@ -242,9 +233,6 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.veryFaint,
     alignItems: "center",
     justifyContent: "center",
-  },
-  habitIconSwatchActive: {
-    backgroundColor: tokens.ink,
   },
   habitTitle: {
     flex: 1,
@@ -255,6 +243,7 @@ const styles = StyleSheet.create({
   },
   habitTitleSelected: {
     fontWeight: "700",
+    color: tokens.orange,
   },
   dayCell: {
     flex: 1,

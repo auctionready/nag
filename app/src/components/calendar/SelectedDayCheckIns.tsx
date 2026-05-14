@@ -1,28 +1,47 @@
 import { useRouter } from "expo-router";
 import { Pressable, StyleSheet, Text, View } from "react-native";
-import { format, isSameDay } from "date-fns";
+import { addDays, format, isAfter, isSameDay } from "date-fns";
 import Svg, { Path } from "react-native-svg";
 import { tokens } from "../theme";
 import { HabitGlyph } from "../glyphs";
-import type { DayCheckInGroup, CalendarHabit } from "./useCalendarData";
+import type {
+  CalendarHabit,
+  DayCheckInGroup,
+  WeekRow,
+} from "./useCalendarData";
 
 interface SelectedDayCheckInsProps {
-  day: Date;
+  /** Null when no day is selected (week view's empty / habit-only state). */
+  day: Date | null;
   today: Date;
+  weekStart: Date;
   groups: DayCheckInGroup[];
-  /** When non-null, panel renders the single-habit detail instead. */
+  /** When non-null and `day` is also set, panel renders the single-habit
+   * day detail. When non-null but `day` is null, panel renders a week
+   * summary for the habit. */
   filteredHabit: CalendarHabit | null;
+  /** Week-view row for the filtered habit (states + per-day check-ins). */
+  weekRowForFilter: WeekRow | null;
   onClearFilter: () => void;
 }
 
+/**
+ * Routes the bottom panel between four states:
+ *   - nothing selected → render nothing
+ *   - habit only → week summary for that habit
+ *   - day only → multi-habit day list
+ *   - habit + day → single-habit slot detail for that day
+ */
 export const SelectedDayCheckIns = ({
   day,
   today,
+  weekStart,
   groups,
   filteredHabit,
+  weekRowForFilter,
   onClearFilter,
 }: SelectedDayCheckInsProps) => {
-  if (filteredHabit) {
+  if (filteredHabit && day) {
     const group = groups.find((g) => g.habitId === filteredHabit.id) ?? {
       habitId: filteredHabit.id,
       title: filteredHabit.title,
@@ -40,7 +59,23 @@ export const SelectedDayCheckIns = ({
     );
   }
 
-  return <DayCheckInsList day={day} today={today} groups={groups} />;
+  if (filteredHabit && weekRowForFilter) {
+    return (
+      <WeekHabitSummary
+        habit={filteredHabit}
+        weekStart={weekStart}
+        today={today}
+        row={weekRowForFilter}
+        onClear={onClearFilter}
+      />
+    );
+  }
+
+  if (day) {
+    return <DayCheckInsList day={day} today={today} groups={groups} />;
+  }
+
+  return null;
 };
 
 // ── Multi-habit list (default state) ───────────────────────────────
@@ -207,35 +242,10 @@ const FilteredHabitDetail = ({
         </View>
 
         <Text style={styles.slotsLabel}>check-ins</Text>
-        {group.checkIns.length === 0 ? (
-          <Text style={styles.noSlotsText}>
-            Nothing logged for this habit on this day.
-          </Text>
-        ) : (
-          <View style={styles.slotPills}>
-            {group.checkIns.map((c) => (
-              <View
-                key={c.id}
-                style={[
-                  styles.slotPill,
-                  !c.skipped && styles.slotPillDone,
-                  c.skipped && styles.slotPillSkip,
-                ]}
-              >
-                {c.skipped ? <SkipGlyph /> : <DoneGlyph />}
-                <Text
-                  style={[
-                    styles.slotPillText,
-                    !c.skipped && styles.slotPillTextDone,
-                    c.skipped && styles.slotPillTextSkip,
-                  ]}
-                >
-                  {format(c.timestamp, "h:mm a")}
-                </Text>
-              </View>
-            ))}
-          </View>
-        )}
+        <SlotPills
+          checkIns={group.checkIns}
+          emptyText="Nothing logged for this habit on this day."
+        />
 
         <Pressable
           style={styles.deeplink}
@@ -258,6 +268,197 @@ const FilteredHabitDetail = ({
           </Svg>
         </Pressable>
       </View>
+    </View>
+  );
+};
+
+// ── Week-summary for a single habit ────────────────────────────────
+
+interface WeekHabitSummaryProps {
+  habit: CalendarHabit;
+  weekStart: Date;
+  today: Date;
+  row: WeekRow;
+  onClear: () => void;
+}
+
+const WeekHabitSummary = ({
+  habit,
+  weekStart,
+  today,
+  row,
+  onClear,
+}: WeekHabitSummaryProps) => {
+  const router = useRouter();
+  const totals = row.perDay.reduce(
+    (acc, day) => {
+      for (const c of day) {
+        acc.total++;
+        if (c.skipped) acc.skip++;
+        else acc.done++;
+      }
+      return acc;
+    },
+    { total: 0, done: 0, skip: 0 },
+  );
+  const scheduledDays = row.states.filter(
+    (s) => s !== "unscheduled" && s !== "future",
+  ).length;
+  const weekTotal = Math.max(scheduledDays * habit.perDayTarget, 1);
+
+  return (
+    <View style={styles.section}>
+      <View style={styles.dayHeader}>
+        <Text style={styles.dayHeaderText}>this week</Text>
+        <Pressable
+          onPress={onClear}
+          style={styles.clearPill}
+          accessibilityLabel="Clear habit filter"
+        >
+          <Svg width={9} height={9} viewBox="0 0 9 9" fill="none">
+            <Path
+              d="M2 2l5 5M7 2l-5 5"
+              stroke={tokens.ink}
+              strokeWidth={1.6}
+              strokeLinecap="round"
+            />
+          </Svg>
+          <Text style={styles.clearPillText}>clear</Text>
+        </Pressable>
+      </View>
+
+      <View style={styles.filteredBody}>
+        <View style={styles.summaryCard}>
+          <View style={styles.summaryIcon}>
+            <HabitGlyph
+              kind={habit.icon}
+              size={18}
+              style="line"
+              color={tokens.cream}
+            />
+          </View>
+          <View style={styles.summaryText}>
+            <Text style={styles.summaryTitle} numberOfLines={1}>
+              {habit.title}
+            </Text>
+            <Text style={styles.summaryMeta}>
+              {habit.perDayTarget > 1
+                ? `${habit.perDayTarget}× per day target`
+                : "1 per day"}
+            </Text>
+          </View>
+          <View style={styles.summaryStats}>
+            <Text style={styles.statBig}>
+              {totals.done}
+              <Text style={styles.statBigMute}> / {weekTotal}</Text>
+            </Text>
+            <Text style={styles.statCaption}>this week</Text>
+          </View>
+        </View>
+
+        {Array.from({ length: 7 }, (_, i) => {
+          const day = addDays(weekStart, i);
+          const dayCheckIns = row.perDay[i];
+          const isToday = isSameDay(day, today);
+          const isFuture = isAfter(day, today);
+          const done = dayCheckIns.filter((c) => !c.skipped).length;
+          const skip = dayCheckIns.length - done;
+          return (
+            <View key={i} style={styles.dayBlock}>
+              <View style={styles.dayBlockHeader}>
+                <Text
+                  style={[
+                    styles.dayBlockLabel,
+                    isToday && styles.dayBlockLabelToday,
+                  ]}
+                >
+                  {isToday
+                    ? `today · ${format(day, "MMM d").toLowerCase()}`
+                    : format(day, "EEE · MMM d").toLowerCase()}
+                </Text>
+                {dayCheckIns.length > 0 ? (
+                  <Text style={styles.dayHeaderTotals}>
+                    <Text style={styles.dayHeaderTotalsValue}>{done}</Text> done
+                    {skip > 0 ? (
+                      <>
+                        {" "}
+                        · <Text style={styles.dayHeaderTotalsSkip}>
+                          {skip}
+                        </Text>{" "}
+                        skip
+                      </>
+                    ) : null}
+                  </Text>
+                ) : null}
+              </View>
+              {isFuture ? (
+                <Text style={styles.dayBlockMuted}>—</Text>
+              ) : (
+                <SlotPills checkIns={dayCheckIns} emptyText="nothing logged" />
+              )}
+            </View>
+          );
+        })}
+
+        <Pressable
+          style={styles.deeplink}
+          onPress={() =>
+            router.push({
+              pathname: "/habit/[id]",
+              params: { id: habit.id },
+            })
+          }
+        >
+          <Text style={styles.deeplinkText}>Open {habit.title}</Text>
+          <Svg width={6} height={11} viewBox="0 0 6 11" fill="none">
+            <Path
+              d="M1 1l4 4.5L1 10"
+              stroke={tokens.mute}
+              strokeWidth={1.5}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </Svg>
+        </Pressable>
+      </View>
+    </View>
+  );
+};
+
+// ── Shared slot pills ──────────────────────────────────────────────
+
+interface SlotPillsProps {
+  checkIns: { id: string; timestamp: Date; skipped: boolean }[];
+  emptyText: string;
+}
+
+const SlotPills = ({ checkIns, emptyText }: SlotPillsProps) => {
+  if (checkIns.length === 0) {
+    return <Text style={styles.noSlotsText}>{emptyText}</Text>;
+  }
+  return (
+    <View style={styles.slotPills}>
+      {checkIns.map((c) => (
+        <View
+          key={c.id}
+          style={[
+            styles.slotPill,
+            !c.skipped && styles.slotPillDone,
+            c.skipped && styles.slotPillSkip,
+          ]}
+        >
+          {c.skipped ? <SkipGlyph /> : <DoneGlyph />}
+          <Text
+            style={[
+              styles.slotPillText,
+              !c.skipped && styles.slotPillTextDone,
+              c.skipped && styles.slotPillTextSkip,
+            ]}
+          >
+            {format(c.timestamp, "h:mm a")}
+          </Text>
+        </View>
+      ))}
     </View>
   );
 };
@@ -524,6 +725,33 @@ const styles = StyleSheet.create({
   filteredBody: {
     paddingHorizontal: 16,
     gap: 10,
+  },
+  dayBlock: {
+    gap: 6,
+    paddingVertical: 4,
+  },
+  dayBlockHeader: {
+    flexDirection: "row",
+    alignItems: "baseline",
+    justifyContent: "space-between",
+    gap: 8,
+  },
+  dayBlockLabel: {
+    fontFamily: "JetBrainsMono",
+    fontSize: 10,
+    color: tokens.mute,
+    letterSpacing: 1.4,
+    textTransform: "uppercase",
+  },
+  dayBlockLabelToday: {
+    color: tokens.orange,
+    fontWeight: "700",
+  },
+  dayBlockMuted: {
+    fontFamily: "JetBrainsMono",
+    fontSize: 11,
+    color: tokens.faint,
+    paddingHorizontal: 2,
   },
   summaryCard: {
     backgroundColor: tokens.surface,

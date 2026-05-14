@@ -10,7 +10,7 @@ interface ViewToggleProps {
 
 export const ViewToggle = ({ view, onChange }: ViewToggleProps) => (
   <View style={styles.track}>
-    {(["month", "week"] as const).map((v) => {
+    {(["week", "month"] as const).map((v) => {
       const active = v === view;
       return (
         <Pressable
