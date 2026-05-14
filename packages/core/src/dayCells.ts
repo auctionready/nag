@@ -110,6 +110,14 @@ export interface TimeSlotCompletion {
   completedDaysMask: number;
   /** Days where 0 < check-ins < scheduled time-slot count. */
   partialDaysMask: number;
+  /**
+   * Days where the user has at least one skipped check-in and no non-skip
+   * check-ins — i.e. the day was intentionally set aside. Such days may
+   * also be in `completedDaysMask` (skips still cover the schedule), so
+   * renderers that care about the distinction should check `skippedDaysMask`
+   * first.
+   */
+  skippedDaysMask: number;
 }
 
 /**
@@ -124,7 +132,7 @@ export const classifyScheduledDays = ({
   checkIns,
 }: {
   schedules: ScheduleInfo[];
-  checkIns: { timestamp: Date }[];
+  checkIns: { timestamp: Date; skipped?: boolean | null }[];
 }): TimeSlotCompletion => {
   const timeSlotsByDay: number[] = new Array(7).fill(0);
   for (const s of schedules) {
@@ -139,11 +147,15 @@ export const classifyScheduledDays = ({
     }
   }
   const checkInsByDay: number[] = new Array(7).fill(0);
+  const skipsByDay: number[] = new Array(7).fill(0);
   for (const c of checkIns) {
-    checkInsByDay[c.timestamp.getDay()] += 1;
+    const dow = c.timestamp.getDay();
+    checkInsByDay[dow] += 1;
+    if (c.skipped) skipsByDay[dow] += 1;
   }
   let completedDaysMask = 0;
   let partialDaysMask = 0;
+  let skippedDaysMask = 0;
   for (let dow = 0; dow < 7; dow++) {
     const bit = 1 << dow;
     const timeSlots = timeSlotsByDay[dow];
@@ -151,6 +163,8 @@ export const classifyScheduledDays = ({
     if (timeSlots === 0) continue;
     if (done >= timeSlots) completedDaysMask |= bit;
     else if (done > 0) partialDaysMask |= bit;
+    const nonSkip = done - skipsByDay[dow];
+    if (skipsByDay[dow] > 0 && nonSkip === 0) skippedDaysMask |= bit;
   }
-  return { completedDaysMask, partialDaysMask };
+  return { completedDaysMask, partialDaysMask, skippedDaysMask };
 };

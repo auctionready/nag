@@ -380,6 +380,28 @@ describe("classifyScheduledDays", () => {
     });
     expect(result.completedDaysMask & Day.Mon).toBeTruthy();
   });
+
+  it("marks a day skipped when its only check-ins are skips", () => {
+    const result = classifyScheduledDays({
+      schedules: [{ hour: 8, minute: 0, days: Day.Mon, dayOfMonth: null }],
+      checkIns: [{ timestamp: new Date(2025, 5, 16, 8, 0), skipped: true }],
+    });
+    expect(result.skippedDaysMask & Day.Mon).toBeTruthy();
+  });
+
+  it("does not mark a day skipped when at least one check-in is non-skip", () => {
+    const result = classifyScheduledDays({
+      schedules: [
+        { hour: 8, minute: 0, days: Day.Mon, dayOfMonth: null },
+        { hour: 12, minute: 0, days: Day.Mon, dayOfMonth: null },
+      ],
+      checkIns: [
+        { timestamp: new Date(2025, 5, 16, 8, 0), skipped: true },
+        { timestamp: new Date(2025, 5, 16, 12, 0) }, // real
+      ],
+    });
+    expect(result.skippedDaysMask & Day.Mon).toBeFalsy();
+  });
 });
 
 describe("checkInDaysMask", () => {

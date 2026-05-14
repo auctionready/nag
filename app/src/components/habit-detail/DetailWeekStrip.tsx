@@ -11,6 +11,8 @@ interface DetailWeekStripProps {
   checkedInDaysMask: number;
   /** Days where some — but not all — scheduled time-slots have a check-in. */
   partialDaysMask?: number;
+  /** Days where the user only logged skip check-ins (no real completions). */
+  skippedDaysMask?: number;
   /** Days with at least one check-in regardless of schedule. */
   anyCheckInDaysMask?: number;
   /** Currently selected day (highlighted) or null when none. */
@@ -21,15 +23,17 @@ interface DetailWeekStripProps {
 
 /**
  * Detail-screen week strip — Monday-first cells using the same
- * `done · today · partial · missed · future · skip` glyph language as
- * the home tile (`DayIndicators`), but rendered larger with a date
- * caption underneath and the selected cell ringed in ink. Tap a cell to
- * scope the slots/check-ins panels below to that day.
+ * `done · today · partial · missed · future · unscheduled · skipped`
+ * glyph language as the home tile (`DayIndicators`), but rendered
+ * larger with a date caption underneath and the selected cell ringed
+ * in ink. Tap a cell to scope the slots/check-ins panels below to that
+ * day.
  */
 export const DetailWeekStrip = ({
   scheduledDaysMask,
   checkedInDaysMask,
   partialDaysMask = 0,
+  skippedDaysMask = 0,
   anyCheckInDaysMask = 0,
   selectedDay,
   onSelectDay,
@@ -53,6 +57,7 @@ export const DetailWeekStrip = ({
             scheduledDaysMask,
             checkedInDaysMask,
             partialDaysMask,
+            skippedDaysMask,
             anyCheckInDaysMask,
           });
           const isToday = isSameCalendarDay(cellDate, todayStart);
@@ -106,6 +111,7 @@ interface StateForArgs {
   scheduledDaysMask: number;
   checkedInDaysMask: number;
   partialDaysMask: number;
+  skippedDaysMask: number;
   anyCheckInDaysMask: number;
 }
 
@@ -116,22 +122,28 @@ const stateFor = ({
   scheduledDaysMask,
   checkedInDaysMask,
   partialDaysMask,
+  skippedDaysMask,
   anyCheckInDaysMask,
 }: StateForArgs): CellState => {
   const scheduled = (scheduledDaysMask & day) !== 0;
   const checkedIn = (checkedInDaysMask & day) !== 0;
   const partial = (partialDaysMask & day) !== 0;
+  const skipped = (skippedDaysMask & day) !== 0;
   const anyCheckIn = (anyCheckInDaysMask & day) !== 0;
   const isToday = isSameCalendarDay(cellDate, todayStart);
   const isPast = cellDate < todayStart && !isToday;
 
+  // Skipped is checked before completed/partial: a fully-skipped day is
+  // also in `completedDaysMask` (skips cover the schedule) but should
+  // render as `skipped`, not `done`.
+  if (scheduled && skipped) return "skipped";
   if (scheduled && checkedIn) return isToday ? "today-done" : "done";
   if (!scheduled && anyCheckIn) return "done";
   if (scheduled && partial) return isToday ? "today-partial" : "partial";
   if (isToday && scheduled) return "today";
   if (scheduled && isPast) return "missed";
   if (scheduled) return "future";
-  return "skip";
+  return "unscheduled";
 };
 
 const styles = StyleSheet.create({

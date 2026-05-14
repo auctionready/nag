@@ -91,6 +91,12 @@ export interface HabitProgressSnapshot {
   /** Days where some — but not all — time-slots have a check-in. */
   partialDaysMask: number;
   /**
+   * Days where the user only logged skip check-ins (no real completions).
+   * Renderers should check this before `completedDaysMask` when picking a
+   * cell glyph, since a fully-skipped day is also in `completedDaysMask`.
+   */
+  skippedDaysMask: number;
+  /**
    * Day-of-week bitmask of every check-in in the period, *regardless* of
    * schedule. Lets callers dim-fill unscheduled days the user still
    * checked in on so those check-ins aren't invisible.
@@ -191,10 +197,11 @@ export const habitProgressSnapshot = (
       )
     : undefined;
 
-  const { completedDaysMask, partialDaysMask } = classifyScheduledDays({
-    schedules,
-    checkIns: periodCheckIns,
-  });
+  const { completedDaysMask, partialDaysMask, skippedDaysMask } =
+    classifyScheduledDays({
+      schedules,
+      checkIns: periodCheckIns,
+    });
   const anyCheckInDaysMask = checkInDaysMask(periodCheckIns);
   const unscheduledWeeklyMask =
     goal?.regularity === "week" && scheduledDaysMask === 0
@@ -218,6 +225,7 @@ export const habitProgressSnapshot = (
     scheduledDaysMask,
     completedDaysMask,
     partialDaysMask,
+    skippedDaysMask,
     anyCheckInDaysMask,
     unscheduledWeeklyMask,
     headline: {

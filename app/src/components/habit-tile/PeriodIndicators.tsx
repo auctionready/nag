@@ -6,6 +6,7 @@ type WeeklyPeriodIndicatorsProps = {
   scheduledDaysMask?: number;
   checkedInDaysMask?: number;
   partialDaysMask?: number;
+  skippedDaysMask?: number;
   anyCheckInDaysMask?: number;
   todayColor?: string;
   partialColor?: string;
@@ -30,6 +31,7 @@ export const PeriodIndicators = (props: PeriodIndicatorsProps) => {
       scheduledDaysMask={props.scheduledDaysMask ?? 0}
       checkedInDaysMask={props.checkedInDaysMask ?? 0}
       partialDaysMask={props.partialDaysMask}
+      skippedDaysMask={props.skippedDaysMask}
       anyCheckInDaysMask={props.anyCheckInDaysMask}
       todayColor={props.todayColor}
       partialColor={props.partialColor}

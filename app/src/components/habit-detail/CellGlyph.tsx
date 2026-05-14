@@ -10,15 +10,19 @@ export type CellState =
   | "today-partial"
   | "missed"
   | "future"
-  | "skip";
+  | "unscheduled"
+  | "skipped";
 
 const PARTIAL_RATIO = 0.5;
 
 /**
  * One day-cell on the detail screen's week strip — a 26×26 rounded
  * tile carrying the same `done · today · partial · missed · future ·
- * skip` glyph language used elsewhere in the app (e.g. home tile
- * `DayIndicators`). The internal mark depends on `state`.
+ * unscheduled · skipped` glyph language used elsewhere in the app
+ * (e.g. home tile `DayIndicators`). `unscheduled` is calendar negative
+ * space (no schedule today); `skipped` is a scheduled day the user
+ * intentionally set aside — soft ink fill with a quiet cream dash,
+ * reading closer to done than to missed.
  */
 export const CellGlyph = ({ state }: { state: CellState }) => {
   const cellStyle: ViewStyle[] = [styles.cell];
@@ -51,8 +55,12 @@ export const CellGlyph = ({ state }: { state: CellState }) => {
     case "future":
       cellStyle.push(styles.cellFaintRing);
       break;
-    case "skip":
-      cellStyle.push(styles.cellSkip);
+    case "unscheduled":
+      cellStyle.push(styles.cellUnscheduled);
+      break;
+    case "skipped":
+      cellStyle.push(styles.cellSkipped);
+      inner = <SkippedDash />;
       break;
   }
 
@@ -70,6 +78,20 @@ const CheckMark = () => (
       strokeWidth={1.6}
       strokeLinecap="round"
       strokeLinejoin="round"
+    />
+  </Svg>
+);
+
+const SkippedDash = () => (
+  <Svg width={10} height={10} viewBox="0 0 10 10" fill="none">
+    <Line
+      x1={2}
+      y1={5}
+      x2={8}
+      y2={5}
+      stroke={tokens.cream}
+      strokeWidth={1.6}
+      strokeLinecap="round"
     />
   </Svg>
 );
@@ -118,8 +140,11 @@ const styles = StyleSheet.create({
   cellFaintRing: {
     borderColor: tokens.faint,
   },
-  cellSkip: {
+  cellUnscheduled: {
     backgroundColor: tokens.veryFaint,
+  },
+  cellSkipped: {
+    backgroundColor: tokens.inkSkipped,
   },
   partialFill: {
     position: "absolute",
