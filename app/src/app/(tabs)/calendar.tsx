@@ -1,296 +1,326 @@
-import { useState, useMemo, useCallback } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { useCallback, useMemo, useState } from "react";
+import { ScrollView, StyleSheet, Text, View } from "react-native";
 import {
-  startOfMonth,
+  addDays,
+  addMonths,
+  differenceInCalendarMonths,
+  differenceInCalendarWeeks,
   endOfMonth,
-  eachDayOfInterval,
-  getDay,
+  endOfWeek,
   format,
+  isAfter,
   isSameDay,
   isSameMonth,
-  isAfter,
-  addMonths,
-  subMonths,
   startOfDay,
+  startOfMonth,
+  startOfWeek,
+  subDays,
+  subMonths,
 } from "date-fns";
 import {
-  useCalendarCheckIns,
-  useSelectedDayCheckIns,
+  CalNavRow,
+  MonthView,
+  SelectedDayCheckIns,
+  ViewToggle,
+  WeekView,
+  useCalendarData,
+  type CalendarView,
 } from "../../components/calendar";
-import { useStartOfToday } from "../../infrastructure/today";
-import { WeekdayNames } from "@nag/core";
+import { tokens } from "../../components/theme";
+
+const formatRange = (start: Date, end: Date) => {
+  if (start.getMonth() === end.getMonth()) {
+    return `${format(start, "MMM d")}–${format(end, "d")}`;
+  }
+  return `${format(start, "MMM d")}–${format(end, "MMM d")}`;
+};
+
+const weekTitle = (weekStart: Date, todayWeekStart: Date): string => {
+  const offset = differenceInCalendarWeeks(weekStart, todayWeekStart, {
+    weekStartsOn: 1,
+  });
+  if (offset === 0) return "This week";
+  if (offset === -1) return "Last week";
+  if (offset === 1) return "Next week";
+  return `Week of ${format(weekStart, "MMM d")}`;
+};
+
+const monthTitle = (monthDate: Date, todayMonthStart: Date): string => {
+  const offset = differenceInCalendarMonths(monthDate, todayMonthStart);
+  if (offset === 0) return "This month";
+  if (offset === -1) return "Last month";
+  if (offset === 1) return "Next month";
+  return format(monthDate, "MMMM yyyy");
+};
 
 const CalendarScreen = () => {
-  const today = useStartOfToday();
-  const currentMonthStart = startOfMonth(today);
+  const { today, weekRows, dayGroups, monthHeat, habits } = useCalendarData();
 
-  const [currentMonth, setCurrentMonth] = useState(() => currentMonthStart);
-  const [selectedDay, setSelectedDay] = useState<Date | null>(null);
-
-  const isCurrentMonth = isSameMonth(currentMonth, today);
-
-  const { allCheckIns, checkInsByDate } = useCalendarCheckIns();
-  const selectedDayCheckIns = useSelectedDayCheckIns(selectedDay, allCheckIns);
-
-  const days = useMemo(() => {
-    const monthStart = startOfMonth(currentMonth);
-    const monthEnd = endOfMonth(currentMonth);
-    return eachDayOfInterval({ start: monthStart, end: monthEnd });
-  }, [currentMonth]);
-
-  // Sunday = 0 offset, matching WeekdayNames (Sun-first).
-  const firstDayOffset = getDay(days[0]);
-
-  const changeMonth = useCallback(
-    (dir: 1 | -1) => {
-      const next =
-        dir === 1 ? addMonths(currentMonth, 1) : subMonths(currentMonth, 1);
-      if (isAfter(startOfMonth(next), currentMonthStart)) return;
-      setCurrentMonth(next);
-      if (selectedDay && !isSameMonth(selectedDay, next)) {
-        setSelectedDay(null);
-      }
-    },
-    [currentMonth, selectedDay, currentMonthStart],
+  const todayMonthStart = useMemo(() => startOfMonth(today), [today]);
+  const todayWeekStart = useMemo(
+    () => startOfWeek(today, { weekStartsOn: 1 }),
+    [today],
   );
 
+  const [view, setView] = useState<CalendarView>("month");
+  const [monthDate, setMonthDate] = useState<Date>(todayMonthStart);
+  const [weekStart, setWeekStart] = useState<Date>(todayWeekStart);
+  // Week view may have nothing selected (showing the empty bottom),
+  // a habit only (week summary for that habit), a day only (day list),
+  // or both (single-habit slot detail for that day). Month view always
+  // has a day selected.
+  const [selectedDay, setSelectedDay] = useState<Date | null>(today);
+  const [selectedHabitId, setSelectedHabitId] = useState<string | null>(null);
+
+  // Navigation
+  const goPrev = useCallback(() => {
+    if (view === "month") {
+      setMonthDate((m) => subMonths(m, 1));
+    } else {
+      setWeekStart((w) => subDays(w, 7));
+    }
+  }, [view]);
+
+  const goNext = useCallback(() => {
+    if (view === "month") {
+      setMonthDate((m) => {
+        const next = addMonths(m, 1);
+        return isAfter(startOfMonth(next), todayMonthStart) ? m : next;
+      });
+    } else {
+      setWeekStart((w) => {
+        const next = addDays(w, 7);
+        return isAfter(next, todayWeekStart) ? w : next;
+      });
+    }
+  }, [view, todayMonthStart, todayWeekStart]);
+
+  const goToday = useCallback(() => {
+    if (view === "month") setMonthDate(todayMonthStart);
+    else setWeekStart(todayWeekStart);
+    setSelectedDay(today);
+  }, [view, todayMonthStart, todayWeekStart, today]);
+
+  // Month view: tap a day to select; tapping the selected day is a no-op.
+  // Week view: tap a day to select; tap it again to clear (the bottom
+  // panel then collapses to the empty / habit-only state).
+  const handleSelectDay = useCallback(
+    (day: Date) => {
+      if (isAfter(day, today)) return;
+      const next = startOfDay(day);
+      setSelectedDay((prev) => {
+        if (view === "week" && prev && isSameDay(prev, next)) return null;
+        return next;
+      });
+    },
+    [today, view],
+  );
+
+  const handleViewChange = useCallback(
+    (next: CalendarView) => {
+      setView(next);
+      // Anchor the new window on the currently-selected day so the user
+      // doesn't lose their place. If nothing is selected (week view's
+      // empty state), fall back to today.
+      const anchor = selectedDay ?? today;
+      if (next === "month") {
+        setMonthDate(startOfMonth(anchor));
+        // Month view always shows a day's check-ins.
+        if (!selectedDay) setSelectedDay(today);
+        setSelectedHabitId(null);
+      } else {
+        setWeekStart(startOfWeek(anchor, { weekStartsOn: 1 }));
+      }
+    },
+    [selectedDay, today],
+  );
+
+  // Labels for the nav row. The "today" pill is disabled only when
+  // tapping it would do nothing — i.e. the visible window already
+  // covers today AND the selected day is today.
+  const navState = useMemo(() => {
+    const selectedIsToday =
+      selectedDay !== null && isSameDay(selectedDay, today);
+    if (view === "month") {
+      const onCurrentWindow = isSameMonth(monthDate, today);
+      return {
+        prev: format(subMonths(monthDate, 1), "MMM"),
+        next: format(addMonths(monthDate, 1), "MMM"),
+        nextDisabled: onCurrentWindow,
+        todayDisabled: onCurrentWindow && selectedIsToday,
+      };
+    }
+    const prevStart = subDays(weekStart, 7);
+    const prevEnd = endOfWeek(prevStart, { weekStartsOn: 1 });
+    const nextStart = addDays(weekStart, 7);
+    const nextEnd = endOfWeek(nextStart, { weekStartsOn: 1 });
+    const onCurrentWindow = isSameDay(weekStart, todayWeekStart);
+    return {
+      prev: formatRange(prevStart, prevEnd),
+      next: formatRange(nextStart, nextEnd),
+      nextDisabled: onCurrentWindow,
+      todayDisabled: onCurrentWindow && selectedIsToday,
+    };
+  }, [view, monthDate, weekStart, today, todayWeekStart, selectedDay]);
+
+  const weekRowsData = useMemo(
+    () => weekRows(weekStart),
+    [weekRows, weekStart],
+  );
+  const groupsForSelectedDay = useMemo(
+    () => (selectedDay ? dayGroups(selectedDay) : []),
+    [dayGroups, selectedDay],
+  );
+
+  const weekRowForFilter = useMemo(
+    () =>
+      selectedHabitId
+        ? (weekRowsData.find((r) => r.habit.id === selectedHabitId) ?? null)
+        : null,
+    [weekRowsData, selectedHabitId],
+  );
+
+  const filteredHabit = useMemo(() => {
+    if (!selectedHabitId) return null;
+    return habits.find((h) => h.id === selectedHabitId) ?? null;
+  }, [habits, selectedHabitId]);
+
+  const monthSummary = useMemo(() => {
+    const monthStart = startOfMonth(monthDate);
+    const monthEnd = endOfMonth(monthDate);
+    let total = 0;
+    let done = 0;
+    for (let day = monthStart; !isAfter(day, monthEnd); day = addDays(day, 1)) {
+      const { total: t, done: d } = monthHeat(day);
+      total += t;
+      done += d;
+    }
+    return { total, done };
+  }, [monthDate, monthHeat]);
+
+  const weekSummary = useMemo(() => {
+    let total = 0;
+    let done = 0;
+    for (let i = 0; i < 7; i++) {
+      const { total: t, done: d } = monthHeat(addDays(weekStart, i));
+      total += t;
+      done += d;
+    }
+    return { total, done };
+  }, [weekStart, monthHeat]);
+
+  const headerTitle =
+    view === "month"
+      ? monthTitle(monthDate, todayMonthStart)
+      : weekTitle(weekStart, todayWeekStart);
+
+  const headerSummary =
+    view === "month"
+      ? monthSummary.total > 0
+        ? `${Math.round((monthSummary.done / monthSummary.total) * 100)}% compliance · ${monthSummary.done} of ${monthSummary.total}`
+        : "No check-ins this month"
+      : weekSummary.total > 0
+        ? `${Math.round((weekSummary.done / weekSummary.total) * 100)}% compliance · ${weekSummary.done} of ${weekSummary.total}`
+        : "No check-ins this week";
+
   return (
-    <View style={styles.container}>
-      {/* Month navigation */}
-      <View style={styles.header}>
-        <Pressable onPress={() => changeMonth(-1)} style={styles.navButton}>
-          <Text style={styles.navButtonText}>{"<"}</Text>
-        </Pressable>
-        <Text style={styles.monthTitle}>
-          {format(currentMonth, "MMMM yyyy")}
-        </Text>
-        <Pressable
-          onPress={() => changeMonth(1)}
-          style={styles.navButton}
-          disabled={isCurrentMonth}
-        >
-          <Text
-            style={[
-              styles.navButtonText,
-              isCurrentMonth && styles.navButtonDisabled,
-            ]}
-          >
-            {">"}
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={styles.scrollContent}
+    >
+      {/* Header */}
+      <View style={styles.headerRow}>
+        <View style={styles.headerCol}>
+          <Text style={styles.heading} numberOfLines={1}>
+            {headerTitle}
           </Text>
-        </Pressable>
-      </View>
-
-      {/* Weekday headers */}
-      <View style={styles.weekdayRow}>
-        {WeekdayNames.map((d) => (
-          <View key={d} style={styles.weekdayCell}>
-            <Text style={styles.weekdayText}>{d}</Text>
-          </View>
-        ))}
-      </View>
-
-      {/* Calendar grid */}
-      <View style={styles.grid}>
-        {/* Empty cells for offset */}
-        {Array.from({ length: firstDayOffset }).map((_, i) => (
-          <View key={`empty-${i}`} style={styles.dayCell} />
-        ))}
-        {days.map((day) => {
-          const key = startOfDay(day).toISOString();
-          const dayCheckIns = checkInsByDate.get(key);
-          const hasCheckIns = dayCheckIns && dayCheckIns.length > 0;
-          const isSelected = selectedDay && isSameDay(day, selectedDay);
-          const isToday = isSameDay(day, today);
-          const isFuture = isAfter(day, today);
-
-          return (
-            <Pressable
-              key={key}
-              style={[styles.dayCell, isSelected && styles.dayCellSelected]}
-              onPress={() => !isFuture && setSelectedDay(day)}
-              disabled={isFuture}
-            >
-              <Text
-                style={[
-                  styles.dayText,
-                  isToday && styles.dayTextToday,
-                  isSelected && styles.dayTextSelected,
-                  isFuture && styles.dayTextFuture,
-                ]}
-              >
-                {format(day, "d")}
-              </Text>
-              {hasCheckIns && (
-                <View style={styles.dotRow}>
-                  <View style={styles.dot} />
-                  {dayCheckIns.length > 1 && <View style={styles.dot} />}
-                  {dayCheckIns.length > 2 && <View style={styles.dot} />}
-                </View>
-              )}
-            </Pressable>
-          );
-        })}
-      </View>
-
-      {/* Selected day detail */}
-      {selectedDay && (
-        <View style={styles.detailSection}>
-          <Text style={styles.detailTitle}>
-            {format(selectedDay, "EEEE, MMMM d")}
-          </Text>
-          {selectedDayCheckIns.length === 0 ? (
-            <Text style={styles.emptyDetail}>No check-ins this day</Text>
-          ) : (
-            <ScrollView style={styles.detailScroll}>
-              {selectedDayCheckIns.map((ci) => (
-                <View key={ci.id} style={styles.detailRow}>
-                  <View style={styles.detailDot} />
-                  <View style={styles.detailContent}>
-                    <Text style={styles.detailHabit}>{ci.habitTitle}</Text>
-                    <Text style={styles.detailTime}>
-                      {format(ci.timestamp, "h:mm a")}
-                      {ci.skipped ? " (skipped)" : ""}
-                    </Text>
-                  </View>
-                </View>
-              ))}
-            </ScrollView>
-          )}
+          <Text style={styles.subhead}>{headerSummary}</Text>
         </View>
+        <ViewToggle view={view} onChange={handleViewChange} />
+      </View>
+
+      {/* Prev / today / next */}
+      <CalNavRow
+        prevLabel={navState.prev}
+        nextLabel={navState.next}
+        onPrev={goPrev}
+        onNext={goNext}
+        onToday={goToday}
+        nextDisabled={navState.nextDisabled}
+        todayDisabled={navState.todayDisabled}
+      />
+
+      {/* Grid */}
+      {view === "month" ? (
+        <MonthView
+          monthDate={monthDate}
+          today={today}
+          selectedDay={selectedDay}
+          heatFor={monthHeat}
+          onSelectDay={handleSelectDay}
+        />
+      ) : (
+        <WeekView
+          weekStart={weekStart}
+          today={today}
+          selectedDay={selectedDay}
+          selectedHabitId={selectedHabitId}
+          rows={weekRowsData}
+          onSelectDay={handleSelectDay}
+          onSelectHabit={setSelectedHabitId}
+        />
       )}
-    </View>
+
+      {/* Bottom panel — empty / habit-only / day-only / day + habit. */}
+      <SelectedDayCheckIns
+        day={selectedDay}
+        today={today}
+        weekStart={weekStart}
+        groups={groupsForSelectedDay}
+        filteredHabit={view === "week" ? filteredHabit : null}
+        weekRowForFilter={view === "week" ? weekRowForFilter : null}
+        onClearFilter={() => setSelectedHabitId(null)}
+      />
+    </ScrollView>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#FFF8F0",
-    padding: 16,
+    backgroundColor: tokens.cream,
   },
-  header: {
+  scrollContent: {
+    paddingTop: 4,
+    paddingBottom: 32,
+  },
+  headerRow: {
+    paddingHorizontal: 20,
+    paddingTop: 4,
+    paddingBottom: 6,
     flexDirection: "row",
-    alignItems: "center",
+    alignItems: "flex-start",
     justifyContent: "space-between",
-    marginBottom: 16,
+    gap: 12,
   },
-  navButton: {
-    padding: 12,
+  headerCol: {
+    flex: 1,
+    gap: 3,
   },
-  navButtonText: {
-    fontSize: 20,
+  heading: {
+    fontSize: 26,
     fontWeight: "600",
-    color: "#007AFF",
+    color: tokens.ink,
+    letterSpacing: -0.8,
+    lineHeight: 28,
   },
-  navButtonDisabled: {
-    color: "#ccc",
-  },
-  monthTitle: {
-    fontSize: 20,
-    fontWeight: "700",
-    color: "#333",
-  },
-  weekdayRow: {
-    flexDirection: "row",
-    marginBottom: 4,
-  },
-  weekdayCell: {
-    flex: 1,
-    alignItems: "center",
-    paddingVertical: 4,
-  },
-  weekdayText: {
-    fontSize: 12,
-    fontWeight: "600",
-    color: "#999",
-  },
-  grid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-  },
-  dayCell: {
-    width: `${100 / 7}%`,
-    aspectRatio: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    padding: 2,
-  },
-  dayCellSelected: {
-    backgroundColor: "#007AFF",
-    borderRadius: 8,
-  },
-  dayText: {
-    fontSize: 15,
-    color: "#333",
-  },
-  dayTextToday: {
-    fontWeight: "700",
-    color: "#007AFF",
-  },
-  dayTextSelected: {
-    color: "#fff",
-    fontWeight: "700",
-  },
-  dayTextFuture: {
-    color: "#ccc",
-  },
-  dotRow: {
-    flexDirection: "row",
-    gap: 2,
-    marginTop: 2,
-  },
-  dot: {
-    width: 5,
-    height: 5,
-    borderRadius: 2.5,
-    backgroundColor: "#34C759",
-  },
-  detailSection: {
-    flex: 1,
-    marginTop: 16,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: "#e0e0e0",
-    paddingTop: 12,
-  },
-  detailTitle: {
-    fontSize: 16,
-    fontWeight: "700",
-    color: "#333",
-    marginBottom: 8,
-  },
-  emptyDetail: {
-    fontSize: 14,
-    color: "#999",
-  },
-  detailScroll: {
-    flex: 1,
-  },
-  detailRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: 8,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: "#e0e0e0",
-  },
-  detailDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: "#007AFF",
-    marginRight: 12,
-  },
-  detailContent: {
-    flex: 1,
-  },
-  detailHabit: {
-    fontSize: 15,
-    fontWeight: "600",
-    color: "#333",
-  },
-  detailTime: {
-    fontSize: 13,
-    color: "#666",
-    marginTop: 2,
+  subhead: {
+    marginTop: 1,
+    fontFamily: "JetBrainsMono",
+    fontSize: 11,
+    color: tokens.mute,
+    letterSpacing: 0.3,
   },
 });
+
 export default CalendarScreen;

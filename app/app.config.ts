@@ -44,7 +44,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     [
       "expo-notifications",
       {
-        mode: IS_DEV ? "development" : "production",
+        mode: IS_DEV || IS_PREVIEW ? "development" : "production",
       },
     ],
     "expo-router",
