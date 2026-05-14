@@ -8,7 +8,7 @@ export const navigationIntegration: ReturnType<
 Sentry.init({
   dsn: "https://08efe873f2d78ca522c637c112347142@o4511267724001280.ingest.de.sentry.io/4511267736649808",
 
-  sendDefaultPii: true,
+  sendDefaultPii: false,
 
   enableLogs: true,
 
@@ -24,6 +24,40 @@ Sentry.init({
     Sentry.reactNativeTracingIntegration(),
     navigationIntegration,
   ],
+  // Axios attaches request/response bodies and the `Authorization` header
+  // to its error objects. `captureException` (called from our global
+  // error handlers) would otherwise ship the live device bearer or a
+  // Clerk `idpToken` along with the request/response payload to Sentry.
+  // Duck-typed via `isAxiosError` to avoid pulling axios into the app's
+  // direct deps (it's a transitive dep of `@nag/api-client`).
+  beforeSend(event, hint) {
+    const e = hint?.originalException as
+      | {
+          isAxiosError?: boolean;
+          config?: {
+            data?: unknown;
+            headers?: Record<string, unknown>;
+          };
+          response?: { data?: unknown };
+          request?: unknown;
+        }
+      | null
+      | undefined;
+    if (e?.isAxiosError === true) {
+      if (e.config) {
+        e.config.data = undefined;
+        if (e.config.headers) {
+          delete e.config.headers.Authorization;
+          delete e.config.headers.authorization;
+        }
+      }
+      if (e.response) {
+        e.response.data = undefined;
+      }
+      e.request = undefined;
+    }
+    return event;
+  },
 });
 
 export { Sentry };
