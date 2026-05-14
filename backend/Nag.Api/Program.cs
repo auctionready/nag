@@ -50,6 +50,11 @@ builder.WebHost.UseSentry(o =>
     // invocations — flush the queue at the end of each request so we
     // don't lose events.
     o.FlushOnCompletedRequest = true;
+    // Defense in depth: even with MaxRequestBodySize=None, scrub the
+    // request body and query string on routes that carry high-value
+    // secrets in the body (Clerk JWTs, admin pre-shared secret) so a
+    // future config flip can't silently exfiltrate them.
+    o.SetBeforeSend(SentryScrubbing.ScrubSensitiveRequests);
 });
 
 builder.Host.UseSerilog(
