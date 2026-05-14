@@ -17,7 +17,7 @@
   },
   "devDependencies": {
     "@types/node": "catalog:",
-    "nock": "^14.0.14",
+    "nock": "^14.0.15",
     "openapi-zod-client": "^1.18.3",
     "typescript": "catalog:",
     "vitest": "catalog:"
