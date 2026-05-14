@@ -3,6 +3,8 @@ import { ScrollView, StyleSheet, Text, View } from "react-native";
 import {
   addDays,
   addMonths,
+  differenceInCalendarMonths,
+  differenceInCalendarWeeks,
   endOfMonth,
   endOfWeek,
   format,
@@ -28,9 +30,27 @@ import { tokens } from "../../components/theme";
 
 const formatRange = (start: Date, end: Date) => {
   if (start.getMonth() === end.getMonth()) {
-    return `${format(start, "MMM d")} – ${format(end, "d")}`;
+    return `${format(start, "MMM d")}–${format(end, "d")}`;
   }
-  return `${format(start, "MMM d")} – ${format(end, "MMM d")}`;
+  return `${format(start, "MMM d")}–${format(end, "MMM d")}`;
+};
+
+const weekTitle = (weekStart: Date, todayWeekStart: Date): string => {
+  const offset = differenceInCalendarWeeks(weekStart, todayWeekStart, {
+    weekStartsOn: 1,
+  });
+  if (offset === 0) return "This week";
+  if (offset === -1) return "Last week";
+  if (offset === 1) return "Next week";
+  return `Week of ${format(weekStart, "MMM d")}`;
+};
+
+const monthTitle = (monthDate: Date, todayMonthStart: Date): string => {
+  const offset = differenceInCalendarMonths(monthDate, todayMonthStart);
+  if (offset === 0) return "This month";
+  if (offset === -1) return "Last month";
+  if (offset === 1) return "Next month";
+  return format(monthDate, "MMMM yyyy");
 };
 
 const CalendarScreen = () => {
@@ -101,29 +121,29 @@ const CalendarScreen = () => {
     [selectedDay],
   );
 
-  // Labels and disabled state for the nav row
-  const navLabels = useMemo(() => {
+  // Labels and current/next-window state for the nav row
+  const navState = useMemo(() => {
     if (view === "month") {
+      const onCurrent = isSameMonth(monthDate, today);
       return {
-        current: format(monthDate, "MMMM yyyy"),
-        prev: format(subMonths(monthDate, 1), "MMMM"),
-        next: format(addMonths(monthDate, 1), "MMMM"),
-        nextDisabled: isSameMonth(monthDate, today),
-        todayDisabled: isSameMonth(monthDate, today),
+        prev: format(subMonths(monthDate, 1), "MMM"),
+        next: format(addMonths(monthDate, 1), "MMM"),
+        nextDisabled: onCurrent,
+        onCurrent,
+        todayLabel: "today",
       };
     }
-    const weekEnd = endOfWeek(weekStart, { weekStartsOn: 1 });
     const prevStart = subDays(weekStart, 7);
     const prevEnd = endOfWeek(prevStart, { weekStartsOn: 1 });
     const nextStart = addDays(weekStart, 7);
     const nextEnd = endOfWeek(nextStart, { weekStartsOn: 1 });
-    const isCurrentWeek = isSameDay(weekStart, todayWeekStart);
+    const onCurrent = isSameDay(weekStart, todayWeekStart);
     return {
-      current: formatRange(weekStart, weekEnd),
       prev: formatRange(prevStart, prevEnd),
       next: formatRange(nextStart, nextEnd),
-      nextDisabled: isCurrentWeek,
-      todayDisabled: isCurrentWeek,
+      nextDisabled: onCurrent,
+      onCurrent,
+      todayLabel: "this week",
     };
   }, [view, monthDate, weekStart, today, todayWeekStart]);
 
@@ -165,6 +185,11 @@ const CalendarScreen = () => {
     return { total, done };
   }, [weekStart, monthHeat]);
 
+  const headerTitle =
+    view === "month"
+      ? monthTitle(monthDate, todayMonthStart)
+      : weekTitle(weekStart, todayWeekStart);
+
   const headerSummary =
     view === "month"
       ? monthSummary.total > 0
@@ -175,29 +200,31 @@ const CalendarScreen = () => {
         : "No check-ins this week";
 
   return (
-    <View style={styles.container}>
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={styles.scrollContent}
+    >
       {/* Header */}
       <View style={styles.headerRow}>
         <View style={styles.headerCol}>
-          <Text style={styles.eyebrow}>history</Text>
-          <Text style={styles.heading}>
-            {view === "week" ? "This week" : format(monthDate, "MMMM yyyy")}
+          <Text style={styles.heading} numberOfLines={1}>
+            {headerTitle}
           </Text>
           <Text style={styles.subhead}>{headerSummary}</Text>
         </View>
         <ViewToggle view={view} onChange={handleViewChange} />
       </View>
 
-      {/* Prev / next */}
+      {/* Prev / today / next */}
       <CalNavRow
-        currentLabel={navLabels.current}
-        prevLabel={navLabels.prev}
-        nextLabel={navLabels.next}
+        todayLabel={navState.todayLabel}
+        prevLabel={navState.prev}
+        nextLabel={navState.next}
         onPrev={goPrev}
         onNext={goNext}
         onToday={goToday}
-        nextDisabled={navLabels.nextDisabled}
-        todayDisabled={navLabels.todayDisabled}
+        nextDisabled={navState.nextDisabled}
+        onCurrent={navState.onCurrent}
       />
 
       {/* Grid */}
@@ -222,19 +249,14 @@ const CalendarScreen = () => {
       )}
 
       {/* Selected day check-ins (or filtered habit detail) */}
-      <ScrollView
-        style={styles.bottomScroll}
-        contentContainerStyle={styles.bottomScrollContent}
-      >
-        <SelectedDayCheckIns
-          day={selectedDay}
-          today={today}
-          groups={groupsForSelectedDay}
-          filteredHabit={view === "week" ? filteredHabit : null}
-          onClearFilter={() => setSelectedHabitId(null)}
-        />
-      </ScrollView>
-    </View>
+      <SelectedDayCheckIns
+        day={selectedDay}
+        today={today}
+        groups={groupsForSelectedDay}
+        filteredHabit={view === "week" ? filteredHabit : null}
+        onClearFilter={() => setSelectedHabitId(null)}
+      />
+    </ScrollView>
   );
 };
 
@@ -242,12 +264,15 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: tokens.cream,
+  },
+  scrollContent: {
     paddingTop: 4,
+    paddingBottom: 32,
   },
   headerRow: {
     paddingHorizontal: 20,
     paddingTop: 4,
-    paddingBottom: 10,
+    paddingBottom: 6,
     flexDirection: "row",
     alignItems: "flex-start",
     justifyContent: "space-between",
@@ -255,14 +280,7 @@ const styles = StyleSheet.create({
   },
   headerCol: {
     flex: 1,
-    gap: 2,
-  },
-  eyebrow: {
-    fontFamily: "JetBrainsMono",
-    fontSize: 10,
-    color: tokens.mute,
-    letterSpacing: 1.4,
-    textTransform: "uppercase",
+    gap: 3,
   },
   heading: {
     fontSize: 26,
@@ -272,17 +290,11 @@ const styles = StyleSheet.create({
     lineHeight: 28,
   },
   subhead: {
-    marginTop: 2,
+    marginTop: 1,
     fontFamily: "JetBrainsMono",
     fontSize: 11,
     color: tokens.mute,
     letterSpacing: 0.3,
-  },
-  bottomScroll: {
-    flex: 1,
-  },
-  bottomScrollContent: {
-    paddingBottom: 24,
   },
 });
 

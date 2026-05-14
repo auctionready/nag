@@ -115,22 +115,11 @@ export const WeekView = ({
                     {row.habit.title}
                   </Text>
                 </View>
-                {row.states.map((state, di) => {
-                  const isTodayCol = isSameDay(days[di], today);
-                  return (
-                    <View
-                      key={di}
-                      style={[
-                        styles.dayCell,
-                        isTodayCol &&
-                          isSelHabit &&
-                          styles.dayCellTodayHighlight,
-                      ]}
-                    >
-                      <CellGlyph state={state} />
-                    </View>
-                  );
-                })}
+                {row.states.map((state, di) => (
+                  <View key={di} style={styles.dayCell}>
+                    <CellGlyph state={state} />
+                  </View>
+                ))}
               </Pressable>
             );
           })
@@ -188,7 +177,6 @@ const styles = StyleSheet.create({
     minHeight: HEADER_DOW_HEIGHT,
   },
   headerDayCellToday: {
-    backgroundColor: tokens.orange,
     borderColor: tokens.orange,
   },
   headerDayCellSelected: {
@@ -203,7 +191,7 @@ const styles = StyleSheet.create({
     textTransform: "uppercase",
   },
   headerDowToday: {
-    color: tokens.cream,
+    color: tokens.orange,
   },
   headerDate: {
     fontSize: 14,
@@ -214,7 +202,7 @@ const styles = StyleSheet.create({
     marginTop: 1,
   },
   headerDateToday: {
-    color: tokens.cream,
+    color: tokens.orange,
   },
   habitRow: {
     flexDirection: "row",
@@ -275,9 +263,6 @@ const styles = StyleSheet.create({
     paddingVertical: 1,
     marginHorizontal: 1,
     borderRadius: 6,
-  },
-  dayCellTodayHighlight: {
-    backgroundColor: "rgba(255,90,54,0.08)",
   },
   emptyRow: {
     paddingVertical: 18,

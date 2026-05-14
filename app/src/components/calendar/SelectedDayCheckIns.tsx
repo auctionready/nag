@@ -1,5 +1,5 @@
 import { useRouter } from "expo-router";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 import { format, isSameDay } from "date-fns";
 import Svg, { Path } from "react-native-svg";
 import { tokens } from "../theme";
@@ -79,14 +79,11 @@ const DayCheckInsList = ({ day, today, groups }: DayCheckInsListProps) => {
           ))}
         </View>
       ) : (
-        <ScrollView
-          style={styles.scroll}
-          contentContainerStyle={styles.cardsStack}
-        >
+        <View style={styles.cardsStack}>
           {groups.map((g) => (
             <CardRow key={g.habitId} group={g} />
           ))}
-        </ScrollView>
+        </View>
       )}
     </View>
   );
@@ -378,7 +375,6 @@ const SkipGlyph = () => (
 
 const styles = StyleSheet.create({
   section: {
-    flex: 1,
     marginTop: 12,
     paddingBottom: 8,
   },
@@ -410,9 +406,6 @@ const styles = StyleSheet.create({
   dayHeaderTotalsSkip: {
     color: tokens.orange,
     fontWeight: "600",
-  },
-  scroll: {
-    flex: 1,
   },
   cardsStack: {
     paddingHorizontal: 16,

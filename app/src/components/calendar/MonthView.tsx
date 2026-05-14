@@ -26,10 +26,10 @@ interface MonthViewProps {
 /**
  * Six-row month grid. Each in-month cell is a rounded swatch tinted with
  * ink alpha proportional to that day's completed-check-in ratio (capped
- * at a soft maximum). Today is the orange brand pill; the selected day
- * (when not today) gets a 1.5px ink ring. Future days remain visually
- * lighter but stay tappable so callers can decide whether to ignore the
- * gesture upstream.
+ * at a soft maximum). Today gets a 1.5px orange ring with the date in
+ * orange — the cue sits *on top of* whatever heat is underneath so the
+ * day's progress remains legible. Selected day (when not today) gets a
+ * 1.5px ink ring. Future days are visually lighter but tappable.
  */
 export const MonthView = ({
   monthDate,
@@ -76,13 +76,12 @@ export const MonthView = ({
           const isFuture = isAfter(day, today);
           const { done } = heatFor(day);
 
-          // Heat: 0 → empty, 1+ → ramp 0.18 → 0.78
+          // Heat: 0 → empty, 1+ → ramp 0.18 → 0.78. Today keeps its
+          // heat fill; the orange today-ring sits on top of the swatch.
           const heatRatio =
             done === 0 ? 0 : 0.18 + 0.6 * Math.min(1, done / ramp);
           const heatBg =
-            done > 0 && !isToday
-              ? `rgba(26,20,16,${heatRatio.toFixed(3)})`
-              : "transparent";
+            done > 0 ? `rgba(26,20,16,${heatRatio.toFixed(3)})` : "transparent";
           const useCreamText = done > 0 && heatRatio > 0.5 && !isToday;
 
           return (
@@ -95,8 +94,9 @@ export const MonthView = ({
               <View
                 style={[
                   styles.inner,
-                  { backgroundColor: isToday ? tokens.orange : heatBg },
+                  { backgroundColor: heatBg },
                   !inMonth && styles.innerOutMonth,
+                  isToday && styles.innerToday,
                   isSelected && !isToday && styles.innerSelected,
                   inMonth &&
                     done === 0 &&
@@ -178,6 +178,10 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderColor: tokens.ink,
   },
+  innerToday: {
+    borderWidth: 1.5,
+    borderColor: tokens.orange,
+  },
   dayText: {
     fontFamily: "JetBrainsMono",
     fontSize: 10,
@@ -185,7 +189,7 @@ const styles = StyleSheet.create({
     fontWeight: "500",
   },
   dayTextToday: {
-    color: tokens.cream,
+    color: tokens.orange,
   },
   dayTextOnHeat: {
     color: tokens.cream,
