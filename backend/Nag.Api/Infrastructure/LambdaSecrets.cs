@@ -1,3 +1,5 @@
+using Npgsql;
+
 namespace Nag.Api.Infrastructure;
 
 /// <summary>
@@ -63,18 +65,87 @@ public static class LambdaSecrets
         }
     }
 
-    // Neon's `connection_uri` returns a `postgres://user:pass@host/db?sslmode=require`
-    // URI; Npgsql's connection string is key=value pairs, so translate. SSL is
-    // forced on — Neon's public endpoint is TLS-only.
+    // Neon's `connection_uri` returns a `postgres://user:pass@host/db?sslmode=...`
+    // URI; Npgsql's connection string is key=value pairs, so translate.
+    //
+    // SslMode defaults to VerifyFull when the URI doesn't specify one — Neon's
+    // endpoint is signed by ISRG Root X1 (Let's Encrypt), which Amazon Linux's
+    // CA bundle trusts out of the box, so full hostname + chain verification
+    // works without bundling a private cert. Whatever sslmode the URI does
+    // specify is preserved, so the deployment can adjust it via `DATABASE_URL`
+    // alone (e.g. a non-Neon target with a private CA).
     private static string NpgsqlConnectionStringFromUri(string uriString)
     {
         var uri = new Uri(uriString);
         var userInfo = uri.UserInfo.Split(':', 2);
-        var username = Uri.UnescapeDataString(userInfo[0]);
-        var password = userInfo.Length > 1 ? Uri.UnescapeDataString(userInfo[1]) : "";
-        var database = Uri.UnescapeDataString(uri.AbsolutePath.TrimStart('/'));
-        var port = uri.Port > 0 ? uri.Port : 5432;
+        var builder = new NpgsqlConnectionStringBuilder
+        {
+            Host = uri.Host,
+            Port = uri.Port > 0 ? uri.Port : 5432,
+            Database = Uri.UnescapeDataString(uri.AbsolutePath.TrimStart('/')),
+            Username = Uri.UnescapeDataString(userInfo[0]),
+            Password = userInfo.Length > 1 ? Uri.UnescapeDataString(userInfo[1]) : "",
+            SslMode = SslMode.VerifyFull,
+        };
 
-        return $"Host={uri.Host};Port={port};Database={database};Username={username};Password={password};SSL Mode=Require;Trust Server Certificate=true";
+        foreach (var (key, value) in ParseQuery(uri.Query))
+        {
+            switch (key.ToLowerInvariant())
+            {
+                case "sslmode":
+                    builder.SslMode = ParseSslMode(value);
+                    break;
+                case "channel_binding":
+                    builder.ChannelBinding = ParseChannelBinding(value);
+                    break;
+                case "options":
+                    builder.Options = value;
+                    break;
+            }
+        }
+
+        return builder.ToString();
     }
+
+    private static IEnumerable<(string Key, string Value)> ParseQuery(string query)
+    {
+        if (string.IsNullOrEmpty(query))
+            yield break;
+        foreach (var pair in query.TrimStart('?').Split('&', StringSplitOptions.RemoveEmptyEntries))
+        {
+            var eq = pair.IndexOf('=');
+            if (eq < 0)
+                yield return (Uri.UnescapeDataString(pair), "");
+            else
+                yield return (
+                    Uri.UnescapeDataString(pair[..eq]),
+                    Uri.UnescapeDataString(pair[(eq + 1)..])
+                );
+        }
+    }
+
+    private static SslMode ParseSslMode(string value) =>
+        value.ToLowerInvariant() switch
+        {
+            "disable" => SslMode.Disable,
+            "allow" => SslMode.Allow,
+            "prefer" => SslMode.Prefer,
+            "require" => SslMode.Require,
+            "verify-ca" => SslMode.VerifyCA,
+            "verify-full" => SslMode.VerifyFull,
+            _ => throw new InvalidOperationException(
+                $"DATABASE_URL has unrecognized sslmode '{value}'."
+            ),
+        };
+
+    private static ChannelBinding ParseChannelBinding(string value) =>
+        value.ToLowerInvariant() switch
+        {
+            "disable" => ChannelBinding.Disable,
+            "prefer" => ChannelBinding.Prefer,
+            "require" => ChannelBinding.Require,
+            _ => throw new InvalidOperationException(
+                $"DATABASE_URL has unrecognized channel_binding '{value}'."
+            ),
+        };
 }

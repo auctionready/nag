@@ -16,7 +16,7 @@ Internet → API Gateway HTTP API ($default)
 
 The Lambda runs outside any VPC, so all outbound traffic — to Neon, to Clerk's JWKS, to anywhere else — uses AWS-managed public networking with no NAT instance / NAT Gateway / Hyperplane ENI in the path. Cold start is ~half the in-VPC number.
 
-The DB connection string and device-token signing secret are passed as Lambda environment variables (`DATABASE_URL`, `DEVICE_TOKEN_SECRET`), encrypted at rest with the AWS-managed KMS key — see `backend/Nag.Api/Infrastructure/LambdaSecrets.cs`. `DATABASE_URL` is the Neon `connection_uri` (a `postgres://user:pass@host/db?sslmode=require` URI); `LambdaSecrets` parses it into Npgsql `key=value` form and forces `SSL Mode=Require`.
+The DB connection string and device-token signing secret are passed as Lambda environment variables (`DATABASE_URL`, `DEVICE_TOKEN_SECRET`), encrypted at rest with the AWS-managed KMS key — see `backend/Nag.Api/Infrastructure/LambdaSecrets.cs`. `DATABASE_URL` is the Neon `connection_uri` (a `postgres://user:pass@host/db?sslmode=...` URI); `LambdaSecrets` parses it into Npgsql `key=value` form, preserving whatever `sslmode` the URI carries and defaulting to `VerifyFull` when unspecified.
 
 Neon's compute scales to zero after `neonSuspendTimeoutSeconds` of idle (default = Neon account default, ~5 min on Free). First query after a long idle pays a ~500 ms warm-up.
 
