@@ -69,5 +69,8 @@
     "jest-junit": "^17.0.0",
     "typescript": "catalog:"
   },
-  "private": true
+  "private": true,
+  "engines": {
+    "node": ">=24"
+  }
 }
