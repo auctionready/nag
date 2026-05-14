@@ -414,6 +414,7 @@ export const seedSampleData = async () => {
   const realConsolidated = getConsolidatedScheduler();
   const realNotification = getNotificationScheduler();
   const noopConsolidated = {
+    requestPermissions: async () => true,
     cancelAllTimeSlotNotifications: async () => {},
     scheduleTimeSlotNotification: async () => {},
   };

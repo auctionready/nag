@@ -3,6 +3,15 @@ import { allActiveSchedules, checkInsForHabitsOnDay } from "./queries";
 import { matchCheckInsToTimeSlots } from "./trafficLight";
 
 export interface ConsolidatedNotificationScheduler {
+  /**
+   * Request OS notification permission. Called by `syncAllNotifications`
+   * the first time there is at least one scheduled goal to emit, so the
+   * iOS dialog appears at a meaningful moment (first habit created, or
+   * first sign-in pull that brings down schedules from the server).
+   * Idempotent on iOS — re-calls after grant/deny return the current
+   * status without re-prompting.
+   */
+  requestPermissions(): Promise<boolean>;
   cancelAllTimeSlotNotifications(): Promise<void>;
   scheduleTimeSlotNotification(params: {
     identifier: string;
@@ -232,6 +241,7 @@ export const timeSlotContent = (
 };
 
 const noop: ConsolidatedNotificationScheduler = {
+  requestPermissions: async () => true,
   cancelAllTimeSlotNotifications: async () => {},
   scheduleTimeSlotNotification: async () => {},
 };
@@ -294,6 +304,9 @@ export const syncAllNotifications = async (
   await scheduler.cancelAllTimeSlotNotifications();
 
   if (timeSlots.length === 0) return;
+
+  const granted = await scheduler.requestPermissions();
+  if (!granted) return;
 
   // Widest possible lookup window across all time-slots: up to ~3 months out.
   const lookupStart = new Date(

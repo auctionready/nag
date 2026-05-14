@@ -16,10 +16,15 @@ const cancelAll = vi.fn<
 const scheduleOne = vi.fn<
   ConsolidatedNotificationScheduler["scheduleTimeSlotNotification"]
 >(async () => {});
+const requestPermissions = vi.fn<
+  ConsolidatedNotificationScheduler["requestPermissions"]
+>(async () => true);
 
 beforeEach(() => {
   vi.clearAllMocks();
+  requestPermissions.mockImplementation(async () => true);
   setConsolidatedScheduler({
+    requestPermissions,
     cancelAllTimeSlotNotifications: cancelAll,
     scheduleTimeSlotNotification: scheduleOne,
   });
@@ -146,6 +151,47 @@ describe("syncAllNotifications", () => {
 
       await syncAllNotifications(getDb(), { now });
 
+      expect(scheduleOne).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("permissions", () => {
+    it("requests permissions once when there is at least one timeSlot", async () => {
+      const now = new Date(2026, 3, 15, 6, 0);
+      await seedDailyHabit("Read", 8, 0);
+
+      await syncAllNotifications(getDb(), { now });
+
+      expect(requestPermissions).toHaveBeenCalledOnce();
+    });
+
+    it("does not request permissions when there are no timeSlots", async () => {
+      const now = new Date(2026, 3, 15, 6, 0);
+
+      await syncAllNotifications(getDb(), { now });
+
+      expect(requestPermissions).not.toHaveBeenCalled();
+      expect(scheduleOne).not.toHaveBeenCalled();
+    });
+
+    it("does not request permissions when all schedules have reminder=false", async () => {
+      const now = new Date(2026, 3, 15, 6, 0);
+      await seedDailyHabit("Read", 8, 0, false);
+
+      await syncAllNotifications(getDb(), { now });
+
+      expect(requestPermissions).not.toHaveBeenCalled();
+      expect(scheduleOne).not.toHaveBeenCalled();
+    });
+
+    it("skips scheduling when permission is denied", async () => {
+      const now = new Date(2026, 3, 15, 6, 0);
+      await seedDailyHabit("Read", 8, 0);
+      requestPermissions.mockImplementation(async () => false);
+
+      await syncAllNotifications(getDb(), { now });
+
+      expect(cancelAll).toHaveBeenCalledOnce();
       expect(scheduleOne).not.toHaveBeenCalled();
     });
   });

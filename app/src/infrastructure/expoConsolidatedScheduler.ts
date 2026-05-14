@@ -1,18 +1,18 @@
 import * as Notifications from "expo-notifications";
 import type { ConsolidatedNotificationScheduler } from "@nag/core";
 
-// Refreshed once per sync cycle in cancelAllTime-slotNotifications so that
-// scheduleTime-slotNotification doesn't hit the native permission API 60 times.
+// Set by requestPermissions; gates scheduleTimeSlotNotification so it doesn't
+// hit the native permission API on every one of up to 60 calls per sync.
 let permissionGranted = false;
 
 export const expoConsolidatedScheduler: ConsolidatedNotificationScheduler = {
-  cancelAllTimeSlotNotifications: async (): Promise<void> => {
-    // Use getPermissionsAsync (check-only) so a background sync on startup
-    // never triggers the iOS permission dialog. Request permissions through
-    // requestPermissionsAsync at a user-initiated moment instead.
-    const { status } = await Notifications.getPermissionsAsync();
+  requestPermissions: async (): Promise<boolean> => {
+    const { status } = await Notifications.requestPermissionsAsync();
     permissionGranted = status === "granted";
+    return permissionGranted;
+  },
 
+  cancelAllTimeSlotNotifications: async (): Promise<void> => {
     await Notifications.cancelAllScheduledNotificationsAsync();
   },
 
