@@ -1,16 +1,28 @@
 import React from "react";
 import { Alert } from "react-native";
-import { setIdpSubject, switchLocalAccount } from "@nag/core";
+import {
+  ensureDeviceRegistered,
+  resetLocalAccount,
+  setIdpSubject,
+  switchLocalAccount,
+} from "@nag/core";
 import { habit } from "@nag/schema";
 import { db } from "../../db";
 import {
   pairDevice,
+  registerDevice,
   releaseClerkIdentity,
+  unbindAccount,
+  unregisterDevice,
   upgradeAccount,
 } from "../../infrastructure/apiClient";
 import { log } from "../../infrastructure/log";
 import { deviceTokenStore } from "../../infrastructure/tokenStore";
-import type { ConflictChoice, UpgradeStatus } from "./types";
+import type {
+  ConflictChoice,
+  IdentityMismatchChoice,
+  UpgradeStatus,
+} from "./types";
 
 const logger = log("account");
 
@@ -180,6 +192,178 @@ export const chooseConflictResolution = (): Promise<ConflictChoice> =>
           text: "Use this device's data",
           style: "destructive",
           onPress: () => resolve("use-device"),
+        },
+      ],
+      { cancelable: true, onDismiss: () => resolve("cancel") },
+    );
+  });
+
+/**
+ * Handles the 409 case where this device's account is already bound to
+ * a *different* identity than the one currently signing in (e.g. user
+ * was Apple, signed out, signed in with Google on the same device).
+ * Distinct from `runPairFallback`, which handles the inverse 409 — the
+ * incoming identity is bound to a *different account* somewhere else.
+ *
+ *   - "Switch this account" → unbind the old identity (DELETE
+ *     /accounts/me/identity) and rebind to the new one. The device's
+ *     existing account survives, with its data and any other paired
+ *     devices intact — only the login method changes.
+ *   - "Start a new account" → unregister the device server-side (DELETE
+ *     /devices/me, which cascades to a full account-delete if this was
+ *     the last device), wipe the local mirror, then register fresh and
+ *     bind the new identity to a brand-new account.
+ *   - "Cancel" → signOut from Clerk; the device returns to its
+ *     signed-out state with the original server-side binding untouched.
+ */
+export const runIdentityMismatch = async ({
+  idpToken,
+  kickSync,
+  signOut,
+  setStatus,
+  onCancelled,
+}: {
+  idpToken: string;
+  kickSync: (source: string) => void;
+  signOut: () => Promise<void>;
+  setStatus: React.Dispatch<React.SetStateAction<UpgradeStatus>>;
+  onCancelled: () => void;
+}): Promise<void> => {
+  const choice = await chooseIdentityMismatch();
+  if (choice === "cancel") {
+    logger.info("identity mismatch cancelled by user — signing out of Clerk");
+    try {
+      await signOut();
+    } catch (err) {
+      logger.warn("signOut after identity-mismatch-cancel failed", err);
+    }
+    onCancelled();
+    setStatus({ kind: "idle" });
+    return;
+  }
+
+  if (choice === "switch") {
+    await runSwitchIdentity({ idpToken, kickSync, setStatus });
+    return;
+  }
+
+  await runStartNewAccount({ idpToken, kickSync, setStatus });
+};
+
+/**
+ * "Switch this account to a new provider" — release the existing
+ * identity binding on the calling account, then rebind it to the
+ * verified token from the new provider. Two server calls in sequence;
+ * the brief window between them leaves the account momentarily without
+ * an `IdpSubject` server-side, but no other device's auth depends on
+ * that field (device tokens sign `(accountId, deviceId)` directly).
+ */
+const runSwitchIdentity = async ({
+  idpToken,
+  kickSync,
+  setStatus,
+}: {
+  idpToken: string;
+  kickSync: (source: string) => void;
+  setStatus: React.Dispatch<React.SetStateAction<UpgradeStatus>>;
+}): Promise<void> => {
+  const unbound = await unbindAccount();
+  if (!unbound.ok) {
+    setStatus({ kind: "fail", message: unbound.message });
+    return;
+  }
+  const claimed = await upgradeAccount({ idpToken });
+  if (!claimed.ok) {
+    setStatus({ kind: "fail", message: claimed.message });
+    return;
+  }
+  await setIdpSubject(db, claimed.idpSubject);
+  logger.info(
+    `account rebound to new identity sub=${claimed.idpSubject} — kicking sync`,
+  );
+  setStatus({ kind: "ok" });
+  kickSync("post-switch-identity");
+};
+
+/**
+ * "Start a new account" — fully abandon the device's existing account
+ * (unregister server-side; if this was the last device, the cascade
+ * deletes the account row and its data), wipe every locally-replicated
+ * row, then re-bootstrap with a fresh server account bound to the new
+ * identity. Local data does **not** carry over — the user explicitly
+ * chose to start fresh.
+ */
+const runStartNewAccount = async ({
+  idpToken,
+  kickSync,
+  setStatus,
+}: {
+  idpToken: string;
+  kickSync: (source: string) => void;
+  setStatus: React.Dispatch<React.SetStateAction<UpgradeStatus>>;
+}): Promise<void> => {
+  const unregistered = await unregisterDevice();
+  // 401 here means the device-token side has already been invalidated
+  // (e.g. a previous attempt cascaded the account and this is a retry).
+  // Either way the server-side cleanup we wanted has happened — proceed
+  // with the local wipe and re-bootstrap rather than surfacing a
+  // confusing "unauthorized" error.
+  if (
+    !unregistered.ok &&
+    !(unregistered.kind === "non-retriable" && unregistered.status === 401)
+  ) {
+    setStatus({ kind: "fail", message: unregistered.message });
+    return;
+  }
+
+  await resetLocalAccount({ db, tokenStore: deviceTokenStore, log: logger });
+
+  const registration = await ensureDeviceRegistered({
+    db,
+    tokenStore: deviceTokenStore,
+    register: registerDevice,
+    log: logger,
+  });
+  if (!registration.accountId) {
+    setStatus({
+      kind: "fail",
+      message: "device re-registration failed — try again",
+    });
+    return;
+  }
+
+  const upgraded = await upgradeAccount({ idpToken });
+  if (!upgraded.ok) {
+    setStatus({ kind: "fail", message: upgraded.message });
+    return;
+  }
+  await setIdpSubject(db, upgraded.idpSubject);
+  logger.info(
+    `started new account ${registration.accountId} bound to sub=${upgraded.idpSubject}`,
+  );
+  setStatus({ kind: "ok" });
+  kickSync("post-fresh-account");
+};
+
+const chooseIdentityMismatch = (): Promise<IdentityMismatchChoice> =>
+  new Promise((resolve) => {
+    Alert.alert(
+      "This device is signed in to another account",
+      "Your data on this device belongs to an account linked to a different login. What would you like to do?",
+      [
+        {
+          text: "Cancel",
+          style: "cancel",
+          onPress: () => resolve("cancel"),
+        },
+        {
+          text: "Switch this account to this login",
+          onPress: () => resolve("switch"),
+        },
+        {
+          text: "Start a new account",
+          style: "destructive",
+          onPress: () => resolve("fresh"),
         },
       ],
       { cancelable: true, onDismiss: () => resolve("cancel") },

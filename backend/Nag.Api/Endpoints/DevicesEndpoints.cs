@@ -6,6 +6,8 @@ using Nag.Api.Auth;
 using Nag.Api.Infrastructure.Http;
 using Nag.Core.Contracts;
 using Nag.Core.Domain;
+using Nag.Core.Idempotency;
+using Nag.Core.ReadModels;
 using Wolverine.Http;
 
 namespace Nag.Api.Endpoints;
@@ -233,5 +235,140 @@ public static class DevicesEndpoints
             tokens.Issue(account.Id, device.Id)
         );
         return Results.Extensions.CreatedAtRoute("getDevicesById", new { id = device.Id }, created);
+    }
+
+    /// <summary>
+    /// Unpairs the calling device from its account. Both the account id and
+    /// device id are read from the device-token claims, never the URL or
+    /// body, so a token can only unpair its own device.
+    ///
+    /// If this was the last device on the account, the account itself is
+    /// cascade-deleted — same cleanup as <c>DELETE /accounts/me</c> — so the
+    /// server never holds an account with no devices attached. When other
+    /// devices remain, the account row is left untouched and they keep
+    /// working through their own device tokens.
+    ///
+    /// Idempotent: deleting a device that no longer exists is a 204 no-op,
+    /// so the client can safely retry after a transient failure.
+    /// </summary>
+    [Tags("Devices")]
+    [NotTenanted]
+    [EndpointName("deleteDevicesMe")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status401Unauthorized)]
+    [WolverineDelete("/devices/me")]
+    public static async Task<IResult> UnregisterDevice(
+        ClaimsPrincipal user,
+        IDocumentStore store,
+        IDeviceAccountResolver resolver,
+        ILoggerFactory loggerFactory,
+        CancellationToken ct
+    )
+    {
+        var log = loggerFactory.CreateLogger("DevicesEndpoints.UnregisterDevice");
+        var accountIdClaim = user.FindFirstValue(NagClaimTypes.AccountId);
+        var deviceIdClaim = user.FindFirstValue(NagClaimTypes.DeviceId);
+        if (
+            !Guid.TryParse(accountIdClaim, out var accountId)
+            || !Guid.TryParse(deviceIdClaim, out var deviceId)
+        )
+        {
+            return Results.Json(
+                new ErrorResponse(["unauthenticated"]),
+                statusCode: StatusCodes.Status401Unauthorized
+            );
+        }
+
+        // Open the session inside the caller's tenant so the cascade
+        // branch can rely on `DeleteWhere<T>(_ => true)` against
+        // MultiTenanted documents — same pattern as `DELETE /accounts/me`.
+        var tenantId = accountId.ToString("D");
+        await using var session = store.LightweightSession(tenantId);
+
+        var device = await session.LoadAsync<Device>(deviceId, ct);
+        if (device is null || device.AccountId != accountId)
+        {
+            // Already gone (or never owned by this caller) — 204 keeps the
+            // sign-out path safely retryable.
+            log.LogInformation(
+                "DELETE /devices/me no-op (device gone) account={AccountId} device={DeviceId}",
+                accountId,
+                deviceId
+            );
+            return Results.NoContent();
+        }
+
+        var remaining = await session
+            .Query<Device>()
+            .CountAsync(d => d.AccountId == accountId && d.Id != deviceId, ct);
+
+        if (remaining > 0)
+        {
+            session.Delete<Device>(deviceId);
+            await session.SaveChangesAsync(ct);
+            log.LogInformation(
+                "DELETE /devices/me unpaired account={AccountId} device={DeviceId} remaining={Remaining}",
+                accountId,
+                deviceId,
+                remaining
+            );
+            return Results.NoContent();
+        }
+
+        // Last device — cascade-delete the account so we don't leak an
+        // ownerless account row. Mirrors `DELETE /accounts/me`'s cleanup:
+        // per-account read models + inbox via tenant scoping, devices +
+        // account via explicit ids, and events/streams via raw SQL because
+        // Marten doesn't expose `DeleteWhere` for `mt_events`/`mt_streams`.
+        var account = await session.LoadAsync<Account>(accountId, ct);
+
+        session.DeleteWhere<HomeBoard>(_ => true);
+        session.DeleteWhere<CheckInState>(_ => true);
+        session.DeleteWhere<MonthlyCheckInSummary>(_ => true);
+        session.DeleteWhere<WeeklyCheckInSummary>(_ => true);
+        session.DeleteWhere<HabitComplianceHistory>(_ => true);
+        session.DeleteWhere<ProcessedEnvelope>(_ => true);
+
+        session.Delete<Device>(deviceId);
+        if (account is not null)
+            session.Delete<Account>(accountId);
+
+        await session.SaveChangesAsync(ct);
+
+        // Marten creates `mt_events` / `mt_streams` lazily on first event
+        // write, so accounts that never emitted one will see those tables
+        // missing here. Run the events cleanup in a separate connection
+        // *after* the main batch commits — `QueueSqlCommand` can't
+        // tolerate the semicolons a PL/pgSQL `EXCEPTION` clause needs.
+        // Losing atomicity is fine: tenant_id-tagged event rows that
+        // outlive their account are unreachable (no Account/Device row
+        // resolves to that tenant), and the next cascade still reaps them.
+        // `tenantId` comes from `accountId.ToString("D")` — hex + dashes
+        // only, so inlining it into the SQL is safe. PL/pgSQL `DO` blocks
+        // don't see outer command parameters, which forces this shape.
+        var eventsSchema = store.Options.Events.DatabaseSchemaName;
+        await using (var conn = store.Storage.Database.CreateConnection())
+        {
+            await conn.OpenAsync(ct);
+            await using var cmd = conn.CreateCommand();
+            cmd.CommandText =
+                $@"DO $do$ BEGIN
+                     DELETE FROM {eventsSchema}.mt_events WHERE tenant_id = '{tenantId}';
+                     DELETE FROM {eventsSchema}.mt_streams WHERE tenant_id = '{tenantId}';
+                   EXCEPTION WHEN undefined_table THEN NULL;
+                   END $do$;";
+            await cmd.ExecuteNonQueryAsync(ct);
+        }
+
+        if (account is not null && !string.IsNullOrEmpty(account.IdpSubject))
+            resolver.Invalidate(account.IdpSubject);
+        resolver.InvalidateAccount(accountId);
+
+        log.LogInformation(
+            "DELETE /devices/me cascaded — last device, wiped account={AccountId} device={DeviceId}",
+            accountId,
+            deviceId
+        );
+        return Results.NoContent();
     }
 }

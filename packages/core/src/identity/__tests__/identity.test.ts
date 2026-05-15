@@ -17,6 +17,7 @@ import {
   getAccountId,
   switchLocalAccount,
   clearLocalAuth,
+  resetLocalAccount,
   type TokenStore,
 } from "../identity";
 import { ensureDevAuthRegistered } from "../devAuth";
@@ -490,6 +491,60 @@ describe("clearLocalAuth", () => {
     expect(await db.select().from(outbox)).toHaveLength(1);
     const [s] = await db.select().from(syncState).where(eq(syncState.id, 1));
     expect(s.highestServerSequence).toBe(42);
+  });
+});
+
+describe("resetLocalAccount", () => {
+  it("wipes user data + outbox, resets syncState, and clears the identity binding while keeping deviceId", async () => {
+    const db = getDb();
+    const tokenStore = new InMemoryTokenStore("device-tok");
+
+    // Seed everything `resetLocalAccount` is supposed to scrub.
+    const [{ habitId }] = await db
+      .insert(habit)
+      .values({ id: crypto.randomUUID(), title: "Old habit" })
+      .returning({ habitId: habit.id });
+    await db.insert(goal).values({ habitId, regularity: "day", frequency: 1 });
+    await db.insert(checkIn).values({
+      id: crypto.randomUUID(),
+      habitId,
+      timestamp: new Date("2026-04-15T08:00:00.000Z"),
+      skipped: false,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+    await db.insert(outbox).values({
+      id: "00000000-0000-4000-8000-0000000000cd",
+      events: "[]",
+      status: "pending",
+    });
+    await db
+      .update(syncState)
+      .set({ halted: true, highestServerSequence: 99 })
+      .where(eq(syncState.id, 1));
+
+    const before = await loadIdentity(db);
+    const originalDeviceId = before?.deviceId;
+    expect(originalDeviceId).toBeTruthy();
+
+    await resetLocalAccount({ db, tokenStore });
+
+    // Identity row keeps deviceId; everything else is null.
+    const after = await loadIdentity(db);
+    expect(after?.deviceId).toBe(originalDeviceId);
+    expect(after?.accountId).toBeNull();
+    expect(after?.registeredAt).toBeNull();
+    expect(after?.idpSubject).toBeNull();
+    expect(await tokenStore.get()).toBeNull();
+
+    // Replicated tables + outbox are empty — fresh start.
+    expect(await db.select().from(habit)).toHaveLength(0);
+    expect(await db.select().from(goal)).toHaveLength(0);
+    expect(await db.select().from(checkIn)).toHaveLength(0);
+    expect(await db.select().from(outbox)).toHaveLength(0);
+    const [s] = await db.select().from(syncState).where(eq(syncState.id, 1));
+    expect(s.halted).toBe(false);
+    expect(s.highestServerSequence).toBe(0);
   });
 });
 

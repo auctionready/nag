@@ -710,6 +710,17 @@ export const endpoints = makeApi([
     ],
   },
   {
+    method: "delete",
+    path: "/devices/me",
+    alias: "deleteDevicesMe",
+    parameters: [],
+    response: z.object({}).partial(),
+    errors: [
+      { status: 401, schema: ErrorResponse },
+      { status: 404, schema: z.void() },
+    ],
+  },
+  {
     method: "post",
     path: "/devices/pair",
     alias: "postDevicesPair",
