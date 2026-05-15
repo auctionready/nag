@@ -9,6 +9,7 @@ import {
   providerFromClerk,
 } from "../glyphs";
 import { Group, Row } from "./AccountUI";
+import { DeleteAccountSection } from "./DeleteAccountSection";
 import { SettingsGroups } from "./SettingsGroups";
 import { UpgradeStatusLine } from "./UpgradeStatusLine";
 import type { UpgradeStatus } from "./types";
@@ -76,20 +77,6 @@ export const SignedInView = ({
         ) : null}
       </View>
 
-      {/* Stats strip — placeholders for now (streak / habits / this-mo) */}
-      <View style={styles.statsStrip}>
-        {[
-          { v: "—", l: "streak" },
-          { v: "—", l: "habits" },
-          { v: "—", l: "this mo" },
-        ].map((s) => (
-          <View key={s.l} style={styles.statCell}>
-            <Text style={styles.statValue}>{s.v}</Text>
-            <Text style={styles.statLabel}>{s.l}</Text>
-          </View>
-        ))}
-      </View>
-
       <UpgradeStatusLine status={status} />
 
       <Group title="Linked account">
@@ -127,6 +114,8 @@ export const SignedInView = ({
       </Group>
 
       <SettingsGroups />
+
+      <DeleteAccountSection />
 
       <View style={{ height: 32 }} />
     </ScrollView>
@@ -196,33 +185,5 @@ const styles = StyleSheet.create({
     fontFamily: "JetBrainsMono",
     fontSize: 11,
     color: tokens.mute,
-  },
-  statsStrip: {
-    marginHorizontal: 16,
-    marginTop: 4,
-    padding: 14,
-    backgroundColor: tokens.surface,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: tokens.border,
-    flexDirection: "row",
-  },
-  statCell: {
-    flex: 1,
-    alignItems: "center",
-    gap: 2,
-  },
-  statValue: {
-    fontSize: 22,
-    fontWeight: "700",
-    color: tokens.ink,
-    letterSpacing: -0.5,
-  },
-  statLabel: {
-    fontFamily: "JetBrainsMono",
-    fontSize: 9.5,
-    color: tokens.mute,
-    letterSpacing: 1,
-    textTransform: "uppercase",
   },
 });

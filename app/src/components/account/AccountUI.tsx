@@ -31,6 +31,10 @@ interface RowProps {
   danger?: boolean;
   /** Greyed-out + non-interactive — used for not-yet-implemented rows. */
   disabled?: boolean;
+  /** Render an on/off pill on the right instead of a chevron. */
+  toggle?: boolean;
+  /** When `toggle` is true, whether the pill shows the "on" state. */
+  toggleOn?: boolean;
   onPress?: () => void;
   /** Hide the bottom hairline — used on the last row in a group. */
   last?: boolean;
@@ -43,6 +47,8 @@ export const Row = ({
   chevron = true,
   danger = false,
   disabled = false,
+  toggle = false,
+  toggleOn = false,
   onPress,
   last = false,
 }: RowProps) => {
@@ -75,16 +81,27 @@ export const Row = ({
           {detail}
         </Text>
       )}
-      {chevron && !danger && (
-        <Svg width={6} height={11} viewBox="0 0 6 11" fill="none">
-          <Path
-            d="M1 1l4 4.5L1 10"
-            stroke={tokens.mute}
-            strokeWidth={1.5}
-            strokeLinecap="round"
-            strokeLinejoin="round"
+      {toggle ? (
+        <View
+          style={[rowStyles.toggleTrack, toggleOn && rowStyles.toggleTrackOn]}
+        >
+          <View
+            style={[rowStyles.toggleKnob, toggleOn && rowStyles.toggleKnobOn]}
           />
-        </Svg>
+        </View>
+      ) : (
+        chevron &&
+        !danger && (
+          <Svg width={6} height={11} viewBox="0 0 6 11" fill="none">
+            <Path
+              d="M1 1l4 4.5L1 10"
+              stroke={tokens.mute}
+              strokeWidth={1.5}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </Svg>
+        )
       )}
     </View>
   );
@@ -202,6 +219,25 @@ const rowStyles = StyleSheet.create({
   },
   disabled: {
     opacity: 0.4,
+  },
+  toggleTrack: {
+    width: 34,
+    height: 20,
+    borderRadius: 999,
+    backgroundColor: "rgba(26,20,16,0.18)",
+    padding: 2,
+  },
+  toggleTrackOn: {
+    backgroundColor: tokens.orange,
+  },
+  toggleKnob: {
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: tokens.cream,
+  },
+  toggleKnobOn: {
+    marginLeft: 14,
   },
 });
 
