@@ -37,7 +37,7 @@ public class AccountsEndpointsTests : IClassFixture<AccountsEndpointsTests.Facto
             "/devices/register",
             new RegisterDeviceRequest(deviceId, "test")
         );
-        resp.StatusCode.ShouldBe(HttpStatusCode.OK);
+        resp.StatusCode.ShouldBe(HttpStatusCode.Created);
         var body = await resp.Content.ReadFromJsonAsync<RegisterDeviceResponse>();
         return (body!.AccountId, body.DeviceId);
     }

@@ -147,6 +147,6 @@ public class AuthTests : IClassFixture<AuthTests.Factory>
             "/devices/register",
             new { deviceId = Guid.NewGuid(), label = "anon" }
         );
-        response.StatusCode.ShouldBe(HttpStatusCode.OK);
+        response.StatusCode.ShouldBe(HttpStatusCode.Created);
     }
 }

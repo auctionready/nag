@@ -38,7 +38,7 @@ public class DevicesPairTests : IClassFixture<DevicesPairTests.Factory>
             "/devices/register",
             new RegisterDeviceRequest(deviceId, "first-phone")
         );
-        registerResp.StatusCode.ShouldBe(HttpStatusCode.OK);
+        registerResp.StatusCode.ShouldBe(HttpStatusCode.Created);
         var registered = await registerResp.Content.ReadFromJsonAsync<RegisterDeviceResponse>();
 
         _factory.ClerkVerifier.Behavior = _ => ClerkTokenVerificationResult.Success(sub);
@@ -63,7 +63,8 @@ public class DevicesPairTests : IClassFixture<DevicesPairTests.Factory>
             new PairDeviceRequest(newDeviceId, "any-token", "second-phone")
         );
 
-        response.StatusCode.ShouldBe(HttpStatusCode.OK);
+        response.StatusCode.ShouldBe(HttpStatusCode.Created);
+        response.Headers.Location!.ToString().ShouldBe($"/devices/{newDeviceId}");
         var body = await response.Content.ReadFromJsonAsync<PairDeviceResponse>();
         body!.AccountId.ShouldBe(accountId);
         body.DeviceId.ShouldBe(newDeviceId);
@@ -81,7 +82,7 @@ public class DevicesPairTests : IClassFixture<DevicesPairTests.Factory>
             "/devices/pair",
             new PairDeviceRequest(newDeviceId, "any-token", null)
         );
-        first.StatusCode.ShouldBe(HttpStatusCode.OK);
+        first.StatusCode.ShouldBe(HttpStatusCode.Created);
         var firstBody = await first.Content.ReadFromJsonAsync<PairDeviceResponse>();
 
         var second = await client.PostAsJsonAsync(
@@ -89,6 +90,7 @@ public class DevicesPairTests : IClassFixture<DevicesPairTests.Factory>
             new PairDeviceRequest(newDeviceId, "any-token", "renamed")
         );
         second.StatusCode.ShouldBe(HttpStatusCode.OK);
+        second.Content.Headers.ContentLocation!.ToString().ShouldBe($"/devices/{newDeviceId}");
         var secondBody = await second.Content.ReadFromJsonAsync<PairDeviceResponse>();
 
         secondBody!.AccountId.ShouldBe(accountId);
@@ -157,7 +159,7 @@ public class DevicesPairTests : IClassFixture<DevicesPairTests.Factory>
             "/devices/register",
             new RegisterDeviceRequest(newDeviceId, "second-phone")
         );
-        registerResp.StatusCode.ShouldBe(HttpStatusCode.OK);
+        registerResp.StatusCode.ShouldBe(HttpStatusCode.Created);
         var registered = await registerResp.Content.ReadFromJsonAsync<RegisterDeviceResponse>();
         var anonymousAccountId = registered!.AccountId;
         anonymousAccountId.ShouldNotBe(existingAccountId);

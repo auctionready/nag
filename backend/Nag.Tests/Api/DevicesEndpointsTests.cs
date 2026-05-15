@@ -31,7 +31,8 @@ public class DevicesEndpointsTests : IClassFixture<DevicesEndpointsTests.Factory
             new RegisterDeviceRequest(deviceId, "Pixel 9")
         );
 
-        response.StatusCode.ShouldBe(HttpStatusCode.OK);
+        response.StatusCode.ShouldBe(HttpStatusCode.Created);
+        response.Headers.Location!.ToString().ShouldBe($"/devices/{deviceId}");
         var result = await response.Content.ReadFromJsonAsync<RegisterDeviceResponse>();
         result.ShouldNotBeNull();
         result!.DeviceId.ShouldBe(deviceId);
@@ -58,6 +59,7 @@ public class DevicesEndpointsTests : IClassFixture<DevicesEndpointsTests.Factory
         var second = await secondResponse.Content.ReadFromJsonAsync<RegisterDeviceResponse>();
 
         secondResponse.StatusCode.ShouldBe(HttpStatusCode.OK);
+        secondResponse.Content.Headers.ContentLocation!.ToString().ShouldBe($"/devices/{deviceId}");
         second.ShouldNotBeNull();
         second!.AccountId.ShouldBe(first!.AccountId);
         second.DeviceId.ShouldBe(first.DeviceId);
