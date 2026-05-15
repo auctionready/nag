@@ -336,9 +336,7 @@ export type ResetLocalAccountOptions = {
   db: AnyDb;
   tokenStore: TokenStore;
   log?: EnsureDeviceRegisteredOptions["log"];
-};
-
-/**
+}; /**
  * Wipes every locally-replicated row and clears the per-device server
  * binding, ready for the next sign-in to register a brand-new account.
  * Used by the "start a new account" branch of the sign-in conflict flow,
@@ -385,4 +383,56 @@ export const resetLocalAccount = async ({
   });
   await tokenStore.clear();
   info("identity: reset local account — next sign-in registers fresh");
+};
+
+export type DisconnectFromCloudOptions = {
+  db: AnyDb;
+  tokenStore: TokenStore;
+  log?: EnsureDeviceRegisteredOptions["log"];
+};
+
+/**
+ * Releases the device's server-side binding while leaving every
+ * locally-replicated row in place — the "Disconnect from cloud, keep
+ * my data" action. Called after `DELETE /accounts/me` has wiped the
+ * server-side account so the local mirror is now disconnected from a
+ * dead account; scrubbing the identity row here keeps a future
+ * sign-in's `/devices/register` from "rejoining" an account that no
+ * longer exists.
+ *
+ * Same shape as `clearLocalAuth` (sign-out) plus a `sync_state` reset:
+ * the old account's `highest_server_sequence` is meaningless once that
+ * account is gone, and leaving it set would make pull-sync against
+ * any future new account fail to replicate (the new account's
+ * sequences start at 1, but pull would still ask `since=<old high>`).
+ *
+ * Clears:
+ *   - `identity.accountId` / `registeredAt` / `idpSubject`
+ *   - the secure-store device token
+ *   - `sync_state.highest_server_sequence` (back to 0, `halted` cleared)
+ *
+ * Preserves:
+ *   - `identity.deviceId`
+ *   - `habit` / `goal` / `schedule` / `checkIn` — the whole point
+ *   - `outbox` — pending events ship to whatever new account the user
+ *     eventually signs into, populating it with the local data
+ */
+export const disconnectFromCloud = async ({
+  db,
+  tokenStore,
+  log,
+}: DisconnectFromCloudOptions): Promise<void> => {
+  const info = log?.info ?? (() => {});
+  await withTransaction(db, async () => {
+    await db
+      .update(syncState)
+      .set({ halted: false, highestServerSequence: 0 })
+      .where(eq(syncState.id, 1));
+    await db
+      .update(identity)
+      .set({ accountId: null, registeredAt: null, idpSubject: null })
+      .where(eq(identity.id, 1));
+  });
+  await tokenStore.clear();
+  info("identity: disconnected from cloud — local data preserved");
 };

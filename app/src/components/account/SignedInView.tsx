@@ -10,6 +10,7 @@ import {
 } from "../glyphs";
 import { Group, Row } from "./AccountUI";
 import { DeleteAccountSection } from "./DeleteAccountSection";
+import { DisconnectFromCloudSection } from "./DisconnectFromCloudSection";
 import { SettingsGroups } from "./SettingsGroups";
 import { UpgradeStatusLine } from "./UpgradeStatusLine";
 import type { UpgradeStatus } from "./types";
@@ -114,6 +115,8 @@ export const SignedInView = ({
       </Group>
 
       <SettingsGroups />
+
+      <DisconnectFromCloudSection />
 
       <DeleteAccountSection />
 

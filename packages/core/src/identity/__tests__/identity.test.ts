@@ -18,6 +18,7 @@ import {
   switchLocalAccount,
   clearLocalAuth,
   resetLocalAccount,
+  disconnectFromCloud,
   type TokenStore,
 } from "../identity";
 import { ensureDevAuthRegistered } from "../devAuth";
@@ -542,6 +543,64 @@ describe("resetLocalAccount", () => {
     expect(await db.select().from(goal)).toHaveLength(0);
     expect(await db.select().from(checkIn)).toHaveLength(0);
     expect(await db.select().from(outbox)).toHaveLength(0);
+    const [s] = await db.select().from(syncState).where(eq(syncState.id, 1));
+    expect(s.halted).toBe(false);
+    expect(s.highestServerSequence).toBe(0);
+  });
+});
+
+describe("disconnectFromCloud", () => {
+  it("clears identity + token + syncState seq while preserving habits/outbox", async () => {
+    const db = getDb();
+    const tokenStore = new InMemoryTokenStore("device-tok");
+
+    const [{ habitId }] = await db
+      .insert(habit)
+      .values({ id: crypto.randomUUID(), title: "Surviving offline" })
+      .returning({ habitId: habit.id });
+    await db.insert(goal).values({ habitId, regularity: "day", frequency: 1 });
+    await db.insert(checkIn).values({
+      id: crypto.randomUUID(),
+      habitId,
+      timestamp: new Date("2026-04-15T08:00:00.000Z"),
+      skipped: false,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+    await db.insert(outbox).values({
+      id: "00000000-0000-4000-8000-0000000000ef",
+      events: "[]",
+      status: "pending",
+    });
+    await db
+      .update(syncState)
+      .set({ halted: true, highestServerSequence: 142 })
+      .where(eq(syncState.id, 1));
+
+    const before = await loadIdentity(db);
+    const originalDeviceId = before?.deviceId;
+    expect(originalDeviceId).toBeTruthy();
+
+    await disconnectFromCloud({ db, tokenStore });
+
+    const after = await loadIdentity(db);
+    expect(after?.deviceId).toBe(originalDeviceId);
+    expect(after?.accountId).toBeNull();
+    expect(after?.registeredAt).toBeNull();
+    expect(after?.idpSubject).toBeNull();
+    expect(await tokenStore.get()).toBeNull();
+
+    // The whole point: replicated data + outbox stay on the device so
+    // the app remains usable offline and can flush to a new account
+    // on the next sign-in.
+    expect(await db.select().from(habit)).toHaveLength(1);
+    expect(await db.select().from(goal)).toHaveLength(1);
+    expect(await db.select().from(checkIn)).toHaveLength(1);
+    expect(await db.select().from(outbox)).toHaveLength(1);
+
+    // syncState seq must reset — pull-sync against a future new
+    // account starts from 0 and would otherwise stay stuck at the
+    // old high-water mark.
     const [s] = await db.select().from(syncState).where(eq(syncState.id, 1));
     expect(s.halted).toBe(false);
     expect(s.highestServerSequence).toBe(0);
