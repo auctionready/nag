@@ -1,6 +1,7 @@
 using System.Text.Json;
 using Marten;
 using Microsoft.AspNetCore.Mvc;
+using Nag.Api.Infrastructure.Http;
 using Nag.Core.Contracts;
 using Nag.Core.Handlers;
 using Nag.Core.Idempotency;
@@ -21,14 +22,14 @@ public static class EventsEndpoints
     /// Response shape (REST 201/200 with the new resource's
     /// representation, per RFC 7231 §6.3.2):
     /// <list type="bullet">
-    ///   <item><description><c>201 Created</c> — first time this envelope id was seen.</description></item>
-    ///   <item><description><c>200 OK</c> — duplicate replay; the original sequence range is unchanged.</description></item>
+    ///   <item><description><c>201 Created</c> — first time this envelope id was seen. Location header set.</description></item>
+    ///   <item><description><c>200 OK</c> — duplicate replay; the original sequence range is unchanged. Content-Location header set.</description></item>
     ///   <item><description><c>400 Bad Request</c> — validation failure or unknown event type, with <see cref="ErrorResponse"/> body.</description></item>
     /// </list>
     ///
     /// Both 201 and 200 carry:
     /// <list type="bullet">
-    ///   <item><description><c>Location: /events/by-envelope/{id}</c> — the canonical URL for this envelope's events.</description></item>
+    ///   <item><description>A header pointing to the canonical URL <c>/events/by-envelope/{id}</c> for this envelope's events — <c>Location</c> on 201 (the newly-created resource), <c>Content-Location</c> on 200 (the existing resource whose representation we're returning).</description></item>
     ///   <item><description>Body: <see cref="EventsByEnvelope"/> — the events the server appended (with sequence + timestamp + payload), saving a follow-up GET on the happy path. The dispatcher uses these to advance its high-water mark and reconcile against its optimistic local state.</description></item>
     /// </list>
     /// </summary>
@@ -43,7 +44,7 @@ public static class EventsEndpoints
         EventDispatcher dispatcher,
         IDocumentSession session,
         JsonSerializerOptions jsonOptions,
-        HttpResponse response,
+        LinkGenerator linkGenerator,
         CancellationToken ct
     )
     {
@@ -96,17 +97,9 @@ public static class EventsEndpoints
             jsonOptions,
             ct
         );
-        var location = $"/events/by-envelope/{envelope.Id}";
-        if (result.Outcome == DispatchOutcome.Accepted)
-        {
-            // Results.Created sets the Location header for us.
-            return Results.Created(location, body);
-        }
-
-        // Duplicate replay: representation is identical to the original
-        // 201; we set Location ourselves since Results.Ok doesn't.
-        response.Headers.Location = location;
-        return Results.Ok(body);
+        return result.Outcome == DispatchOutcome.Accepted
+            ? Results.Extensions.CreatedAtRoute("getEventsByEnvelope", new { envelope.Id }, body)
+            : Results.Extensions.FoundAtRoute("getEventsByEnvelope", new { envelope.Id }, body);
     }
 
     /// <summary>
@@ -118,7 +111,7 @@ public static class EventsEndpoints
     [Tags("Events")]
     [EndpointName("getEvents")]
     [ProducesResponseType(typeof(EventsPage), StatusCodes.Status200OK)]
-    [WolverineGet("/events")]
+    [WolverineGet("/events", RouteName = "getEvents")]
     public static async Task<IResult> GetEvents(
         [FromQuery] long since,
         [FromQuery] int? limit,
@@ -145,7 +138,7 @@ public static class EventsEndpoints
     [EndpointName("getEventsByEnvelope")]
     [ProducesResponseType(typeof(EventsByEnvelope), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    [WolverineGet("/events/by-envelope/{id:guid}")]
+    [WolverineGet("/events/by-envelope/{id:guid}", RouteName = "getEventsByEnvelope")]
     public static async Task<IResult> GetEventsByEnvelope(
         Guid id,
         IQuerySession session,
@@ -202,7 +195,7 @@ public static class EventsEndpoints
                 Sequence = e.Sequence,
                 Id = e.Id,
                 Type =
-                    EventRegistry.ByName.FirstOrDefault(kv => kv.Value == e.Data!.GetType()).Key
+                    EventRegistry.ByName.FirstOrDefault(kv => kv.Value == e.Data.GetType()).Key
                     ?? e.EventTypeName,
                 Timestamp = new DateTimeOffset(e.Timestamp.UtcDateTime, TimeSpan.Zero),
                 Payload = JsonSerializer.SerializeToElement(e.Data, jsonOptions),
