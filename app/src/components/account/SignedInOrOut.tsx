@@ -14,7 +14,7 @@ import { log } from "../../infrastructure/log";
 import { useSyncStatus } from "../../infrastructure/syncStatus";
 import { deviceTokenStore } from "../../infrastructure/tokenStore";
 import { tokens } from "../theme";
-import { runPairFallback } from "./conflictResolution";
+import { runIdentityMismatch, runPairFallback } from "./conflictResolution";
 import { SignedInView } from "./SignedInView";
 import { SignInPanel } from "./SignInPanel";
 import type { UpgradeStatus } from "./types";
@@ -143,15 +143,41 @@ export const SignedInOrOut = () => {
           return;
         }
 
-        // 409 = "this identity is already bound to a different account":
-        // the user has signed in on this device with a Clerk identity that
-        // already owns an account elsewhere. Fall back to the conflict
-        // resolution flow (pair into the existing account, or
-        // force-claim with this device's data).
+        // The server emits two distinct 409s on `/accounts/me/identity`:
+        //
+        //   - "account is already bound to a different identity" — the
+        //     calling device's own account has a different `IdpSubject`
+        //     set than the one signing in. Typical trigger: the user
+        //     signed out under Apple and is now signing in with Google
+        //     on the same device. Routed to `runIdentityMismatch` so the
+        //     user can switch the existing account to the new login, or
+        //     start fresh.
+        //   - "this identity is already bound to a different account" —
+        //     the verified Clerk sub already owns another account
+        //     (typically on a sibling device). Routed to the original
+        //     `runPairFallback` so the user can pair into that account
+        //     or take it over with this device's data.
         if (result.kind === "non-retriable" && result.status === 409) {
-          logger.info(
-            `upgrade conflicted (${result.message}) — falling back to conflict resolution`,
+          const isIdentityMismatch = result.message.includes(
+            "account is already bound to a different identity",
           );
+          logger.info(
+            `upgrade conflicted (${result.message}) — routing to ${
+              isIdentityMismatch ? "identity-mismatch" : "pair-fallback"
+            }`,
+          );
+          if (isIdentityMismatch) {
+            await runIdentityMismatch({
+              idpToken,
+              kickSync,
+              signOut,
+              setStatus,
+              onCancelled: () => {
+                upgradeStarted.current = false;
+              },
+            });
+            return;
+          }
           await runPairFallback({
             deviceId: registration.deviceId,
             idpToken,

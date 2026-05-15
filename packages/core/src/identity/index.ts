@@ -6,6 +6,7 @@ export {
   setIdpSubject,
   switchLocalAccount,
   clearLocalAuth,
+  resetLocalAccount,
   type IdentityRow,
   type TokenStore,
   type EnsureDeviceRegisteredOptions,
@@ -13,6 +14,7 @@ export {
   type RefreshDeviceTokenOptions,
   type SwitchLocalAccountOptions,
   type ClearLocalAuthOptions,
+  type ResetLocalAccountOptions,
 } from "./identity";
 export {
   type RegisterDeviceFn,

@@ -331,3 +331,58 @@ export const clearLocalAuth = async ({
   await tokenStore.clear();
   info("identity: cleared local auth — sign-in will re-register");
 };
+
+export type ResetLocalAccountOptions = {
+  db: AnyDb;
+  tokenStore: TokenStore;
+  log?: EnsureDeviceRegisteredOptions["log"];
+};
+
+/**
+ * Wipes every locally-replicated row and clears the per-device server
+ * binding, ready for the next sign-in to register a brand-new account.
+ * Used by the "start a new account" branch of the sign-in conflict flow,
+ * where the server-side `DELETE /devices/me` has already cascaded
+ * (account destroyed if last device) and the local mirror has to be
+ * scrubbed so nothing from the previous account leaks into the new one.
+ *
+ * Clears:
+ *   - `habit` / `goal` / `schedule` / `checkIn` (the replicated user data)
+ *   - `outbox` (events queued for the old account are now meaningless)
+ *   - `syncState` (resets `highest_server_sequence` so pull-sync fetches
+ *     a fresh snapshot from the new account)
+ *   - `identity.accountId` / `registeredAt` / `idpSubject`
+ *   - the secure-store device token
+ *
+ * Preserves:
+ *   - `identity.deviceId` — `/devices/register` is idempotent on it, so
+ *     reusing the same id is safe and saves a key-rotation round trip.
+ *
+ * Compare with `clearLocalAuth` (preserves user data, just drops the
+ * binding) and `switchLocalAccount` (also wipes data but moves to a
+ * specific known `accountId`).
+ */
+export const resetLocalAccount = async ({
+  db,
+  tokenStore,
+  log,
+}: ResetLocalAccountOptions): Promise<void> => {
+  const info = log?.info ?? (() => {});
+  await withTransaction(db, async () => {
+    await db.delete(checkIn);
+    await db.delete(schedule);
+    await db.delete(goal);
+    await db.delete(habit);
+    await db.delete(outbox);
+    await db
+      .update(syncState)
+      .set({ halted: false, highestServerSequence: 0 })
+      .where(eq(syncState.id, 1));
+    await db
+      .update(identity)
+      .set({ accountId: null, registeredAt: null, idpSubject: null })
+      .where(eq(identity.id, 1));
+  });
+  await tokenStore.clear();
+  info("identity: reset local account — next sign-in registers fresh");
+};

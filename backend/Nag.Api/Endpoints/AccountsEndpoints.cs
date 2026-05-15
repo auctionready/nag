@@ -404,21 +404,35 @@ public static class AccountsEndpoints
         session.DeleteWhere<Device>(d => d.AccountId == accountId);
         session.Delete<Account>(accountId);
 
+        await session.SaveChangesAsync(ct);
+
         // Events are conjoined-tenant but live in `mt_events` /
         // `mt_streams`, which Marten doesn't expose via DeleteWhere.
-        // Drop them in the same unit of work via raw SQL so a partial
-        // failure doesn't leave the account half-deleted.
+        // Both tables are created lazily on first event write, so an
+        // account with no events at all would see them missing — wrap
+        // the deletes in a PL/pgSQL block that catches `undefined_table`.
+        // The block needs internal semicolons, which Marten's
+        // `QueueSqlCommand` rejects, so run it on a separate connection
+        // *after* the main batch commits. Losing atomicity is safe here:
+        // tenant_id-tagged event rows that outlive their account are
+        // unreachable (no Account/Device row resolves to that tenant)
+        // and a subsequent cascade still reaps them.
+        // `tenantId` comes from `accountId.ToString("D")` — hex + dashes
+        // only, so inlining it into the SQL is safe. PL/pgSQL `DO` blocks
+        // don't see outer command parameters, which forces this shape.
         var eventsSchema = store.Options.Events.DatabaseSchemaName;
-        session.QueueSqlCommand(
-            $"delete from {eventsSchema}.mt_events where tenant_id = ?",
-            tenantId
-        );
-        session.QueueSqlCommand(
-            $"delete from {eventsSchema}.mt_streams where tenant_id = ?",
-            tenantId
-        );
-
-        await session.SaveChangesAsync(ct);
+        await using (var conn = store.Storage.Database.CreateConnection())
+        {
+            await conn.OpenAsync(ct);
+            await using var cmd = conn.CreateCommand();
+            cmd.CommandText =
+                $@"DO $do$ BEGIN
+                     DELETE FROM {eventsSchema}.mt_events WHERE tenant_id = '{tenantId}';
+                     DELETE FROM {eventsSchema}.mt_streams WHERE tenant_id = '{tenantId}';
+                   EXCEPTION WHEN undefined_table THEN NULL;
+                   END $do$;";
+            await cmd.ExecuteNonQueryAsync(ct);
+        }
 
         // Drop the cached sub→account mapping so a subsequent Clerk-token
         // request for this identity doesn't 200 against a now-dead row.
