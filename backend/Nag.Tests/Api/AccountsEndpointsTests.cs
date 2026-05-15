@@ -48,14 +48,20 @@ public class AccountsEndpointsTests : IClassFixture<AccountsEndpointsTests.Facto
         return (body.AccountId, body.DeviceId, client);
     }
 
-    private static Task<HttpResponseMessage> PutIdentityAsync(
+    private static Task<HttpResponseMessage> PostIdentityAsync(
         HttpClient client,
-        string idpToken,
-        bool force = false
+        string idpToken
+    ) => client.PostAsJsonAsync("/accounts/me/identity", new SetAccountIdentityRequest(idpToken));
+
+    private static Task<HttpResponseMessage> DeleteByClerkIdentityAsync(
+        HttpClient client,
+        string idpToken
     ) =>
-        client.PutAsJsonAsync(
-            "/accounts/me/identity",
-            new SetAccountIdentityRequest(idpToken, force)
+        client.SendAsync(
+            new HttpRequestMessage(HttpMethod.Delete, "/accounts/by-clerk-identity")
+            {
+                Content = JsonContent.Create(new ReleaseAccountIdentityRequest(idpToken)),
+            }
         );
 
     [Fact]
@@ -64,9 +70,10 @@ public class AccountsEndpointsTests : IClassFixture<AccountsEndpointsTests.Facto
         var (accountId, _, client) = await RegisterDeviceAsync();
         _factory.ClerkVerifier.Behavior = _ => ClerkTokenVerificationResult.Success("user_abc");
 
-        var response = await PutIdentityAsync(client, "any-token");
+        var response = await PostIdentityAsync(client, "any-token");
 
-        response.StatusCode.ShouldBe(HttpStatusCode.OK);
+        response.StatusCode.ShouldBe(HttpStatusCode.Created);
+        response.Headers.Location!.ToString().ShouldBe("/accounts/me/identity");
         var body = await response.Content.ReadFromJsonAsync<AccountIdentity>();
         body!.IdpSubject.ShouldBe("user_abc");
 
@@ -84,12 +91,13 @@ public class AccountsEndpointsTests : IClassFixture<AccountsEndpointsTests.Facto
         var (_, _, client) = await RegisterDeviceAsync();
         _factory.ClerkVerifier.Behavior = _ => ClerkTokenVerificationResult.Success("user_xyz");
 
-        var first = await PutIdentityAsync(client, "any-token");
-        first.StatusCode.ShouldBe(HttpStatusCode.OK);
+        var first = await PostIdentityAsync(client, "any-token");
+        first.StatusCode.ShouldBe(HttpStatusCode.Created);
         var firstBody = await first.Content.ReadFromJsonAsync<AccountIdentity>();
 
-        var second = await PutIdentityAsync(client, "any-token");
+        var second = await PostIdentityAsync(client, "any-token");
         second.StatusCode.ShouldBe(HttpStatusCode.OK);
+        second.Content.Headers.ContentLocation!.ToString().ShouldBe("/accounts/me/identity");
         var secondBody = await second.Content.ReadFromJsonAsync<AccountIdentity>();
         secondBody!.IdpSubject.ShouldBe("user_xyz");
         secondBody.UpgradedAt.ShouldBe(firstBody!.UpgradedAt);
@@ -101,10 +109,12 @@ public class AccountsEndpointsTests : IClassFixture<AccountsEndpointsTests.Facto
         var (_, _, client) = await RegisterDeviceAsync();
 
         _factory.ClerkVerifier.Behavior = _ => ClerkTokenVerificationResult.Success("user_first");
-        (await PutIdentityAsync(client, "first-token")).StatusCode.ShouldBe(HttpStatusCode.OK);
+        (await PostIdentityAsync(client, "first-token")).StatusCode.ShouldBe(
+            HttpStatusCode.Created
+        );
 
         _factory.ClerkVerifier.Behavior = _ => ClerkTokenVerificationResult.Success("user_second");
-        (await PutIdentityAsync(client, "second-token")).StatusCode.ShouldBe(
+        (await PostIdentityAsync(client, "second-token")).StatusCode.ShouldBe(
             HttpStatusCode.Conflict
         );
     }
@@ -116,31 +126,34 @@ public class AccountsEndpointsTests : IClassFixture<AccountsEndpointsTests.Facto
         var (_, _, clientB) = await RegisterDeviceAsync();
 
         _factory.ClerkVerifier.Behavior = _ => ClerkTokenVerificationResult.Success("user_shared");
-        (await PutIdentityAsync(clientA, "token-a")).StatusCode.ShouldBe(HttpStatusCode.OK);
+        (await PostIdentityAsync(clientA, "token-a")).StatusCode.ShouldBe(HttpStatusCode.Created);
 
         // Same Clerk identity, different anonymous account — must not silently
         // merge them. The user has to pair instead.
-        (await PutIdentityAsync(clientB, "token-b")).StatusCode.ShouldBe(HttpStatusCode.Conflict);
+        (await PostIdentityAsync(clientB, "token-b")).StatusCode.ShouldBe(HttpStatusCode.Conflict);
     }
 
     [Fact]
-    public async Task force_upgrade_moves_the_identity_from_the_other_account_to_this_one()
+    public async Task releasing_then_re_binding_moves_the_identity_to_a_new_account()
     {
         var (firstAccountId, _, clientA) = await RegisterDeviceAsync();
         var (secondAccountId, _, clientB) = await RegisterDeviceAsync();
 
         _factory.ClerkVerifier.Behavior = _ =>
-            ClerkTokenVerificationResult.Success("user_force_take_over");
-        (await PutIdentityAsync(clientA, "token-a")).StatusCode.ShouldBe(HttpStatusCode.OK);
+            ClerkTokenVerificationResult.Success("user_take_over");
+        (await PostIdentityAsync(clientA, "token-a")).StatusCode.ShouldBe(HttpStatusCode.Created);
 
-        // Second device, same Clerk identity, with Force=true. Without
-        // Force this would be 409; with it, the identity moves and the
-        // first account is left orphaned (rows kept, IdpSubject cleared).
-        var second = await PutIdentityAsync(clientB, "token-b", force: true);
+        // clientB initially gets 409 because clientA owns the identity.
+        (await PostIdentityAsync(clientB, "token-b")).StatusCode.ShouldBe(HttpStatusCode.Conflict);
 
-        second.StatusCode.ShouldBe(HttpStatusCode.OK);
-        var body = await second.Content.ReadFromJsonAsync<AccountIdentity>();
-        body!.IdpSubject.ShouldBe("user_force_take_over");
+        // clientB explicitly releases the existing binding (proves
+        // ownership via the Clerk JWT), then re-binds. Two steps replace
+        // the old force=true escape hatch.
+        (await DeleteByClerkIdentityAsync(clientB, "token-b")).StatusCode.ShouldBe(
+            HttpStatusCode.NoContent
+        );
+        var bound = await PostIdentityAsync(clientB, "token-b");
+        bound.StatusCode.ShouldBe(HttpStatusCode.Created);
 
         using var scope = _factory.Services.CreateScope();
         var session = scope.ServiceProvider.GetRequiredService<IDocumentSession>();
@@ -148,22 +161,32 @@ public class AccountsEndpointsTests : IClassFixture<AccountsEndpointsTests.Facto
         loser!.IdpSubject.ShouldBeNull();
         loser.UpgradedAt.ShouldBeNull();
         var winner = await session.LoadAsync<Account>(secondAccountId);
-        winner!.IdpSubject.ShouldBe("user_force_take_over");
+        winner!.IdpSubject.ShouldBe("user_take_over");
         winner.UpgradedAt.ShouldNotBeNull();
     }
 
     [Fact]
-    public async Task force_upgrade_without_an_existing_claim_behaves_like_a_normal_upgrade()
+    public async Task release_by_clerk_identity_when_no_one_owns_it_is_a_no_op_204()
     {
         var (_, _, client) = await RegisterDeviceAsync();
         _factory.ClerkVerifier.Behavior = _ =>
-            ClerkTokenVerificationResult.Success("user_force_no_op");
+            ClerkTokenVerificationResult.Success("user_nobody_owns");
 
-        var response = await PutIdentityAsync(client, "any-token", force: true);
+        var response = await DeleteByClerkIdentityAsync(client, "any-token");
 
-        response.StatusCode.ShouldBe(HttpStatusCode.OK);
-        var body = await response.Content.ReadFromJsonAsync<AccountIdentity>();
-        body!.IdpSubject.ShouldBe("user_force_no_op");
+        response.StatusCode.ShouldBe(HttpStatusCode.NoContent);
+    }
+
+    [Fact]
+    public async Task release_by_clerk_identity_with_an_invalid_token_returns_401()
+    {
+        var (_, _, client) = await RegisterDeviceAsync();
+        _factory.ClerkVerifier.Behavior = _ =>
+            ClerkTokenVerificationResult.Failure("signature mismatch");
+
+        var response = await DeleteByClerkIdentityAsync(client, "garbage");
+
+        response.StatusCode.ShouldBe(HttpStatusCode.Unauthorized);
     }
 
     [Fact]
@@ -173,7 +196,7 @@ public class AccountsEndpointsTests : IClassFixture<AccountsEndpointsTests.Facto
         _factory.ClerkVerifier.Behavior = _ =>
             ClerkTokenVerificationResult.Failure("signature mismatch");
 
-        var response = await PutIdentityAsync(client, "garbage");
+        var response = await PostIdentityAsync(client, "garbage");
 
         response.StatusCode.ShouldBe(HttpStatusCode.Unauthorized);
     }
@@ -183,7 +206,7 @@ public class AccountsEndpointsTests : IClassFixture<AccountsEndpointsTests.Facto
     {
         var client = _factory.CreateClient();
 
-        var response = await PutIdentityAsync(client, "any-token");
+        var response = await PostIdentityAsync(client, "any-token");
 
         response.StatusCode.ShouldBe(HttpStatusCode.Unauthorized);
     }
@@ -193,9 +216,42 @@ public class AccountsEndpointsTests : IClassFixture<AccountsEndpointsTests.Facto
     {
         var (_, _, client) = await RegisterDeviceAsync();
 
-        var response = await PutIdentityAsync(client, "");
+        var response = await PostIdentityAsync(client, "");
 
         response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task get_identity_returns_the_bound_subject()
+    {
+        var (_, _, client) = await RegisterAndUpgradeAsync("user_get_identity");
+
+        var response = await client.GetAsync("/accounts/me/identity");
+
+        response.StatusCode.ShouldBe(HttpStatusCode.OK);
+        var body = await response.Content.ReadFromJsonAsync<AccountIdentity>();
+        body!.IdpSubject.ShouldBe("user_get_identity");
+        body.UpgradedAt.ShouldNotBe(default);
+    }
+
+    [Fact]
+    public async Task get_identity_on_an_anonymous_account_returns_404()
+    {
+        var (_, _, client) = await RegisterDeviceAsync();
+
+        var response = await client.GetAsync("/accounts/me/identity");
+
+        response.StatusCode.ShouldBe(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
+    public async Task get_identity_without_a_device_token_returns_401()
+    {
+        var client = _factory.CreateClient();
+
+        var response = await client.GetAsync("/accounts/me/identity");
+
+        response.StatusCode.ShouldBe(HttpStatusCode.Unauthorized);
     }
 
     /// <summary>
@@ -209,7 +265,7 @@ public class AccountsEndpointsTests : IClassFixture<AccountsEndpointsTests.Facto
     {
         var (accountId, deviceId, client) = await RegisterDeviceAsync();
         _factory.ClerkVerifier.Behavior = _ => ClerkTokenVerificationResult.Success(sub);
-        (await PutIdentityAsync(client, "any-token")).StatusCode.ShouldBe(HttpStatusCode.OK);
+        (await PostIdentityAsync(client, "any-token")).StatusCode.ShouldBe(HttpStatusCode.Created);
         return (accountId, deviceId, client);
     }
 
@@ -238,13 +294,13 @@ public class AccountsEndpointsTests : IClassFixture<AccountsEndpointsTests.Facto
             HttpStatusCode.NoContent
         );
 
-        // Re-bind via PUT /accounts/me/identity — previously this would
+        // Re-bind via POST /accounts/me/identity — previously this would
         // have hit "account is already bound to a different identity";
         // after unbind it succeeds.
         _factory.ClerkVerifier.Behavior = _ =>
             ClerkTokenVerificationResult.Success("user_unbind_rebind_b");
-        var rebind = await PutIdentityAsync(client, "second-token");
-        rebind.StatusCode.ShouldBe(HttpStatusCode.OK);
+        var rebind = await PostIdentityAsync(client, "second-token");
+        rebind.StatusCode.ShouldBe(HttpStatusCode.Created);
         var body = await rebind.Content.ReadFromJsonAsync<AccountIdentity>();
         body!.IdpSubject.ShouldBe("user_unbind_rebind_b");
 

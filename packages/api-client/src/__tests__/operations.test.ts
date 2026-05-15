@@ -237,16 +237,20 @@ describe("operations", () => {
   describe("upgradeAccount", () => {
     const idpToken = "eyJ.fake.token";
 
-    it("returns ok with the bound IdP subject on 200", async () => {
+    it("returns ok with the bound IdP subject on 201", async () => {
       nock(BASE_URL)
-        .put("/accounts/me/identity", (body) => {
+        .post("/accounts/me/identity", (body) => {
           expect(body).toEqual({ idpToken });
           return true;
         })
-        .reply(200, {
-          idpSubject: "user_abc",
-          upgradedAt: "2026-04-25T10:00:00.000Z",
-        });
+        .reply(
+          201,
+          {
+            idpSubject: "user_abc",
+            upgradedAt: "2026-04-25T10:00:00.000Z",
+          },
+          { Location: "/accounts/me/identity" },
+        );
 
       const result = await upgradeAccount(makeClient(), { idpToken });
 
@@ -261,7 +265,7 @@ describe("operations", () => {
     });
 
     it("classifies 401 (invalid token) as non-retriable", async () => {
-      nock(BASE_URL).put("/accounts/me/identity").reply(401);
+      nock(BASE_URL).post("/accounts/me/identity").reply(401);
 
       const result = await upgradeAccount(makeClient(), { idpToken });
 
@@ -275,7 +279,7 @@ describe("operations", () => {
     });
 
     it("classifies 409 (identity collision) as non-retriable", async () => {
-      nock(BASE_URL).put("/accounts/me/identity").reply(409);
+      nock(BASE_URL).post("/accounts/me/identity").reply(409);
 
       const result = await upgradeAccount(makeClient(), { idpToken });
 
@@ -293,7 +297,7 @@ describe("operations", () => {
       // retried — the wrapper does so up to twice before giving up. Each
       // attempt waits a backoff; fake timers skip the sleeps.
       vi.useFakeTimers({ shouldAdvanceTime: true });
-      nock(BASE_URL).put("/accounts/me/identity").times(3).reply(503);
+      nock(BASE_URL).post("/accounts/me/identity").times(3).reply(503);
 
       const result = await upgradeAccount(makeClient(), { idpToken });
 
@@ -304,8 +308,8 @@ describe("operations", () => {
 
     it("retries a transient failure and succeeds on the second attempt", async () => {
       vi.useFakeTimers({ shouldAdvanceTime: true });
-      nock(BASE_URL).put("/accounts/me/identity").reply(503);
-      nock(BASE_URL).put("/accounts/me/identity").reply(200, {
+      nock(BASE_URL).post("/accounts/me/identity").reply(503);
+      nock(BASE_URL).post("/accounts/me/identity").reply(200, {
         idpSubject: "user_abc",
         upgradedAt: "2026-04-25T10:00:00.000Z",
       });
@@ -321,7 +325,7 @@ describe("operations", () => {
       // A single interceptor — if the wrapper retried the call would fail
       // with an unfulfilled-mock at teardown.
       nock(BASE_URL)
-        .put("/accounts/me/identity")
+        .post("/accounts/me/identity")
         .reply(200, { idpSubject: "user_abc" });
 
       const result = await upgradeAccount(makeClient(), { idpToken });

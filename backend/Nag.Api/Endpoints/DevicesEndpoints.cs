@@ -12,6 +12,38 @@ namespace Nag.Api.Endpoints;
 
 public static class DevicesEndpoints
 {
+    // NOTE: here because Alan is a fan of PRG and proper HTTP not because it is used at all
+    [Tags("Devices")]
+    [EndpointName("getDevicesById")]
+    [ProducesResponseType(typeof(GetDeviceResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [WolverineGet("/devices/{id:guid}", RouteName = "getDevicesById")]
+    public static async Task<IResult> GetDeviceById(
+        Guid id,
+        ClaimsPrincipal user,
+        IQuerySession session,
+        CancellationToken ct
+    )
+    {
+        var accountIdClaim = user.FindFirstValue(NagClaimTypes.AccountId);
+        if (!Guid.TryParse(accountIdClaim, out var accountId))
+        {
+            return Results.Json(
+                new ErrorResponse(["unauthenticated"]),
+                statusCode: StatusCodes.Status401Unauthorized
+            );
+        }
+
+        var device = await session.LoadAsync<Device>(id, ct);
+        if (device is null || device.AccountId != accountId)
+            return Results.NotFound();
+
+        return Results.Ok(
+            new GetDeviceResponse(device.AccountId, device.Id, device.Label, device.RegisteredAt)
+        );
+    }
+
     [AllowAnonymous]
     [NotTenanted]
     [Tags("Devices")]
@@ -201,37 +233,5 @@ public static class DevicesEndpoints
             tokens.Issue(account.Id, device.Id)
         );
         return Results.Extensions.CreatedAtRoute("getDevicesById", new { id = device.Id }, created);
-    }
-
-    // NOTE: here because Alan is a fan of PRG and proper HTTP not because it is used at all
-    [Tags("Devices")]
-    [EndpointName("getDevicesById")]
-    [ProducesResponseType(typeof(GetDeviceResponse), StatusCodes.Status200OK)]
-    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType(StatusCodes.Status404NotFound)]
-    [WolverineGet("/devices/{id:guid}", RouteName = "getDevicesById")]
-    public static async Task<IResult> GetDeviceById(
-        Guid id,
-        ClaimsPrincipal user,
-        IQuerySession session,
-        CancellationToken ct
-    )
-    {
-        var accountIdClaim = user.FindFirstValue(NagClaimTypes.AccountId);
-        if (!Guid.TryParse(accountIdClaim, out var accountId))
-        {
-            return Results.Json(
-                new ErrorResponse(["unauthenticated"]),
-                statusCode: StatusCodes.Status401Unauthorized
-            );
-        }
-
-        var device = await session.LoadAsync<Device>(id, ct);
-        if (device is null || device.AccountId != accountId)
-            return Results.NotFound();
-
-        return Results.Ok(
-            new GetDeviceResponse(device.AccountId, device.Id, device.Label, device.RegisteredAt)
-        );
     }
 }

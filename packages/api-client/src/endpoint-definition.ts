@@ -11,13 +11,6 @@ const IsoDatetime = z.iso
   .datetime({ offset: true })
   .transform((s) => new Date(s));
 
-export const SetAccountIdentityRequest = z
-  .object({ idpToken: z.string().nullable(), force: z.boolean() })
-  .partial();
-export type SetAccountIdentityRequest = z.infer<
-  typeof SetAccountIdentityRequest
->;
-
 export const AccountIdentity = z
   .object({
     idpSubject: z.string().nullable(),
@@ -26,6 +19,13 @@ export const AccountIdentity = z
   .partial();
 export type AccountIdentity = z.infer<typeof AccountIdentity>;
 
+export const SetAccountIdentityRequest = z
+  .object({ idpToken: z.string().nullable() })
+  .partial();
+export type SetAccountIdentityRequest = z.infer<
+  typeof SetAccountIdentityRequest
+>;
+
 export const ErrorResponse = z
   .object({ errors: z.array(z.string()).nullable() })
   .partial();
@@ -33,6 +33,13 @@ export type ErrorResponse = z.infer<typeof ErrorResponse>;
 
 export const IResult = z.object({}).partial();
 export type IResult = z.infer<typeof IResult>;
+
+export const ReleaseAccountIdentityRequest = z
+  .object({ idpToken: z.string().nullable() })
+  .partial();
+export type ReleaseAccountIdentityRequest = z.infer<
+  typeof ReleaseAccountIdentityRequest
+>;
 
 export const RebuildProjectionsRequest = z
   .object({ secret: z.string().nullable() })
@@ -47,6 +54,16 @@ export const RebuildProjectionsResponse = z
 export type RebuildProjectionsResponse = z.infer<
   typeof RebuildProjectionsResponse
 >;
+
+export const GetDeviceResponse = z
+  .object({
+    accountId: z.uuid(),
+    deviceId: z.uuid(),
+    label: z.string().nullable(),
+    registeredAt: IsoDatetime,
+  })
+  .partial();
+export type GetDeviceResponse = z.infer<typeof GetDeviceResponse>;
 
 export const RegisterDeviceRequest = z
   .object({ deviceId: z.uuid(), label: z.string().nullable() })
@@ -81,16 +98,6 @@ export const PairDeviceResponse = z
   })
   .partial();
 export type PairDeviceResponse = z.infer<typeof PairDeviceResponse>;
-
-export const GetDeviceResponse = z
-  .object({
-    accountId: z.uuid(),
-    deviceId: z.uuid(),
-    label: z.string().nullable(),
-    registeredAt: IsoDatetime,
-  })
-  .partial();
-export type GetDeviceResponse = z.infer<typeof GetDeviceResponse>;
 
 export const Regularity = z.enum(["day", "week", "month"]);
 export type Regularity = z.infer<typeof Regularity>;
@@ -576,6 +583,24 @@ export type SyncResponse = z.infer<typeof SyncResponse>;
 export const endpoints = makeApi([
   {
     method: "delete",
+    path: "/accounts/by-clerk-identity",
+    alias: "deleteAccountsByClerkIdentity",
+    parameters: [
+      {
+        name: "body",
+        type: "Body",
+        schema: z.object({ idpToken: z.string().nullable() }).partial(),
+      },
+    ],
+    response: z.object({}).partial(),
+    errors: [
+      { status: 400, schema: ErrorResponse },
+      { status: 401, schema: ErrorResponse },
+      { status: 404, schema: z.void() },
+    ],
+  },
+  {
+    method: "delete",
     path: "/accounts/me",
     alias: "deleteAccountsMe",
     parameters: [],
@@ -586,11 +611,26 @@ export const endpoints = makeApi([
     ],
   },
   {
-    method: "put",
+    method: "get",
     path: "/accounts/me/identity",
-    alias: "putAccountsMeIdentity",
+    alias: "getAccountsMeIdentity",
+    parameters: [],
+    response: AccountIdentity,
+    errors: [
+      { status: 401, schema: z.void() },
+      { status: 404, schema: z.void() },
+    ],
+  },
+  {
+    method: "post",
+    path: "/accounts/me/identity",
+    alias: "postAccountsMeIdentity",
     parameters: [
-      { name: "body", type: "Body", schema: SetAccountIdentityRequest },
+      {
+        name: "body",
+        type: "Body",
+        schema: z.object({ idpToken: z.string().nullable() }).partial(),
+      },
     ],
     response: AccountIdentity,
     errors: [

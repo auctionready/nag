@@ -16,26 +16,26 @@ export type UpgradeAccountResult =
   | { ok: false; kind: "non-retriable"; status: number; message: string }
   | { ok: false; kind: "transient"; message: string };
 
-type SetIdentityBody = ZodiosBodyByAlias<Endpoints, "putAccountsMeIdentity">;
+type SetIdentityBody = ZodiosBodyByAlias<Endpoints, "postAccountsMeIdentity">;
 type SetIdentityResponse = ZodiosResponseByAlias<
   Endpoints,
-  "putAccountsMeIdentity"
+  "postAccountsMeIdentity"
 >;
 
 const upgradeAccountOnce = async (
   client: NagApiClient,
-  request: { idpToken: string; force?: boolean },
+  request: { idpToken: string },
   log: WrapperLog | undefined,
 ): Promise<UpgradeAccountResult> => {
   const start = Date.now();
   try {
-    const response: SetIdentityResponse = await client.putAccountsMeIdentity(
+    const response: SetIdentityResponse = await client.postAccountsMeIdentity(
       request as SetIdentityBody,
     );
     const elapsed = Date.now() - start;
     if (!response.idpSubject || !response.upgradedAt) {
       log?.error?.(
-        `PUT /accounts/me/identity ok (${elapsed}ms) but response missing fields`,
+        `POST /accounts/me/identity ok (${elapsed}ms) but response missing fields`,
         response,
       );
       return {
@@ -46,7 +46,7 @@ const upgradeAccountOnce = async (
       };
     }
     log?.info?.(
-      `PUT /accounts/me/identity ok (${elapsed}ms) sub=${response.idpSubject}`,
+      `POST /accounts/me/identity ok (${elapsed}ms) sub=${response.idpSubject}`,
     );
     return {
       ok: true,
@@ -55,26 +55,27 @@ const upgradeAccountOnce = async (
     };
   } catch (error: unknown) {
     return failureFromError(
-      "PUT /accounts/me/identity",
+      "POST /accounts/me/identity",
       log,
       Date.now() - start,
       error,
       () => {
-        if (isErrorFromAlias(endpoints, "putAccountsMeIdentity", error)) {
+        if (isErrorFromAlias(endpoints, "postAccountsMeIdentity", error)) {
           return error.response.data?.errors?.[0];
         }
         return undefined;
       },
       // 409 is the documented "identity already bound to a different
       // account" / "account already bound to a different identity"
-      // response; the conflict-resolution flow in account.tsx handles it.
+      // response; the conflict-resolution flow in account.tsx handles it
+      // (by calling releaseClerkIdentity then retrying this endpoint).
       [409],
     );
   }
 };
 
 /**
- * PUTs the calling account's identity binding — sets <c>IdpSubject</c>
+ * POSTs the calling account's identity binding — sets <c>IdpSubject</c>
  * from the verified Clerk JWT's <c>sub</c>. Caller must already hold a
  * device token (from <c>/devices/register</c>); the server reads
  * <c>accountId</c> and <c>deviceId</c> from claims.
@@ -91,12 +92,10 @@ const upgradeAccountOnce = async (
  */
 export const upgradeAccount = async (
   client: NagApiClient,
-  request: { idpToken: string; force?: boolean },
+  request: { idpToken: string },
   log?: WrapperLog,
 ): Promise<UpgradeAccountResult> => {
-  log?.debug?.(
-    `PUT /accounts/me/identity${request.force ? " force=true" : ""}`,
-  );
+  log?.debug?.("POST /accounts/me/identity");
 
   const maxAttempts = 3;
   let last: UpgradeAccountResult = {
@@ -112,7 +111,7 @@ export const upgradeAccount = async (
     if (attempt < maxAttempts) {
       const delayMs = 1000 * attempt;
       log?.warn?.(
-        `PUT /accounts/me/identity transient attempt ${attempt}/${maxAttempts} (${last.message}) — retrying in ${delayMs}ms`,
+        `POST /accounts/me/identity transient attempt ${attempt}/${maxAttempts} (${last.message}) — retrying in ${delayMs}ms`,
       );
       await new Promise((resolve) => setTimeout(resolve, delayMs));
     }

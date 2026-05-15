@@ -52,11 +52,11 @@ public class DevicesPairTests : IClassFixture<DevicesPairTests.Factory>
         );
 
         _factory.ClerkVerifier.Behavior = _ => ClerkTokenVerificationResult.Success(sub);
-        var upgradeResp = await authed.PutAsJsonAsync(
+        var upgradeResp = await authed.PostAsJsonAsync(
             "/accounts/me/identity",
             new SetAccountIdentityRequest("any-token")
         );
-        upgradeResp.StatusCode.ShouldBe(HttpStatusCode.OK);
+        upgradeResp.StatusCode.ShouldBe(HttpStatusCode.Created);
 
         return (registered.AccountId, sub);
     }
@@ -143,7 +143,7 @@ public class DevicesPairTests : IClassFixture<DevicesPairTests.Factory>
             registeredA!.DeviceToken
         );
         _factory.ClerkVerifier.Behavior = _ => ClerkTokenVerificationResult.Success(subA);
-        await authedA.PutAsJsonAsync(
+        await authedA.PostAsJsonAsync(
             "/accounts/me/identity",
             new SetAccountIdentityRequest("token-a")
         );
