@@ -7,6 +7,7 @@ export {
   switchLocalAccount,
   clearLocalAuth,
   resetLocalAccount,
+  disconnectFromCloud,
   type IdentityRow,
   type TokenStore,
   type EnsureDeviceRegisteredOptions,
@@ -15,6 +16,7 @@ export {
   type SwitchLocalAccountOptions,
   type ClearLocalAuthOptions,
   type ResetLocalAccountOptions,
+  type DisconnectFromCloudOptions,
 } from "./identity";
 export {
   type RegisterDeviceFn,
