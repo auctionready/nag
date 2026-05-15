@@ -165,6 +165,12 @@ detail's week strip use a tri-state classifier
   check-in.
 - **Partial** (orange) — some, but not all, of the day's slots are done.
 - **Missed** (red) — past, scheduled, none done.
+- **Skipped** (faded ink with a dash glyph) — every check-in for that
+  day-of-week was an explicit skip and no slot was actually done. The
+  day's schedule is satisfied for compliance purposes, but the cell
+  reads as "intentionally set aside" rather than "completed" — the
+  classifier checks the skipped state before the completed state for
+  exactly this reason.
 - **Unscheduled check-in** (dimmed green) — a check-in fell on a day that
   isn't part of the schedule. Rendered green at the same reduced opacity
   as the day's letter so it reads as "extra" rather than required.

@@ -33,7 +33,7 @@ The source lives in [`backend/`](../backend) and has its own
 | Messaging     | Wolverine 5 (registered for future async work)                                                                     |
 | Read models   | Marten inline projections                                                                                          |
 | Database      | Neon Serverless Postgres 17                                                                                        |
-| Auth          | Static `Authorization: Bearer <key>` (single user, for now)                                                        |
+| Auth          | `Authorization: Bearer <token>` — Clerk JWT (2 dots) or per-device HMAC token (1 dot), dispatched by token shape   |
 | Logging       | Serilog → JSON console (CloudWatch picks up stdout)                                                                |
 | Errors/traces | [Sentry.AspNetCore](https://docs.sentry.io/platforms/dotnet/guides/aspnetcore/) — exceptions + distributed tracing |
 | Validation    | FluentValidation                                                                                                   |
@@ -41,18 +41,48 @@ The source lives in [`backend/`](../backend) and has its own
 
 ## Endpoints
 
-| Method | Path                                     | Auth | Notes                                                                          |
-| ------ | ---------------------------------------- | ---- | ------------------------------------------------------------------------------ |
-| `POST` | `/events`                                | yes  | Append the past-tense events for one user intent. Idempotent on envelope `id`. |
-| `GET`  | `/events?since=<long>&limit=<int?>`      | yes  | Page of past-tense events; `limit` capped at 500.                              |
-| `GET`  | `/sync?since=<long>`                     | yes  | Pull-sync: replay (events) or snapshot (HomeBoard).                            |
-| `GET`  | `/home-board`                            | yes  | Materialized current-period view.                                              |
-| `GET`  | `/check-ins/monthly/{year}/{month}`      | yes  | Materialized check-ins for one calendar month (UTC).                           |
-| `GET`  | `/check-ins/weekly/{year}/{month}/{day}` | yes  | Materialized check-ins for one Sunday-anchored week. `day` = Sunday.           |
-| `GET`  | `/health`                                | no   | Liveness.                                                                      |
+| Method   | Path                                     | Auth | Notes                                                                                                        |
+| -------- | ---------------------------------------- | ---- | ------------------------------------------------------------------------------------------------------------ |
+| `POST`   | `/devices/register`                      | no   | First-launch device registration. Mints an account row and a device HMAC token, idempotent on `deviceId`.    |
+| `POST`   | `/devices/pair`                          | yes  | Pair the current device into another account (Clerk-authenticated fallback after a `/accounts/upgrade` 409). |
+| `POST`   | `/accounts/upgrade`                      | yes  | Bind this device's account to a Clerk identity. Returns 409 if the identity is already on another account.   |
+| `POST`   | `/accounts/unbind`                       | yes  | Drop the Clerk binding on this account so it can be re-claimed.                                              |
+| `DELETE` | `/accounts/me`                           | yes  | Permanently delete the caller's account: events, devices, projections, account row.                          |
+| `POST`   | `/events`                                | yes  | Append the past-tense events for one user intent. Idempotent on envelope `id`; body is the appended events.  |
+| `GET`    | `/events?since=<long>&limit=<int?>`      | yes  | Page of past-tense events; `limit` capped at 500.                                                            |
+| `GET`    | `/events/by-envelope/{id:guid}`          | yes  | Replay-safe: returns the events the server appended for one previously-POSTed envelope. 404 if unknown.      |
+| `GET`    | `/sync?since=<long>`                     | yes  | Pull-sync: replay (events) or snapshot (HomeBoard).                                                          |
+| `GET`    | `/home-board`                            | yes  | Materialized current-period view.                                                                            |
+| `GET`    | `/habits/{habitId:guid}/compliance`      | yes  | Per-habit historical compliance summary.                                                                     |
+| `GET`    | `/check-ins/monthly/{year}/{month}`      | yes  | Materialized check-ins for one calendar month (UTC).                                                         |
+| `GET`    | `/check-ins/weekly/{year}/{month}/{day}` | yes  | Materialized check-ins for one Sunday-anchored week. `day` = Sunday.                                         |
+| `POST`   | `/admin/rebuild-projections`             | yes  | Admin-only: drop and replay every projection for this account.                                               |
+| `GET`    | `/health`                                | no   | Liveness.                                                                                                    |
 
-In Debug builds, `/swagger` serves OpenAPI UI. In Release builds the
-Swashbuckle package is conditionally excluded from the binary.
+In Debug builds the OpenAPI UI lives at `/swagger` and a hidden
+`GET /dev/token` endpoint mints a stable HMAC bearer for the Swagger UI
+auto-authorize script. Both are conditionally excluded from Release
+binaries.
+
+### Auth dispatch
+
+A single `Bearer …` scheme covers everything. The handler in
+[`NagAuthenticationHandler`](../backend/Nag.Api/Auth/NagAuthenticationHandler.cs)
+picks the validator by counting dots:
+
+- **One dot** (`payload.signature`) → device HMAC token issued by
+  `IDeviceTokenIssuer`. Carries `accountId` + `deviceId` claims and an
+  `AuthMethod=Device` marker. Rejected if the account row is gone (an
+  out-of-band `DELETE /accounts/me` should not leave orphan tokens
+  authenticating against a freshly recreated tenant).
+- **Two dots** (`header.payload.signature`) → Clerk JWT, verified
+  against Clerk's JWKS. The handler resolves the Clerk `sub` claim to
+  an account via the persisted `idp_subject` binding from a previous
+  `/accounts/upgrade`; missing binding → 401.
+
+The `account_id` claim populated by either path is what Marten reads
+as the tenant id, so the request lands on the right slice of every
+conjoined-tenant projection without endpoint code touching it.
 
 ## Wire format
 
@@ -73,12 +103,31 @@ Swashbuckle package is conditionally excluded from the binary.
 }
 ```
 
-Response:
+Response body (same shape on 201 first-write and 200 duplicate replay)
+plus a `Location: /events/by-envelope/{id}` header:
 
 ```jsonc
-{ "accepted": true,  "sequence": 42 }   // first time
-{ "accepted": false, "sequence": 42 }   // duplicate id (replay)
+{
+  "id": "<envelope-uuid>",
+  "events": [
+    {
+      "sequence": 42,
+      "id": "<envelope-uuid>",
+      "type": "HabitCreated",
+      "timestamp": "...",
+      "payload": { ... },
+    },
+    // …one entry per event in the envelope, in stream order
+  ],
+}
 ```
+
+Returning the appended events inline (rather than just `{ accepted,
+sequence }`) lets the dispatcher advance its high-water mark and
+reconcile against its optimistic local state in a single round-trip.
+If the original POST response is lost mid-flight, the client can
+re-fetch the same payload via `GET /events/by-envelope/{id}` — no
+need to walk `/sync` to find out what the server actually persisted.
 
 ```jsonc
 // GET /events?since=0
@@ -158,14 +207,17 @@ read model for diagnostic queries.
 ## Idempotency
 
 Each `POST /events` envelope carries a client-generated `id` GUID.
-Before appending, the dispatcher loads `ProcessedEnvelope { Id,
-Sequence }` from Marten — if present, it returns the existing
-sequence with `accepted: false` and does nothing. Otherwise it
-appends each event in the envelope atomically + saves + records the
-resulting sequence under the envelope id.
+The dispatcher loads `ProcessedEnvelope { Id, FirstSequence,
+LastSequence }` from Marten — if present, it skips the append and
+returns the already-recorded sequence range (HTTP 200 with the same
+body shape as the original). Otherwise it appends each event in the
+envelope atomically, saves, and records the resulting sequence
+range under the envelope id (HTTP 201). Either way the response
+includes the `Location: /events/by-envelope/{id}` header.
 
-Net result: a client that retries a POST after a flaky network gets
-the same `sequence` back; events are only appended once.
+Net result: a client that retries a POST after a flaky network sees
+the same events with the same sequence numbers; events are only
+appended once.
 
 ## Differences from the client schema
 
@@ -181,16 +233,30 @@ straightforward, and there's nothing to reconcile across devices.
 
 xUnit, in `backend/Nag.Tests/`. Folders mirror source namespaces.
 
-- `Core/Domain/PeriodCalculatorTests.cs` — pure unit tests (no DB).
-- `Core/Validation/EventValidatorTests.cs` — FluentValidation rules.
-- `Core/Projections/HomeBoardProjectionTests.cs` — drives the projection
-  through Marten using a Testcontainers Postgres.
+- `Core/Domain/PeriodCalculatorTests.cs`,
+  `Core/Validation/EventValidatorTests.cs`,
+  `Core/Contracts/EventRegistryTests.cs` — pure unit tests (no DB).
+- `Core/Projections/HomeBoardProjectionTests.cs`,
+  `Core/Projections/CheckInSummaryProjectionTests.cs`,
+  `Core/Projections/HabitComplianceHistoryProjectionTests.cs` —
+  drive projections through Marten using a Testcontainers Postgres.
 - `Api/EventsEndpointsTests.cs`, `Api/HomeBoardEndpointsTests.cs`,
-  `Api/AuthTests.cs` — `WebApplicationFactory<Program>` + Testcontainers
-  for end-to-end HTTP tests.
+  `Api/SyncEndpointsTests.cs`, `Api/CheckInSummaryEndpointsTests.cs`,
+  `Api/DevicesEndpointsTests.cs`, `Api/DevicesPairTests.cs`,
+  `Api/AccountsEndpointsTests.cs`, `Api/AdminEndpointsTests.cs`,
+  `Api/AuthTests.cs`, `Api/ClerkTokenVerifierTests.cs`,
+  `Api/ClientWireShapeTests.cs` —
+  `WebApplicationFactory<Program>` + Testcontainers for end-to-end
+  HTTP tests.
+- `Auth/DeviceTokenServiceTests.cs`,
+  `Infrastructure/SentryScrubbingTests.cs` — unit-test the auth
+  helpers and Sentry PII scrubbers.
 
 The Postgres 17 container is a shared collection fixture; each
-integration test class uses a distinct schema for isolation.
+integration test class uses a distinct schema for isolation. See
+[CLAUDE.md § Running backend tests in a sandbox without Docker](../CLAUDE.md)
+for the `NAG_TEST_PG_CONNECTION` escape hatch used when Docker isn't
+available.
 
 ## CI
 
