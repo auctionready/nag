@@ -1,7 +1,8 @@
 import { Alert, DevSettings } from "react-native";
 import { registerDevMenuItems } from "expo-dev-client";
 import { router } from "expo-router";
-import { clearLocalAuth, ensureDevAuthRegistered } from "@nag/core";
+import { clearLocalAuth } from "@nag/core";
+import { ensureDevAuthRegistered } from "@nag/core/dev";
 import { db, resetDatabaseSchema } from "./index";
 import { clearAll, seedSampleData } from "./seed";
 import { devFlags } from "../infrastructure/devFlags";
