@@ -33,9 +33,7 @@ export const confirmAndDeleteAccount = () => {
             );
             return;
           }
-          logger.info(
-            `server account deleted (${result.accountId}) — wiping local state`,
-          );
+          logger.info("server account deleted — wiping local state");
           await deviceTokenStore.clear();
           await clearAllClerkTokens();
           resetDatabaseSchema();

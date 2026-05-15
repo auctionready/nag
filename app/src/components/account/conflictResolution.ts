@@ -78,7 +78,6 @@ export const runPairFallback = async ({
   }
 
   await runReplaceServer({
-    deviceId,
     idpToken,
     kickSync,
     setStatus,
@@ -131,25 +130,21 @@ export const runReplaceLocal = async ({
  * the device's local events to the server normally afterwards.
  */
 export const runReplaceServer = async ({
-  deviceId,
   idpToken,
   kickSync,
   setStatus,
 }: {
-  deviceId: string;
   idpToken: string;
   kickSync: (source: string) => void;
   setStatus: React.Dispatch<React.SetStateAction<UpgradeStatus>>;
 }): Promise<void> => {
-  const claimed = await upgradeAccount({ deviceId, idpToken, force: true });
+  const claimed = await upgradeAccount({ idpToken, force: true });
   if (!claimed.ok) {
     setStatus({ kind: "fail", message: claimed.message });
     return;
   }
   await setIdpSubject(db, claimed.idpSubject);
-  logger.info(
-    `identity force-claimed onto local accountId=${claimed.accountId} — kicking sync`,
-  );
+  logger.info("identity force-claimed onto local account — kicking sync");
   setStatus({ kind: "ok" });
   kickSync("post-force-upgrade");
 };

@@ -27,11 +27,13 @@ public class AccountsEndpointsTests : IClassFixture<AccountsEndpointsTests.Facto
     public sealed class Factory : NagApiFactory;
 
     /// <summary>
-    /// Bootstraps an account+device pair the way `POST /devices/register`
-    /// would in production, so the upgrade endpoint has something to bind to.
+    /// Bootstraps an account+device pair the way <c>POST /devices/register</c>
+    /// would in production. Returns an authed client (Bearer = the freshly
+    /// issued device token) ready to call any of the account endpoints.
     /// </summary>
-    private async Task<(Guid AccountId, Guid DeviceId)> RegisterDeviceAsync(HttpClient client)
+    private async Task<(Guid AccountId, Guid DeviceId, HttpClient Client)> RegisterDeviceAsync()
     {
+        var client = _factory.CreateClient();
         var deviceId = Guid.NewGuid();
         var resp = await client.PostAsJsonAsync(
             "/devices/register",
@@ -39,26 +41,34 @@ public class AccountsEndpointsTests : IClassFixture<AccountsEndpointsTests.Facto
         );
         resp.StatusCode.ShouldBe(HttpStatusCode.Created);
         var body = await resp.Content.ReadFromJsonAsync<RegisterDeviceResponse>();
-        return (body!.AccountId, body.DeviceId);
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
+            "Bearer",
+            body!.DeviceToken
+        );
+        return (body.AccountId, body.DeviceId, client);
     }
+
+    private static Task<HttpResponseMessage> PutIdentityAsync(
+        HttpClient client,
+        string idpToken,
+        bool force = false
+    ) =>
+        client.PutAsJsonAsync(
+            "/accounts/me/identity",
+            new SetAccountIdentityRequest(idpToken, force)
+        );
 
     [Fact]
     public async Task upgrades_an_anonymous_account_with_a_valid_idp_token()
     {
-        var client = _factory.CreateClient();
-        var (accountId, deviceId) = await RegisterDeviceAsync(client);
+        var (accountId, _, client) = await RegisterDeviceAsync();
         _factory.ClerkVerifier.Behavior = _ => ClerkTokenVerificationResult.Success("user_abc");
 
-        var response = await client.PostAsJsonAsync(
-            "/accounts/upgrade",
-            new UpgradeAccountRequest(deviceId, "any-token")
-        );
+        var response = await PutIdentityAsync(client, "any-token");
 
         response.StatusCode.ShouldBe(HttpStatusCode.OK);
-        var body = await response.Content.ReadFromJsonAsync<UpgradeAccountResponse>();
-        body!.AccountId.ShouldBe(accountId);
-        body.IdpSubject.ShouldBe("user_abc");
-        body.DeviceToken.ShouldNotBeNullOrWhiteSpace();
+        var body = await response.Content.ReadFromJsonAsync<AccountIdentity>();
+        body!.IdpSubject.ShouldBe("user_abc");
 
         // The Account document is now persisted with the IdpSubject.
         using var scope = _factory.Services.CreateScope();
@@ -71,99 +81,66 @@ public class AccountsEndpointsTests : IClassFixture<AccountsEndpointsTests.Facto
     [Fact]
     public async Task upgrading_twice_with_the_same_subject_is_idempotent()
     {
-        var client = _factory.CreateClient();
-        var (accountId, deviceId) = await RegisterDeviceAsync(client);
+        var (_, _, client) = await RegisterDeviceAsync();
         _factory.ClerkVerifier.Behavior = _ => ClerkTokenVerificationResult.Success("user_xyz");
 
-        var first = await client.PostAsJsonAsync(
-            "/accounts/upgrade",
-            new UpgradeAccountRequest(deviceId, "any-token")
-        );
+        var first = await PutIdentityAsync(client, "any-token");
         first.StatusCode.ShouldBe(HttpStatusCode.OK);
-        var firstBody = await first.Content.ReadFromJsonAsync<UpgradeAccountResponse>();
+        var firstBody = await first.Content.ReadFromJsonAsync<AccountIdentity>();
 
-        var second = await client.PostAsJsonAsync(
-            "/accounts/upgrade",
-            new UpgradeAccountRequest(deviceId, "any-token")
-        );
+        var second = await PutIdentityAsync(client, "any-token");
         second.StatusCode.ShouldBe(HttpStatusCode.OK);
-        var secondBody = await second.Content.ReadFromJsonAsync<UpgradeAccountResponse>();
-        secondBody!.AccountId.ShouldBe(accountId);
-        secondBody.IdpSubject.ShouldBe("user_xyz");
+        var secondBody = await second.Content.ReadFromJsonAsync<AccountIdentity>();
+        secondBody!.IdpSubject.ShouldBe("user_xyz");
         secondBody.UpgradedAt.ShouldBe(firstBody!.UpgradedAt);
     }
 
     [Fact]
     public async Task rebinding_an_already_upgraded_account_to_a_different_subject_returns_409()
     {
-        var client = _factory.CreateClient();
-        var (_, deviceId) = await RegisterDeviceAsync(client);
+        var (_, _, client) = await RegisterDeviceAsync();
 
         _factory.ClerkVerifier.Behavior = _ => ClerkTokenVerificationResult.Success("user_first");
-        var first = await client.PostAsJsonAsync(
-            "/accounts/upgrade",
-            new UpgradeAccountRequest(deviceId, "first-token")
-        );
-        first.StatusCode.ShouldBe(HttpStatusCode.OK);
+        (await PutIdentityAsync(client, "first-token")).StatusCode.ShouldBe(HttpStatusCode.OK);
 
         _factory.ClerkVerifier.Behavior = _ => ClerkTokenVerificationResult.Success("user_second");
-        var second = await client.PostAsJsonAsync(
-            "/accounts/upgrade",
-            new UpgradeAccountRequest(deviceId, "second-token")
+        (await PutIdentityAsync(client, "second-token")).StatusCode.ShouldBe(
+            HttpStatusCode.Conflict
         );
-        second.StatusCode.ShouldBe(HttpStatusCode.Conflict);
     }
 
     [Fact]
     public async Task rejects_an_idp_subject_already_bound_to_a_different_account()
     {
-        var client = _factory.CreateClient();
-        var (_, firstDeviceId) = await RegisterDeviceAsync(client);
-        var (_, secondDeviceId) = await RegisterDeviceAsync(client);
+        var (_, _, clientA) = await RegisterDeviceAsync();
+        var (_, _, clientB) = await RegisterDeviceAsync();
 
         _factory.ClerkVerifier.Behavior = _ => ClerkTokenVerificationResult.Success("user_shared");
-        var first = await client.PostAsJsonAsync(
-            "/accounts/upgrade",
-            new UpgradeAccountRequest(firstDeviceId, "token-a")
-        );
-        first.StatusCode.ShouldBe(HttpStatusCode.OK);
+        (await PutIdentityAsync(clientA, "token-a")).StatusCode.ShouldBe(HttpStatusCode.OK);
 
         // Same Clerk identity, different anonymous account — must not silently
-        // merge them. The user has to pair (which we'll add in commit 3).
-        var second = await client.PostAsJsonAsync(
-            "/accounts/upgrade",
-            new UpgradeAccountRequest(secondDeviceId, "token-b")
-        );
-        second.StatusCode.ShouldBe(HttpStatusCode.Conflict);
+        // merge them. The user has to pair instead.
+        (await PutIdentityAsync(clientB, "token-b")).StatusCode.ShouldBe(HttpStatusCode.Conflict);
     }
 
     [Fact]
     public async Task force_upgrade_moves_the_identity_from_the_other_account_to_this_one()
     {
-        var client = _factory.CreateClient();
-        var (firstAccountId, firstDeviceId) = await RegisterDeviceAsync(client);
-        var (secondAccountId, secondDeviceId) = await RegisterDeviceAsync(client);
+        var (firstAccountId, _, clientA) = await RegisterDeviceAsync();
+        var (secondAccountId, _, clientB) = await RegisterDeviceAsync();
 
         _factory.ClerkVerifier.Behavior = _ =>
             ClerkTokenVerificationResult.Success("user_force_take_over");
-        var first = await client.PostAsJsonAsync(
-            "/accounts/upgrade",
-            new UpgradeAccountRequest(firstDeviceId, "token-a")
-        );
-        first.StatusCode.ShouldBe(HttpStatusCode.OK);
+        (await PutIdentityAsync(clientA, "token-a")).StatusCode.ShouldBe(HttpStatusCode.OK);
 
         // Second device, same Clerk identity, with Force=true. Without
         // Force this would be 409; with it, the identity moves and the
         // first account is left orphaned (rows kept, IdpSubject cleared).
-        var second = await client.PostAsJsonAsync(
-            "/accounts/upgrade",
-            new UpgradeAccountRequest(secondDeviceId, "token-b", Force: true)
-        );
+        var second = await PutIdentityAsync(clientB, "token-b", force: true);
 
         second.StatusCode.ShouldBe(HttpStatusCode.OK);
-        var body = await second.Content.ReadFromJsonAsync<UpgradeAccountResponse>();
-        body!.AccountId.ShouldBe(secondAccountId);
-        body.IdpSubject.ShouldBe("user_force_take_over");
+        var body = await second.Content.ReadFromJsonAsync<AccountIdentity>();
+        body!.IdpSubject.ShouldBe("user_force_take_over");
 
         using var scope = _factory.Services.CreateScope();
         var session = scope.ServiceProvider.GetRequiredService<IDocumentSession>();
@@ -178,116 +155,72 @@ public class AccountsEndpointsTests : IClassFixture<AccountsEndpointsTests.Facto
     [Fact]
     public async Task force_upgrade_without_an_existing_claim_behaves_like_a_normal_upgrade()
     {
-        var client = _factory.CreateClient();
-        var (accountId, deviceId) = await RegisterDeviceAsync(client);
+        var (_, _, client) = await RegisterDeviceAsync();
         _factory.ClerkVerifier.Behavior = _ =>
             ClerkTokenVerificationResult.Success("user_force_no_op");
 
-        var response = await client.PostAsJsonAsync(
-            "/accounts/upgrade",
-            new UpgradeAccountRequest(deviceId, "any-token", Force: true)
-        );
+        var response = await PutIdentityAsync(client, "any-token", force: true);
 
         response.StatusCode.ShouldBe(HttpStatusCode.OK);
-        var body = await response.Content.ReadFromJsonAsync<UpgradeAccountResponse>();
-        body!.AccountId.ShouldBe(accountId);
-        body.IdpSubject.ShouldBe("user_force_no_op");
+        var body = await response.Content.ReadFromJsonAsync<AccountIdentity>();
+        body!.IdpSubject.ShouldBe("user_force_no_op");
     }
 
     [Fact]
     public async Task an_invalid_idp_token_returns_401()
     {
-        var client = _factory.CreateClient();
-        var (_, deviceId) = await RegisterDeviceAsync(client);
+        var (_, _, client) = await RegisterDeviceAsync();
         _factory.ClerkVerifier.Behavior = _ =>
             ClerkTokenVerificationResult.Failure("signature mismatch");
 
-        var response = await client.PostAsJsonAsync(
-            "/accounts/upgrade",
-            new UpgradeAccountRequest(deviceId, "garbage")
-        );
+        var response = await PutIdentityAsync(client, "garbage");
 
         response.StatusCode.ShouldBe(HttpStatusCode.Unauthorized);
     }
 
     [Fact]
-    public async Task an_unknown_device_returns_404()
-    {
-        var client = _factory.CreateClient();
-        _factory.ClerkVerifier.Behavior = _ => ClerkTokenVerificationResult.Success("user_abc");
-
-        var response = await client.PostAsJsonAsync(
-            "/accounts/upgrade",
-            new UpgradeAccountRequest(Guid.NewGuid(), "any-token")
-        );
-
-        response.StatusCode.ShouldBe(HttpStatusCode.NotFound);
-    }
-
-    [Fact]
-    public async Task missing_device_id_returns_400()
+    public async Task setting_identity_without_a_device_token_returns_401()
     {
         var client = _factory.CreateClient();
 
-        var response = await client.PostAsJsonAsync(
-            "/accounts/upgrade",
-            new UpgradeAccountRequest(Guid.Empty, "any-token")
-        );
+        var response = await PutIdentityAsync(client, "any-token");
 
-        response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+        response.StatusCode.ShouldBe(HttpStatusCode.Unauthorized);
     }
 
     [Fact]
     public async Task missing_idp_token_returns_400()
     {
-        var client = _factory.CreateClient();
-        var (_, deviceId) = await RegisterDeviceAsync(client);
+        var (_, _, client) = await RegisterDeviceAsync();
 
-        var response = await client.PostAsJsonAsync(
-            "/accounts/upgrade",
-            new UpgradeAccountRequest(deviceId, "")
-        );
+        var response = await PutIdentityAsync(client, "");
 
         response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
     }
 
     /// <summary>
-    /// Bootstraps a registered+upgraded account and returns an HTTP client
-    /// authenticated with that account's device token, ready to call
-    /// <c>/accounts/unbind</c>.
+    /// Bootstraps a registered+upgraded account and returns the authed
+    /// HTTP client (Bearer = the device token from <c>/devices/register</c>),
+    /// ready to call <c>DELETE /accounts/me/identity</c>.
     /// </summary>
     private async Task<(Guid AccountId, Guid DeviceId, HttpClient Client)> RegisterAndUpgradeAsync(
         string sub
     )
     {
-        var bootstrap = _factory.CreateClient();
-        var (accountId, deviceId) = await RegisterDeviceAsync(bootstrap);
+        var (accountId, deviceId, client) = await RegisterDeviceAsync();
         _factory.ClerkVerifier.Behavior = _ => ClerkTokenVerificationResult.Success(sub);
-        var upgrade = await bootstrap.PostAsJsonAsync(
-            "/accounts/upgrade",
-            new UpgradeAccountRequest(deviceId, "any-token")
-        );
-        upgrade.StatusCode.ShouldBe(HttpStatusCode.OK);
-        var body = await upgrade.Content.ReadFromJsonAsync<UpgradeAccountResponse>();
-
-        var authed = _factory.CreateClient();
-        authed.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
-            "Bearer",
-            body!.DeviceToken
-        );
-        return (accountId, deviceId, authed);
+        (await PutIdentityAsync(client, "any-token")).StatusCode.ShouldBe(HttpStatusCode.OK);
+        return (accountId, deviceId, client);
     }
 
     [Fact]
-    public async Task unbind_clears_idp_subject_and_returns_200()
+    public async Task unbind_clears_idp_subject_and_returns_204()
     {
         var (accountId, _, client) = await RegisterAndUpgradeAsync("user_unbind_clear");
 
-        var response = await client.PostAsync("/accounts/unbind", content: null);
+        var response = await client.DeleteAsync("/accounts/me/identity");
 
-        response.StatusCode.ShouldBe(HttpStatusCode.OK);
-        var body = await response.Content.ReadFromJsonAsync<UnbindAccountResponse>();
-        body!.AccountId.ShouldBe(accountId);
+        response.StatusCode.ShouldBe(HttpStatusCode.NoContent);
 
         using var scope = _factory.Services.CreateScope();
         var session = scope.ServiceProvider.GetRequiredService<IDocumentSession>();
@@ -299,42 +232,36 @@ public class AccountsEndpointsTests : IClassFixture<AccountsEndpointsTests.Facto
     [Fact]
     public async Task unbind_lets_the_account_be_rebound_to_a_different_subject()
     {
-        var (accountId, deviceId, client) = await RegisterAndUpgradeAsync("user_unbind_rebind_a");
+        var (accountId, _, client) = await RegisterAndUpgradeAsync("user_unbind_rebind_a");
 
-        (await client.PostAsync("/accounts/unbind", content: null)).StatusCode.ShouldBe(
-            HttpStatusCode.OK
+        (await client.DeleteAsync("/accounts/me/identity")).StatusCode.ShouldBe(
+            HttpStatusCode.NoContent
         );
 
-        // Re-bind via /accounts/upgrade — previously this would have hit
-        // "account is already bound to a different identity"; after unbind
-        // it succeeds.
+        // Re-bind via PUT /accounts/me/identity — previously this would
+        // have hit "account is already bound to a different identity";
+        // after unbind it succeeds.
         _factory.ClerkVerifier.Behavior = _ =>
             ClerkTokenVerificationResult.Success("user_unbind_rebind_b");
-        var rebind = await client.PostAsJsonAsync(
-            "/accounts/upgrade",
-            new UpgradeAccountRequest(deviceId, "second-token")
-        );
+        var rebind = await PutIdentityAsync(client, "second-token");
         rebind.StatusCode.ShouldBe(HttpStatusCode.OK);
-        var body = await rebind.Content.ReadFromJsonAsync<UpgradeAccountResponse>();
-        body!.AccountId.ShouldBe(accountId);
-        body.IdpSubject.ShouldBe("user_unbind_rebind_b");
+        var body = await rebind.Content.ReadFromJsonAsync<AccountIdentity>();
+        body!.IdpSubject.ShouldBe("user_unbind_rebind_b");
+
+        using var scope = _factory.Services.CreateScope();
+        var session = scope.ServiceProvider.GetRequiredService<IDocumentSession>();
+        (await session.LoadAsync<Account>(accountId))!.IdpSubject.ShouldBe("user_unbind_rebind_b");
     }
 
     [Fact]
     public async Task unbind_is_idempotent_on_an_already_anonymous_account()
     {
         // Register but never upgrade — IdpSubject is null from the start.
-        var bootstrap = _factory.CreateClient();
-        var (accountId, deviceId) = await RegisterDeviceAsync(bootstrap);
-        var token = _factory.IssueDeviceToken(accountId, deviceId);
-        var authed = _factory.CreateClient();
-        authed.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        var (_, _, authed) = await RegisterDeviceAsync();
 
-        var response = await authed.PostAsync("/accounts/unbind", content: null);
+        var response = await authed.DeleteAsync("/accounts/me/identity");
 
-        response.StatusCode.ShouldBe(HttpStatusCode.OK);
-        var body = await response.Content.ReadFromJsonAsync<UnbindAccountResponse>();
-        body!.AccountId.ShouldBe(accountId);
+        response.StatusCode.ShouldBe(HttpStatusCode.NoContent);
     }
 
     [Fact]
@@ -342,7 +269,7 @@ public class AccountsEndpointsTests : IClassFixture<AccountsEndpointsTests.Facto
     {
         var client = _factory.CreateClient();
 
-        var response = await client.PostAsync("/accounts/unbind", content: null);
+        var response = await client.DeleteAsync("/accounts/me/identity");
 
         response.StatusCode.ShouldBe(HttpStatusCode.Unauthorized);
     }
@@ -358,7 +285,7 @@ public class AccountsEndpointsTests : IClassFixture<AccountsEndpointsTests.Facto
         var client = _factory.CreateClient();
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
-        var response = await client.PostAsync("/accounts/unbind", content: null);
+        var response = await client.DeleteAsync("/accounts/me/identity");
 
         response.StatusCode.ShouldBe(HttpStatusCode.Unauthorized);
     }
@@ -387,9 +314,7 @@ public class AccountsEndpointsTests : IClassFixture<AccountsEndpointsTests.Facto
 
         var response = await client.DeleteAsync("/accounts/me");
 
-        response.StatusCode.ShouldBe(HttpStatusCode.OK);
-        var body = await response.Content.ReadFromJsonAsync<DeleteAccountResponse>();
-        body!.AccountId.ShouldBe(accountId);
+        response.StatusCode.ShouldBe(HttpStatusCode.NoContent);
 
         using var scope = _factory.Services.CreateScope();
         var session = scope.ServiceProvider.GetRequiredService<IDocumentSession>();
@@ -415,7 +340,7 @@ public class AccountsEndpointsTests : IClassFixture<AccountsEndpointsTests.Facto
         // before deletion.
         (await client.GetAsync("/home-board")).StatusCode.ShouldBe(HttpStatusCode.OK);
 
-        (await client.DeleteAsync("/accounts/me")).StatusCode.ShouldBe(HttpStatusCode.OK);
+        (await client.DeleteAsync("/accounts/me")).StatusCode.ShouldBe(HttpStatusCode.NoContent);
 
         // The very same client + bearer now fails — the auth handler's
         // live-account check sees the row is gone (cache was invalidated
@@ -429,7 +354,7 @@ public class AccountsEndpointsTests : IClassFixture<AccountsEndpointsTests.Facto
     {
         var (_, _, client) = await RegisterAndUpgradeAsync("user_delete_then_clerk");
 
-        (await client.DeleteAsync("/accounts/me")).StatusCode.ShouldBe(HttpStatusCode.OK);
+        (await client.DeleteAsync("/accounts/me")).StatusCode.ShouldBe(HttpStatusCode.NoContent);
 
         // The auth handler caches sub→accountId; the endpoint invalidates
         // that cache so a Clerk-token request after delete fails with
@@ -481,7 +406,7 @@ public class AccountsEndpointsTests : IClassFixture<AccountsEndpointsTests.Facto
         // request — so the attacker's call must leave the victim alone
         // even if it could somehow hint at a different id.
         var response = await attacker.DeleteAsync("/accounts/me");
-        response.StatusCode.ShouldBe(HttpStatusCode.OK);
+        response.StatusCode.ShouldBe(HttpStatusCode.NoContent);
 
         using var scope = _factory.Services.CreateScope();
         var session = scope.ServiceProvider.GetRequiredService<IDocumentSession>();

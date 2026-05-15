@@ -1,17 +1,12 @@
-import { isErrorFromAlias, type ZodiosResponseByAlias } from "@zodios/core";
-import type { NagApiClient } from "../client";
+import { isErrorFromAlias } from "@zodios/core";
 import { endpoints } from "../endpoint-definition";
-import { failureFromError, type Endpoints, type WrapperLog } from "./shared";
+import type { NagApiClient } from "../client";
+import { failureFromError, type WrapperLog } from "./shared";
 
 export type DeleteAccountResult =
-  | { ok: true; accountId: string }
+  | { ok: true }
   | { ok: false; kind: "non-retriable"; status: number; message: string }
   | { ok: false; kind: "transient"; message: string };
-
-type DeleteAccountResponse = ZodiosResponseByAlias<
-  Endpoints,
-  "deleteAccountsMe"
->;
 
 /**
  * DELETE /accounts/me — wipes the calling account, every paired device,
@@ -28,25 +23,10 @@ export const deleteAccount = async (
   log?.debug?.("DELETE /accounts/me");
   const start = Date.now();
   try {
-    const response: DeleteAccountResponse =
-      await client.deleteAccountsMe(undefined);
+    await client.deleteAccountsMe(undefined);
     const elapsed = Date.now() - start;
-    if (!response.accountId) {
-      log?.error?.(
-        `DELETE /accounts/me ok (${elapsed}ms) but response missing accountId`,
-        response,
-      );
-      return {
-        ok: false,
-        kind: "non-retriable",
-        status: 200,
-        message: "server returned an incomplete DeleteAccountResponse",
-      };
-    }
-    log?.info?.(
-      `DELETE /accounts/me ok (${elapsed}ms) accountId=${response.accountId}`,
-    );
-    return { ok: true, accountId: response.accountId };
+    log?.info?.(`DELETE /accounts/me ok (${elapsed}ms)`);
+    return { ok: true };
   } catch (error: unknown) {
     return failureFromError(
       "DELETE /accounts/me",

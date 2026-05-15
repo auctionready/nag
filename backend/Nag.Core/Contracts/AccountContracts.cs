@@ -9,15 +9,6 @@ namespace Nag.Core.Contracts;
 /// false preserves the strict 409 behaviour for clients that didn't ask
 /// to take over an existing identity.
 /// </summary>
-public sealed record UpgradeAccountRequest(Guid DeviceId, string IdpToken, bool Force = false);
+public sealed record SetAccountIdentityRequest(string IdpToken, bool Force = false);
 
-public sealed record UpgradeAccountResponse(
-    Guid AccountId,
-    string IdpSubject,
-    DateTimeOffset UpgradedAt,
-    string DeviceToken
-);
-
-public sealed record UnbindAccountResponse(Guid AccountId);
-
-public sealed record DeleteAccountResponse(Guid AccountId);
+public sealed record AccountIdentity(string IdpSubject, DateTimeOffset UpgradedAt);

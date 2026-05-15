@@ -11,39 +11,28 @@ const IsoDatetime = z.iso
   .datetime({ offset: true })
   .transform((s) => new Date(s));
 
-export const UpgradeAccountRequest = z
-  .object({
-    deviceId: z.uuid(),
-    idpToken: z.string().nullable(),
-    force: z.boolean(),
-  })
+export const SetAccountIdentityRequest = z
+  .object({ idpToken: z.string().nullable(), force: z.boolean() })
   .partial();
-export type UpgradeAccountRequest = z.infer<typeof UpgradeAccountRequest>;
+export type SetAccountIdentityRequest = z.infer<
+  typeof SetAccountIdentityRequest
+>;
 
-export const UpgradeAccountResponse = z
+export const AccountIdentity = z
   .object({
-    accountId: z.uuid(),
     idpSubject: z.string().nullable(),
     upgradedAt: IsoDatetime,
-    deviceToken: z.string().nullable(),
   })
   .partial();
-export type UpgradeAccountResponse = z.infer<typeof UpgradeAccountResponse>;
+export type AccountIdentity = z.infer<typeof AccountIdentity>;
 
 export const ErrorResponse = z
   .object({ errors: z.array(z.string()).nullable() })
   .partial();
 export type ErrorResponse = z.infer<typeof ErrorResponse>;
 
-export const UnbindAccountResponse = z
-  .object({ accountId: z.uuid() })
-  .partial();
-export type UnbindAccountResponse = z.infer<typeof UnbindAccountResponse>;
-
-export const DeleteAccountResponse = z
-  .object({ accountId: z.uuid() })
-  .partial();
-export type DeleteAccountResponse = z.infer<typeof DeleteAccountResponse>;
+export const IResult = z.object({}).partial();
+export type IResult = z.infer<typeof IResult>;
 
 export const RebuildProjectionsRequest = z
   .object({ secret: z.string().nullable() })
@@ -92,6 +81,16 @@ export const PairDeviceResponse = z
   })
   .partial();
 export type PairDeviceResponse = z.infer<typeof PairDeviceResponse>;
+
+export const GetDeviceResponse = z
+  .object({
+    accountId: z.uuid(),
+    deviceId: z.uuid(),
+    label: z.string().nullable(),
+    registeredAt: IsoDatetime,
+  })
+  .partial();
+export type GetDeviceResponse = z.infer<typeof GetDeviceResponse>;
 
 export const Regularity = z.enum(["day", "week", "month"]);
 export type Regularity = z.infer<typeof Regularity>;
@@ -453,9 +452,6 @@ export const EventsPage = z
   .partial();
 export type EventsPage = z.infer<typeof EventsPage>;
 
-export const IResult = z.object({}).partial();
-export type IResult = z.infer<typeof IResult>;
-
 export const HomeCheckIn = z
   .object({
     id: z.uuid(),
@@ -583,34 +579,36 @@ export const endpoints = makeApi([
     path: "/accounts/me",
     alias: "deleteAccountsMe",
     parameters: [],
-    response: z.object({ accountId: z.uuid() }).partial(),
+    response: z.object({}).partial(),
     errors: [
       { status: 401, schema: ErrorResponse },
       { status: 404, schema: ErrorResponse },
     ],
   },
   {
-    method: "post",
-    path: "/accounts/unbind",
-    alias: "postAccountsUnbind",
-    parameters: [],
-    response: z.object({ accountId: z.uuid() }).partial(),
-    errors: [
-      { status: 401, schema: ErrorResponse },
-      { status: 404, schema: ErrorResponse },
+    method: "put",
+    path: "/accounts/me/identity",
+    alias: "putAccountsMeIdentity",
+    parameters: [
+      { name: "body", type: "Body", schema: SetAccountIdentityRequest },
     ],
-  },
-  {
-    method: "post",
-    path: "/accounts/upgrade",
-    alias: "postAccountsUpgrade",
-    parameters: [{ name: "body", type: "Body", schema: UpgradeAccountRequest }],
-    response: UpgradeAccountResponse,
+    response: AccountIdentity,
     errors: [
       { status: 400, schema: ErrorResponse },
       { status: 401, schema: ErrorResponse },
       { status: 404, schema: ErrorResponse },
       { status: 409, schema: ErrorResponse },
+    ],
+  },
+  {
+    method: "delete",
+    path: "/accounts/me/identity",
+    alias: "deleteAccountsMeIdentity",
+    parameters: [],
+    response: z.object({}).partial(),
+    errors: [
+      { status: 401, schema: ErrorResponse },
+      { status: 404, schema: ErrorResponse },
     ],
   },
   {
@@ -657,6 +655,17 @@ export const endpoints = makeApi([
     response: WeeklyCheckInSummary,
     errors: [
       { status: 400, schema: z.void() },
+      { status: 404, schema: z.void() },
+    ],
+  },
+  {
+    method: "get",
+    path: "/devices/:id",
+    alias: "getDevicesById",
+    parameters: [{ name: "id", type: "Path", schema: z.uuid() }],
+    response: GetDeviceResponse,
+    errors: [
+      { status: 401, schema: z.void() },
       { status: 404, schema: z.void() },
     ],
   },

@@ -111,17 +111,14 @@ export const SignedInOrOut = () => {
           return;
         }
 
-        const result = await upgradeAccount({
-          deviceId: registration.deviceId,
-          idpToken,
-        });
+        const result = await upgradeAccount({ idpToken });
         Sentry.captureMessage(
           `nag.sync.sign-in-flow upgrade ${result.ok ? "ok" : result.kind}`,
           {
             level: result.ok ? "info" : "warning",
             contexts: {
               sync: result.ok
-                ? { accountId: result.accountId, idpSubject: result.idpSubject }
+                ? { idpSubject: result.idpSubject }
                 : {
                     kind: result.kind,
                     status:
@@ -135,9 +132,7 @@ export const SignedInOrOut = () => {
           },
         );
         if (result.ok) {
-          logger.info(
-            `account upgraded accountId=${result.accountId} sub=${result.idpSubject}`,
-          );
+          logger.info(`account upgraded sub=${result.idpSubject}`);
           await setIdpSubject(db, result.idpSubject);
           setStatus({ kind: "ok" });
           // Kick the sync loop now so the user sees their data immediately

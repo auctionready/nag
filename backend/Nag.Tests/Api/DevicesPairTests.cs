@@ -1,4 +1,5 @@
 using System.Net;
+using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using Nag.Api.Auth;
 using Nag.Core.Contracts;
@@ -41,14 +42,23 @@ public class DevicesPairTests : IClassFixture<DevicesPairTests.Factory>
         registerResp.StatusCode.ShouldBe(HttpStatusCode.Created);
         var registered = await registerResp.Content.ReadFromJsonAsync<RegisterDeviceResponse>();
 
+        // PUT /accounts/me/identity requires the device Bearer; install it on
+        // a sibling client (don't mutate the caller's anonymous client because
+        // some tests intentionally use anonymous flows below).
+        var authed = _factory.CreateClient();
+        authed.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
+            "Bearer",
+            registered!.DeviceToken
+        );
+
         _factory.ClerkVerifier.Behavior = _ => ClerkTokenVerificationResult.Success(sub);
-        var upgradeResp = await client.PostAsJsonAsync(
-            "/accounts/upgrade",
-            new UpgradeAccountRequest(deviceId, "any-token")
+        var upgradeResp = await authed.PutAsJsonAsync(
+            "/accounts/me/identity",
+            new SetAccountIdentityRequest("any-token")
         );
         upgradeResp.StatusCode.ShouldBe(HttpStatusCode.OK);
 
-        return (registered!.AccountId, sub);
+        return (registered.AccountId, sub);
     }
 
     [Fact]
@@ -122,11 +132,20 @@ public class DevicesPairTests : IClassFixture<DevicesPairTests.Factory>
 
         // Account A owns deviceX (registered, anonymous, then upgraded).
         var deviceX = Guid.NewGuid();
-        await client.PostAsJsonAsync("/devices/register", new RegisterDeviceRequest(deviceX, null));
+        var registerA = await client.PostAsJsonAsync(
+            "/devices/register",
+            new RegisterDeviceRequest(deviceX, null)
+        );
+        var registeredA = await registerA.Content.ReadFromJsonAsync<RegisterDeviceResponse>();
+        var authedA = _factory.CreateClient();
+        authedA.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
+            "Bearer",
+            registeredA!.DeviceToken
+        );
         _factory.ClerkVerifier.Behavior = _ => ClerkTokenVerificationResult.Success(subA);
-        await client.PostAsJsonAsync(
-            "/accounts/upgrade",
-            new UpgradeAccountRequest(deviceX, "token-a")
+        await authedA.PutAsJsonAsync(
+            "/accounts/me/identity",
+            new SetAccountIdentityRequest("token-a")
         );
 
         // Account B exists, upgraded to a different identity.
