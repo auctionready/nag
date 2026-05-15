@@ -3,7 +3,6 @@ import { setNotificationScheduler, setConsolidatedScheduler } from "@nag/core";
 import { expoNotificationScheduler } from "./expoNotificationScheduler";
 import { expoConsolidatedScheduler } from "./expoConsolidatedScheduler";
 import { installGlobalErrorHandlers } from "./globalErrorHandlers";
-import { getAuthMode } from "./devOverrides";
 import { log } from "./log";
 
 const logger = log("init");
@@ -19,24 +18,30 @@ export const init = () => {
 
 /**
  * Hook for any work that must wait until the local SQLite migrations
- * have finished. In dev-auth mode (driven by `EXPO_PUBLIC_NAG_DEV_AUTH=1`
- * or the dev-menu backend override), this mints a token via the
- * backend's `/dev/token` so the app starts as the SwaggerDevAuth fake
- * user without a Clerk sign-in. In Clerk mode this is a no-op —
- * device registration still lives behind the post-Clerk-sign-in effect
- * in `account.tsx`.
+ * have finished. In dev builds, lazy-requires `initDevAuth.ts` which
+ * inspects `getAuthMode()` + the local identity and refreshes the
+ * dev-auth device token if an already-signed-in session lost its
+ * secure-store token (fresh install carryover, HMAC-secret rotation).
+ * Fresh installs and explicit sign-outs leave `accountId` null, so
+ * this no-ops and the user must hit "Sign in as dev user" from the
+ * Account screen.
  *
- * The dev-auth wiring is loaded via a `__DEV__`-guarded `require` so
- * Metro drops `initDevAuth.ts` (and its `fetchDevToken` /
- * `ensureDevAuthRegistered` imports) from production bundles. Keeping
- * `getAuthMode()` as the inner check means the dev-menu's runtime
- * "Switch backend → Cloud apidev" preset still works in dev clients.
+ * The dev-auth bootstrap is wrapped in `if (__DEV__) { require(...) }`
+ * exactly — same pattern as the `require("../db/devMenu")` in
+ * `_layout.tsx` — so Metro's prod minifier drops the require call
+ * (and consequently `initDevAuth.ts`, `fetchDevToken`, and the
+ * `/dev/token` URL) from release bundles. Any indirection
+ * (`if (!__DEV__) return;` followed by `require(...)`, or a `require`
+ * nested inside an async IIFE) leaves the dependency graph intact:
+ * verify via `pnpm expo export --platform ios --no-bytecode` and grep
+ * the emitted `dist/_expo/static/js/ios/entry-*.js` for `/dev/token`,
+ * `signed out (dev-auth)`, etc. — they should be absent.
  */
 export const postMigrationInit = () => {
-  if (!__DEV__) return;
-  if (getAuthMode() !== "dev-auth") return;
-  const { runDevAuthRegistration } =
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    require("./initDevAuth") as typeof import("./initDevAuth");
-  void runDevAuthRegistration();
+  if (__DEV__) {
+    const { runDevAuthBootstrap } =
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      require("./initDevAuth") as typeof import("./initDevAuth");
+    void runDevAuthBootstrap();
+  }
 };

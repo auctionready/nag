@@ -12,7 +12,6 @@ import {
 import { setupTestDb } from "../../__tests__/testDb";
 import {
   ensureDeviceRegistered,
-  ensureDevAuthRegistered,
   refreshDeviceToken,
   loadIdentity,
   getAccountId,
@@ -20,6 +19,7 @@ import {
   clearLocalAuth,
   type TokenStore,
 } from "../identity";
+import { ensureDevAuthRegistered } from "../devAuth";
 import type { DevTokenResult, RegisterDeviceResult } from "../types";
 
 const getDb = setupTestDb("identity-test.db");

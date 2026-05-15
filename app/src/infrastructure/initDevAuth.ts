@@ -1,6 +1,8 @@
-import { ensureDevAuthRegistered } from "@nag/core";
+import { loadIdentity } from "@nag/core";
+import { ensureDevAuthRegistered } from "@nag/core/dev";
 import { db } from "../db";
 import { fetchDevToken } from "./devAuth";
+import { getAuthMode } from "./devOverrides";
 import { postCommitBus } from "./postCommitBus";
 import { deviceTokenStore } from "./tokenStore";
 import { log } from "./log";
@@ -31,4 +33,20 @@ export const runDevAuthRegistration = async (): Promise<void> => {
   } catch (error: unknown) {
     logger.error("dev-auth init threw unexpectedly", error);
   }
+};
+
+/**
+ * Cold-start entry point used by `postMigrationInit`. Returns
+ * immediately unless the runtime auth mode is dev-auth AND the local
+ * identity has already been signed in (accountId set). In that case,
+ * `ensureDevAuthRegistered` refreshes a missing/stale device token.
+ * Fresh installs and post-sign-out cold starts hit the no-op path and
+ * leave the user signed out — sign-in must come from the Account
+ * screen's explicit button.
+ */
+export const runDevAuthBootstrap = async (): Promise<void> => {
+  if (getAuthMode() !== "dev-auth") return;
+  const row = await loadIdentity(db);
+  if (!row?.accountId) return;
+  await runDevAuthRegistration();
 };

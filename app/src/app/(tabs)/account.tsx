@@ -1,38 +1,17 @@
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { ScrollView, StyleSheet, Text, View } from "react-native";
 import { SignedInOrOut } from "../../components/account";
-import { confirmAndDeleteAccount } from "../../components/account/deleteAccountAction";
 import { tokens } from "../../components/theme";
 import { isClerkConfigured } from "../../infrastructure/clerk";
-import { getApiBaseUrl, getAuthMode } from "../../infrastructure/devOverrides";
+import { getAuthMode } from "../../infrastructure/devOverrides";
 
 const AccountScreen = () => {
-  if (getAuthMode() === "dev-auth") {
-    return (
-      <ScrollView
-        style={styles.scroll}
-        contentContainerStyle={styles.scrollContent}
-      >
-        <View style={styles.unconfigured}>
-          <Text style={styles.unconfiguredTitle}>signed in as dev user.</Text>
-          <Text style={styles.unconfiguredBody}>
-            This session is using a local HMAC device token from
-            <Text style={styles.code}> /dev/token</Text> against
-            <Text style={styles.code}> {getApiBaseUrl()}</Text>. The same
-            account is wired into Swagger UI. Use the dev menu to switch backend
-            or re-sign-in.
-          </Text>
-          <Pressable
-            onPress={confirmAndDeleteAccount}
-            style={({ pressed }) => [
-              styles.deleteButton,
-              pressed && styles.deleteButtonPressed,
-            ]}
-          >
-            <Text style={styles.deleteButtonText}>Delete account</Text>
-          </Pressable>
-        </View>
-      </ScrollView>
-    );
+  if (__DEV__ && getAuthMode() === "dev-auth") {
+    // Lazy-required so Metro drops the dev-auth panel (and its
+    // /dev/token + ensureDevAuthRegistered imports) from prod bundles.
+    const { DevAuthAccountPanel } =
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      require("../../components/account/DevAuthAccountPanel") as typeof import("../../components/account/DevAuthAccountPanel");
+    return <DevAuthAccountPanel />;
   }
   if (!isClerkConfigured()) {
     return (
@@ -83,23 +62,5 @@ const styles = StyleSheet.create({
   code: {
     fontFamily: "JetBrainsMono",
     fontSize: 12,
-  },
-  deleteButton: {
-    marginTop: 8,
-    alignSelf: "flex-start",
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderRadius: 8,
-    backgroundColor: "rgba(255,90,54,0.12)",
-  },
-  deleteButtonPressed: {
-    opacity: 0.6,
-  },
-  deleteButtonText: {
-    fontFamily: "SpaceGrotesk-Bold",
-    fontSize: 14,
-    fontWeight: "700",
-    color: tokens.orange,
-    letterSpacing: -0.07,
   },
 });

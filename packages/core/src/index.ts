@@ -98,7 +98,6 @@ export {
 } from "./sync";
 export {
   ensureDeviceRegistered,
-  ensureDevAuthRegistered,
   refreshDeviceToken,
   loadIdentity,
   getAccountId,
@@ -109,8 +108,6 @@ export {
   type TokenStore,
   type EnsureDeviceRegisteredOptions,
   type EnsureDeviceRegisteredResult,
-  type EnsureDevAuthRegisteredOptions,
-  type EnsureDevAuthRegisteredResult,
   type RefreshDeviceTokenOptions,
   type SwitchLocalAccountOptions,
   type ClearLocalAuthOptions,
