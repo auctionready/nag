@@ -1,8 +1,8 @@
 using System.Security.Claims;
 using Marten;
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Nag.Api.Auth;
+using Nag.Api.Infrastructure.Http;
 using Nag.Core.Contracts;
 using Nag.Core.Domain;
 using Nag.Core.Idempotency;
@@ -14,42 +14,95 @@ namespace Nag.Api.Endpoints;
 public static class AccountsEndpoints
 {
     /// <summary>
-    /// Binds the calling device's anonymous account to a real identity.
-    /// The caller supplies its <c>deviceId</c> (issued at registration) and
-    /// a Clerk-issued <c>idpToken</c>; on success the account stores the
-    /// JWT's <c>sub</c> as <c>IdpSubject</c> and stamps <c>UpgradedAt</c>.
-    ///
-    /// The default behaviour returns 409 if some other account already
-    /// claims the verified identity — the caller is expected to fall back
-    /// to <c>/devices/pair</c> so the device joins the existing account.
-    /// Setting <c>Force=true</c> opts into the inverse: unbind the
-    /// existing account and bind this device's account to the identity
-    /// instead. Used by the "use this device's data" sign-in flow when
-    /// the user wants their local data to be canonical over whatever
-    /// the server has on the other account.
+    /// Returns the calling account's bound identity, or 404 if the
+    /// account is anonymous (no <c>IdpSubject</c>). The account id is
+    /// read from the principal's <c>account_id</c> claim, never the URL.
     /// </summary>
-    [AllowAnonymous]
+    [Tags("Accounts")]
+    [NotTenanted]
+    [EndpointName("getAccountsMeIdentity")]
+    [ProducesResponseType(typeof(AccountIdentity), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [WolverineGet("/accounts/me/identity", RouteName = "getAccountsMeIdentity")]
+    public static async Task<IResult> GetAccountIdentity(
+        ClaimsPrincipal user,
+        IQuerySession session,
+        CancellationToken ct
+    )
+    {
+        var accountIdClaim = user.FindFirstValue(NagClaimTypes.AccountId);
+        if (!Guid.TryParse(accountIdClaim, out var accountId))
+        {
+            return Results.Json(
+                new ErrorResponse(["unauthenticated"]),
+                statusCode: StatusCodes.Status401Unauthorized
+            );
+        }
+
+        var account = await session.LoadAsync<Account>(accountId, ct);
+        if (
+            account is null
+            || string.IsNullOrEmpty(account.IdpSubject)
+            || account.UpgradedAt is null
+        )
+            return Results.NotFound();
+
+        return Results.Ok(new AccountIdentity(account.IdpSubject, account.UpgradedAt.Value));
+    }
+
+    /// <summary>
+    /// Binds the calling account to a real identity — sets
+    /// <c>IdpSubject</c> from the verified Clerk JWT's <c>sub</c> and
+    /// stamps <c>UpgradedAt</c>. The caller must already hold a device
+    /// token (issued at <c>/devices/register</c>); both <c>accountId</c>
+    /// and <c>deviceId</c> are read from claims, never the body.
+    ///
+    /// First-time bind returns 201 Created with <c>Location</c> pointing
+    /// at <c>GET /accounts/me/identity</c>; idempotent re-bind (same
+    /// identity) returns 200 OK with <c>Content-Location</c>.
+    ///
+    /// Returns 409 if the verified identity is already bound to a
+    /// different account — the caller is expected to either fall back to
+    /// <c>/devices/pair</c> (join the existing account) or explicitly
+    /// take over via <c>DELETE /accounts/by-clerk-identity</c> followed
+    /// by a retry of this endpoint.
+    /// </summary>
     [NotTenanted]
     [Tags("Accounts")]
-    [EndpointName("postAccountsUpgrade")]
-    [ProducesResponseType(typeof(UpgradeAccountResponse), StatusCodes.Status200OK)]
+    [EndpointName("postAccountsMeIdentity")]
+    [ProducesResponseType(typeof(AccountIdentity), StatusCodes.Status201Created)]
+    [ProducesResponseType(typeof(AccountIdentity), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status404NotFound)]
     [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status409Conflict)]
-    [WolverinePost("/accounts/upgrade")]
-    public static async Task<IResult> UpgradeAccount(
-        UpgradeAccountRequest request,
+    [WolverinePost("/accounts/me/identity")]
+    public static async Task<IResult> SetAccountIdentity(
+        SetAccountIdentityRequest request,
+        ClaimsPrincipal user,
         IClerkTokenVerifier verifier,
         IDocumentSession session,
-        IDeviceTokenIssuer tokens,
         IDeviceAccountResolver resolver,
         TimeProvider clock,
+        ILoggerFactory loggerFactory,
         CancellationToken ct
     )
     {
-        if (request.DeviceId == Guid.Empty)
-            return Results.BadRequest(new ErrorResponse(["deviceId is required"]));
+        var log = loggerFactory.CreateLogger("AccountsEndpoints.SetAccountIdentity");
+        var accountIdClaim = user.FindFirstValue(NagClaimTypes.AccountId);
+        if (!Guid.TryParse(accountIdClaim, out var accountId))
+        {
+            return Results.Json(
+                new ErrorResponse(["unauthenticated"]),
+                statusCode: StatusCodes.Status401Unauthorized
+            );
+        }
+        // Logged for traceability — present on device-token callers,
+        // missing on Clerk-token callers (which is fine; the log just
+        // shows "(none)" in that case).
+        var deviceIdClaim = user.FindFirstValue(NagClaimTypes.DeviceId) ?? "(none)";
+
         if (string.IsNullOrWhiteSpace(request.IdpToken))
             return Results.BadRequest(new ErrorResponse(["idpToken is required"]));
 
@@ -64,56 +117,55 @@ public static class AccountsEndpoints
         }
         var sub = verification.Subject;
 
-        var device = await session.LoadAsync<Device>(request.DeviceId, ct);
-        if (device is null)
-            return Results.NotFound(new ErrorResponse(["unknown device"]));
-
-        var account = await session.LoadAsync<Account>(device.AccountId, ct);
+        var account = await session.LoadAsync<Account>(accountId, ct);
         if (account is null)
-            return Results.NotFound(new ErrorResponse(["account not found for device"]));
+            return Results.NotFound(new ErrorResponse(["account not found"]));
 
         // Already upgraded — idempotent on (account, sub), 409 on identity mismatch.
         if (!string.IsNullOrEmpty(account.IdpSubject))
         {
-            if (account.IdpSubject == sub)
+            if (account.IdpSubject != sub)
             {
-                return Results.Ok(
-                    new UpgradeAccountResponse(
-                        account.Id,
-                        account.IdpSubject,
-                        account.UpgradedAt ?? clock.GetUtcNow(),
-                        tokens.Issue(account.Id, device.Id)
-                    )
+                log.LogWarning(
+                    "POST /accounts/me/identity conflict (account bound to a different identity) account={AccountId} device={DeviceId}",
+                    accountId,
+                    deviceIdClaim
+                );
+                return Results.Conflict(
+                    new ErrorResponse(["account is already bound to a different identity"])
                 );
             }
-            return Results.Conflict(
-                new ErrorResponse(["account is already bound to a different identity"])
+            log.LogInformation(
+                "POST /accounts/me/identity no-op (already bound) account={AccountId} device={DeviceId}",
+                accountId,
+                deviceIdClaim
+            );
+            return Results.Extensions.FoundAtRoute(
+                "getAccountsMeIdentity",
+                new { },
+                new AccountIdentity(account.IdpSubject, account.UpgradedAt ?? clock.GetUtcNow())
             );
         }
 
         // Reject if some other account already claims this sub. Without this
         // check, two anonymous accounts could end up sharing one identity.
-        // The Force=true escape hatch is the "use this device's data" flow:
-        // the user has chosen to move the identity from the existing account
-        // onto this device's account, so we unbind the loser inline.
+        // The take-over path is now explicit: client must call
+        // DELETE /accounts/by-clerk-identity first to free the binding.
         var existingForSub = await session
             .Query<Account>()
             .Where(a => a.IdpSubject == sub)
             .FirstOrDefaultAsync(ct);
         if (existingForSub is not null && existingForSub.Id != account.Id)
         {
-            if (!request.Force)
-            {
-                return Results.Conflict(
-                    new ErrorResponse(["this identity is already bound to a different account"])
-                );
-            }
-            existingForSub.IdpSubject = null;
-            existingForSub.UpgradedAt = null;
-            session.Store(existingForSub);
-            // Drop any cached resolution so the next request keyed by sub
-            // doesn't keep pointing at the now-orphaned account.
-            resolver.Invalidate(sub);
+            log.LogWarning(
+                "POST /accounts/me/identity conflict (identity bound to another account) account={AccountId} device={DeviceId} otherAccount={OtherAccountId}",
+                accountId,
+                deviceIdClaim,
+                existingForSub.Id
+            );
+            return Results.Conflict(
+                new ErrorResponse(["this identity is already bound to a different account"])
+            );
         }
 
         var now = clock.GetUtcNow();
@@ -126,8 +178,15 @@ public static class AccountsEndpoints
         // authenticated request resolves the freshly-bound account.
         resolver.Invalidate(sub);
 
-        return Results.Ok(
-            new UpgradeAccountResponse(account.Id, sub, now, tokens.Issue(account.Id, device.Id))
+        log.LogInformation(
+            "POST /accounts/me/identity bound account={AccountId} device={DeviceId}",
+            accountId,
+            deviceIdClaim
+        );
+        return Results.Extensions.CreatedAtRoute(
+            "getAccountsMeIdentity",
+            new { },
+            new AccountIdentity(sub, now)
         );
     }
 
@@ -144,24 +203,25 @@ public static class AccountsEndpoints
     /// <c>/devices/pair</c> before this unbind keeps working (it has its
     /// own device token). But a *new* device that hasn't paired yet will
     /// see <c>/devices/pair</c> return 404 ("no account found for this
-    /// identity") until some device re-runs <c>/accounts/upgrade</c> to
-    /// rebind. Idempotent — unbinding an already-anonymous account is a
-    /// no-op 200.
+    /// identity") until some device re-runs the bind. Idempotent —
+    /// unbinding an already-anonymous account is a no-op 204.
     /// </summary>
     [Tags("Accounts")]
     [NotTenanted]
-    [EndpointName("postAccountsUnbind")]
-    [ProducesResponseType(typeof(UnbindAccountResponse), StatusCodes.Status200OK)]
+    [EndpointName("deleteAccountsMeIdentity")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status404NotFound)]
-    [WolverinePost("/accounts/unbind")]
+    [WolverineDelete("/accounts/me/identity")]
     public static async Task<IResult> UnbindAccount(
         ClaimsPrincipal user,
         IDocumentSession session,
         IDeviceAccountResolver resolver,
+        ILoggerFactory loggerFactory,
         CancellationToken ct
     )
     {
+        var log = loggerFactory.CreateLogger("AccountsEndpoints.UnbindAccount");
         var accountIdClaim = user.FindFirstValue(NagClaimTypes.AccountId);
         if (!Guid.TryParse(accountIdClaim, out var accountId))
         {
@@ -178,9 +238,13 @@ public static class AccountsEndpoints
         var oldSub = account.IdpSubject;
         if (string.IsNullOrEmpty(oldSub))
         {
-            // Already anonymous — idempotent 200 so the client can retry
+            // Already anonymous — idempotent 204 so the client can retry
             // safely after a transient network failure.
-            return Results.Ok(new UnbindAccountResponse(account.Id));
+            log.LogInformation(
+                "DELETE /accounts/me/identity no-op (already anonymous) account={AccountId}",
+                accountId
+            );
+            return Results.NoContent();
         }
 
         account.IdpSubject = null;
@@ -189,7 +253,92 @@ public static class AccountsEndpoints
         await session.SaveChangesAsync(ct);
         resolver.Invalidate(oldSub);
 
-        return Results.Ok(new UnbindAccountResponse(account.Id));
+        log.LogInformation("DELETE /accounts/me/identity unbound account={AccountId}", accountId);
+        return Results.NoContent();
+    }
+
+    /// <summary>
+    /// Releases the account-to-Clerk-identity binding owned by whatever
+    /// account currently holds the verified <c>sub</c>. The caller proves
+    /// ownership of the identity by sending a valid Clerk JWT in the body
+    /// — the binding is removed regardless of which account currently
+    /// holds it. Idempotent: 204 even if no account is bound.
+    ///
+    /// Used by the "use this device's data" take-over flow: after
+    /// <c>POST /accounts/me/identity</c> returns 409 (identity already
+    /// bound elsewhere), the client calls this endpoint to free the
+    /// binding, then re-tries the POST to bind it on the caller's
+    /// account. Two steps instead of one keeps the take-over explicit
+    /// and auditable rather than hiding behind a flag.
+    /// </summary>
+    [Tags("Accounts")]
+    [NotTenanted]
+    [EndpointName("deleteAccountsByClerkIdentity")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status401Unauthorized)]
+    [WolverineDelete("/accounts/by-clerk-identity")]
+    public static async Task<IResult> ReleaseAccountByClerkIdentity(
+        ReleaseAccountIdentityRequest request,
+        ClaimsPrincipal user,
+        IClerkTokenVerifier verifier,
+        IDocumentSession session,
+        IDeviceAccountResolver resolver,
+        ILoggerFactory loggerFactory,
+        CancellationToken ct
+    )
+    {
+        var log = loggerFactory.CreateLogger("AccountsEndpoints.ReleaseAccountByClerkIdentity");
+        var accountIdClaim = user.FindFirstValue(NagClaimTypes.AccountId);
+        if (!Guid.TryParse(accountIdClaim, out var callerAccountId))
+        {
+            return Results.Json(
+                new ErrorResponse(["unauthenticated"]),
+                statusCode: StatusCodes.Status401Unauthorized
+            );
+        }
+        var deviceIdClaim = user.FindFirstValue(NagClaimTypes.DeviceId) ?? "(none)";
+
+        if (string.IsNullOrWhiteSpace(request.IdpToken))
+            return Results.BadRequest(new ErrorResponse(["idpToken is required"]));
+
+        var verification = await verifier.VerifyAsync(request.IdpToken, ct);
+        if (!verification.Ok || string.IsNullOrEmpty(verification.Subject))
+        {
+            return Results.Json(
+                new ErrorResponse([verification.Error ?? "invalid idpToken"]),
+                statusCode: StatusCodes.Status401Unauthorized
+            );
+        }
+        var sub = verification.Subject;
+
+        var bound = await session
+            .Query<Account>()
+            .Where(a => a.IdpSubject == sub)
+            .FirstOrDefaultAsync(ct);
+        if (bound is null)
+        {
+            log.LogInformation(
+                "DELETE /accounts/by-clerk-identity no-op (no account bound) caller={CallerAccountId} device={DeviceId}",
+                callerAccountId,
+                deviceIdClaim
+            );
+            return Results.NoContent();
+        }
+
+        log.LogWarning(
+            "DELETE /accounts/by-clerk-identity released caller={CallerAccountId} device={DeviceId} freedAccount={FreedAccountId}",
+            callerAccountId,
+            deviceIdClaim,
+            bound.Id
+        );
+        bound.IdpSubject = null;
+        bound.UpgradedAt = null;
+        session.Store(bound);
+        await session.SaveChangesAsync(ct);
+        resolver.Invalidate(sub);
+
+        return Results.NoContent();
     }
 
     /// <summary>
@@ -207,7 +356,7 @@ public static class AccountsEndpoints
     [Tags("Accounts")]
     [NotTenanted]
     [EndpointName("deleteAccountsMe")]
-    [ProducesResponseType(typeof(DeleteAccountResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status404NotFound)]
     [WolverineDelete("/accounts/me")]
@@ -215,9 +364,11 @@ public static class AccountsEndpoints
         ClaimsPrincipal user,
         IDocumentStore store,
         IDeviceAccountResolver resolver,
+        ILoggerFactory loggerFactory,
         CancellationToken ct
     )
     {
+        var log = loggerFactory.CreateLogger("AccountsEndpoints.DeleteAccount");
         var accountIdClaim = user.FindFirstValue(NagClaimTypes.AccountId);
         if (!Guid.TryParse(accountIdClaim, out var accountId))
         {
@@ -279,6 +430,7 @@ public static class AccountsEndpoints
         // (rather than riding a stale "exists=true" for the cache TTL).
         resolver.InvalidateAccount(accountId);
 
-        return Results.Ok(new DeleteAccountResponse(accountId));
+        log.LogInformation("DELETE /accounts/me wiped account={AccountId}", accountId);
+        return Results.NoContent();
     }
 }

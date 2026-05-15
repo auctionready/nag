@@ -17,3 +17,10 @@ public sealed record PairDeviceResponse(
     DateTimeOffset RegisteredAt,
     string DeviceToken
 );
+
+public sealed record GetDeviceResponse(
+    Guid AccountId,
+    Guid DeviceId,
+    string? Label,
+    DateTimeOffset RegisteredAt
+);

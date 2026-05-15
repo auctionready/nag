@@ -1,4 +1,5 @@
 using System.Net;
+using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using Nag.Api.Auth;
 using Nag.Core.Contracts;
@@ -38,17 +39,26 @@ public class DevicesPairTests : IClassFixture<DevicesPairTests.Factory>
             "/devices/register",
             new RegisterDeviceRequest(deviceId, "first-phone")
         );
-        registerResp.StatusCode.ShouldBe(HttpStatusCode.OK);
+        registerResp.StatusCode.ShouldBe(HttpStatusCode.Created);
         var registered = await registerResp.Content.ReadFromJsonAsync<RegisterDeviceResponse>();
 
-        _factory.ClerkVerifier.Behavior = _ => ClerkTokenVerificationResult.Success(sub);
-        var upgradeResp = await client.PostAsJsonAsync(
-            "/accounts/upgrade",
-            new UpgradeAccountRequest(deviceId, "any-token")
+        // PUT /accounts/me/identity requires the device Bearer; install it on
+        // a sibling client (don't mutate the caller's anonymous client because
+        // some tests intentionally use anonymous flows below).
+        var authed = _factory.CreateClient();
+        authed.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
+            "Bearer",
+            registered!.DeviceToken
         );
-        upgradeResp.StatusCode.ShouldBe(HttpStatusCode.OK);
 
-        return (registered!.AccountId, sub);
+        _factory.ClerkVerifier.Behavior = _ => ClerkTokenVerificationResult.Success(sub);
+        var upgradeResp = await authed.PostAsJsonAsync(
+            "/accounts/me/identity",
+            new SetAccountIdentityRequest("any-token")
+        );
+        upgradeResp.StatusCode.ShouldBe(HttpStatusCode.Created);
+
+        return (registered.AccountId, sub);
     }
 
     [Fact]
@@ -63,7 +73,8 @@ public class DevicesPairTests : IClassFixture<DevicesPairTests.Factory>
             new PairDeviceRequest(newDeviceId, "any-token", "second-phone")
         );
 
-        response.StatusCode.ShouldBe(HttpStatusCode.OK);
+        response.StatusCode.ShouldBe(HttpStatusCode.Created);
+        response.Headers.Location!.ToString().ShouldBe($"/devices/{newDeviceId}");
         var body = await response.Content.ReadFromJsonAsync<PairDeviceResponse>();
         body!.AccountId.ShouldBe(accountId);
         body.DeviceId.ShouldBe(newDeviceId);
@@ -81,7 +92,7 @@ public class DevicesPairTests : IClassFixture<DevicesPairTests.Factory>
             "/devices/pair",
             new PairDeviceRequest(newDeviceId, "any-token", null)
         );
-        first.StatusCode.ShouldBe(HttpStatusCode.OK);
+        first.StatusCode.ShouldBe(HttpStatusCode.Created);
         var firstBody = await first.Content.ReadFromJsonAsync<PairDeviceResponse>();
 
         var second = await client.PostAsJsonAsync(
@@ -89,6 +100,7 @@ public class DevicesPairTests : IClassFixture<DevicesPairTests.Factory>
             new PairDeviceRequest(newDeviceId, "any-token", "renamed")
         );
         second.StatusCode.ShouldBe(HttpStatusCode.OK);
+        second.Content.Headers.ContentLocation!.ToString().ShouldBe($"/devices/{newDeviceId}");
         var secondBody = await second.Content.ReadFromJsonAsync<PairDeviceResponse>();
 
         secondBody!.AccountId.ShouldBe(accountId);
@@ -120,11 +132,20 @@ public class DevicesPairTests : IClassFixture<DevicesPairTests.Factory>
 
         // Account A owns deviceX (registered, anonymous, then upgraded).
         var deviceX = Guid.NewGuid();
-        await client.PostAsJsonAsync("/devices/register", new RegisterDeviceRequest(deviceX, null));
+        var registerA = await client.PostAsJsonAsync(
+            "/devices/register",
+            new RegisterDeviceRequest(deviceX, null)
+        );
+        var registeredA = await registerA.Content.ReadFromJsonAsync<RegisterDeviceResponse>();
+        var authedA = _factory.CreateClient();
+        authedA.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
+            "Bearer",
+            registeredA!.DeviceToken
+        );
         _factory.ClerkVerifier.Behavior = _ => ClerkTokenVerificationResult.Success(subA);
-        await client.PostAsJsonAsync(
-            "/accounts/upgrade",
-            new UpgradeAccountRequest(deviceX, "token-a")
+        await authedA.PostAsJsonAsync(
+            "/accounts/me/identity",
+            new SetAccountIdentityRequest("token-a")
         );
 
         // Account B exists, upgraded to a different identity.
@@ -157,7 +178,7 @@ public class DevicesPairTests : IClassFixture<DevicesPairTests.Factory>
             "/devices/register",
             new RegisterDeviceRequest(newDeviceId, "second-phone")
         );
-        registerResp.StatusCode.ShouldBe(HttpStatusCode.OK);
+        registerResp.StatusCode.ShouldBe(HttpStatusCode.Created);
         var registered = await registerResp.Content.ReadFromJsonAsync<RegisterDeviceResponse>();
         var anonymousAccountId = registered!.AccountId;
         anonymousAccountId.ShouldNotBe(existingAccountId);

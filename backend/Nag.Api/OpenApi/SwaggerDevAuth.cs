@@ -43,8 +43,11 @@ public static class SwaggerDevAuth
 {
     public const string TokenPath = "/dev/token";
 
-    private static readonly Guid DefaultAccountId = new("11111111-1111-1111-1111-111111111111");
-    private static readonly Guid DefaultDeviceId = new("22222222-2222-2222-2222-222222222222");
+    // Valid RFC 4122 UUIDv4s (version nibble = 4, variant nibble in {8,9,a,b})
+    // so the generated zod client accepts them under z.uuid(). Still
+    // visually distinct from real production GUIDs.
+    private static readonly Guid DefaultAccountId = new("11111111-1111-4111-8111-111111111111");
+    private static readonly Guid DefaultDeviceId = new("22222222-2222-4222-8222-222222222222");
 
     public sealed record DevTokenResponse(Guid AccountId, Guid DeviceId, string Token);
 

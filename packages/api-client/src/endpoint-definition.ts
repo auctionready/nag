@@ -11,39 +11,35 @@ const IsoDatetime = z.iso
   .datetime({ offset: true })
   .transform((s) => new Date(s));
 
-export const UpgradeAccountRequest = z
+export const AccountIdentity = z
   .object({
-    deviceId: z.uuid(),
-    idpToken: z.string().nullable(),
-    force: z.boolean(),
-  })
-  .partial();
-export type UpgradeAccountRequest = z.infer<typeof UpgradeAccountRequest>;
-
-export const UpgradeAccountResponse = z
-  .object({
-    accountId: z.uuid(),
     idpSubject: z.string().nullable(),
     upgradedAt: IsoDatetime,
-    deviceToken: z.string().nullable(),
   })
   .partial();
-export type UpgradeAccountResponse = z.infer<typeof UpgradeAccountResponse>;
+export type AccountIdentity = z.infer<typeof AccountIdentity>;
+
+export const SetAccountIdentityRequest = z
+  .object({ idpToken: z.string().nullable() })
+  .partial();
+export type SetAccountIdentityRequest = z.infer<
+  typeof SetAccountIdentityRequest
+>;
 
 export const ErrorResponse = z
   .object({ errors: z.array(z.string()).nullable() })
   .partial();
 export type ErrorResponse = z.infer<typeof ErrorResponse>;
 
-export const UnbindAccountResponse = z
-  .object({ accountId: z.uuid() })
-  .partial();
-export type UnbindAccountResponse = z.infer<typeof UnbindAccountResponse>;
+export const IResult = z.object({}).partial();
+export type IResult = z.infer<typeof IResult>;
 
-export const DeleteAccountResponse = z
-  .object({ accountId: z.uuid() })
+export const ReleaseAccountIdentityRequest = z
+  .object({ idpToken: z.string().nullable() })
   .partial();
-export type DeleteAccountResponse = z.infer<typeof DeleteAccountResponse>;
+export type ReleaseAccountIdentityRequest = z.infer<
+  typeof ReleaseAccountIdentityRequest
+>;
 
 export const RebuildProjectionsRequest = z
   .object({ secret: z.string().nullable() })
@@ -58,6 +54,16 @@ export const RebuildProjectionsResponse = z
 export type RebuildProjectionsResponse = z.infer<
   typeof RebuildProjectionsResponse
 >;
+
+export const GetDeviceResponse = z
+  .object({
+    accountId: z.uuid(),
+    deviceId: z.uuid(),
+    label: z.string().nullable(),
+    registeredAt: IsoDatetime,
+  })
+  .partial();
+export type GetDeviceResponse = z.infer<typeof GetDeviceResponse>;
 
 export const RegisterDeviceRequest = z
   .object({ deviceId: z.uuid(), label: z.string().nullable() })
@@ -453,9 +459,6 @@ export const EventsPage = z
   .partial();
 export type EventsPage = z.infer<typeof EventsPage>;
 
-export const IResult = z.object({}).partial();
-export type IResult = z.infer<typeof IResult>;
-
 export const HomeCheckIn = z
   .object({
     id: z.uuid(),
@@ -580,37 +583,72 @@ export type SyncResponse = z.infer<typeof SyncResponse>;
 export const endpoints = makeApi([
   {
     method: "delete",
+    path: "/accounts/by-clerk-identity",
+    alias: "deleteAccountsByClerkIdentity",
+    parameters: [
+      {
+        name: "body",
+        type: "Body",
+        schema: z.object({ idpToken: z.string().nullable() }).partial(),
+      },
+    ],
+    response: z.object({}).partial(),
+    errors: [
+      { status: 400, schema: ErrorResponse },
+      { status: 401, schema: ErrorResponse },
+      { status: 404, schema: z.void() },
+    ],
+  },
+  {
+    method: "delete",
     path: "/accounts/me",
     alias: "deleteAccountsMe",
     parameters: [],
-    response: z.object({ accountId: z.uuid() }).partial(),
+    response: z.object({}).partial(),
     errors: [
       { status: 401, schema: ErrorResponse },
       { status: 404, schema: ErrorResponse },
     ],
   },
   {
-    method: "post",
-    path: "/accounts/unbind",
-    alias: "postAccountsUnbind",
+    method: "get",
+    path: "/accounts/me/identity",
+    alias: "getAccountsMeIdentity",
     parameters: [],
-    response: z.object({ accountId: z.uuid() }).partial(),
+    response: AccountIdentity,
     errors: [
-      { status: 401, schema: ErrorResponse },
-      { status: 404, schema: ErrorResponse },
+      { status: 401, schema: z.void() },
+      { status: 404, schema: z.void() },
     ],
   },
   {
     method: "post",
-    path: "/accounts/upgrade",
-    alias: "postAccountsUpgrade",
-    parameters: [{ name: "body", type: "Body", schema: UpgradeAccountRequest }],
-    response: UpgradeAccountResponse,
+    path: "/accounts/me/identity",
+    alias: "postAccountsMeIdentity",
+    parameters: [
+      {
+        name: "body",
+        type: "Body",
+        schema: z.object({ idpToken: z.string().nullable() }).partial(),
+      },
+    ],
+    response: AccountIdentity,
     errors: [
       { status: 400, schema: ErrorResponse },
       { status: 401, schema: ErrorResponse },
       { status: 404, schema: ErrorResponse },
       { status: 409, schema: ErrorResponse },
+    ],
+  },
+  {
+    method: "delete",
+    path: "/accounts/me/identity",
+    alias: "deleteAccountsMeIdentity",
+    parameters: [],
+    response: z.object({}).partial(),
+    errors: [
+      { status: 401, schema: ErrorResponse },
+      { status: 404, schema: ErrorResponse },
     ],
   },
   {
@@ -657,6 +695,17 @@ export const endpoints = makeApi([
     response: WeeklyCheckInSummary,
     errors: [
       { status: 400, schema: z.void() },
+      { status: 404, schema: z.void() },
+    ],
+  },
+  {
+    method: "get",
+    path: "/devices/:id",
+    alias: "getDevicesById",
+    parameters: [{ name: "id", type: "Path", schema: z.uuid() }],
+    response: GetDeviceResponse,
+    errors: [
+      { status: 401, schema: z.void() },
       { status: 404, schema: z.void() },
     ],
   },

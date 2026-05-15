@@ -1,7 +1,9 @@
+using System.Security.Claims;
 using Marten;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Nag.Api.Auth;
+using Nag.Api.Infrastructure.Http;
 using Nag.Core.Contracts;
 using Nag.Core.Domain;
 using Wolverine.Http;
@@ -10,10 +12,43 @@ namespace Nag.Api.Endpoints;
 
 public static class DevicesEndpoints
 {
+    // NOTE: here because Alan is a fan of PRG and proper HTTP not because it is used at all
+    [Tags("Devices")]
+    [EndpointName("getDevicesById")]
+    [ProducesResponseType(typeof(GetDeviceResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [WolverineGet("/devices/{id:guid}", RouteName = "getDevicesById")]
+    public static async Task<IResult> GetDeviceById(
+        Guid id,
+        ClaimsPrincipal user,
+        IQuerySession session,
+        CancellationToken ct
+    )
+    {
+        var accountIdClaim = user.FindFirstValue(NagClaimTypes.AccountId);
+        if (!Guid.TryParse(accountIdClaim, out var accountId))
+        {
+            return Results.Json(
+                new ErrorResponse(["unauthenticated"]),
+                statusCode: StatusCodes.Status401Unauthorized
+            );
+        }
+
+        var device = await session.LoadAsync<Device>(id, ct);
+        if (device is null || device.AccountId != accountId)
+            return Results.NotFound();
+
+        return Results.Ok(
+            new GetDeviceResponse(device.AccountId, device.Id, device.Label, device.RegisteredAt)
+        );
+    }
+
     [AllowAnonymous]
     [NotTenanted]
     [Tags("Devices")]
     [EndpointName("postDevicesRegister")]
+    [ProducesResponseType(typeof(RegisterDeviceResponse), StatusCodes.Status201Created)]
     [ProducesResponseType(typeof(RegisterDeviceResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
     [WolverinePost("/devices/register")]
@@ -31,13 +66,16 @@ public static class DevicesEndpoints
         var existing = await session.LoadAsync<Device>(request.DeviceId, ct);
         if (existing is not null)
         {
-            return Results.Ok(
-                new RegisterDeviceResponse(
-                    existing.AccountId,
-                    existing.Id,
-                    existing.RegisteredAt,
-                    tokens.Issue(existing.AccountId, existing.Id)
-                )
+            var body = new RegisterDeviceResponse(
+                existing.AccountId,
+                existing.Id,
+                existing.RegisteredAt,
+                tokens.Issue(existing.AccountId, existing.Id)
+            );
+            return Results.Extensions.FoundAtRoute(
+                "getDevicesById",
+                new { id = existing.Id },
+                body
             );
         }
 
@@ -55,14 +93,13 @@ public static class DevicesEndpoints
         session.Store(device);
         await session.SaveChangesAsync(ct);
 
-        return Results.Ok(
-            new RegisterDeviceResponse(
-                account.Id,
-                device.Id,
-                device.RegisteredAt,
-                tokens.Issue(account.Id, device.Id)
-            )
+        var created = new RegisterDeviceResponse(
+            account.Id,
+            device.Id,
+            device.RegisteredAt,
+            tokens.Issue(account.Id, device.Id)
         );
+        return Results.Extensions.CreatedAtRoute("getDevicesById", new { id = device.Id }, created);
     }
 
     /// <summary>
@@ -75,6 +112,7 @@ public static class DevicesEndpoints
     [NotTenanted]
     [Tags("Devices")]
     [EndpointName("postDevicesPair")]
+    [ProducesResponseType(typeof(PairDeviceResponse), StatusCodes.Status201Created)]
     [ProducesResponseType(typeof(PairDeviceResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status401Unauthorized)]
@@ -123,13 +161,16 @@ public static class DevicesEndpoints
         {
             if (existing.AccountId == account.Id)
             {
-                return Results.Ok(
-                    new PairDeviceResponse(
-                        account.Id,
-                        existing.Id,
-                        existing.RegisteredAt,
-                        tokens.Issue(account.Id, existing.Id)
-                    )
+                var body = new PairDeviceResponse(
+                    account.Id,
+                    existing.Id,
+                    existing.RegisteredAt,
+                    tokens.Issue(account.Id, existing.Id)
+                );
+                return Results.Extensions.FoundAtRoute(
+                    "getDevicesById",
+                    new { id = existing.Id },
+                    body
                 );
             }
 
@@ -161,13 +202,16 @@ public static class DevicesEndpoints
             session.Store(rebound);
             await session.SaveChangesAsync(ct);
 
-            return Results.Ok(
-                new PairDeviceResponse(
-                    account.Id,
-                    rebound.Id,
-                    rebound.RegisteredAt,
-                    tokens.Issue(account.Id, rebound.Id)
-                )
+            var reboundBody = new PairDeviceResponse(
+                account.Id,
+                rebound.Id,
+                rebound.RegisteredAt,
+                tokens.Issue(account.Id, rebound.Id)
+            );
+            return Results.Extensions.FoundAtRoute(
+                "getDevicesById",
+                new { id = rebound.Id },
+                reboundBody
             );
         }
 
@@ -182,13 +226,12 @@ public static class DevicesEndpoints
         session.Store(device);
         await session.SaveChangesAsync(ct);
 
-        return Results.Ok(
-            new PairDeviceResponse(
-                account.Id,
-                device.Id,
-                device.RegisteredAt,
-                tokens.Issue(account.Id, device.Id)
-            )
+        var created = new PairDeviceResponse(
+            account.Id,
+            device.Id,
+            device.RegisteredAt,
+            tokens.Issue(account.Id, device.Id)
         );
+        return Results.Extensions.CreatedAtRoute("getDevicesById", new { id = device.Id }, created);
     }
 }

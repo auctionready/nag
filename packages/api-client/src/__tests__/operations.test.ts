@@ -235,29 +235,28 @@ describe("operations", () => {
   });
 
   describe("upgradeAccount", () => {
-    const deviceId = "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee";
     const idpToken = "eyJ.fake.token";
 
-    it("returns ok with the bound IdP subject and refreshed deviceToken on 200", async () => {
+    it("returns ok with the bound IdP subject on 201", async () => {
       nock(BASE_URL)
-        .post("/accounts/upgrade", (body) => {
-          expect(body).toEqual({ deviceId, idpToken });
+        .post("/accounts/me/identity", (body) => {
+          expect(body).toEqual({ idpToken });
           return true;
         })
-        .reply(200, {
-          accountId: "ffffffff-1111-4222-8333-444444444444",
-          idpSubject: "user_abc",
-          upgradedAt: "2026-04-25T10:00:00.000Z",
-          deviceToken: "fresh.tok",
-        });
+        .reply(
+          201,
+          {
+            idpSubject: "user_abc",
+            upgradedAt: "2026-04-25T10:00:00.000Z",
+          },
+          { Location: "/accounts/me/identity" },
+        );
 
-      const result = await upgradeAccount(makeClient(), { deviceId, idpToken });
+      const result = await upgradeAccount(makeClient(), { idpToken });
 
       expect(result.ok).toBe(true);
       if (result.ok) {
-        expect(result.accountId).toBe("ffffffff-1111-4222-8333-444444444444");
         expect(result.idpSubject).toBe("user_abc");
-        expect(result.deviceToken).toBe("fresh.tok");
         expect(result.upgradedAt).toBeInstanceOf(Date);
         expect(result.upgradedAt.toISOString()).toBe(
           "2026-04-25T10:00:00.000Z",
@@ -266,9 +265,9 @@ describe("operations", () => {
     });
 
     it("classifies 401 (invalid token) as non-retriable", async () => {
-      nock(BASE_URL).post("/accounts/upgrade").reply(401);
+      nock(BASE_URL).post("/accounts/me/identity").reply(401);
 
-      const result = await upgradeAccount(makeClient(), { deviceId, idpToken });
+      const result = await upgradeAccount(makeClient(), { idpToken });
 
       expect(result.ok).toBe(false);
       if (!result.ok) {
@@ -280,9 +279,9 @@ describe("operations", () => {
     });
 
     it("classifies 409 (identity collision) as non-retriable", async () => {
-      nock(BASE_URL).post("/accounts/upgrade").reply(409);
+      nock(BASE_URL).post("/accounts/me/identity").reply(409);
 
-      const result = await upgradeAccount(makeClient(), { deviceId, idpToken });
+      const result = await upgradeAccount(makeClient(), { idpToken });
 
       expect(result.ok).toBe(false);
       if (!result.ok) {
@@ -298,9 +297,9 @@ describe("operations", () => {
       // retried — the wrapper does so up to twice before giving up. Each
       // attempt waits a backoff; fake timers skip the sleeps.
       vi.useFakeTimers({ shouldAdvanceTime: true });
-      nock(BASE_URL).post("/accounts/upgrade").times(3).reply(503);
+      nock(BASE_URL).post("/accounts/me/identity").times(3).reply(503);
 
-      const result = await upgradeAccount(makeClient(), { deviceId, idpToken });
+      const result = await upgradeAccount(makeClient(), { idpToken });
 
       expect(result.ok).toBe(false);
       if (!result.ok) expect(result.kind).toBe("transient");
@@ -309,19 +308,16 @@ describe("operations", () => {
 
     it("retries a transient failure and succeeds on the second attempt", async () => {
       vi.useFakeTimers({ shouldAdvanceTime: true });
-      nock(BASE_URL).post("/accounts/upgrade").reply(503);
-      nock(BASE_URL).post("/accounts/upgrade").reply(200, {
-        accountId: "ffffffff-1111-4222-8333-444444444444",
+      nock(BASE_URL).post("/accounts/me/identity").reply(503);
+      nock(BASE_URL).post("/accounts/me/identity").reply(200, {
         idpSubject: "user_abc",
         upgradedAt: "2026-04-25T10:00:00.000Z",
-        deviceToken: "fresh.tok",
       });
 
-      const result = await upgradeAccount(makeClient(), { deviceId, idpToken });
+      const result = await upgradeAccount(makeClient(), { idpToken });
 
       expect(result.ok).toBe(true);
-      if (result.ok)
-        expect(result.accountId).toBe("ffffffff-1111-4222-8333-444444444444");
+      if (result.ok) expect(result.idpSubject).toBe("user_abc");
       vi.useRealTimers();
     });
 
@@ -329,10 +325,10 @@ describe("operations", () => {
       // A single interceptor — if the wrapper retried the call would fail
       // with an unfulfilled-mock at teardown.
       nock(BASE_URL)
-        .post("/accounts/upgrade")
-        .reply(200, { accountId: "ffffffff-1111-4222-8333-444444444444" });
+        .post("/accounts/me/identity")
+        .reply(200, { idpSubject: "user_abc" });
 
-      const result = await upgradeAccount(makeClient(), { deviceId, idpToken });
+      const result = await upgradeAccount(makeClient(), { idpToken });
 
       expect(result.ok).toBe(false);
       if (!result.ok) expect(result.kind).toBe("non-retriable");

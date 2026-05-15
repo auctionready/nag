@@ -86,7 +86,9 @@ public class EventsEndpointsTests : IClassFixture<EventsEndpointsTests.Factory>
 
             var second = await client.PostAsJsonAsync("/events", envelope);
             second.StatusCode.ShouldBe(HttpStatusCode.OK);
-            second.Headers.Location!.ToString().ShouldBe($"/events/by-envelope/{id}");
+            second
+                .Content.Headers.ContentLocation!.ToString()
+                .ShouldBe($"/events/by-envelope/{id}");
 
             var secondBody = await second.Content.ReadFromJsonAsync<EventsByEnvelope>(
                 NagJsonOptions.Default

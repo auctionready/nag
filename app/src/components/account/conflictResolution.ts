@@ -3,7 +3,11 @@ import { Alert } from "react-native";
 import { setIdpSubject, switchLocalAccount } from "@nag/core";
 import { habit } from "@nag/schema";
 import { db } from "../../db";
-import { pairDevice, upgradeAccount } from "../../infrastructure/apiClient";
+import {
+  pairDevice,
+  releaseClerkIdentity,
+  upgradeAccount,
+} from "../../infrastructure/apiClient";
 import { log } from "../../infrastructure/log";
 import { deviceTokenStore } from "../../infrastructure/tokenStore";
 import type { ConflictChoice, UpgradeStatus } from "./types";
@@ -78,7 +82,6 @@ export const runPairFallback = async ({
   }
 
   await runReplaceServer({
-    deviceId,
     idpToken,
     kickSync,
     setStatus,
@@ -125,33 +128,36 @@ export const runReplaceLocal = async ({
 };
 
 /**
- * "Use this device's data" path — force-upgrade this device's anonymous
- * account, which moves the Clerk identity from the other account onto
- * this one. Local data is preserved as-is; the existing outbox flushes
- * the device's local events to the server normally afterwards.
+ * "Use this device's data" path — take over the Clerk identity from
+ * whatever account currently holds it and bind it to this device's
+ * anonymous account. Two server calls in sequence: explicitly release
+ * the existing binding, then bind on the caller. Local data is
+ * preserved as-is; the existing outbox flushes the device's local
+ * events to the server normally afterwards.
  */
 export const runReplaceServer = async ({
-  deviceId,
   idpToken,
   kickSync,
   setStatus,
 }: {
-  deviceId: string;
   idpToken: string;
   kickSync: (source: string) => void;
   setStatus: React.Dispatch<React.SetStateAction<UpgradeStatus>>;
 }): Promise<void> => {
-  const claimed = await upgradeAccount({ deviceId, idpToken, force: true });
+  const released = await releaseClerkIdentity({ idpToken });
+  if (!released.ok) {
+    setStatus({ kind: "fail", message: released.message });
+    return;
+  }
+  const claimed = await upgradeAccount({ idpToken });
   if (!claimed.ok) {
     setStatus({ kind: "fail", message: claimed.message });
     return;
   }
   await setIdpSubject(db, claimed.idpSubject);
-  logger.info(
-    `identity force-claimed onto local accountId=${claimed.accountId} — kicking sync`,
-  );
+  logger.info("identity claimed onto local account — kicking sync");
   setStatus({ kind: "ok" });
-  kickSync("post-force-upgrade");
+  kickSync("post-take-over");
 };
 
 export const chooseConflictResolution = (): Promise<ConflictChoice> =>

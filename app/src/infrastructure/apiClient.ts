@@ -4,12 +4,14 @@ import {
   registerDevice as apiRegisterDevice,
   upgradeAccount as apiUpgradeAccount,
   pairDevice as apiPairDevice,
+  releaseClerkIdentity as apiReleaseClerkIdentity,
   deleteAccount as apiDeleteAccount,
   getSync as apiGetSync,
   getHabitCompliance as apiGetHabitCompliance,
   type NagApiClient,
   type UpgradeAccountResult,
   type PairDeviceResult,
+  type ReleaseClerkIdentityResult,
   type DeleteAccountResult,
   type GetSyncResult,
   type GetHabitComplianceResult,
@@ -119,9 +121,7 @@ export const postEvents: PostEventsFn = (
 export const registerDevice: RegisterDeviceFn = registerDeviceRaw;
 
 export const upgradeAccount = (request: {
-  deviceId: string;
   idpToken: string;
-  force?: boolean;
 }): Promise<UpgradeAccountResult> =>
   apiUpgradeAccount(getApiClient(), request, logger);
 
@@ -130,6 +130,11 @@ export const pairDevice = (request: {
   idpToken: string;
   label?: string | null;
 }): Promise<PairDeviceResult> => apiPairDevice(getApiClient(), request, logger);
+
+export const releaseClerkIdentity = (request: {
+  idpToken: string;
+}): Promise<ReleaseClerkIdentityResult> =>
+  apiReleaseClerkIdentity(getApiClient(), request, logger);
 
 export const deleteAccount = (): Promise<DeleteAccountResult> =>
   apiDeleteAccount(getApiClient(), logger);
