@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { eq } from "drizzle-orm";
+import { asc, eq } from "drizzle-orm";
 import {
   identity,
   habit,
@@ -604,6 +604,77 @@ describe("disconnectFromCloud", () => {
     const [s] = await db.select().from(syncState).where(eq(syncState.id, 1));
     expect(s.halted).toBe(false);
     expect(s.highestServerSequence).toBe(0);
+  });
+
+  it("re-marks previously-sent outbox rows as pending so they ship to the next server account", async () => {
+    const db = getDb();
+    const tokenStore = new InMemoryTokenStore("device-tok");
+
+    // Two rows previously acknowledged by the now-doomed server, plus
+    // one still pending and one failed. After disconnect the dispatcher
+    // must see *both* sent rows back in `pending` so the new account
+    // ends up with the same data the old one held.
+    await db.insert(outbox).values([
+      {
+        id: "00000000-0000-4000-8000-0000000000a1",
+        events: "[]",
+        status: "sent",
+        sentAt: new Date("2026-04-10T00:00:00.000Z"),
+        serverSequence: 10,
+      },
+      {
+        id: "00000000-0000-4000-8000-0000000000a2",
+        events: "[]",
+        status: "sent",
+        sentAt: new Date("2026-04-11T00:00:00.000Z"),
+        serverSequence: 11,
+      },
+      {
+        id: "00000000-0000-4000-8000-0000000000a3",
+        events: "[]",
+        status: "pending",
+      },
+      {
+        id: "00000000-0000-4000-8000-0000000000a4",
+        events: "[]",
+        status: "failed",
+        lastError: "schema validation",
+      },
+    ]);
+
+    await disconnectFromCloud({ db, tokenStore });
+
+    const rows = await db.select().from(outbox).orderBy(asc(outbox.id));
+
+    // Both previously-sent rows back to pending, with sent_at /
+    // server_sequence / last_error cleared so re-shipping starts clean.
+    expect(rows[0]).toMatchObject({
+      id: "00000000-0000-4000-8000-0000000000a1",
+      status: "pending",
+      sentAt: null,
+      serverSequence: null,
+      lastError: null,
+    });
+    expect(rows[1]).toMatchObject({
+      id: "00000000-0000-4000-8000-0000000000a2",
+      status: "pending",
+      sentAt: null,
+      serverSequence: null,
+      lastError: null,
+    });
+    // The already-pending row is untouched.
+    expect(rows[2]).toMatchObject({
+      id: "00000000-0000-4000-8000-0000000000a3",
+      status: "pending",
+    });
+    // Failed rows stay failed — failures are usually intrinsic to the
+    // payload, and the user has a separate "Resume sync" action to
+    // retry them deliberately.
+    expect(rows[3]).toMatchObject({
+      id: "00000000-0000-4000-8000-0000000000a4",
+      status: "failed",
+      lastError: "schema validation",
+    });
   });
 });
 

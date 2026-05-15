@@ -406,16 +406,31 @@ export type DisconnectFromCloudOptions = {
  * any future new account fail to replicate (the new account's
  * sequences start at 1, but pull would still ask `since=<old high>`).
  *
+ * Crucially: every `'sent'` row in the outbox is reverted to
+ * `'pending'` (clearing `sent_at` / `server_sequence` / `last_error`).
+ * The next sign-in registers a brand-new server account; without
+ * re-marking, the dispatcher would only ship rows queued *after*
+ * disconnect, and the new account would silently miss every event
+ * that had already been acknowledged by the previous (now-deleted)
+ * account. Envelope ids are preserved so the re-ship is still
+ * idempotent on the wire.
+ *
  * Clears:
  *   - `identity.accountId` / `registeredAt` / `idpSubject`
  *   - the secure-store device token
  *   - `sync_state.highest_server_sequence` (back to 0, `halted` cleared)
+ *   - outbox `sent_at` / `server_sequence` / `last_error` (status →
+ *     `'pending'` on every previously-sent row)
  *
  * Preserves:
  *   - `identity.deviceId`
  *   - `habit` / `goal` / `schedule` / `checkIn` — the whole point
- *   - `outbox` — pending events ship to whatever new account the user
- *     eventually signs into, populating it with the local data
+ *   - outbox `id` / `events` / `created_at` so the re-ship hits the
+ *     server's idempotency dedupe with the same envelope ids
+ *   - `'failed'` outbox rows are left as-is; the user must use the
+ *     existing "Resume sync" action if they want those retried,
+ *     since the reason for failure is usually intrinsic to the event
+ *     payload and won't be cured by a fresh account
  */
 export const disconnectFromCloud = async ({
   db,
@@ -428,6 +443,15 @@ export const disconnectFromCloud = async ({
       .update(syncState)
       .set({ halted: false, highestServerSequence: 0 })
       .where(eq(syncState.id, 1));
+    await db
+      .update(outbox)
+      .set({
+        status: "pending",
+        sentAt: null,
+        serverSequence: null,
+        lastError: null,
+      })
+      .where(eq(outbox.status, "sent"));
     await db
       .update(identity)
       .set({ accountId: null, registeredAt: null, idpSubject: null })
