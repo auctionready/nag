@@ -514,8 +514,8 @@ describe("getAccountId", () => {
 });
 
 describe("ensureDevAuthRegistered", () => {
-  const DEV_ACCOUNT = "11111111-1111-1111-1111-111111111111";
-  const DEV_DEVICE = "22222222-2222-2222-2222-222222222222";
+  const DEV_ACCOUNT = "11111111-1111-4111-8111-111111111111";
+  const DEV_DEVICE = "22222222-2222-4222-8222-222222222222";
 
   it("on first launch: persists the server-supplied dev pair and token", async () => {
     const db = getDb();
