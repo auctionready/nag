@@ -1,5 +1,6 @@
-import { ScrollView, StyleSheet, Text, View } from "react-native";
+import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SignedInOrOut } from "../../components/account";
+import { confirmAndDeleteAccount } from "../../components/account/deleteAccountAction";
 import { tokens } from "../../components/theme";
 import { isClerkConfigured } from "../../infrastructure/clerk";
 import { getApiBaseUrl, getAuthMode } from "../../infrastructure/devOverrides";
@@ -20,6 +21,15 @@ const AccountScreen = () => {
             account is wired into Swagger UI. Use the dev menu to switch backend
             or re-sign-in.
           </Text>
+          <Pressable
+            onPress={confirmAndDeleteAccount}
+            style={({ pressed }) => [
+              styles.deleteButton,
+              pressed && styles.deleteButtonPressed,
+            ]}
+          >
+            <Text style={styles.deleteButtonText}>Delete account</Text>
+          </Pressable>
         </View>
       </ScrollView>
     );
@@ -73,5 +83,23 @@ const styles = StyleSheet.create({
   code: {
     fontFamily: "JetBrainsMono",
     fontSize: 12,
+  },
+  deleteButton: {
+    marginTop: 8,
+    alignSelf: "flex-start",
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 8,
+    backgroundColor: "rgba(255,90,54,0.12)",
+  },
+  deleteButtonPressed: {
+    opacity: 0.6,
+  },
+  deleteButtonText: {
+    fontFamily: "SpaceGrotesk-Bold",
+    fontSize: 14,
+    fontWeight: "700",
+    color: tokens.orange,
+    letterSpacing: -0.07,
   },
 });
