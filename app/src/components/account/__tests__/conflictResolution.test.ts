@@ -95,7 +95,8 @@ const setLocalHabits = (rows: { id: string }[]) => {
   });
 };
 
-const flush = () => new Promise((resolve) => setImmediate(resolve));
+const flush = () =>
+  new Promise<void>((resolve) => setImmediate(() => resolve()));
 
 const okRegistration = {
   deviceId: "dev-1",
