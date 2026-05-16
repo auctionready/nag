@@ -41,6 +41,13 @@ The source lives in [`backend/`](../backend) and has its own
 
 ## Endpoints
 
+> Auth-touching endpoints (`/devices/*`, `/accounts/me/*`,
+> `/accounts/by-clerk-identity`) and the surrounding token model are
+> covered in detail in
+> [Identity, Auth, and Account Lifecycle](./IdentityAndAuth.md) —
+> token shapes, the authentication handler, tenant resolution, and the
+> account-lifecycle flows with sequence diagrams.
+
 | Method   | Path                                     | Auth | Notes                                                                                                        |
 | -------- | ---------------------------------------- | ---- | ------------------------------------------------------------------------------------------------------------ |
 | `POST`   | `/devices/register`                      | no   | First-launch device registration. Mints an account row and a device HMAC token, idempotent on `deviceId`.    |

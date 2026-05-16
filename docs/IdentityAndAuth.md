@@ -1,20 +1,302 @@
 # Identity, Auth, and Account Lifecycle
 
-This doc walks through every flow that touches the device's relationship
-with the server — first sign-in, sign-out, switching providers,
-disconnecting while keeping local data, multi-device pairing, and
-permanent account deletion. Each flow has a Mermaid sequence diagram
-plus a short note on which rows mutate where.
+This doc covers everything authentication-related in the Nag stack —
+the on-wire token shapes the server accepts, how each token is
+verified, how tenant scoping falls out of the verified claims, and the
+account-lifecycle flows that move a device between auth states.
+
+Two halves:
+
+1. **[How a request gets authenticated](#how-a-request-gets-authenticated)** —
+   token shapes, the authentication handler, device HMAC + Clerk JWT
+   verification, tenant resolution, token refresh, dev-auth bypass.
+2. **[Account lifecycle flows](#account-lifecycle-flows)** — sign-in,
+   sign-out, switching providers, disconnect-from-cloud, multi-device,
+   delete account. Sequence diagram per flow.
 
 If you're hunting for the implementation:
 
-- App-side orchestration: `app/src/components/account/SignedInOrOut.tsx`
+- **Server auth:** `backend/Nag.Api/Auth/NagAuthenticationHandler.cs` +
+  `DeviceTokenService.cs` + `ClerkTokenVerifier.cs` +
+  `DeviceAccountResolver.cs`.
+- **Server registration:**
+  `backend/Nag.Api/Configuration/AuthenticationExtensions.cs` (wires the
+  scheme + verifiers + the memory cache) and
+  `MartenExtensions.cs#AddMartenTenancyDetection` (links the
+  `account_id` claim to Marten's conjoined tenancy).
+- **Server endpoints:** `backend/Nag.Api/Endpoints/DevicesEndpoints.cs`
+  - `AccountsEndpoints.cs`.
+- **App-side orchestration:** `app/src/components/account/SignedInOrOut.tsx`
   - `app/src/components/account/conflictResolution.ts`.
-- Core helpers: `packages/core/src/identity/identity.ts` —
-  `ensureDeviceRegistered`, `clearLocalAuth`, `resetLocalAccount`,
-  `disconnectFromCloud`, `switchLocalAccount`.
-- Server endpoints: `backend/Nag.Api/Endpoints/DevicesEndpoints.cs` +
-  `backend/Nag.Api/Endpoints/AccountsEndpoints.cs`.
+- **Core helpers:** `packages/core/src/identity/identity.ts` —
+  `ensureDeviceRegistered`, `refreshDeviceToken`, `clearLocalAuth`,
+  `resetLocalAccount`, `disconnectFromCloud`, `switchLocalAccount`.
+- **Token storage on device:** `app/src/infrastructure/tokenStore.ts`
+  (Keychain on iOS / EncryptedSharedPreferences on Android via
+  `expo-secure-store`) and `app/src/infrastructure/clerk.ts` (Clerk
+  token cache).
+
+# How a request gets authenticated
+
+Every authenticated request carries `Authorization: Bearer <token>`.
+The server's single ASP.NET Core authentication scheme inspects the
+token shape, dispatches to one of two validators, and produces a
+`ClaimsPrincipal` with an `account_id` claim that downstream code
+(authorization, Marten tenancy, endpoint handlers) keys off.
+
+## Token shapes
+
+Two token types are accepted. They're disambiguated by dot count, not
+by a prefix, so the wire is compact and the client doesn't have to
+declare its auth method.
+
+| Tokens          | Dots | Wire format                          | Issued by                                                                          | Validated by                     |
+| --------------- | ---- | ------------------------------------ | ---------------------------------------------------------------------------------- | -------------------------------- |
+| **Device HMAC** | 1    | `base64url(payload).base64url(hmac)` | the Nag server itself, on every successful `/devices/register` and `/devices/pair` | `DeviceTokenService.Validate`    |
+| **Clerk JWT**   | 2    | `header.payload.signature`           | Clerk (the IdP), as a session token issued to the mobile client                    | `ClerkTokenVerifier.VerifyAsync` |
+
+`NagAuthenticationHandler.HandleAuthenticateAsync` reads the header,
+strips the `Bearer ` prefix, counts dots, and dispatches. Anything
+else 401s with `"token format not recognized"`. See
+[`NagAuthenticationHandler.cs`](../backend/Nag.Api/Auth/NagAuthenticationHandler.cs#L41-L46).
+
+## Device HMAC token
+
+The post-pairing credential — every authenticated mobile request to
+the API uses this, after the initial register/pair handshake.
+
+**Payload (40 bytes, fixed):**
+
+```
+deviceId    : 16 bytes  (UUID, big-endian)
+accountId   : 16 bytes  (UUID, big-endian)
+expiryUnix  :  8 bytes  (int64, big-endian, seconds since epoch)
+```
+
+**Signature:** `HMACSHA256(secret, payload)` → 32 bytes.
+
+**Wire:** `base64url(payload) "." base64url(mac)` — one dot. Big-endian
+GUIDs were a deliberate choice for cross-platform stability
+([`DeviceTokenService.cs`](../backend/Nag.Api/Auth/DeviceTokenService.cs#L86-L92)).
+
+**Lifetime:** configured via `Nag:DeviceToken:Lifetime`. The token
+expires; the client refreshes on 401 — see
+[Token refresh on 401](#token-refresh-on-401).
+
+**Secret rotation:** the HMAC secret comes from
+`Nag:DeviceToken:Secret` (env `DEVICE_TOKEN_SECRET`). Rotating it
+invalidates every issued token simultaneously and forces every device
+through the refresh flow. There's no cross-secret grace period — the
+refresh path on the client treats secret rotation and individual
+expiry identically.
+
+**Validation steps** ([`DeviceTokenService.Validate`](../backend/Nag.Api/Auth/DeviceTokenService.cs#L45-L82)):
+
+1. Parse the dot-split shape; reject anything malformed.
+2. Length-check both halves (40 + 32 bytes).
+3. Recompute HMAC over the payload and compare in constant time
+   (`CryptographicOperations.FixedTimeEquals`) so a forged MAC can't
+   leak timing.
+4. Decode `expiryUnix`; reject if `<= now`.
+
+On success the handler builds a `ClaimsIdentity` with:
+
+| Claim                                      | Value                                                            |
+| ------------------------------------------ | ---------------------------------------------------------------- |
+| `NagClaimTypes.AccountId` (`account_id`)   | the decoded accountId, formatted `D` (lowercase hex with dashes) |
+| `NagClaimTypes.DeviceId` (`device_id`)     | the decoded deviceId, same format                                |
+| `NagClaimTypes.AuthMethod` (`auth_method`) | `"device"`                                                       |
+
+**Live-account check.** After a successful HMAC validation the handler
+calls `IDeviceAccountResolver.AccountExists(accountId)` and fails the
+authentication if the row is gone. Without this, an out-of-band
+`DELETE /accounts/me` would leave the token authenticating against an
+orphan tenant id and the dispatcher would happily append events under
+that dead tenant. The resolver caches the boolean for 5 minutes, and
+the delete endpoints (`/accounts/me`, `/devices/me`) explicitly call
+`InvalidateAccount` after the cascade so the next request after
+delete fails fast.
+
+## Clerk JWT
+
+Used only on the pre-pairing endpoints: `POST /accounts/me/identity`
+(in some places — also accepts device tokens), `POST /devices/pair`,
+`DELETE /accounts/by-clerk-identity`. The mobile client gets it from
+the Clerk SDK (`getToken()`).
+
+**Validation** ([`ClerkTokenVerifier.cs`](../backend/Nag.Api/Auth/ClerkTokenVerifier.cs)):
+
+- Pulls Clerk's JWKS from `{ClerkIssuer}/.well-known/openid-configuration`
+  via `Microsoft.IdentityModel.Protocols.OpenIdConnect`. The
+  `IConfigurationManager<OpenIdConnectConfiguration>` is a singleton
+  with built-in refresh; we don't manage the JWKS cache directly.
+- A hosted `JwksWarmupService` fetches the JWKS at startup so the
+  first authenticated request after a cold Lambda boot doesn't have to
+  pay the ~hundreds-of-ms metadata fetch.
+- `JsonWebTokenHandler.ValidateTokenAsync` checks:
+  - **Issuer** must equal `Nag:ClerkIssuer` (pinning the token to our
+    Clerk instance).
+  - **Signing key** must be one of the JWKS keys.
+  - **Lifetime** with a 2-minute clock skew tolerance.
+  - **Audience** is _not_ validated — Clerk session tokens don't
+    always carry an `aud`, and the issuer pin already binds the token
+    to this Nag instance.
+- Returns the `sub` claim (`user_xxx`) on success.
+
+**Resolving the account.** The handler then calls
+`IDeviceAccountResolver.AccountIdForSubject(sub)` which queries
+`SELECT id FROM accounts WHERE idp_subject = $sub` (Marten). Result
+cached for 5 minutes. `null` (no account bound) fails the
+authentication with `"no account is bound to this Clerk identity"`.
+
+On success, the handler builds the `ClaimsIdentity` with:
+
+| Claim                                      | Value                  |
+| ------------------------------------------ | ---------------------- |
+| `NagClaimTypes.Subject` (`sub`)            | the Clerk subject      |
+| `NagClaimTypes.AccountId` (`account_id`)   | the resolved accountId |
+| `NagClaimTypes.AuthMethod` (`auth_method`) | `"clerk"`              |
+
+Note there's **no `device_id` claim** on Clerk-authenticated requests
+— it doesn't exist yet (the device-token handshake is what assigns
+one). Endpoints that need a deviceId require device-token auth.
+
+## Authorization model
+
+Authentication is mandatory by default. In
+[`AuthenticationExtensions.cs`](../backend/Nag.Api/Configuration/AuthenticationExtensions.cs):
+
+```csharp
+builder.Services.AddAuthorization(opts =>
+{
+    // Every endpoint requires authentication unless explicitly [AllowAnonymous].
+    opts.FallbackPolicy = opts.DefaultPolicy;
+});
+```
+
+So the failure mode is opt-in-only — forgetting an attribute on a new
+endpoint blocks the request, doesn't leak it. The bootstrap endpoints
+explicitly opt out:
+
+| Endpoint                 | Why anonymous                                                                       |
+| ------------------------ | ----------------------------------------------------------------------------------- |
+| `POST /devices/register` | first contact; no token to present yet                                              |
+| `POST /devices/pair`     | verifies an IdP token in the body instead — the caller has no device token          |
+| `GET /health`            | liveness probe                                                                      |
+| `GET /dev/token`         | local dev only; stripped from prod bundle (see [Dev-auth bypass](#dev-auth-bypass)) |
+
+## Multi-tenancy: `account_id` → Marten
+
+Every authenticated request carries an `account_id` claim. Marten's
+conjoined tenancy is wired to read it directly:
+
+```csharp
+// MartenExtensions.cs
+builder.Services.AddMartenTenancyDetection(opts =>
+{
+    opts.IsClaimTypeNamed(NagClaimTypes.AccountId);
+});
+```
+
+The `IDocumentSession`/`IQuerySession` that gets injected into a
+request handler is automatically tenanted by the caller's account.
+Conjoined-tenant document types (`HomeBoard`, `CheckInState`,
+`MonthlyCheckInSummary`, `WeeklyCheckInSummary`,
+`HabitComplianceHistory`, `ProcessedEnvelope`) and the event store all
+get a `WHERE tenant_id = $account_id` filter for free. Cross-tenant
+reads are impossible by construction unless a handler explicitly opens
+a `LightweightSession(tenantId)` against a different tenant (which
+only happens in the cascade-delete paths, scoped to the _caller's own_
+account).
+
+A handful of endpoints don't operate on tenant-scoped data —
+`/accounts/me`, `/accounts/me/identity`, `/devices/{id}`,
+`/devices/me`, `/health`. These carry the `[NotTenanted]` attribute so
+Marten's tenancy detection skips the claim lookup; they operate on the
+single-tenant `Account` and `Device` document types (which are _how_
+we find the tenant in the first place, so they can't themselves be
+tenant-scoped).
+
+## Token refresh on 401
+
+The Zodios HTTP client wraps every request in an
+`onUnauthorized` handler ([`apiClient.ts`](../app/src/infrastructure/apiClient.ts#L74-L90)):
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant App as App
+    participant TS as tokenStore
+    participant Server as Nag backend
+
+    App->>Server: GET /home-board<br/>Bearer: device-token-X
+    Server-->>App: 401 (token expired or secret rotated)
+    App->>App: onUnauthorized() → refreshDeviceToken()
+    App->>TS: read deviceId
+    App->>Server: POST /devices/register {deviceId}
+    Note over Server: idempotent on deviceId<br/>(returns same accountId, new HMAC)
+    Server-->>App: 200 {accountId, deviceToken: device-token-X+1}
+    App->>TS: set("device-token-X+1")
+    App->>App: clearHalted() — a working credential<br/>means any earlier 4xx halt can lift
+    App->>Server: GET /home-board<br/>Bearer: device-token-X+1<br/>(automatic Zodios retry)
+    Server-->>App: 200
+```
+
+The refresh path reuses `/devices/register` because the endpoint is
+idempotent on `deviceId` — re-registering an existing device returns
+the same `accountId` paired with a freshly-signed token. If the
+re-register itself fails the request gives up and propagates the 401
+to the caller. There's no retry storm — Zodios only retries the
+original request once after a successful refresh.
+
+## Dev-auth bypass
+
+For local development and the Swagger UI, a parallel `GET /dev/token`
+endpoint mints a device HMAC bound to a fixed dev account+device GUID
+pair (no Clerk involvement). The Swagger UI's pre-request interceptor
+calls it on first request and stores the token, so "Try it out" works
+without any sign-in ceremony.
+
+**Strict prod safety:** the dev-auth endpoint and `SwaggerDevAuth`
+class are compiled with `#if DEBUG` so they're stripped from the
+release bundle entirely. The OpenAPI generator runs against the Debug
+build (see `backend/scripts/generate-openapi.sh`), so the dev-auth
+operations appear in the local spec but not in any prod-deployed
+artifact.
+
+On the mobile side `packages/core/src/identity/devAuth.ts` provides
+an `ensureDevAuthRegistered` analogue of `ensureDeviceRegistered` that
+hits `/dev/token` instead of going through Clerk. Wired up in
+`DevAuthAccountPanel.tsx`. The whole module tree is gated by
+`__DEV__` so it doesn't ship to prod either.
+
+## Server endpoint reference
+
+| Verb              | Path                          | Auth                             | `[NotTenanted]` | Used by                                                         |
+| ----------------- | ----------------------------- | -------------------------------- | --------------- | --------------------------------------------------------------- |
+| `POST`            | `/devices/register`           | anonymous                        | ✓               | First-launch register + the 401-refresh path                    |
+| `POST`            | `/devices/pair`               | anonymous (IdP token in body)    | ✓               | `runReplaceLocal` (server-data branch)                          |
+| `GET`             | `/devices/{id}`               | device token                     | —               | route only; not called from client                              |
+| `DELETE`          | `/devices/me`                 | device token                     | ✓               | "Start a new account" branch of `runIdentityMismatch`           |
+| `POST`            | `/accounts/me/identity`       | device token                     | ✓               | First-time bind + re-bind after `Switch this account`           |
+| `GET`             | `/accounts/me/identity`       | device token                     | ✓               | not currently called from client                                |
+| `DELETE`          | `/accounts/me/identity`       | device token                     | ✓               | `Switch this account` (unbind before re-POST)                   |
+| `DELETE`          | `/accounts/by-clerk-identity` | device token + IdP token in body | ✓               | `runReplaceServer` (take-over branch)                           |
+| `DELETE`          | `/accounts/me`                | device token                     | ✓               | `confirmAndDeleteAccount` + `confirmAndDisconnectFromCloud`     |
+| `GET`             | `/dev/token`                  | anonymous (DEBUG only)           | ✓               | dev-auth panel + Swagger UI auto-authorize                      |
+| `GET`             | `/health`                     | anonymous                        | ✓               | liveness probe                                                  |
+| (everything else) | various                       | device token                     | tenanted        | normal authenticated endpoints — events, sync, home-board, etc. |
+
+See [#212](https://github.com/auctionready/nag/issues/212) for the
+proposed REST-correct reshape of the `POST /devices/*` endpoints
+under `/accounts/me/devices`.
+
+# Account lifecycle flows
+
+The rest of this doc walks through the user-facing states a device
+moves between: how it first contacts the server, how it leaves a
+signed-in state in any of four different ways, and how a subsequent
+sign-in finds its way back.
 
 ## Mental model
 
