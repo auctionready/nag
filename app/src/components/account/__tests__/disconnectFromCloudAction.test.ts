@@ -65,7 +65,8 @@ const pressAlertButton = (
   return Promise.resolve(btn.onPress());
 };
 
-const flush = () => new Promise((resolve) => setImmediate(resolve));
+const flush = () =>
+  new Promise<void>((resolve) => setImmediate(() => resolve()));
 
 describe("confirmAndDisconnectFromCloud", () => {
   let alertSpy: jest.SpiedFunction<typeof Alert.alert>;
