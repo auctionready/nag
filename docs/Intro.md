@@ -178,6 +178,9 @@ detail's week strip use a tri-state classifier
 ## Further Reading
 
 - [Model](./Model.md) — schema and entity relationships.
+- [Identity, Auth, and Account Lifecycle](./IdentityAndAuth.md) — sign-in,
+  sign-out, switching providers, disconnect-from-cloud, multi-device
+  pairing, and account deletion. Sequence diagrams for every flow.
 - [Dev Server Hosting](./DevServerHosting.md) — running the Expo dev
   server on a VPS behind Caddy or nginx, deployed on CI success.
 - [`CLAUDE.md`](../CLAUDE.md) — project conventions, coding style, tooling,
