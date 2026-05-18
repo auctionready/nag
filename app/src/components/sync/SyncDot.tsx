@@ -79,18 +79,20 @@ export const SyncDot = ({ showLabel = false }: SyncDotProps) => {
       accessibilityLabel={`Sync status: ${palette.text}`}
     >
       <View style={styles.dotWrap}>
-        {dotStatus === "syncing" && (
-          <Animated.View
-            style={[
-              styles.halo,
-              {
-                backgroundColor: palette.color,
-                opacity: haloOpacity,
-                transform: [{ scale: haloScale }],
-              },
-            ]}
-          />
-        )}
+        {/* Halo stays mounted across status changes so the native-driven
+            pulse interpolations don't get torn down mid-loop, which would
+            log `Sending onAnimatedValueUpdate with no listeners registered`.
+            When not syncing, pulse is 0 → haloOpacity is 0 (invisible). */}
+        <Animated.View
+          style={[
+            styles.halo,
+            {
+              backgroundColor: palette.color,
+              opacity: haloOpacity,
+              transform: [{ scale: haloScale }],
+            },
+          ]}
+        />
         <View style={[styles.dot, { backgroundColor: palette.color }]} />
       </View>
       {showLabel && <Text style={styles.label}>{label}</Text>}
