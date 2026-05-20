@@ -27,6 +27,9 @@ export const overdueHabitsCount = async (
   const habitIds = habits.map((h) => h.id);
   if (habitIds.length === 0) return 0;
 
+  // `schedulesForHabits` (vs `allActiveSchedules`) intentionally ignores the
+  // `schedule.reminder` flag: silencing pushes shouldn't also silence the
+  // quieter visual badge.
   const schedules = await schedulesForHabits(db, habitIds);
   if (schedules.length === 0) return 0;
 
@@ -59,6 +62,8 @@ export const overdueHabitsCount = async (
       checkIns: checkInsByHabit.get(habitId) ?? [],
       now,
     });
+    // `some` (not `filter().length`): a habit with three missed slots still
+    // contributes 1 — the badge counts overdue habits, not overdue slots.
     if (timeSlots.some((s) => s.status === "missed")) count++;
   }
   return count;
