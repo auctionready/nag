@@ -8,11 +8,13 @@ import {
   countPending,
   countFailed,
   countSent,
+  getHighestServerSequence,
   isHalted,
   markSent,
   resumeDispatch,
   SENT_OUTBOX_RETAIN_DEFAULT,
 } from "../outbox";
+import { createPullSync, type GetSyncFn } from "../pullSync";
 import type { PostResult } from "../types";
 
 const getDb = setupTestDb("dispatcher-test.db");
@@ -771,5 +773,159 @@ describe("dispatcher reconciliation", () => {
 
     const status = await createDispatcher({ db, post }).run();
     expect(status).toBe("idle");
+  });
+});
+
+describe("dispatcher + interleaved server writes (regression: skipped pull)", () => {
+  // Scenario: device B's high-water mark is at 100. Device A appends an
+  // event at sequence 101. Device B then creates a local check-in and
+  // pushes — server assigns sequence 102. If the push optimistically
+  // advanced B's high-water mark to 102, the follow-up pull would ask
+  // `since=102` and skip event 101 forever. The fix: push never advances
+  // the high-water mark; the pull-sync that runs immediately afterwards
+  // does, by re-reading from the unchanged mark.
+  const habitA = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+  const habitB = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
+
+  const seedHighWaterAt = async (db: ReturnType<typeof getDb>, value: number) =>
+    db
+      .update(schema.syncState)
+      .set({ highestServerSequence: value })
+      .where(eq(schema.syncState.id, 1));
+
+  it("dispatcher does not advance highest_server_sequence on a successful push", async () => {
+    const db = getDb();
+    await seedHighWaterAt(db, 100);
+    await processCommand(db, {
+      type: "CreateHabit",
+      habitId: habitB,
+      title: "B",
+    });
+
+    const post = vi.fn(
+      async (env): Promise<PostResult> => ({
+        ok: true,
+        // Server has already appended an unrelated event at 101 — this
+        // push lands at 102, with a gap from B's perspective (it knows
+        // up to 100).
+        sequence: 102,
+        events: [
+          {
+            sequence: 102,
+            id: env.id,
+            type: "HabitCreated",
+            timestamp: new Date("2026-05-01T00:00:00.000Z"),
+            payload: {
+              habitId: habitB,
+              title: "B",
+              description: null,
+              icon: null,
+              goal: null,
+            },
+          },
+        ],
+      }),
+    );
+
+    const status = await createDispatcher({ db, post }).run();
+    expect(status).toBe("idle");
+
+    // Critical assertion: high-water mark must stay at 100 so the next
+    // pull re-fetches everything from 101 onwards.
+    expect(await getHighestServerSequence(db)).toBe(100);
+
+    // The outbox row still records the server-assigned sequence for
+    // debugging/audit; only sync_state.highest_server_sequence is held.
+    const [row] = await db.select().from(schema.outbox);
+    expect(row.status).toBe("sent");
+    expect(row.serverSequence).toBe(102);
+  });
+
+  it("a follow-up pull catches the interleaved event the push would otherwise have skipped", async () => {
+    const db = getDb();
+    await seedHighWaterAt(db, 100);
+    await processCommand(db, {
+      type: "CreateHabit",
+      habitId: habitB,
+      title: "B",
+    });
+
+    // Push: server assigns 102 (after 101 from another device).
+    const post = vi.fn(
+      async (env): Promise<PostResult> => ({
+        ok: true,
+        sequence: 102,
+        events: [
+          {
+            sequence: 102,
+            id: env.id,
+            type: "HabitCreated",
+            timestamp: new Date("2026-05-01T00:00:00.000Z"),
+            payload: {
+              habitId: habitB,
+              title: "B",
+              description: null,
+              icon: null,
+              goal: null,
+            },
+          },
+        ],
+      }),
+    );
+    expect(await createDispatcher({ db, post }).run()).toBe("idle");
+
+    // Pull: from the unchanged high-water mark (100), the server returns
+    // both the interleaved event from device A and the echo of B's push.
+    const getSync = vi.fn<GetSyncFn>().mockResolvedValue({
+      ok: true,
+      response: {
+        mode: "replay",
+        events: [
+          {
+            sequence: 101,
+            type: "HabitCreated",
+            payload: {
+              habitId: habitA,
+              title: "A",
+              description: null,
+              icon: null,
+              goal: null,
+            },
+          },
+          {
+            sequence: 102,
+            type: "HabitCreated",
+            payload: {
+              habitId: habitB,
+              title: "B",
+              description: null,
+              icon: null,
+              goal: null,
+            },
+          },
+        ],
+        headSequence: 102,
+        nextSince: null,
+      },
+    });
+
+    expect(await createPullSync({ db, getSync }).run()).toBe("idle");
+
+    // Pull asked since the unchanged high-water mark, not the
+    // server-assigned sequence on the push — that's the whole fix.
+    expect(getSync).toHaveBeenCalledWith(100);
+
+    // High-water mark is now correctly at the head.
+    expect(await getHighestServerSequence(db)).toBe(102);
+
+    // Both habits exist locally — the previously-skipped event was caught.
+    const habits = await db
+      .select({ id: schema.habit.id, title: schema.habit.title })
+      .from(schema.habit)
+      .orderBy(asc(schema.habit.id));
+    expect(habits).toEqual([
+      { id: habitA, title: "A" },
+      { id: habitB, title: "B" },
+    ]);
   });
 });

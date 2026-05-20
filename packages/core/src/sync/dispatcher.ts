@@ -162,18 +162,31 @@ export const createDispatcher = ({
           // normalised something) the upsert overwrites local state with
           // the server's version. Best-effort: a failure here doesn't
           // halt the batch — the local DB still has the optimistic state
-          // and the next /sync pass would only re-fetch events past the
-          // already-advanced high-water mark, so we capture and move on
-          // rather than wedge sync over a transient apply error.
+          // and the next /sync pass will re-fetch any unreconciled events,
+          // so we capture and move on rather than wedge sync over a
+          // transient apply error.
+          //
+          // `advanceHighWaterMark: false` is critical here: the server
+          // may have appended other devices' events at sequences between
+          // our previous high-water mark and the one it just assigned
+          // us. Advancing past those would skip them permanently. The
+          // pull-sync that runs immediately after the push (see
+          // syncStatus.tsx) reads from the unchanged high-water mark
+          // and picks up the full range, including idempotent echoes of
+          // our own events.
           for (const event of result.events) {
             try {
-              await applyServerEvent(db, {
-                sequence: event.sequence,
-                id: event.id,
-                type: event.type,
-                timestamp: event.timestamp,
-                payload: event.payload,
-              });
+              await applyServerEvent(
+                db,
+                {
+                  sequence: event.sequence,
+                  id: event.id,
+                  type: event.type,
+                  timestamp: event.timestamp,
+                  payload: event.payload,
+                },
+                { advanceHighWaterMark: false },
+              );
             } catch (err) {
               error(
                 `dispatcher: reconcile failed for row id=${row.id} event seq=${event.sequence} type=${event.type}`,

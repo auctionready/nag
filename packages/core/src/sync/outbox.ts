@@ -49,13 +49,22 @@ export const loadPendingBatch = (
     .limit(limit);
 
 /**
- * Marks the outbox row sent, bumps `sync_state.highest_server_sequence`
- * so the next pull-sync `since` value reflects the just-acknowledged write,
- * and prunes older sent rows so the outbox can't grow unbounded. All three
- * updates run in one transaction so a crash between them either sees all
- * or none — preventing the high-water mark from advancing past a row
- * that's still pending, and keeping the prune transactional with the
- * write that triggered it.
+ * Marks the outbox row sent and prunes older sent rows so the outbox
+ * can't grow unbounded. Both updates run in one transaction so a crash
+ * between them either sees all or none — keeping the prune transactional
+ * with the write that triggered it.
+ *
+ * Deliberately does NOT advance `sync_state.highest_server_sequence`.
+ * The server assigns this envelope a sequence at the head of its log,
+ * but it may also have appended events from other devices at sequences
+ * between our previous high-water mark and the one we just received.
+ * Optimistically bumping past those would cause the next
+ * `GET /sync?since=N` to skip them — a permanent gap, since nothing
+ * else triggers a re-pull from an earlier point. Instead we let the
+ * pull-sync that runs immediately after the push advance the mark by
+ * re-fetching from the unchanged high-water mark; the response will
+ * include both our just-pushed event (idempotent upsert) and any
+ * interleaved events from other devices.
  *
  * `retainSentRows` keeps the most recent N sent rows (newest by id) for
  * debugging visibility; everything older is dropped. A negative value
@@ -78,12 +87,6 @@ export const markSent = async (
         lastError: null,
       })
       .where(eq(outbox.id, id));
-    await db
-      .update(syncState)
-      .set({
-        highestServerSequence: sql`MAX(${syncState.highestServerSequence}, ${serverSequence})`,
-      })
-      .where(eq(syncState.id, 1));
     if (retainSentRows >= 0) {
       // Drop sent rows older than the most recent `retainSentRows`. The
       // subquery form keeps the newest N regardless of how many sends
