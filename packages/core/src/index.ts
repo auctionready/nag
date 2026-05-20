@@ -168,3 +168,4 @@ export {
   type ConsolidatedNotificationScheduler,
   type ConsolidatedTimeSlot,
 } from "./notificationConsolidator";
+export { overdueHabitsCount } from "./overdueHabits";

@@ -90,6 +90,13 @@ for the grouping logic and
 [`app/src/app/check-in-time-slot.tsx`](../app/src/app/check-in-time-slot.tsx) for the
 time slot screen.
 
+The app icon also carries a **badge** with the number of habits overdue
+today — habits with at least one timed slot whose scheduled time has
+passed without a check-in. The count is recomputed on every foreground
+and background transition. See
+[`overdueHabits.ts`](../packages/core/src/overdueHabits.ts) and
+[`app/src/infrastructure/badgeSync.ts`](../app/src/infrastructure/badgeSync.ts).
+
 ## Check-ins and skips
 
 Every habit offers two actions:
