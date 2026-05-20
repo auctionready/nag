@@ -4,6 +4,7 @@ import { Sentry, navigationIntegration } from "../infrastructure/sentry";
 import { init, postMigrationInit } from "../infrastructure/init";
 import { useNotificationResponseHandler } from "../infrastructure/notificationResponseHandler";
 import { useForegroundNotificationSync } from "../infrastructure/foregroundSync";
+import { useBadgeSync } from "../infrastructure/badgeSync";
 import { SyncStatusProvider } from "../infrastructure/syncStatus";
 import { TodayProvider } from "../infrastructure/today";
 import { SyncHaltedBanner } from "../components/sync";
@@ -46,6 +47,7 @@ const InnerLayout = () => {
   }, []);
   useNotificationResponseHandler();
   useForegroundNotificationSync();
+  useBadgeSync();
 
   return (
     <View style={{ flex: 1 }}>
