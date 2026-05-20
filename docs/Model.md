@@ -200,9 +200,10 @@ retries — there is no separate `envelope_id` column.
 but the most recent `SENT_OUTBOX_RETAIN_DEFAULT` (10) sent rows in the
 same transaction, so the outbox can't grow unbounded on long-lived
 devices. Retained rows are useful only for debugging — the
-high-water mark needed by pull-sync is mirrored into
-`sync_state.highest_server_sequence`, and pending replays use the
-row's `id` as their idempotency key.
+high-water mark needed by pull-sync lives in
+`sync_state.highest_server_sequence` and is only advanced by
+`applyServerEvent` during pull (see below), and pending replays use
+the row's `id` as their idempotency key.
 
 The retention count is overridable at module load via the
 `NAG_SENT_OUTBOX_RETAIN` env var; set it to `-1` to disable pruning
@@ -241,8 +242,15 @@ Single-row table (`id = 1`) tracking app-wide sync flags.
 - `halted` is set by the outbox dispatcher when a non-retriable 4xx is
   received; only a user-initiated "Resume sync" action clears it.
 - `highest_server_sequence` is the high-water mark for pull-sync: the
-  largest per-account `sequence` ever observed (from a successful
-  `POST /events` or a `GET /sync` replay / snapshot apply).
+  largest per-account `sequence` we've actually pulled and applied
+  (advanced only by `GET /sync` replay / snapshot apply). The push
+  side (`POST /events` → `markSent`) deliberately does NOT advance it
+  — the server may have appended other devices' events between our
+  previous mark and the sequence it just assigned us, so jumping past
+  them would skip them permanently. The pull-sync that runs
+  immediately after the push catches up from the unchanged mark,
+  re-fetching our own just-pushed event as an idempotent upsert
+  alongside any interleaved events.
 
 ## Relations
 
