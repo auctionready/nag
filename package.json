@@ -24,14 +24,14 @@
     "check": "pnpm check:backend && pnpm check:app",
     "deploy:backend": "pnpm --filter @nag/backend run deploy",
     "typecheck": "turbo run typecheck",
-    "prepare": "lefthook install",
+    "prepare": "lefthook install --force",
     "postinstall": "node tools/check-dotnet-version.mjs"
   },
   "packageManager": "pnpm@11.1.1",
   "devDependencies": {
     "concurrently": "catalog:",
     "eslint": "^9.39.4",
-    "eslint-config-expo": "^55.0.0",
+    "eslint-config-expo": "^55.0.1",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-react-compiler": "19.1.0-rc.2",
     "lefthook": "^2.1.6",

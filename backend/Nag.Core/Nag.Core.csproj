@@ -7,7 +7,7 @@
 
   <ItemGroup>
     <PackageReference Include="FluentValidation" Version="12.1.1" />
-    <PackageReference Include="Marten" Version="8.32.1" />
-    <PackageReference Include="WolverineFx.Marten" Version="5.32.1" />
+    <PackageReference Include="Marten" Version="8.37.1" />
+    <PackageReference Include="WolverineFx.Marten" Version="5.39.3" />
   </ItemGroup>
 </Project>
