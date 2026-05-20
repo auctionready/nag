@@ -5,7 +5,13 @@ Description=nag Expo dev server (Metro bundler)
 Type=simple
 WorkingDirectory=%h/nag
 EnvironmentFile=-%h/.config/nag/expo.env
-# pnpm is expected to be on $PATH (install via corepack, mise, nvm, or volta).
+# systemd user services don't source ~/.bashrc, so mise's `activate` hook
+# never installs node/pnpm onto PATH. Point at the shims dir directly so
+# the pinned mise.toml versions win over /usr/bin/node.
+Environment=PATH=%h/.local/share/mise/shims:%h/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+# Run pnpm non-interactively so its deps-status check doesn't bail with
+# ERR_PNPM_ABORTED_REMOVE_MODULES_DIR_NO_TTY if it decides to repurge.
+Environment=CI=1
 # --dev-client so the custom dev-client build connects (not Expo Go).
 ExecStart=/usr/bin/env pnpm --filter @nag/app exec expo start --dev-client --port 8081
 Restart=on-failure

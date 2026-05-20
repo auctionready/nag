@@ -78,6 +78,11 @@ fi
 
 after=$(git rev-parse HEAD)
 
+# Reload in case ops/nag-expo.service changed — the unit file lives in the
+# checkout (symlinked into ~/.config/systemd/user/), so a git reset can
+# silently update it but systemd will keep serving the old copy until told.
+systemctl --user daemon-reload
+
 # Always restart on deploy — lets a re-run of the workflow recover a wedged
 # service even when HEAD didn't move. Metro's file watcher would notice a
 # reset anyway, but a clean restart avoids the thundering-herd of watcher
