@@ -1,57 +1,61 @@
 import { Alert } from "react-native";
-import { disconnectFromCloud, resetLocalAccount } from "@nag/core";
+import { disconnectFromCloud, pauseDispatch } from "@nag/core";
 import { db } from "../../db";
 import { deleteAccount } from "../../infrastructure/apiClient";
 import { clearAllClerkTokens } from "../../infrastructure/clerk";
 import { deviceTokenStore } from "../../infrastructure/tokenStore";
 import { log } from "../../infrastructure/log";
-import type { SignOutChoice } from "./types";
 
 const logger = log("account:sign-out");
 
 /**
- * Sign-out has two destructive intents the user picks between:
+ * Sign-out shows a three-option Alert. Cancel does nothing; the two
+ * destructive options are NOT equivalent — they let the user pick
+ * between a "I'm done with the cloud" exit and a "stop syncing for a
+ * while, I'll be back" pause.
  *
- *   - **Keep my data on this device** — delete the server-side account
- *     (`DELETE /accounts/me`) but leave habits/check-ins/outbox on
- *     the device so the app keeps working offline. Re-signing-in later
- *     creates a fresh server account that the queued outbox events
- *     flush into.
- *   - **Sign out completely** — wipe every local replicated row + the
- *     entire `identity` row (including `deviceId`). Server-side account
- *     is left intact so it can be recovered via a same-identity
- *     sign-in (`runPairFallback` re-pairs the fresh device into it).
+ *   - **Remove server data and sign out.** `DELETE /accounts/me` on
+ *     the server, then `disconnectFromCloud` locally (clear identity
+ *     binding + token, reset syncState, re-mark sent outbox rows to
+ *     pending), then `clerk.signOut()`. Habits/check-ins/outbox stay
+ *     on the device. Re-signing-in later (any provider) creates a
+ *     fresh server account that the outbox flushes into. This is
+ *     the path that fully detaches from the cloud — the only one
+ *     after which signing back in with a *different* provider works
+ *     cleanly (no orphan server account on the old identity).
  *
- * Either choice ends the Clerk session and clears the local device
- * token. Both also break the takeover vector that motivated this
- * design: the first by deleting the server-side account row that the
- * device token authenticates against, the second by minting a fresh
- * `deviceId` on the next launch so the previous server-side row can
- * never be re-claimed.
+ *   - **Pause server sync.** Sets `sync_state.paused = true` via
+ *     `pauseDispatch`. Both the outbox dispatcher and pull-sync
+ *     short-circuit on their next tick — nothing ships, nothing is
+ *     pulled, the existing local + server state is preserved.
+ *     **Does not sign out of Clerk** and does not touch any server
+ *     state. Resume is via the "Sync paused" banner on the Account
+ *     screen, which flushes the outbox backlog. The point: a calm
+ *     "I want to think about this offline for a while" without
+ *     burning the cloud relationship.
  *
- * The two-stage `Alert` matches the destructive nature: an initial
- * three-choice prompt picks an intent, then each destructive branch
- * runs without a second confirm. Cancel keeps everything as-is.
+ * The two-stage cleanup of the first branch (server delete → local
+ * disconnect → Clerk sign-out) is sequential: a failed server delete
+ * aborts before any local state is touched, so the device is left in
+ * its original signed-in state with a surfaced error rather than a
+ * half-applied teardown.
  */
 export const confirmAndSignOut = (clerkSignOut: () => Promise<void>) => {
   Alert.alert(
     "Sign out",
-    "What should happen to the habits and check-ins on this device?",
+    "Choose how to sign out of the cloud.",
     [
       { text: "Cancel", style: "cancel" },
       {
-        text: "Keep on this device",
-        // The handler returns Promise<void>. React Native's onPress
-        // signature is `() => void`, but `void` is permissive — TS
-        // accepts any return type — and RN silently discards the
-        // resolved value at runtime. Returning the promise lets unit
-        // tests await the actual server + local cleanup.
-        onPress: () => runKeepData(clerkSignOut),
+        text: "Remove server data and sign out",
+        style: "destructive",
+        onPress: () => runRemoveServerData(clerkSignOut),
       },
       {
-        text: "Sign out completely",
-        style: "destructive",
-        onPress: () => runWipe(clerkSignOut),
+        // Not labelled destructive — pause is a reversible action with
+        // no data loss.
+        text: "Pause server sync",
+        onPress: () => runPause(),
       },
     ],
     {
@@ -63,7 +67,7 @@ export const confirmAndSignOut = (clerkSignOut: () => Promise<void>) => {
   );
 };
 
-const runKeepData = async (clerkSignOut: () => Promise<void>) => {
+const runRemoveServerData = async (clerkSignOut: () => Promise<void>) => {
   const result = await deleteAccount();
   if (!result.ok) {
     logger.error("server delete failed — surfacing error", result);
@@ -73,7 +77,9 @@ const runKeepData = async (clerkSignOut: () => Promise<void>) => {
     );
     return;
   }
-  logger.info("server account deleted — clearing local binding (keeping data)");
+  logger.info(
+    "server account deleted — clearing local binding, preserving local data",
+  );
   await disconnectFromCloud({
     db,
     tokenStore: deviceTokenStore,
@@ -87,25 +93,12 @@ const runKeepData = async (clerkSignOut: () => Promise<void>) => {
   }
 };
 
-const runWipe = async (clerkSignOut: () => Promise<void>) => {
-  logger.info("wiping local state — server account left intact for recovery");
-  await resetLocalAccount({
-    db,
-    tokenStore: deviceTokenStore,
-    log: logger,
-  });
-  await clearAllClerkTokens();
-  try {
-    await clerkSignOut();
-  } catch (err) {
-    logger.warn("clerk signOut threw — local state already cleared", err);
-  }
+const runPause = async () => {
+  logger.info(
+    "pausing sync — server data + Clerk session left intact, resume via Account-screen banner",
+  );
+  await pauseDispatch(db);
+  // Intentionally no Clerk signOut + no kickSync — pause means the
+  // dispatcher should stop, not just defer. The Account screen's
+  // SyncPausedBanner is the user's way back to a syncing state.
 };
-
-// Exposed so callers (e.g. the SignedInView) can refer to the same
-// choice values the dialog hands back if they need to label affordances.
-export const SIGN_OUT_CHOICES: readonly SignOutChoice[] = [
-  "cancel",
-  "keep-data",
-  "wipe",
-];

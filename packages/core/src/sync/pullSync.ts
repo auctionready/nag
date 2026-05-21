@@ -2,7 +2,7 @@ import type { AnyDb } from "../db";
 import { getAccountId } from "../identity/identity";
 import { applyServerEvent, type ServerEvent } from "./applyServerEvent";
 import { installSnapshot, type ServerSnapshot } from "./installSnapshot";
-import { getHighestServerSequence, isHalted } from "./outbox";
+import { getHighestServerSequence, isHalted, isPaused } from "./outbox";
 import { syncAllNotifications } from "../notificationConsolidator";
 import { pruneOldCheckInsIfSafe } from "../retention";
 
@@ -23,7 +23,7 @@ function readPruneEnv(): boolean {
   return raw === "1" || raw.toLowerCase() === "true";
 }
 
-export type PullStatus = "idle" | "halted" | "offline";
+export type PullStatus = "idle" | "halted" | "paused" | "offline";
 
 /**
  * Server response from `GET /sync?since=N` — flat shape so it survives
@@ -108,6 +108,14 @@ export const createPullSync = ({
     if (await isHalted(db)) {
       debug("pullSync.run: halted — skipping");
       return "halted";
+    }
+
+    // Paused is checked *after* `halted` so a paused-while-halted device
+    // surfaces as halted in the UI — the user needs to see the original
+    // error first. Once resumed, both flags clear together.
+    if (await isPaused(db)) {
+      debug("pullSync.run: paused — skipping");
+      return "paused";
     }
 
     let mutated = false;

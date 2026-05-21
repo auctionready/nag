@@ -72,6 +72,8 @@ export {
   createDispatcher,
   makeSingleflight,
   isHalted,
+  isPaused,
+  pauseDispatch,
   resumeDispatch,
   countPending,
   countFailed,

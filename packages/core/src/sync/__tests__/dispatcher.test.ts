@@ -10,7 +10,9 @@ import {
   countSent,
   getHighestServerSequence,
   isHalted,
+  isPaused,
   markSent,
+  pauseDispatch,
   resumeDispatch,
   SENT_OUTBOX_RETAIN_DEFAULT,
 } from "../outbox";
@@ -342,6 +344,96 @@ describe("resumeDispatch", () => {
       .from(schema.outbox)
       .orderBy(asc(schema.outbox.id));
     expect(rows.map((r) => r.status)).toEqual(["sent", "sent"]);
+  });
+});
+
+describe("pauseDispatch", () => {
+  it("halts the dispatcher with status 'paused' without touching outbox rows", async () => {
+    const db = getDb();
+    await processCommand(db, {
+      type: "CreateHabit",
+      habitId: crypto.randomUUID(),
+      title: "Pending one",
+    });
+
+    await pauseDispatch(db);
+    expect(await isPaused(db)).toBe(true);
+    expect(await isHalted(db)).toBe(false);
+
+    // Dispatcher would otherwise ship the pending row. Paused short-circuits
+    // before the post callback fires.
+    const post = vi.fn();
+    const status = await createDispatcher({ db, post }).run();
+
+    expect(status).toBe("paused");
+    expect(post).not.toHaveBeenCalled();
+    expect(await countPending(db)).toBe(1);
+  });
+
+  it("yields to halted when both flags are set so the user sees the original error first", async () => {
+    const db = getDb();
+    await processCommand(db, {
+      type: "CreateHabit",
+      habitId: crypto.randomUUID(),
+      title: "Pending one",
+    });
+
+    // First a 4xx halts; then the user separately pauses.
+    const haltPost = vi.fn(
+      async (): Promise<PostResult> => ({
+        ok: false,
+        kind: "non-retriable",
+        status: 401,
+        message: "auth",
+      }),
+    );
+    await createDispatcher({ db, post: haltPost }).run();
+    expect(await isHalted(db)).toBe(true);
+
+    await pauseDispatch(db);
+    expect(await isHalted(db)).toBe(true);
+    expect(await isPaused(db)).toBe(true);
+
+    // Halted wins for status reporting — the auth error is still the
+    // headline event and should be surfaced before the paused affordance.
+    const post = vi.fn();
+    const status = await createDispatcher({ db, post }).run();
+    expect(status).toBe("halted");
+    expect(post).not.toHaveBeenCalled();
+  });
+});
+
+describe("resumeDispatch + paused", () => {
+  it("clears `paused` alongside `halted` so a single Resume covers both stop paths", async () => {
+    const db = getDb();
+    await processCommand(db, {
+      type: "CreateHabit",
+      habitId: crypto.randomUUID(),
+      title: "Pending one",
+    });
+
+    await pauseDispatch(db);
+    expect(await isPaused(db)).toBe(true);
+
+    await resumeDispatch(db);
+    expect(await isPaused(db)).toBe(false);
+    expect(await isHalted(db)).toBe(false);
+
+    // Resume on a pause-only state must still flush the outbox on the
+    // next tick — the row was never marked failed (pause doesn't touch
+    // outbox rows) so it ships straight from pending.
+    let seq = 1;
+    const post = vi.fn(
+      async (): Promise<PostResult> => ({
+        ok: true,
+        sequence: seq++,
+        events: [],
+      }),
+    );
+    const status = await createDispatcher({ db, post }).run();
+    expect(status).toBe("idle");
+    expect(post).toHaveBeenCalledTimes(1);
+    expect(await countSent(db)).toBe(1);
   });
 });
 

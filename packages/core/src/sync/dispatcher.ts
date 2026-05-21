@@ -6,6 +6,7 @@ import {
   markPendingWithError,
   markFailedAndHalt,
   isHalted,
+  isPaused,
 } from "./outbox";
 import { applyServerEvent } from "./applyServerEvent";
 import type {
@@ -76,6 +77,14 @@ export const createDispatcher = ({
     if (await isHalted(db)) {
       debug("dispatcher.run: halted — skipping");
       return "halted";
+    }
+
+    // Paused is checked *after* `halted` so a paused-while-halted device
+    // surfaces as halted in the UI — the user needs to see the original
+    // error first. Once resumed, both flags clear together.
+    if (await isPaused(db)) {
+      debug("dispatcher.run: paused — skipping");
+      return "paused";
     }
 
     const accountId = await getAccountId(db);

@@ -329,38 +329,52 @@ Two other pieces of local state matter:
 
 ## Exits from a signed-in state
 
-There are **three** ways to leave a signed-in state. They differ on
-what they preserve, and all three protect against the device-takeover
-vector that the previous soft sign-out left open.
+There are **three** ways to step away from a signed-in state, only
+two of which actually sign out. They differ on what they preserve
+server-side, locally, and in the Clerk session.
 
-| Exit                               | Server account    | Server data | Local `identity`                                                                                       | Local data + outbox                                                                      |
-| ---------------------------------- | ----------------- | ----------- | ------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------- |
-| **Sign out → Keep on this device** | deleted (cascade) | deleted     | `accountId`/`idpSubject`/token cleared; `deviceId` preserved; `sync_state.highestServerSequence` reset | **preserved**, plus every `'sent'` outbox row reverted to `'pending'` for re-ship        |
-| **Sign out → Sign out completely** | preserved         | preserved   | **entire identity row deleted** (`deviceId` is gone, the next launch mints a fresh one)                | **wiped** (`habit`/`goal`/`schedule`/`checkIn`/`outbox` all dropped, `sync_state` reset) |
-| **Delete account**                 | deleted (cascade) | deleted     | wiped on next launch via `resetDatabaseSchema()`                                                       | wiped                                                                                    |
+| Exit                                           | Server account    | Server data | Local data + outbox                                                                                                                                                                                                     | Clerk session   |
+| ---------------------------------------------- | ----------------- | ----------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------- |
+| **Sign out → Remove server data and sign out** | deleted (cascade) | deleted     | local `identity` cleared (`accountId`/`idpSubject`/token); `deviceId` preserved; `sync_state.highestServerSequence` reset; habit/goal/schedule/checkIn **preserved**, every `'sent'` outbox row reverted to `'pending'` | signed out      |
+| **Sign out → Pause server sync**               | preserved         | preserved   | nothing touched — `sync_state.paused = true` is the only mutation. Outbox keeps queueing new events; the dispatcher + pull-sync short-circuit on their next tick                                                        | **stays alive** |
+| **Delete account**                             | deleted (cascade) | deleted     | wiped on next launch via `resetDatabaseSchema()`                                                                                                                                                                        | signed out      |
 
 `Sign out` is exposed as a single button on the Account screen that
-opens a three-option dialog (Cancel / Keep on this device / Sign out
-completely). The two destructive options reflect different intents —
-"I want to keep using the app offline" vs. "I'm handing off this
-device / I want a clean state" — and both leave the device safe for a
-subsequent owner because **the `deviceId`↔account link is broken on
-this device either way**:
+opens a three-option dialog (Cancel / Remove server data and sign out
+/ Pause server sync). The two non-Cancel options reflect very
+different intents:
 
-- _Keep on this device_ nukes the server-side account row outright, so
-  even though the local `deviceId` is retained, there's no server
-  state to authenticate against.
-- _Sign out completely_ deletes the entire local `identity` row, so
-  the next launch mints a fresh `deviceId`. The previous account
-  survives server-side for recovery from another device or by signing
-  back in with the same identity.
+- _Remove server data and sign out_ is the full exit — the server
+  account is destroyed (cascading every device, event, projection),
+  the local binding is torn down, Clerk is signed out. Local habits +
+  outbox stay so the user can keep working; the next sign-in (any
+  provider) registers a fresh server account and the outbox flushes
+  the queued history into it. The server-delete is what makes signing
+  back in with a _different_ provider work cleanly — without it the
+  original account would orphan, holding the old identity in place
+  and triggering a `runPairFallback` prompt on every subsequent
+  sign-in.
+- _Pause server sync_ is a reversible stop. `sync_state.paused = true`
+  causes the dispatcher + pull-sync to short-circuit on their next
+  tick, but nothing else changes: server account stays, Clerk session
+  stays, local data and outbox stay (the outbox keeps queueing new
+  events from in-app activity). Resume is the Account-screen banner,
+  which clears the flag and flushes whatever backlog accumulated. The
+  point is to give the user a calm "I don't want to think about the
+  cloud right now" affordance that doesn't burn the cloud
+  relationship.
 
 The previous "soft sign-out" pattern (clear local token, keep
 `deviceId`, leave server alone) is intentionally gone — a leftover
-`deviceId` + still-alive server account was a takeover vector: any
-subsequent caller of `POST /devices/register` with the same id would
-idempotently receive an HMAC for the original account with no proof
-of ownership.
+`deviceId` + still-alive server account + no Clerk session was a
+takeover vector: any subsequent caller of `POST /devices/register`
+with the same id would idempotently receive an HMAC for the original
+account with no proof of ownership. _Remove server data and sign out_
+closes the hole by deleting the server-side row that the residual
+`deviceId` would have authenticated against; _Pause server sync_
+closes it by keeping Clerk alive (the device remains
+authenticated-as-the-user the whole time, no anonymous re-register
+window opens).
 
 ## Sign-in flow on a fresh device
 
@@ -394,13 +408,12 @@ After this, the local `identity` row is fully populated (`deviceId`,
 and the dispatcher can start shipping any locally-queued events
 (e.g. habits the user created while offline).
 
-## Sign-out — the two-choice dialog
+## Sign-out — the three-choice dialog
 
 Tapping _Sign out_ on the Account screen presents an `Alert` with
-three options. Cancel does nothing. The other two run different
-cleanups but share the same shape: ending the Clerk session is the
-last step in each, so the React tree's `isSignedIn === false` effect
-fires against a fully-cleaned local state.
+three options. Cancel does nothing. The other two are very different:
+one fully tears down the cloud relationship, the other just halts the
+sync loop until the user clicks Resume.
 
 ```mermaid
 sequenceDiagram
@@ -411,46 +424,54 @@ sequenceDiagram
     participant Server as Nag backend
 
     U->>App: Tap "Sign out"
-    App-->>U: Alert: Cancel / Keep on this device / Sign out completely
-    alt Keep on this device
+    App-->>U: Alert: Cancel / Remove server data and sign out / Pause server sync
+    alt Remove server data and sign out
         App->>Server: DELETE /accounts/me
         Note over Server: Cascade-delete account row,<br/>devices, events, projections.
         Server-->>App: 204
         App->>App: disconnectFromCloud()<br/>(clear identity values + token,<br/>reset syncState, re-mark<br/>sent outbox → pending)
         App->>Clerk: clearAllClerkTokens()
         App->>Clerk: signOut()
-    else Sign out completely
-        App->>App: resetLocalAccount()<br/>(wipe habit/goal/schedule/checkIn/outbox,<br/>reset syncState,<br/>DELETE the identity row entirely)
-        App->>Clerk: clearAllClerkTokens()
-        App->>Clerk: signOut()
-        Note over Server: Account untouched —<br/>preserved for future recovery.
+    else Pause server sync
+        App->>App: pauseDispatch()<br/>(sync_state.paused = true)
+        Note over Server: Untouched.
+        Note over Clerk: Session stays alive.<br/>No sign-out.
     else Cancel
         Note over App: no-op
     end
 ```
 
-What survives, per branch:
+What changes, per branch:
 
-|                         | Local data | Local `deviceId`                                    | Server account                         |
-| ----------------------- | ---------- | --------------------------------------------------- | -------------------------------------- |
-| **Keep on this device** | preserved  | preserved (server side gone, so reusing it is safe) | gone                                   |
-| **Sign out completely** | wiped      | wiped (fresh `deviceId` minted next launch)         | preserved (recoverable via re-sign-in) |
+|                                     | Server account | Local data + outbox                               | Clerk session   | How user comes back                             |
+| ----------------------------------- | -------------- | ------------------------------------------------- | --------------- | ----------------------------------------------- |
+| **Remove server data and sign out** | gone           | preserved; sent→pending re-mark drives re-ship    | signed out      | sign in again — outbox flushes to a new account |
+| **Pause server sync**               | preserved      | preserved; outbox keeps queueing during the pause | **stays alive** | tap "Resume sync" on the Account-screen banner  |
 
-**Why "Keep on this device" deletes the server-side account:** if we
-left it alive while preserving the local data, a subsequent
-`POST /devices/register` with the still-valid local `deviceId` would
-return a fresh HMAC for the original account — letting whoever was
-next at the device read and own everything. The cascade-delete is
-what makes preserving the local data safe.
+**Why _Remove server data and sign out_ deletes the server-side
+account:** if we left it alive while preserving the local data, a
+subsequent `POST /devices/register` with the still-valid local
+`deviceId` (after Clerk had signed out) would return a fresh HMAC
+for the original account — letting whoever was next at the device
+read and own everything. The cascade-delete is what makes preserving
+the local data safe.
 
-**Why "Sign out completely" leaves the server-side account alive:**
-this branch's intent is "let me come back later". Wiping the local
-identity (especially `deviceId`) breaks the takeover vector locally;
-the server-side account survives so a same-identity sign-in can
-restore the data via `runPairFallback` (silent re-pair into the
-existing account when there are no local habits).
+**Why _Pause server sync_ doesn't sign out of Clerk:** if we ended the
+Clerk session, the takeover vector above re-opens — anonymous
+`POST /devices/register` would let any caller claim the account.
+Keeping Clerk live means the device stays authenticated-as-the-user
+the whole pause; the dispatcher just refuses to ship. Resume flips
+the flag back; nothing else needs to happen.
 
-## Sign in again — same identity, after _Keep on this device_
+**The `paused` flag.** Lives on `sync_state` (single-row table).
+`isPaused(db)` is checked by both the outbox dispatcher and pull-sync
+right after `isHalted` — halted takes priority so any 4xx error
+surfaces in the UI ahead of any "you paused me" affordance. Resume
+clears _both_ flags in a single transaction (along with flipping any
+`failed` outbox rows back to `pending` for retry), so a single Resume
+button on the banner covers both stop paths.
+
+## Sign in again — same identity, after _Remove server data and sign out_
 
 Branch: outbox re-ship into a brand-new server account. The user
 signed out keeping their data; they sign back in (any identity, but
@@ -490,46 +511,42 @@ A_other) the upgrade returns 409 and we fall into the pair-fallback
 flow described below — and the user picks whether to push local data
 up or pull server data down.
 
-## Sign in again — same identity, after _Sign out completely_
+## Resume after _Pause server sync_
 
-Branch: silent pair-fallback into the surviving server account.
-Local SQLite is empty (we wiped it on sign-out). The fresh `deviceId`
-minted on launch matches nothing server-side.
+No re-sign-in needed. The Account screen renders a calm "Sync paused"
+banner whenever `sync_state.paused = true`; tapping _Resume sync_
+calls `resumeDispatch(db)` (the same helper the
+red "Not syncing right now" banner uses for halt recovery), which in
+a single transaction clears `paused`, clears `halted`, and flips any
+`'failed'` outbox rows back to `'pending'`. Then a kick fires the
+dispatcher immediately so the backlog drains without waiting on the
+safety timer.
 
 ```mermaid
 sequenceDiagram
     autonumber
     participant U as User
     participant App as App
+    participant Local as Local SQLite
     participant Server as Nag backend
 
-    U->>App: Sign in with Apple
-    Note over App: First launch since sign-out:<br/>ensureDeviceRegistered mints<br/>a fresh deviceId.
-    App->>Server: POST /devices/register {deviceId: <fresh>}
-    Server-->>App: 201 {accountId: A_anon, deviceToken}
-    App->>Server: POST /accounts/me/identity {idpToken: apple}
-    Note over Server: apple_sub is bound to A_orig<br/>(the surviving account from before).
-    Server-->>App: 409 "this identity is already bound<br/>to a different account"
-    App->>App: runPairFallback() · no local habits<br/>→ silent runReplaceLocal()
-    App->>Server: POST /devices/pair {deviceId: <fresh>, idpToken: apple}
-    Note over Server: A_anon is anonymous<br/>(IdpSubject still null) → re-parent the device<br/>onto A_orig.
-    Server-->>App: 200 {accountId: A_orig, deviceToken: <new>}
-    App->>App: switchLocalAccount(A_orig)
-    App->>Server: GET /sync?since=0
-    Server-->>App: every event for A_orig
+    U->>App: Tap "Resume sync"
+    App->>Local: resumeDispatch()<br/>(sync_state.paused = false,<br/>halted = false, failed → pending)
+    App->>App: kickSync("resume")
+    loop dispatcher ticks
+        App->>Local: SELECT FROM outbox WHERE status='pending'
+        Local-->>App: events queued during the pause
+        App->>Server: POST /events {envelope}
+        Server-->>App: 200/201
+        App->>Local: UPDATE outbox SET status='sent', server_sequence=…
+    end
 ```
 
-Alice's data is back, the orphan `A_anon` survives server-side
-(no devices, no IdpSubject), and the device is now properly paired
-into the original account. Same-device single-user case is fully
-recoverable.
-
-If the user signs in with a _different_ identity here, the 409 still
-fires but on the path through `runPairFallback` the user gets the
-prompt (because there are no local habits, the silent-pair branch
-runs and we'd be signing them into someone else's account — which is
-why hard sign-out wiping local data matters: it gates this case
-behind a sign-in to the actual owner of the existing account).
+Pause doesn't disturb the outbox at all — new events created while
+paused get appended as `'pending'` rows the same way they would
+during normal operation, and they ship in order on resume. The Clerk
+session never closed, so the device token still authenticates the
+ship.
 
 ## Sign in with an identity that already owns _another_ account
 
@@ -653,9 +670,10 @@ sequenceDiagram
 `POST /accounts/me/identity` returns a 409 in exactly one situation
 now: the verified Clerk sub is already bound to another account
 somewhere. (The previous "account is bound to a different identity"
-409 is impossible from a hard-sign-out device — its local `deviceId`
-no longer matches any server row, so the upgrade runs against a
-freshly-registered, unbound account.)
+409 is impossible because _Remove server data and sign out_ deletes
+the old server account, so the next sign-in's upgrade runs against
+a freshly-registered, unbound account — there's no old identity
+binding left to conflict with.)
 
 ```mermaid
 flowchart TD
@@ -700,10 +718,12 @@ generate` to regenerate the typed Zodios client.
 
 ## State summary
 
-The local `identity` row is the durable record of "what state is this
-device in". Three reachable states; `Fresh` and `Wiped` are
-indistinguishable to the device (no row, no data) but reached via
-different paths.
+Three reachable states plus a `Paused` sub-state of `Signed_in`.
+`Paused` is a flag (`sync_state.paused`), not a separate identity
+state — the device is still signed in to Clerk and the server, the
+dispatcher just refuses to ship. `Anonymous_local` is "no server
+binding at all"; `Fresh` is the first-install variant of the same
+shape.
 
 ```mermaid
 stateDiagram-v2
@@ -711,24 +731,23 @@ stateDiagram-v2
 
     Fresh --> Signed_in : sign in (register + upgrade)
 
-    Signed_in --> Anonymous_local : Sign out → Keep on this device<br/>(DELETE /accounts/me +<br/>disconnectFromCloud)
-    Signed_in --> Wiped : Sign out → Sign out completely<br/>(resetLocalAccount<br/>= delete identity row + wipe data)
+    Signed_in --> Paused : Sign out → Pause server sync<br/>(sync_state.paused = true)
+    Paused --> Signed_in : Resume sync<br/>(resumeDispatch — clears paused +<br/>flips failed → pending,<br/>flushes outbox backlog)
+
+    Signed_in --> Anonymous_local : Sign out → Remove server data and sign out<br/>(DELETE /accounts/me +<br/>disconnectFromCloud + clerk.signOut)
+    Paused --> Anonymous_local : Sign out → Remove server data and sign out
     Signed_in --> [*] : Delete account
+    Paused --> [*] : Delete account
 
     Anonymous_local --> Signed_in : sign in (any identity)<br/>fresh register + upgrade<br/>outbox flushes existing data
     Anonymous_local --> [*] : Delete account
-
-    Wiped --> Signed_in : sign in (same identity)<br/>→ runPairFallback silent re-pair into surviving account
-    Wiped --> Signed_in : sign in (new identity)<br/>fresh register + upgrade
-    Wiped --> [*] : (no path — state is empty)
 ```
 
 `Fresh` is the first-install state — no identity row, no local data,
-no server presence. `Wiped` is reached by _Sign out → Sign out
-completely_: same local appearance as `Fresh` but the server has a
-surviving account that's recoverable via same-identity sign-in.
-`Anonymous_local` is reached by _Sign out → Keep on this device_:
-local data and outbox preserved, no server presence at all, app
-usable offline indefinitely. Both `Anonymous_local` and `Wiped`
-transition cleanly back to `Signed_in` on the next sign-in — just
-via different reconciliation paths.
+no server presence. `Anonymous_local` is reached by _Sign out →
+Remove server data and sign out_: local data and outbox preserved,
+no server presence at all, app usable offline indefinitely; the next
+sign-in registers a fresh server account that the outbox flushes
+into. `Paused` is reached by _Sign out → Pause server sync_:
+identity row untouched, Clerk session still alive, dispatcher +
+pull-sync both refuse to run until the user taps Resume.

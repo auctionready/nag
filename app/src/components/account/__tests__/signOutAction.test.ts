@@ -2,7 +2,7 @@ import { Alert } from "react-native";
 
 jest.mock("@nag/core", () => ({
   disconnectFromCloud: jest.fn(),
-  resetLocalAccount: jest.fn(),
+  pauseDispatch: jest.fn(),
 }));
 
 jest.mock("../../../infrastructure/apiClient", () => ({
@@ -33,7 +33,7 @@ jest.mock("../../../infrastructure/log", () => ({
 import { confirmAndSignOut } from "../signOutAction";
 import {
   disconnectFromCloud as mockDisconnectFromCloud,
-  resetLocalAccount as mockResetLocalAccount,
+  pauseDispatch as mockPauseDispatch,
 } from "@nag/core";
 import { deleteAccount as mockDeleteAccount } from "../../../infrastructure/apiClient";
 import { clearAllClerkTokens as mockClearAllClerkTokens } from "../../../infrastructure/clerk";
@@ -70,41 +70,39 @@ describe("confirmAndSignOut", () => {
     alertSpy.mockRestore();
   });
 
-  it("shows a three-choice dialog (Cancel / Keep / Wipe)", () => {
+  it("shows a three-choice dialog (Cancel / Remove server data and sign out / Pause server sync)", () => {
     confirmAndSignOut(clerkSignOut);
     expect(alertSpy).toHaveBeenCalledTimes(1);
     const buttons = alertSpy.mock.calls[0][2] as AlertButton[];
     expect(buttons.map((b) => b.text)).toEqual([
       "Cancel",
-      "Keep on this device",
-      "Sign out completely",
+      "Remove server data and sign out",
+      "Pause server sync",
     ]);
   });
 
   it("Cancel → no API calls, no local mutation, no Clerk sign-out", () => {
     confirmAndSignOut(clerkSignOut);
-    // Cancel has no onPress — the helper relies on the modal closing
-    // on its own. Assert that *nothing* else fired meanwhile.
     expect(mockDeleteAccount).not.toHaveBeenCalled();
     expect(mockDisconnectFromCloud).not.toHaveBeenCalled();
-    expect(mockResetLocalAccount).not.toHaveBeenCalled();
+    expect(mockPauseDispatch).not.toHaveBeenCalled();
     expect(mockClearAllClerkTokens).not.toHaveBeenCalled();
     expect(clerkSignOut).not.toHaveBeenCalled();
   });
 
-  describe("Keep on this device (Option A)", () => {
+  describe("Remove server data and sign out", () => {
     it("happy path: deleteAccount → disconnectFromCloud → clerk tokens cleared → Clerk signOut", async () => {
       (mockDeleteAccount as jest.Mock).mockResolvedValue({ ok: true });
 
       confirmAndSignOut(clerkSignOut);
-      await pressAlertButton(alertSpy, "Keep on this device");
+      await pressAlertButton(alertSpy, "Remove server data and sign out");
 
       expect(mockDeleteAccount).toHaveBeenCalledTimes(1);
       expect(mockDisconnectFromCloud).toHaveBeenCalledTimes(1);
       expect(mockClearAllClerkTokens).toHaveBeenCalledTimes(1);
       expect(clerkSignOut).toHaveBeenCalledTimes(1);
-      // Local-wipe path must NOT run in the keep-data branch.
-      expect(mockResetLocalAccount).not.toHaveBeenCalled();
+      // Pause branch must not run from the remove-server-data branch.
+      expect(mockPauseDispatch).not.toHaveBeenCalled();
     });
 
     it("server delete 500 → error alert with HTTP prefix, local state preserved, no Clerk signOut", async () => {
@@ -116,18 +114,14 @@ describe("confirmAndSignOut", () => {
       });
 
       confirmAndSignOut(clerkSignOut);
-      await pressAlertButton(alertSpy, "Keep on this device");
+      await pressAlertButton(alertSpy, "Remove server data and sign out");
 
-      // The error alert is the *second* Alert.alert call (the first
-      // was the confirm dialog itself).
       expect(alertSpy.mock.calls.length).toBeGreaterThanOrEqual(2);
       expect(alertSpy.mock.calls[1][0]).toBe("Couldn't sign out cleanly");
       expect(alertSpy.mock.calls[1][1]).toContain("HTTP 500");
 
-      // Critical: the local-cleanup + Clerk sign-out must NOT run when
-      // the server delete failed — otherwise the device would be in
-      // a stuck state with no local binding *and* an orphan server
-      // account still referenced by other devices.
+      // Critical: local cleanup + Clerk sign-out must NOT run when the
+      // server delete failed.
       expect(mockDisconnectFromCloud).not.toHaveBeenCalled();
       expect(mockClearAllClerkTokens).not.toHaveBeenCalled();
       expect(clerkSignOut).not.toHaveBeenCalled();
@@ -141,7 +135,7 @@ describe("confirmAndSignOut", () => {
       });
 
       confirmAndSignOut(clerkSignOut);
-      await pressAlertButton(alertSpy, "Keep on this device");
+      await pressAlertButton(alertSpy, "Remove server data and sign out");
 
       expect(alertSpy.mock.calls[1][0]).toBe("Couldn't sign out cleanly");
       expect(alertSpy.mock.calls[1][1]).toBe("network down");
@@ -153,37 +147,38 @@ describe("confirmAndSignOut", () => {
       clerkSignOut.mockRejectedValueOnce(new Error("clerk offline"));
 
       confirmAndSignOut(clerkSignOut);
-      await pressAlertButton(alertSpy, "Keep on this device");
+      await pressAlertButton(alertSpy, "Remove server data and sign out");
 
-      // Local state was cleared before Clerk failed; we don't roll back.
       expect(mockDisconnectFromCloud).toHaveBeenCalledTimes(1);
       expect(mockClearAllClerkTokens).toHaveBeenCalledTimes(1);
     });
   });
 
-  describe("Sign out completely (Option B)", () => {
-    it("happy path: resetLocalAccount → clerk tokens cleared → Clerk signOut; server untouched", async () => {
+  describe("Pause server sync", () => {
+    it("happy path: pauseDispatch only — no server calls, no Clerk signOut", async () => {
       confirmAndSignOut(clerkSignOut);
-      await pressAlertButton(alertSpy, "Sign out completely");
+      await pressAlertButton(alertSpy, "Pause server sync");
 
-      expect(mockResetLocalAccount).toHaveBeenCalledTimes(1);
-      expect(mockClearAllClerkTokens).toHaveBeenCalledTimes(1);
-      expect(clerkSignOut).toHaveBeenCalledTimes(1);
-      // The Wipe branch is intentionally local-only — the server-side
-      // account stays alive so a future same-identity sign-in can
-      // recover the data via runPairFallback.
+      expect(mockPauseDispatch).toHaveBeenCalledTimes(1);
+      // Critical contract: pause is reversible from the Account-screen
+      // banner, so the Clerk session and server state must stay intact.
       expect(mockDeleteAccount).not.toHaveBeenCalled();
       expect(mockDisconnectFromCloud).not.toHaveBeenCalled();
+      expect(mockClearAllClerkTokens).not.toHaveBeenCalled();
+      expect(clerkSignOut).not.toHaveBeenCalled();
     });
 
-    it("Clerk signOut throws → swallows the error so local wipe isn't rolled back", async () => {
-      clerkSignOut.mockRejectedValueOnce(new Error("clerk offline"));
-
+    it("Pause button is not styled as destructive (no data loss; reversible)", () => {
       confirmAndSignOut(clerkSignOut);
-      await pressAlertButton(alertSpy, "Sign out completely");
-
-      expect(mockResetLocalAccount).toHaveBeenCalledTimes(1);
-      expect(mockClearAllClerkTokens).toHaveBeenCalledTimes(1);
+      const buttons = alertSpy.mock.calls[0][2] as Array<
+        AlertButton & { style?: string }
+      >;
+      const pauseBtn = buttons.find((b) => b.text === "Pause server sync");
+      expect(pauseBtn?.style).toBeUndefined();
+      const removeBtn = buttons.find(
+        (b) => b.text === "Remove server data and sign out",
+      );
+      expect(removeBtn?.style).toBe("destructive");
     });
   });
 });

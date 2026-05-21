@@ -277,7 +277,7 @@ export const switchLocalAccount = async ({
     await db.delete(outbox);
     await db
       .update(syncState)
-      .set({ halted: false, highestServerSequence: 0 })
+      .set({ halted: false, paused: false, highestServerSequence: 0 })
       .where(eq(syncState.id, 1));
     await db
       .update(identity)
@@ -384,7 +384,7 @@ export const resetLocalAccount = async ({
     await db.delete(outbox);
     await db
       .update(syncState)
-      .set({ halted: false, highestServerSequence: 0 })
+      .set({ halted: false, paused: false, highestServerSequence: 0 })
       .where(eq(syncState.id, 1));
     await db.delete(identity).where(eq(identity.id, 1));
   });
@@ -450,7 +450,7 @@ export const disconnectFromCloud = async ({
   await withTransaction(db, async () => {
     await db
       .update(syncState)
-      .set({ halted: false, highestServerSequence: 0 })
+      .set({ halted: false, paused: false, highestServerSequence: 0 })
       .where(eq(syncState.id, 1));
     await db
       .update(outbox)

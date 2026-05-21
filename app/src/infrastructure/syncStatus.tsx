@@ -16,11 +16,13 @@ import {
   createDispatcher,
   createPullSync,
   makeSingleflight,
+  pauseDispatch,
   resumeDispatch,
   countPending,
   countFailed,
   getAccountId,
   isHalted,
+  isPaused,
   type DispatchStatus,
 } from "@nag/core";
 import { db } from "../db";
@@ -74,7 +76,8 @@ export type SyncUiStatus =
   | "idle"
   | "syncing"
   | "offline"
-  | "halted";
+  | "halted"
+  | "paused";
 
 export type SyncStatusContextValue = {
   status: SyncUiStatus;
@@ -82,6 +85,14 @@ export type SyncStatusContextValue = {
   failedCount: number;
   lastError: string | null;
   resume: () => Promise<void>;
+  /**
+   * User-initiated pause. Halts the dispatcher + pull-sync via the
+   * `sync_state.paused` flag — both stop on their next tick and stay
+   * stopped until `resume` is called. Distinct from the implicit halt
+   * a 4xx triggers: pause carries no error, no Sentry alarm, and isn't
+   * cleared by a successful device re-registration.
+   */
+  pause: () => Promise<void>;
   /**
    * Imperative trigger for the sync loop. Use after non-event-driven
    * state changes (e.g. swapping the local account on second-device
@@ -107,6 +118,7 @@ const SyncStatusContext = createContext<SyncStatusContextValue>({
   failedCount: 0,
   lastError: null,
   resume: async () => {},
+  pause: async () => {},
   kickSync: () => {},
   // Default true so the sync indicators stay hidden during the brief
   // pre-mount window where the real state hasn't been resolved yet.
@@ -168,27 +180,34 @@ export const SyncStatusProvider = ({ children }: PropsWithChildren) => {
 
   const refreshCounts = useCallback(async () => {
     try {
-      const [accountId, p, f, h] = await Promise.all([
+      const [accountId, p, f, h, paused] = await Promise.all([
         getAccountId(db),
         countPending(db),
         countFailed(db),
         isHalted(db),
+        isPaused(db),
       ]);
       logger.debug(
-        `counts pending=${p} failed=${f} halted=${h} anonymous=${!accountId}`,
+        `counts pending=${p} failed=${f} halted=${h} paused=${paused} anonymous=${!accountId}`,
       );
       breadcrumb("refreshCounts", {
         pending: p,
         failed: f,
         halted: h,
+        paused,
         anonymous: !accountId,
         accountId: accountId ?? null,
       });
       setPendingCount(p);
       setFailedCount(f);
       setIsAnonymous(!accountId);
+      // Halted wins over paused — see the matching comment in
+      // `dispatcher.ts`. The original 4xx error needs to be visible
+      // before any "you paused me" affordance.
       if (h) {
         setStatus("halted", "refreshCounts:isHalted");
+      } else if (paused) {
+        setStatus("paused", "refreshCounts:isPaused");
       }
     } catch (e) {
       logger.error("refreshCounts failed", e);
@@ -313,6 +332,12 @@ export const SyncStatusProvider = ({ children }: PropsWithChildren) => {
           // claiming we're offline either.
           onlineRef.current = true;
           setStatus("halted", `inner:push-halted:run[${runId}]`);
+        } else if (pushResult === "paused") {
+          // User-initiated pause — the dispatcher short-circuited
+          // before touching the wire, so we can't claim network
+          // health either way. Don't touch onlineRef; just surface
+          // the paused state so the banner renders.
+          setStatus("paused", `inner:push-paused:run[${runId}]`);
         } else if (pushResult === "offline") {
           setStatus("offline", `inner:push-offline:run[${runId}]`);
         } else if (__DEV__ && devFlags.disablePullSync) {
@@ -338,6 +363,9 @@ export const SyncStatusProvider = ({ children }: PropsWithChildren) => {
           switch (pullResult) {
             case "halted":
               setStatus("halted", `inner:pull-halted:run[${runId}]`);
+              break;
+            case "paused":
+              setStatus("paused", `inner:pull-paused:run[${runId}]`);
               break;
             case "offline":
               setStatus("offline", `inner:pull-offline:run[${runId}]`);
@@ -557,6 +585,23 @@ export const SyncStatusProvider = ({ children }: PropsWithChildren) => {
     }
   }, [kickSync, refreshCounts]);
 
+  const pause = useCallback(async () => {
+    logger.info("pause requested");
+    report(`nag.sync.pause requested`, "info", {
+      status: statusRef.current,
+    });
+    try {
+      await pauseDispatch(db);
+      // No need to clear `lastError` — pause is a clean user action,
+      // not a recovery from an error. `refreshCounts` repopulates
+      // status to "paused" since `isHalted` is false now.
+      await refreshCounts();
+    } catch (e) {
+      logger.error("pause failed", e);
+      Sentry.captureException(e, { tags: { area: "sync" } });
+    }
+  }, [refreshCounts]);
+
   const value = useMemo<SyncStatusContextValue>(
     () => ({
       status: enabled ? status : "disabled",
@@ -564,6 +609,7 @@ export const SyncStatusProvider = ({ children }: PropsWithChildren) => {
       failedCount,
       lastError,
       resume,
+      pause,
       kickSync,
       isAnonymous,
     }),
@@ -574,6 +620,7 @@ export const SyncStatusProvider = ({ children }: PropsWithChildren) => {
       failedCount,
       lastError,
       resume,
+      pause,
       kickSync,
       isAnonymous,
     ],

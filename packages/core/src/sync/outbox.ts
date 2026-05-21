@@ -134,6 +134,14 @@ export const isHalted = async (db: AnyDb): Promise<boolean> => {
   return row?.halted === true;
 };
 
+export const isPaused = async (db: AnyDb): Promise<boolean> => {
+  const [row] = await db
+    .select({ paused: syncState.paused })
+    .from(syncState)
+    .where(eq(syncState.id, 1));
+  return row?.paused === true;
+};
+
 /**
  * Clears the halt flag without touching outbox rows. Called automatically
  * after a successful device (re-)registration: a working credential is
@@ -148,15 +156,31 @@ export const clearHalted = async (db: AnyDb): Promise<void> => {
 };
 
 /**
- * Clears the halted flag AND transitions every `failed` row back to
- * `pending` in one transaction. Envelope IDs are preserved so retries remain
- * idempotent on the server. Called by the app's "Resume sync" admin action.
+ * Sets `sync_state.paused = true`, which causes the outbox dispatcher
+ * and pull-sync to short-circuit on their next tick. Distinct from
+ * `halted` (which carries an error story); pause is a deliberate
+ * user-initiated stop with no error, undone only by an explicit
+ * `resumeDispatch`. The Clerk session stays live so the device
+ * remains owned by the signed-in user — the dispatcher just refuses
+ * to ship.
+ */
+export const pauseDispatch = async (db: AnyDb): Promise<void> => {
+  await db.update(syncState).set({ paused: true }).where(eq(syncState.id, 1));
+};
+
+/**
+ * Clears BOTH `halted` and `paused` AND transitions every `failed` row
+ * back to `pending` in one transaction. Envelope IDs are preserved so
+ * retries remain idempotent on the server. Called by the user's
+ * "Resume sync" action — covers both the "halted on a 4xx" recovery
+ * path and the "I paused this on purpose, let it go again" path with
+ * the same single button.
  */
 export const resumeDispatch = async (db: AnyDb): Promise<void> =>
   withTransaction(db, async () => {
     await db
       .update(syncState)
-      .set({ halted: false })
+      .set({ halted: false, paused: false })
       .where(eq(syncState.id, 1));
     await db
       .update(outbox)
