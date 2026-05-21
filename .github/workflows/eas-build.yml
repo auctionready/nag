@@ -28,7 +28,7 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - uses: jdx/mise-action@v4
+      - uses: ./.github/actions/node-setup
 
       - name: Resolve profile
         id: profile
