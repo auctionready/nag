@@ -11,8 +11,11 @@ const logger = log("freshInstall");
 // touched the key this session.
 const CLERK_JWT_KEY = "__clerk_client_jwt";
 const DEVICE_TOKEN_KEY = "nag.deviceToken";
-// Mirrors `BACKEND_KEY` in devOverrides.ts. Hardcoded here so the wipe
-// stays a leaf module with no dev-menu dependency.
+// Mirrors `BACKEND_KEY` in devOverrides.ts. Hardcoded here so this
+// wipe stays a leaf module with no dev-menu dependency. Wiped on
+// genuine reinstall and on the "Clear whole device" dev-menu item
+// (both drop the migrations table); the cheaper "Clear database"
+// option keeps the schema so the override survives, as intended.
 const BACKEND_OVERRIDE_KEY = "nag.devOverride.backend";
 
 /**
