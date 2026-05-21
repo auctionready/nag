@@ -59,7 +59,23 @@ export const createDatabase = (args: DatabaseArgs): Database => {
         suspendTimeoutSeconds: args.suspendTimeoutSeconds,
       },
     },
-    { provider, protect: true },
+    {
+      provider,
+      protect: true,
+      // Treat the project as create-only. On Neon's free tier, every
+      // project-update API call is rejected with "editing maintenance
+      // window preferences is not allowed for this account" because the
+      // provider bundles maintenance-window settings into the request.
+      // Ignoring drift on these fields keeps the prod deploy unblocked;
+      // if/when this account is upgraded off the free tier the constraint
+      // can be relaxed. Manage these settings in the Neon console.
+      ignoreChanges: [
+        "name",
+        "branch",
+        "defaultEndpointSettings",
+        "historyRetentionSeconds",
+      ],
+    },
   );
 
   return {
