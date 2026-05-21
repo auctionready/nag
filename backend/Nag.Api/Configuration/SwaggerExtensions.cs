@@ -14,6 +14,7 @@ public static class SwaggerExtensions
             c.UseAllOfToExtendReferenceSchemas();
             c.SchemaFilter<EnumSchemaFilter>();
             c.DocumentFilter<CommandSchemasFilter>();
+            c.DocumentFilter<RemoveIResultResponseFilter>();
             c.OperationFilter<AllowAnonymousSecurityFilter>();
             c.AddSecurityDefinition(
                 "Bearer",

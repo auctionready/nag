@@ -38,9 +38,6 @@ export type ReleaseAccountIdentityRequest = z.infer<
   typeof ReleaseAccountIdentityRequest
 >;
 
-export const IResult = z.object({}).partial();
-export type IResult = z.infer<typeof IResult>;
-
 export const RebuildProjectionsRequest = z
   .object({ secret: z.string().nullable() })
   .partial();
@@ -592,7 +589,7 @@ export const endpoints = makeApi([
         schema: z.object({ idpToken: z.string().nullable() }).partial(),
       },
     ],
-    response: z.object({}).partial(),
+    response: z.void(),
     errors: [
       { status: 400, schema: ErrorResponse },
       { status: 401, schema: ErrorResponse },
@@ -604,7 +601,7 @@ export const endpoints = makeApi([
     path: "/accounts/me",
     alias: "deleteAccountsMe",
     parameters: [],
-    response: z.object({}).partial(),
+    response: z.void(),
     errors: [
       { status: 401, schema: ErrorResponse },
       { status: 404, schema: ErrorResponse },
@@ -765,7 +762,7 @@ export const endpoints = makeApi([
     path: "/health",
     alias: "getHealth",
     parameters: [],
-    response: z.object({}).partial(),
+    response: z.void(),
     errors: [{ status: 404, schema: z.void() }],
   },
   {
