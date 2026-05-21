@@ -48,23 +48,23 @@ The source lives in [`backend/`](../backend) and has its own
 > token shapes, the authentication handler, tenant resolution, and the
 > account-lifecycle flows with sequence diagrams.
 
-| Method   | Path                                     | Auth | Notes                                                                                                        |
-| -------- | ---------------------------------------- | ---- | ------------------------------------------------------------------------------------------------------------ |
-| `POST`   | `/devices/register`                      | no   | First-launch device registration. Mints an account row and a device HMAC token, idempotent on `deviceId`.    |
-| `POST`   | `/devices/pair`                          | yes  | Pair the current device into another account (Clerk-authenticated fallback after a `/accounts/upgrade` 409). |
-| `POST`   | `/accounts/upgrade`                      | yes  | Bind this device's account to a Clerk identity. Returns 409 if the identity is already on another account.   |
-| `POST`   | `/accounts/unbind`                       | yes  | Drop the Clerk binding on this account so it can be re-claimed.                                              |
-| `DELETE` | `/accounts/me`                           | yes  | Permanently delete the caller's account: events, devices, projections, account row.                          |
-| `POST`   | `/events`                                | yes  | Append the past-tense events for one user intent. Idempotent on envelope `id`; body is the appended events.  |
-| `GET`    | `/events?since=<long>&limit=<int?>`      | yes  | Page of past-tense events; `limit` capped at 500.                                                            |
-| `GET`    | `/events/by-envelope/{id:guid}`          | yes  | Replay-safe: returns the events the server appended for one previously-POSTed envelope. 404 if unknown.      |
-| `GET`    | `/sync?since=<long>`                     | yes  | Pull-sync: replay (events) or snapshot (HomeBoard).                                                          |
-| `GET`    | `/home-board`                            | yes  | Materialized current-period view.                                                                            |
-| `GET`    | `/habits/{habitId:guid}/compliance`      | yes  | Per-habit historical compliance summary.                                                                     |
-| `GET`    | `/check-ins/monthly/{year}/{month}`      | yes  | Materialized check-ins for one calendar month (UTC).                                                         |
-| `GET`    | `/check-ins/weekly/{year}/{month}/{day}` | yes  | Materialized check-ins for one Sunday-anchored week. `day` = Sunday.                                         |
-| `POST`   | `/admin/rebuild-projections`             | yes  | Admin-only: drop and replay every projection for this account.                                               |
-| `GET`    | `/health`                                | no   | Liveness.                                                                                                    |
+| Method   | Path                                     | Auth | Notes                                                                                                                 |
+| -------- | ---------------------------------------- | ---- | --------------------------------------------------------------------------------------------------------------------- |
+| `POST`   | `/devices`                               | no   | First-launch device registration. Mints an account row and a device HMAC token, idempotent on `deviceId`.             |
+| `POST`   | `/accounts/me/devices`                   | yes  | Pair the current device into another account (Clerk-authenticated fallback after a `POST /accounts/me/identity` 409). |
+| `POST`   | `/accounts/me/identity`                  | yes  | Bind this device's account to a Clerk identity. Returns 409 if the identity is already on another account.            |
+| `DELETE` | `/accounts/me/identity`                  | yes  | Drop the Clerk binding on this account so it can be re-claimed.                                                       |
+| `DELETE` | `/accounts/me`                           | yes  | Permanently delete the caller's account: events, devices, projections, account row.                                   |
+| `POST`   | `/events`                                | yes  | Append the past-tense events for one user intent. Idempotent on envelope `id`; body is the appended events.           |
+| `GET`    | `/events?since=<long>&limit=<int?>`      | yes  | Page of past-tense events; `limit` capped at 500.                                                                     |
+| `GET`    | `/events/by-envelope/{id:guid}`          | yes  | Replay-safe: returns the events the server appended for one previously-POSTed envelope. 404 if unknown.               |
+| `GET`    | `/sync?since=<long>`                     | yes  | Pull-sync: replay (events) or snapshot (HomeBoard).                                                                   |
+| `GET`    | `/home-board`                            | yes  | Materialized current-period view.                                                                                     |
+| `GET`    | `/habits/{habitId:guid}/compliance`      | yes  | Per-habit historical compliance summary.                                                                              |
+| `GET`    | `/check-ins/monthly/{year}/{month}`      | yes  | Materialized check-ins for one calendar month (UTC).                                                                  |
+| `GET`    | `/check-ins/weekly/{year}/{month}/{day}` | yes  | Materialized check-ins for one Sunday-anchored week. `day` = Sunday.                                                  |
+| `POST`   | `/admin/rebuild-projections`             | yes  | Admin-only: drop and replay every projection for this account.                                                        |
+| `GET`    | `/health`                                | no   | Liveness.                                                                                                             |
 
 In Debug builds the OpenAPI UI lives at `/swagger` and a hidden
 `GET /dev/token` endpoint mints a stable HMAC bearer for the Swagger UI

@@ -27,7 +27,7 @@ public class AccountsEndpointsTests : IClassFixture<AccountsEndpointsTests.Facto
     public sealed class Factory : NagApiFactory;
 
     /// <summary>
-    /// Bootstraps an account+device pair the way <c>POST /devices/register</c>
+    /// Bootstraps an account+device pair the way <c>POST /devices</c>
     /// would in production. Returns an authed client (Bearer = the freshly
     /// issued device token) ready to call any of the account endpoints.
     /// </summary>
@@ -36,7 +36,7 @@ public class AccountsEndpointsTests : IClassFixture<AccountsEndpointsTests.Facto
         var client = _factory.CreateClient();
         var deviceId = Guid.NewGuid();
         var resp = await client.PostAsJsonAsync(
-            "/devices/register",
+            "/devices",
             new RegisterDeviceRequest(deviceId, "test")
         );
         resp.StatusCode.ShouldBe(HttpStatusCode.Created);
@@ -256,7 +256,7 @@ public class AccountsEndpointsTests : IClassFixture<AccountsEndpointsTests.Facto
 
     /// <summary>
     /// Bootstraps a registered+upgraded account and returns the authed
-    /// HTTP client (Bearer = the device token from <c>/devices/register</c>),
+    /// HTTP client (Bearer = the device token from <c>POST /devices</c>),
     /// ready to call <c>DELETE /accounts/me/identity</c>.
     /// </summary>
     private async Task<(Guid AccountId, Guid DeviceId, HttpClient Client)> RegisterAndUpgradeAsync(

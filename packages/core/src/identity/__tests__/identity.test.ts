@@ -425,8 +425,8 @@ describe("switchLocalAccount", () => {
     const after = await loadIdentity(db);
     expect(after?.accountId).toBe("00000000-0000-4000-8000-0000000000bb");
     expect(after?.registeredAt?.toISOString()).toBe("2026-05-02T12:00:00.000Z");
-    // deviceId is intentionally preserved — server's /devices/pair just
-    // re-parents the existing Device row.
+    // deviceId is intentionally preserved — server's POST /accounts/me/devices
+    // just re-parents the existing Device row.
     expect(after?.deviceId).toBe("00000000-0000-4000-8000-000000000001");
 
     expect(await db.select().from(habit)).toHaveLength(0);

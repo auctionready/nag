@@ -578,7 +578,7 @@ describe("dispatcher gating on device registration", () => {
     await seedThreeCommands(db);
 
     // Clear the identity row that testDb seeds by default — simulate a
-    // device that hasn't yet completed POST /devices/register.
+    // device that hasn't yet completed POST /devices.
     await db.delete(schema.identity);
 
     const post = vi.fn();

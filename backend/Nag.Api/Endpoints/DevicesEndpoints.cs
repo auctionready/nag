@@ -6,35 +6,39 @@ using Nag.Api.Auth;
 using Nag.Api.Infrastructure.Http;
 using Nag.Core.Contracts;
 using Nag.Core.Domain;
-using Nag.Core.Idempotency;
-using Nag.Core.ReadModels;
 using Wolverine.Http;
 
 namespace Nag.Api.Endpoints;
 
 public static class DevicesEndpoints
 {
-    // NOTE: here because Alan is a fan of PRG and proper HTTP not because it is used at all
+    // Self-resource for the calling device. PRG target for POST /devices
+    // and POST /accounts/me/devices Location headers. Not invoked by the
+    // app today, but keeps register/pair able to return a proper
+    // 201/303 with an addressable target.
     [Tags("Devices")]
-    [EndpointName("getDevicesById")]
+    [EndpointName("getDevicesMe")]
     [ProducesResponseType(typeof(GetDeviceResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    [WolverineGet("/devices/{id:guid}", RouteName = "getDevicesById")]
-    public static async Task<IResult> GetDeviceById(
-        Guid id,
+    [WolverineGet("/devices/me", RouteName = "getDevicesMe")]
+    public static async Task<IResult> GetDeviceMe(
         ClaimsPrincipal user,
         IQuerySession session,
         CancellationToken ct
     )
     {
         var accountIdClaim = user.FindFirstValue(NagClaimTypes.AccountId);
-        if (!Guid.TryParse(accountIdClaim, out var accountId))
+        var deviceIdClaim = user.FindFirstValue(NagClaimTypes.DeviceId);
+        if (
+            !Guid.TryParse(accountIdClaim, out var accountId)
+            || !Guid.TryParse(deviceIdClaim, out var deviceId)
+        )
         {
             return Results.Extensions.Unauthorized(new ErrorResponse(["unauthenticated"]));
         }
 
-        var device = await session.LoadAsync<Device>(id, ct);
+        var device = await session.LoadAsync<Device>(deviceId, ct);
         if (device is null || device.AccountId != accountId)
             return Results.NotFound();
 
@@ -43,6 +47,13 @@ public static class DevicesEndpoints
         );
     }
 
+    /// <summary>
+    /// Registers a fresh anonymous account + device pair. The "register"
+    /// verb is the URL collection root because no owning account exists
+    /// yet to scope under <c>/accounts/{...}/devices</c>; once a Clerk
+    /// identity is in play, <c>POST /accounts/me/devices</c> is the
+    /// matching create-under-collection route.
+    /// </summary>
     [AllowAnonymous]
     [NotTenanted]
     [Tags("Devices")]
@@ -50,7 +61,7 @@ public static class DevicesEndpoints
     [ProducesResponseType(typeof(RegisterDeviceResponse), StatusCodes.Status201Created)]
     [ProducesResponseType(typeof(RegisterDeviceResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
-    [WolverinePost("/devices/register")]
+    [WolverinePost("/devices")]
     public static async Task<IResult> RegisterDevice(
         RegisterDeviceRequest request,
         IDocumentSession session,
@@ -71,11 +82,7 @@ public static class DevicesEndpoints
                 existing.RegisteredAt,
                 tokens.Issue(existing.AccountId, existing.Id)
             );
-            return Results.Extensions.FoundAtRoute(
-                "getDevicesById",
-                new { id = existing.Id },
-                body
-            );
+            return Results.Extensions.FoundAtRoute("getDevicesMe", new { }, body);
         }
 
         var now = clock.GetUtcNow();
@@ -98,14 +105,20 @@ public static class DevicesEndpoints
             device.RegisteredAt,
             tokens.Issue(account.Id, device.Id)
         );
-        return Results.Extensions.CreatedAtRoute("getDevicesById", new { id = device.Id }, created);
+        return Results.Extensions.CreatedAtRoute("getDevicesMe", new { }, created);
     }
 
     /// <summary>
-    /// Pairs a new device against an account that has already been upgraded
-    /// (its <c>IdpSubject</c> matches the verified token's <c>sub</c>).
-    /// Refuses to silently create a new account — the user must
-    /// upgrade an existing device first via <c>/accounts/upgrade</c>.
+    /// Creates a device under the account identified by the Clerk JWT in
+    /// the request body. The account must already be upgraded (its
+    /// <c>IdpSubject</c> matches the verified token's <c>sub</c>);
+    /// refuses to silently create a new account — the user must
+    /// upgrade an existing device first via <c>/accounts/me/identity</c>.
+    ///
+    /// "me" is resolved from the body-borne <c>idpToken</c>, matching the
+    /// pattern already established by <c>DELETE /accounts/by-clerk-identity</c>.
+    /// Kept <c>[AllowAnonymous]</c> because the calling device may not yet
+    /// hold a device token (the post-sign-in second-device flow).
     /// </summary>
     [AllowAnonymous]
     [NotTenanted]
@@ -117,7 +130,7 @@ public static class DevicesEndpoints
     [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status404NotFound)]
     [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status409Conflict)]
-    [WolverinePost("/devices/pair")]
+    [WolverinePost("/accounts/me/devices")]
     public static async Task<IResult> PairDevice(
         PairDeviceRequest request,
         IClerkTokenVerifier verifier,
@@ -165,11 +178,7 @@ public static class DevicesEndpoints
                     existing.RegisteredAt,
                     tokens.Issue(account.Id, existing.Id)
                 );
-                return Results.Extensions.FoundAtRoute(
-                    "getDevicesById",
-                    new { id = existing.Id },
-                    body
-                );
+                return Results.Extensions.FoundAtRoute("getDevicesMe", new { }, body);
             }
 
             // Device currently belongs to a different account. If that
@@ -206,11 +215,7 @@ public static class DevicesEndpoints
                 rebound.RegisteredAt,
                 tokens.Issue(account.Id, rebound.Id)
             );
-            return Results.Extensions.FoundAtRoute(
-                "getDevicesById",
-                new { id = rebound.Id },
-                reboundBody
-            );
+            return Results.Extensions.FoundAtRoute("getDevicesMe", new { }, reboundBody);
         }
 
         var now = clock.GetUtcNow();
@@ -230,7 +235,7 @@ public static class DevicesEndpoints
             device.RegisteredAt,
             tokens.Issue(account.Id, device.Id)
         );
-        return Results.Extensions.CreatedAtRoute("getDevicesById", new { id = device.Id }, created);
+        return Results.Extensions.CreatedAtRoute("getDevicesMe", new { }, created);
     }
 
 #if RESERVED_ENDPOINTS

@@ -50,10 +50,10 @@ Two token types are accepted. They're disambiguated by dot count, not
 by a prefix, so the wire is compact and the client doesn't have to
 declare its auth method.
 
-| Tokens          | Dots | Wire format                          | Issued by                                                                          | Validated by                     |
-| --------------- | ---- | ------------------------------------ | ---------------------------------------------------------------------------------- | -------------------------------- |
-| **Device HMAC** | 1    | `base64url(payload).base64url(hmac)` | the Nag server itself, on every successful `/devices/register` and `/devices/pair` | `DeviceTokenService.Validate`    |
-| **Clerk JWT**   | 2    | `header.payload.signature`           | Clerk (the IdP), as a session token issued to the mobile client                    | `ClerkTokenVerifier.VerifyAsync` |
+| Tokens          | Dots | Wire format                          | Issued by                                                                                  | Validated by                     |
+| --------------- | ---- | ------------------------------------ | ------------------------------------------------------------------------------------------ | -------------------------------- |
+| **Device HMAC** | 1    | `base64url(payload).base64url(hmac)` | the Nag server itself, on every successful `POST /devices` and `POST /accounts/me/devices` | `DeviceTokenService.Validate`    |
+| **Clerk JWT**   | 2    | `header.payload.signature`           | Clerk (the IdP), as a session token issued to the mobile client                            | `ClerkTokenVerifier.VerifyAsync` |
 
 `NagAuthenticationHandler.HandleAuthenticateAsync` reads the header,
 strips the `Bearer ` prefix, counts dots, and dispatches. Anything
@@ -120,7 +120,7 @@ delete fails fast.
 ## Clerk JWT
 
 Used only on the pre-pairing endpoints: `POST /accounts/me/identity`
-(in some places — also accepts device tokens), `POST /devices/pair`,
+(in some places — also accepts device tokens), `POST /accounts/me/devices`,
 `DELETE /accounts/by-clerk-identity`. The mobile client gets it from
 the Clerk SDK (`getToken()`).
 
@@ -178,12 +178,12 @@ So the failure mode is opt-in-only — forgetting an attribute on a new
 endpoint blocks the request, doesn't leak it. The bootstrap endpoints
 explicitly opt out:
 
-| Endpoint                 | Why anonymous                                                                       |
-| ------------------------ | ----------------------------------------------------------------------------------- |
-| `POST /devices/register` | first contact; no token to present yet                                              |
-| `POST /devices/pair`     | verifies an IdP token in the body instead — the caller has no device token          |
-| `GET /health`            | liveness probe                                                                      |
-| `GET /dev/token`         | local dev only; stripped from prod bundle (see [Dev-auth bypass](#dev-auth-bypass)) |
+| Endpoint                    | Why anonymous                                                                       |
+| --------------------------- | ----------------------------------------------------------------------------------- |
+| `POST /devices`             | first contact; no token to present yet                                              |
+| `POST /accounts/me/devices` | verifies an IdP token in the body instead — the caller has no device token          |
+| `GET /health`               | liveness probe                                                                      |
+| `GET /dev/token`            | local dev only; stripped from prod bundle (see [Dev-auth bypass](#dev-auth-bypass)) |
 
 ## Multi-tenancy: `account_id` → Marten
 
@@ -210,7 +210,7 @@ only happens in the cascade-delete paths, scoped to the _caller's own_
 account).
 
 A handful of endpoints don't operate on tenant-scoped data —
-`/accounts/me`, `/accounts/me/identity`, `/devices/{id}`,
+`/accounts/me`, `/accounts/me/identity`, `/devices/me`,
 `/devices/me`, `/health`. These carry the `[NotTenanted]` attribute so
 Marten's tenancy detection skips the claim lookup; they operate on the
 single-tenant `Account` and `Device` document types (which are _how_
@@ -233,7 +233,7 @@ sequenceDiagram
     Server-->>App: 401 (token expired or secret rotated)
     App->>App: onUnauthorized() → refreshDeviceToken()
     App->>TS: read deviceId
-    App->>Server: POST /devices/register {deviceId}
+    App->>Server: POST /devices {deviceId}
     Note over Server: idempotent on deviceId<br/>(returns same accountId, new HMAC)
     Server-->>App: 200 {accountId, deviceToken: device-token-X+1}
     App->>TS: set("device-token-X+1")
@@ -242,7 +242,7 @@ sequenceDiagram
     Server-->>App: 200
 ```
 
-The refresh path reuses `/devices/register` because the endpoint is
+The refresh path reuses `POST /devices` because the endpoint is
 idempotent on `deviceId` — re-registering an existing device returns
 the same `accountId` paired with a freshly-signed token. If the
 re-register itself fails the request gives up and propagates the 401
@@ -274,9 +274,9 @@ hits `/dev/token` instead of going through Clerk. Wired up in
 
 | Verb              | Path                          | Auth                             | `[NotTenanted]` | Used by                                                         |
 | ----------------- | ----------------------------- | -------------------------------- | --------------- | --------------------------------------------------------------- |
-| `POST`            | `/devices/register`           | anonymous                        | ✓               | First-launch register + the 401-refresh path                    |
-| `POST`            | `/devices/pair`               | anonymous (IdP token in body)    | ✓               | `runReplaceLocal` (server-data branch)                          |
-| `GET`             | `/devices/{id}`               | device token                     | —               | route only; not called from client                              |
+| `POST`            | `/devices`                    | anonymous                        | ✓               | First-launch register + the 401-refresh path                    |
+| `POST`            | `/accounts/me/devices`        | anonymous (IdP token in body)    | ✓               | `runReplaceLocal` (server-data branch)                          |
+| `GET`             | `/devices/me`                 | device token                     | —               | route only; not called from client                              |
 | `DELETE`          | `/devices/me`                 | device token                     | ✓               | "Start a new account" branch of `runIdentityMismatch`           |
 | `POST`            | `/accounts/me/identity`       | device token                     | ✓               | First-time bind + re-bind after `Switch this account`           |
 | `GET`             | `/accounts/me/identity`       | device token                     | ✓               | not currently called from client                                |
@@ -287,9 +287,12 @@ hits `/dev/token` instead of going through Clerk. Wired up in
 | `GET`             | `/health`                     | anonymous                        | ✓               | liveness probe                                                  |
 | (everything else) | various                       | device token                     | tenanted        | normal authenticated endpoints — events, sync, home-board, etc. |
 
-See [#212](https://github.com/auctionready/nag/issues/212) for the
-proposed REST-correct reshape of the `POST /devices/*` endpoints
-under `/accounts/me/devices`.
+The pair endpoint sits under `/accounts/me/devices` rather than
+`/devices/pair` because POST-to-a-collection is the canonical "create a
+new member" shape; the `me` is resolved from the body-borne `idpToken`
+the same way `DELETE /accounts/by-clerk-identity` does. The register
+endpoint stays at the collection root `/devices` because no owning
+account exists yet (it's the call that mints one).
 
 # Account lifecycle flows
 
@@ -323,7 +326,7 @@ Two other pieces of local state matter:
 
 > **Anonymous = local only.** The server never persists an account
 > without an `IdpSubject` bound to it (a brand-new
-> `POST /devices/register` row is bound the same request via
+> `POST /devices` row is bound the same request via
 > `/accounts/me/identity`). "Anonymous" in this doc always refers to a
 > device with no server state at all — purely local data.
 
@@ -367,7 +370,7 @@ different intents:
 The previous "soft sign-out" pattern (clear local token, keep
 `deviceId`, leave server alone) is intentionally gone — a leftover
 `deviceId` + still-alive server account + no Clerk session was a
-takeover vector: any subsequent caller of `POST /devices/register`
+takeover vector: any subsequent caller of `POST /devices`
 with the same id would idempotently receive an HMAC for the original
 account with no proof of ownership. _Remove server data and sign out_
 closes the hole by deleting the server-side row that the residual
@@ -394,7 +397,7 @@ sequenceDiagram
     Clerk-->>App: isSignedIn=true, user.id=apple_sub
     App->>Clerk: getToken()
     Clerk-->>App: idpToken
-    App->>Server: POST /devices/register {deviceId}
+    App->>Server: POST /devices {deviceId}
     Server-->>App: 201 {accountId, deviceToken}
     App->>Server: POST /accounts/me/identity {idpToken}<br/>(Bearer: deviceToken)
     Note over Server: Account.IdpSubject is null<br/>and sub is not bound elsewhere
@@ -450,7 +453,7 @@ What changes, per branch:
 
 **Why _Remove server data and sign out_ deletes the server-side
 account:** if we left it alive while preserving the local data, a
-subsequent `POST /devices/register` with the still-valid local
+subsequent `POST /devices` with the still-valid local
 `deviceId` (after Clerk had signed out) would return a fresh HMAC
 for the original account — letting whoever was next at the device
 read and own everything. The cascade-delete is what makes preserving
@@ -458,7 +461,7 @@ the local data safe.
 
 **Why _Pause server sync_ doesn't sign out of Clerk:** if we ended the
 Clerk session, the takeover vector above re-opens — anonymous
-`POST /devices/register` would let any caller claim the account.
+`POST /devices` would let any caller claim the account.
 Keeping Clerk live means the device stays authenticated-as-the-user
 the whole pause; the dispatcher just refuses to ship. Resume flips
 the flag back; nothing else needs to happen.
@@ -487,7 +490,7 @@ sequenceDiagram
     participant Server as Nag backend
 
     U->>App: Sign in with Apple
-    App->>Server: POST /devices/register {deviceId}
+    App->>Server: POST /devices {deviceId}
     Note over Server: deviceId is unknown<br/>(old row was cascaded out<br/>by the previous DELETE /accounts/me).<br/>Create fresh device + account.
     Server-->>App: 201 {accountId: A_new, deviceToken: <new>}
     App->>Server: POST /accounts/me/identity {idpToken: apple}
@@ -562,7 +565,7 @@ sequenceDiagram
     participant Server as Nag backend
 
     U->>App: Sign in with Google
-    App->>Server: POST /devices/register {deviceId}
+    App->>Server: POST /devices {deviceId}
     Server-->>App: 201 {accountId: A_new, deviceToken}
     App->>Server: POST /accounts/me/identity {idpToken: google}
     Note over Server: google_sub is bound to A_other<br/>(a different account on another device).
@@ -587,7 +590,7 @@ sequenceDiagram
     participant Local as Local SQLite
     participant Server as Nag backend
 
-    App->>Server: POST /devices/pair {deviceId, idpToken}
+    App->>Server: POST /accounts/me/devices {deviceId, idpToken}
     Note over Server: Re-parent device onto<br/>A_other (Google's existing account).
     Server-->>App: 200/201 {accountId: A_other, deviceToken: <new>}
     App->>Local: switchLocalAccount()<br/>(wipe data + outbox, set new accountId)
@@ -628,13 +631,13 @@ sequenceDiagram
     participant Server as Nag backend
 
     U->>Phone2: First launch + sign in with Apple
-    Phone2->>Server: POST /devices/register {deviceId}
+    Phone2->>Server: POST /devices {deviceId}
     Server-->>Phone2: 201 {accountId: A_phone2_anon, deviceToken}
     Phone2->>Server: POST /accounts/me/identity {idpToken: apple}
     Note over Server: apple_sub is already bound to<br/>A_phone1 (the other device's account).
     Server-->>Phone2: 409 "this identity is already bound<br/>to a different account"
     Phone2->>Phone2: runPairFallback() · no local habits<br/>→ silent runReplaceLocal()
-    Phone2->>Server: POST /devices/pair {deviceId, idpToken: apple}
+    Phone2->>Server: POST /accounts/me/devices {deviceId, idpToken: apple}
     Note over Server: Source account (A_phone2_anon)<br/>is anonymous → re-parent device<br/>onto A_phone1.
     Server-->>Phone2: 200 {accountId: A_phone1, deviceToken: <new>}
     Phone2->>Phone2: switchLocalAccount(A_phone1)
@@ -690,9 +693,9 @@ flowchart TD
 
 | Verb     | Path                          | Auth                             | Used by                                                                                                                 |
 | -------- | ----------------------------- | -------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
-| `POST`   | `/devices/register`           | anonymous                        | First-launch register + the 401-refresh path                                                                            |
-| `POST`   | `/devices/pair`               | anonymous (IdP token in body)    | `runReplaceLocal` (server-data branch of pair-fallback)                                                                 |
-| `GET`    | `/devices/{id}`               | device token                     | route only; not called from client                                                                                      |
+| `POST`   | `/devices`                    | anonymous                        | First-launch register + the 401-refresh path                                                                            |
+| `POST`   | `/accounts/me/devices`        | anonymous (IdP token in body)    | `runReplaceLocal` (server-data branch of pair-fallback)                                                                 |
+| `GET`    | `/devices/me`                 | device token                     | route only; not called from client                                                                                      |
 | `DELETE` | `/devices/me`                 | device token                     | **gated by `#if RESERVED_ENDPOINTS`** — not compiled into any build by default                                          |
 | `POST`   | `/accounts/me/identity`       | device token                     | First-time identity bind                                                                                                |
 | `GET`    | `/accounts/me/identity`       | device token                     | named-route target for the `Location` / `Content-Location` headers on `POST /accounts/me/identity`; not called directly |
@@ -711,10 +714,6 @@ they come back together with the endpoints. To revive: `dotnet build
 -p:DefineConstants=RESERVED_ENDPOINTS` (or set it in the csproj
 during development), then re-run `pnpm --filter @nag/api-client
 generate` to regenerate the typed Zodios client.
-
-> See [#212](https://github.com/auctionready/nag/issues/212) for the
-> proposed REST-correct reshape: moving the device endpoints under
-> `/accounts/me/devices`. Not blocking anything but tracked.
 
 ## State summary
 

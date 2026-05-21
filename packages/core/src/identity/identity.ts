@@ -94,7 +94,7 @@ export type EnsureDeviceRegisteredResult = {
  * then asks the server for an `accountId` if we don't already have one.
  *
  *   - First launch: generates a `deviceId`, persists it, calls
- *     `POST /devices/register`, stores the returned `accountId` in
+ *     `POST /devices`, stores the returned `accountId` in
  *     SQLite and the `deviceToken` in `tokenStore`.
  *   - Subsequent launches with `accountId` set and `tokenStore.get()`
  *     yielding a value: no-op (returns immediately).
@@ -188,7 +188,7 @@ export type RefreshDeviceTokenOptions = {
  * Forces a re-registration to refresh the persisted `deviceToken` after
  * the server rejects the current one (typically a 401 caused by the
  * server-side HMAC secret rotating). The persisted `deviceId` is reused
- * — `POST /devices/register` is idempotent on it — so the same account
+ * — `POST /devices` is idempotent on it — so the same account
  * keeps the same id, just with fresh credentials.
  *
  * Returns the new token on success, or `null` if registration failed
@@ -251,7 +251,7 @@ export type SwitchLocalAccountOptions = {
  * fresh snapshot from the new account.
  *
  * The `deviceId` is intentionally left untouched: the server's
- * `/devices/pair` call re-parents the existing Device row rather than
+ * `POST /accounts/me/devices` call re-parents the existing Device row rather than
  * issuing a new id, so the local id stays valid. The new device token
  * (signed for the new accountId) is written to `tokenStore` *after* the
  * SQLite transaction commits — secure-store writes aren't transactional,
@@ -306,7 +306,7 @@ export type ClearLocalAuthOptions = {
  *     to the server in the background)
  *
  * Preserves:
- *   - `identity.deviceId` — so the next sign-in calls `POST /devices/register`
+ *   - `identity.deviceId` — so the next sign-in calls `POST /devices`
  *     with the same id, hits the server's idempotent re-registration path,
  *     and rejoins the same Account
  *   - `habit`/`goal`/`schedule`/`checkIn` — the user's data survives sign-out
@@ -343,7 +343,7 @@ export type ResetLocalAccountOptions = {
  * full so the next launch mints a brand-new `deviceId`. Used by the
  * "Sign out completely" branch of the sign-out dialog: dropping the
  * `deviceId` is what cuts the takeover vector, since otherwise a
- * subsequent `POST /devices/register` with the same id would idempotently
+ * subsequent `POST /devices` with the same id would idempotently
  * return the previous account's accountId and re-establish auth without
  * any proof the new caller was the legitimate owner.
  *
@@ -406,7 +406,7 @@ export type DisconnectFromCloudOptions = {
  * my data" action. Called after `DELETE /accounts/me` has wiped the
  * server-side account so the local mirror is now disconnected from a
  * dead account; scrubbing the identity row here keeps a future
- * sign-in's `/devices/register` from "rejoining" an account that no
+ * sign-in's `POST /devices` from "rejoining" an account that no
  * longer exists.
  *
  * Same shape as `clearLocalAuth` (sign-out) plus a `sync_state` reset:

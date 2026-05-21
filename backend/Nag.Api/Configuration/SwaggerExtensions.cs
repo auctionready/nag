@@ -27,8 +27,9 @@ public static class SwaggerExtensions
                     In = ParameterLocation.Header,
                     Name = "Authorization",
                     Description =
-                        "Either a per-device HMAC token (issued at /devices/register, "
-                        + "/devices/pair, or /accounts/upgrade) or a Clerk JWT.",
+                        "Either a per-device HMAC token (issued at POST /devices, "
+                        + "POST /accounts/me/devices, or POST /accounts/me/identity) "
+                        + "or a Clerk JWT.",
                 }
             );
             c.AddSecurityRequirement(doc => new OpenApiSecurityRequirement

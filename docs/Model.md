@@ -75,7 +75,7 @@ erDiagram
     IDENTITY {
         integer id PK            "always 1, single-row table"
         text    device_id        "minted on first launch"
-        text    account_id       "nullable, set on /devices/register"
+        text    account_id       "nullable, set on POST /devices"
         iso     registered_at    "nullable"
         text    idp_subject      "nullable, Clerk user_xxx after upgrade"
     }
@@ -218,7 +218,7 @@ Single-row table (`id = 1`) holding this device's identity.
 
 - `device_id` is generated locally on first launch and never changes;
   re-registration is idempotent on it server-side.
-- `account_id` and `registered_at` land once `POST /devices/register`
+- `account_id` and `registered_at` land once `POST /devices`
   succeeds. Until they do, the outbox dispatcher refuses to ship — the
   app stays usable, just disconnected from the server.
 - `idp_subject` records the Clerk identity (`user_xxx`) that the most

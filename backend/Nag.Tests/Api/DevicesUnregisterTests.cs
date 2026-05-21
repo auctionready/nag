@@ -41,7 +41,7 @@ public class DevicesUnregisterTests : IClassFixture<DevicesUnregisterTests.Facto
         var client = _factory.CreateClient();
         var deviceId = Guid.NewGuid();
         var resp = await client.PostAsJsonAsync(
-            "/devices/register",
+            "/devices",
             new RegisterDeviceRequest(deviceId, "test")
         );
         resp.StatusCode.ShouldBe(HttpStatusCode.Created);
@@ -93,7 +93,7 @@ public class DevicesUnregisterTests : IClassFixture<DevicesUnregisterTests.Facto
         var anonClient = _factory.CreateClient();
         _factory.ClerkVerifier.Behavior = _ => ClerkTokenVerificationResult.Success(sub);
         var pair = await anonClient.PostAsJsonAsync(
-            "/devices/pair",
+            "/accounts/me/devices",
             new PairDeviceRequest(Guid.NewGuid(), "any-token", null)
         );
         pair.StatusCode.ShouldBe(HttpStatusCode.NotFound);
@@ -111,7 +111,7 @@ public class DevicesUnregisterTests : IClassFixture<DevicesUnregisterTests.Facto
         var anonClient = _factory.CreateClient();
         _factory.ClerkVerifier.Behavior = _ => ClerkTokenVerificationResult.Success(sub);
         var pair = await anonClient.PostAsJsonAsync(
-            "/devices/pair",
+            "/accounts/me/devices",
             new PairDeviceRequest(secondDeviceId, "any-token", "second")
         );
         pair.StatusCode.ShouldBe(HttpStatusCode.Created);
@@ -166,7 +166,7 @@ public class DevicesUnregisterTests : IClassFixture<DevicesUnregisterTests.Facto
         // the app calls DELETE /devices/me to fully release the previous
         // identity binding, then re-registers under the same deviceId.
         // Because the cascade dropped the old Device row, the next
-        // POST /devices/register produces a brand-new account — no
+        // POST /devices produces a brand-new account — no
         // collision with the (now-deleted) previous account.
         var sub = $"user_{Guid.NewGuid():N}";
         var (oldAccountId, deviceId, client) = await RegisterDeviceAsync(upgradeSub: sub);
@@ -175,7 +175,7 @@ public class DevicesUnregisterTests : IClassFixture<DevicesUnregisterTests.Facto
 
         var anonClient = _factory.CreateClient();
         var resp = await anonClient.PostAsJsonAsync(
-            "/devices/register",
+            "/devices",
             new RegisterDeviceRequest(deviceId, null)
         );
         resp.StatusCode.ShouldBe(HttpStatusCode.Created);

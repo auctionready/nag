@@ -5,7 +5,7 @@ namespace Nag.Api.OpenApi;
 
 /// <summary>
 /// DEBUG-only glue that lets Swagger UI authenticate without going through
-/// the real /devices/register flow.
+/// the real POST /devices flow.
 ///
 /// <para>
 /// <c>GET /dev/token</c> mints an HMAC device token bound to a stable dev

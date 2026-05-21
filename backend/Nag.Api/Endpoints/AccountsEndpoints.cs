@@ -52,7 +52,7 @@ public static class AccountsEndpoints
     /// Binds the calling account to a real identity — sets
     /// <c>IdpSubject</c> from the verified Clerk JWT's <c>sub</c> and
     /// stamps <c>UpgradedAt</c>. The caller must already hold a device
-    /// token (issued at <c>/devices/register</c>); both <c>accountId</c>
+    /// token (issued at <c>POST /devices</c>); both <c>accountId</c>
     /// and <c>deviceId</c> are read from claims, never the body.
     ///
     /// First-time bind returns 201 Created with <c>Location</c> pointing
@@ -61,7 +61,7 @@ public static class AccountsEndpoints
     ///
     /// Returns 409 if the verified identity is already bound to a
     /// different account — the caller is expected to either fall back to
-    /// <c>/devices/pair</c> (join the existing account) or explicitly
+    /// <c>POST /accounts/me/devices</c> (join the existing account) or explicitly
     /// take over via <c>DELETE /accounts/by-clerk-identity</c> followed
     /// by a retry of this endpoint.
     /// </summary>
@@ -204,9 +204,9 @@ public static class AccountsEndpoints
     /// directly and don't depend on <c>IdpSubject</c>.
     ///
     /// Edge case worth knowing: any second device that was paired via
-    /// <c>/devices/pair</c> before this unbind keeps working (it has its
-    /// own device token). But a *new* device that hasn't paired yet will
-    /// see <c>/devices/pair</c> return 404 ("no account found for this
+    /// <c>POST /accounts/me/devices</c> before this unbind keeps working
+    /// (it has its own device token). But a *new* device that hasn't paired
+    /// yet will see that pair endpoint return 404 ("no account found for this
     /// identity") until some device re-runs the bind. Idempotent —
     /// unbinding an already-anonymous account is a no-op 204.
     /// </summary>
