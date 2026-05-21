@@ -15,6 +15,10 @@ export interface DatabaseArgs {
   // Seconds of idle before the compute scales to zero. 0 = use Neon's
   // account default. -1 = never suspend.
   suspendTimeoutSeconds: number;
+  // When set, the stack references this existing Neon project instead of
+  // provisioning a new one — useful when two stacks (e.g. dev + prod) need
+  // to share the same project during a transition.
+  existingProjectId?: string;
 }
 
 export interface Database {
@@ -23,6 +27,16 @@ export interface Database {
 
 export const createDatabase = (args: DatabaseArgs): Database => {
   const provider = new neon.Provider("nag-neon", { apiKey: args.apiKey });
+
+  if (args.existingProjectId) {
+    const project = neon.getProjectOutput(
+      { id: args.existingProjectId },
+      { provider },
+    );
+    return {
+      connectionUri: pulumi.secret(project.connectionUri),
+    };
+  }
 
   const project = new neon.Project(
     "nag",

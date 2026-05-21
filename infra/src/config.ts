@@ -25,6 +25,12 @@ export const stackConfig = {
   neonOrgId: cfg.require("neonOrgId"),
   neonRegionId: cfg.get("neonRegionId") ?? "aws-ap-southeast-2",
   neonPgVersion: cfg.getNumber("neonPgVersion") ?? 17,
+  // When set, the stack references an existing Neon project (read-only via
+  // `getProject`) instead of provisioning one. Lets two stacks point at the
+  // same Neon project — e.g. `dev` reuses the project originally created by
+  // `prod`, while `prod` later provisions a fresh one. When unset, Pulumi
+  // creates and owns a new project.
+  neonProjectId: cfg.get("neonProjectId"),
   neonProjectName: cfg.get("neonProjectName") ?? "nag",
   neonBranchName: cfg.get("neonBranchName") ?? "main",
   // Neon role + database. Created once by Pulumi (`neon.Role` /

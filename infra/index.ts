@@ -17,6 +17,7 @@ const database = createDatabase({
   minCu: stackConfig.neonMinCu,
   maxCu: stackConfig.neonMaxCu,
   suspendTimeoutSeconds: stackConfig.neonSuspendTimeoutSeconds,
+  existingProjectId: stackConfig.neonProjectId,
 });
 
 const api = createApi({

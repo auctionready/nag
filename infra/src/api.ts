@@ -30,8 +30,15 @@ export interface Api {
 }
 
 export const createApi = (args: ApiArgs): Api => {
+  // AWS Lambda function names and CloudWatch log group names are unique
+  // per account/region — so dev/prod can't share. Prod keeps the original
+  // unsuffixed name; every other stack gets its name suffixed.
+  const stack = pulumi.getStack();
+  const nameSuffix = stack === "prod" ? "" : `-${stack}`;
+  const lambdaName = `nag-api${nameSuffix}`;
+
   const logGroup = new aws.cloudwatch.LogGroup("nag-api", {
-    name: "/aws/lambda/nag-api",
+    name: `/aws/lambda/${lambdaName}`,
     retentionInDays: args.logRetentionDays,
   });
 
@@ -60,7 +67,7 @@ export const createApi = (args: ApiArgs): Api => {
     .digest("base64");
 
   const fn = new aws.lambda.Function("nag-api", {
-    name: "nag-api",
+    name: lambdaName,
     runtime: "dotnet10",
     architectures: ["arm64"],
     handler: "Nag.Api",
@@ -97,7 +104,7 @@ export const createApi = (args: ApiArgs): Api => {
   });
 
   const api = new aws.apigatewayv2.Api("nag", {
-    name: "nag",
+    name: `nag${nameSuffix}`,
     protocolType: "HTTP",
   });
 
