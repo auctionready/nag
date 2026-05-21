@@ -31,17 +31,14 @@ export type OAuthStrategy = "oauth_google" | "oauth_apple";
 export type ConflictChoice = "cancel" | "use-server" | "use-device";
 
 /**
- * The three outcomes of the "this device's account is bound to a
- * different identity than the one signing in" prompt.
+ * The three outcomes of the sign-out confirmation prompt.
  *
- *   - `cancel` — sign out of Clerk; the device stays locally signed-out
- *     and the original identity binding on the server is untouched.
- *   - `switch` — atomically re-point the device's existing account at
- *     the new identity (DELETE then re-POST `/accounts/me/identity`).
- *     Local data and any other paired devices keep working.
- *   - `fresh` — abandon the existing account on this device (DELETE
- *     `/devices/me`, which cascades to a full account-delete if this
- *     was the last device), wipe local data, register a brand-new
- *     account, and bind it to the new identity.
+ *   - `cancel` — keep the current signed-in state.
+ *   - `keep-data` — sign out and keep local habits/check-ins on this
+ *     device for offline use. Deletes the server-side account.
+ *   - `wipe` — sign out and wipe every local trace (incl. `deviceId`)
+ *     so the device returns to a fresh-install state. Leaves the
+ *     server-side account alive so a subsequent sign-in can recover
+ *     the data via `runPairFallback`.
  */
-export type IdentityMismatchChoice = "cancel" | "switch" | "fresh";
+export type SignOutChoice = "cancel" | "keep-data" | "wipe";
