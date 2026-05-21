@@ -9,20 +9,13 @@ import { devFlags } from "../infrastructure/devFlags";
 import { clearAllClerkTokens } from "../infrastructure/clerk";
 import { fetchDevToken } from "../infrastructure/devAuth";
 import {
-  clearBackendOverride,
   getApiBaseUrl,
   getAuthMode,
   setBackendOverride,
-  type AuthMode,
+  type BackendName,
 } from "../infrastructure/devOverrides";
 import { deviceTokenStore } from "../infrastructure/tokenStore";
 import { log } from "../infrastructure/log";
-
-const LOCAL_BACKEND_URL = "http://localhost:5266/";
-// User fills in the real apidev URL in app/.env or app/.env.local. The
-// dev-menu preset falls back to whatever's currently in env if the
-// constant below is left at the placeholder.
-const APIDEV_BACKEND_URL_PLACEHOLDER = "https://nagapi.auctionready.co.nz/";
 
 const wipeForBackendSwitch = async () => {
   await clearLocalAuth({ db, tokenStore: deviceTokenStore });
@@ -33,11 +26,16 @@ const wipeForBackendSwitch = async () => {
   resetDatabaseSchema();
 };
 
-const applyBackendPreset = async (
-  apiBaseUrl: string,
-  authMode: AuthMode,
-): Promise<void> => {
-  await setBackendOverride({ apiBaseUrl, authMode });
+const applyBackendPreset = async (name: BackendName): Promise<void> => {
+  try {
+    await setBackendOverride(name);
+  } catch (error: unknown) {
+    Alert.alert(
+      "Backend not configured",
+      error instanceof Error ? error.message : `Could not select ${name}`,
+    );
+    return;
+  }
   await wipeForBackendSwitch();
   DevSettings.reload();
 };
@@ -52,29 +50,30 @@ const promptBackendSwitch = (): void => {
       {
         text: "Local — dev-auth",
         onPress: () => {
-          void applyBackendPreset(LOCAL_BACKEND_URL, "dev-auth");
+          void applyBackendPreset("local");
         },
       },
       {
         text: "Cloud apidev — clerk",
         onPress: () => {
-          void applyBackendPreset(APIDEV_BACKEND_URL_PLACEHOLDER, "clerk");
-        },
-      },
-      {
-        text: "Use env defaults",
-        onPress: async () => {
-          await clearBackendOverride();
-          await wipeForBackendSwitch();
-          DevSettings.reload();
+          void applyBackendPreset("apidev");
         },
       },
     ],
   );
 };
 
-if (__DEV__) {
+// Registration happens after `bootstrapDevOverrides()` resolves (see
+// `_layout.tsx`) so the "Switch backend…" item can display the live
+// URL. The menu re-registers on every reload, which is exactly when
+// the backend can change.
+export const registerDevMenu = (): void => {
+  if (!__DEV__) return;
   registerDevMenuItems([
+    {
+      name: `Backend: ${getApiBaseUrl()} (${getAuthMode()})`,
+      callback: () => promptBackendSwitch(),
+    },
     {
       name: "Clear database",
       callback: async () => {
@@ -160,9 +159,5 @@ if (__DEV__) {
         DevSettings.reload();
       },
     },
-    {
-      name: "Switch backend…",
-      callback: () => promptBackendSwitch(),
-    },
   ]).catch(() => {}); // no-op in Expo Go (native module unavailable)
-}
+};
