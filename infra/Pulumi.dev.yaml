@@ -1,0 +1,21 @@
+config:
+  aws:region: ap-southeast-2
+  # Dev stack runs on a smaller Lambda — traffic is just the team.
+  nag:lambdaMemoryMb: "512"
+  nag:logRetentionDays: "14"
+  nag:hostedZoneName: auctionready.co.nz
+  nag:apiDomainName: nagapi-dev.auctionready.co.nz
+  # Dev points at the same Clerk instance the team has been using day-to-day.
+  nag:clerkIssuer: https://feasible-lynx-68.clerk.accounts.dev
+  # When set, `src/database.ts` skips provisioning and just reads the project's connection URI.
+  nag:neonProjectId: crimson-poetry-80661158
+  nag:neonOrgId: org-broad-bread-95932480
+  nag:sentryEnvironment: dev
+  nag:deviceTokenSecret:
+    secure: AAABAAwvLo8Pd3P2B28MdhpUP8i1zIm1cCaq/fYV5BDfRPvuZBpJln3qE29DRdzO3WzKTyM80XCzZeg7HVu0BOS28Wqyaa/Mcu6j3SIUjdivBPCqzUEdw1GfE1riAyzI
+  nag:sentryDsn:
+    secure: AAABAEjzeCfEKHKFPLywJ+9gRZXnU53WoPmn4HQ5DncxdJqrIyaT7LdqpqLivVDqk6kuSKQZghHifuiwjf+foXsRYisau45MYwMdCrd0PCmSa5A7lKZZOY3JgpO4gb+M+3tdOB3fQtpPdX74YAGz+GEkuID8LEsC2hqD2OHpVw==
+  nag:adminSecret:
+    secure: AAABAIkhvqcvijdP7IANdgKB2fxowmpJbZiDKlOa4WfKuXsjuhHV9uQx3HHg9JMDqtb+qzo5ooInplSBoWaw//iy+DwRveJSq+mGLpFXqXwqsesa38XmwBElakP/MJlV
+  nag:neonApiKey:
+    secure: AAABAICbEUUAvkWL/PLmz4oii32tBGbwZA/96z8x7HHBsF6DuZLtbkNDkA+/fsQ1k2SmEW8reSSZdOYRNPIfz5JzyJuLSjdxYPxaxBrqweR/n8hxLvWsajEFI7egvkGExq8xD2U=
