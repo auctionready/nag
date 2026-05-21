@@ -13,6 +13,7 @@ import {
   requiredFieldMessage,
   verifyCredentialCode,
 } from "./clerkHelpers";
+import { enabledProviders } from "./enabledProviders";
 import { SettingsGroups } from "./SettingsGroups";
 import { SignInSheet } from "./SignInSheet";
 import type { CredentialChannel, CredentialFlow, OAuthStrategy } from "./types";
@@ -223,10 +224,26 @@ export const SignInPanel = ({
       <SignInSheet
         visible={sheetOpen}
         onClose={() => setSheetOpen(false)}
-        onApple={() => startOAuth("oauth_apple")}
-        onGoogle={() => startOAuth("oauth_google")}
-        onEmail={() => startCredentialFlow("email")}
-        onPhone={() => startCredentialFlow("phone")}
+        onApple={
+          enabledProviders.has("apple")
+            ? () => startOAuth("oauth_apple")
+            : undefined
+        }
+        onGoogle={
+          enabledProviders.has("google")
+            ? () => startOAuth("oauth_google")
+            : undefined
+        }
+        onEmail={
+          enabledProviders.has("email")
+            ? () => startCredentialFlow("email")
+            : undefined
+        }
+        onPhone={
+          enabledProviders.has("phone")
+            ? () => startCredentialFlow("phone")
+            : undefined
+        }
       />
     </>
   );

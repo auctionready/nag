@@ -14,10 +14,12 @@ export const SignInSheet = ({
 }: {
   visible: boolean;
   onClose: () => void;
-  onApple: () => void;
-  onGoogle: () => void;
-  onEmail: () => void;
-  onPhone: () => void;
+  // Each handler is optional. Rows render only when a handler is supplied,
+  // and the first rendered row is auto-promoted to primary styling.
+  onApple?: () => void;
+  onGoogle?: () => void;
+  onEmail?: () => void;
+  onPhone?: () => void;
 }) => (
   <Modal
     visible={visible}
@@ -67,33 +69,61 @@ export const SignInSheet = ({
         </View>
 
         <View style={styles.providerStack}>
-          <ProviderButton
-            primary
-            label="Continue with Apple"
-            icon={
-              <ProviderGlyph provider="apple" size={16} color={tokens.cream} />
-            }
-            onPress={onApple}
-          />
-          <ProviderButton
-            label="Continue with Google"
-            icon={<ProviderGlyph provider="google" size={16} />}
-            onPress={onGoogle}
-          />
-          <ProviderButton
-            label="Continue with Email"
-            icon={
-              <ProviderGlyph provider="email" size={16} color={tokens.ink} />
-            }
-            onPress={onEmail}
-          />
-          <ProviderButton
-            label="Continue with Phone"
-            icon={
-              <ProviderGlyph provider="phone" size={16} color={tokens.ink} />
-            }
-            onPress={onPhone}
-          />
+          {(() => {
+            const rows = [
+              onApple && {
+                key: "apple",
+                label: "Continue with Apple",
+                glyph: (primary: boolean) => (
+                  <ProviderGlyph
+                    provider="apple"
+                    size={16}
+                    color={primary ? tokens.cream : tokens.ink}
+                  />
+                ),
+                onPress: onApple,
+              },
+              onGoogle && {
+                key: "google",
+                label: "Continue with Google",
+                glyph: () => <ProviderGlyph provider="google" size={16} />,
+                onPress: onGoogle,
+              },
+              onEmail && {
+                key: "email",
+                label: "Continue with Email",
+                glyph: (primary: boolean) => (
+                  <ProviderGlyph
+                    provider="email"
+                    size={16}
+                    color={primary ? tokens.cream : tokens.ink}
+                  />
+                ),
+                onPress: onEmail,
+              },
+              onPhone && {
+                key: "phone",
+                label: "Continue with Phone",
+                glyph: (primary: boolean) => (
+                  <ProviderGlyph
+                    provider="phone"
+                    size={16}
+                    color={primary ? tokens.cream : tokens.ink}
+                  />
+                ),
+                onPress: onPhone,
+              },
+            ].filter((r): r is Exclude<typeof r, false | undefined> => !!r);
+            return rows.map((row, idx) => (
+              <ProviderButton
+                key={row.key}
+                primary={idx === 0}
+                label={row.label}
+                icon={row.glyph(idx === 0)}
+                onPress={row.onPress}
+              />
+            ));
+          })()}
         </View>
 
         <Text style={styles.disclaimer}>
