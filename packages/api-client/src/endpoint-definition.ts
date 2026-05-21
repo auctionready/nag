@@ -31,15 +31,15 @@ export const ErrorResponse = z
   .partial();
 export type ErrorResponse = z.infer<typeof ErrorResponse>;
 
-export const IResult = z.object({}).partial();
-export type IResult = z.infer<typeof IResult>;
-
 export const ReleaseAccountIdentityRequest = z
   .object({ idpToken: z.string().nullable() })
   .partial();
 export type ReleaseAccountIdentityRequest = z.infer<
   typeof ReleaseAccountIdentityRequest
 >;
+
+export const IResult = z.object({}).partial();
+export type IResult = z.infer<typeof IResult>;
 
 export const RebuildProjectionsRequest = z
   .object({ secret: z.string().nullable() })
@@ -641,17 +641,6 @@ export const endpoints = makeApi([
     ],
   },
   {
-    method: "delete",
-    path: "/accounts/me/identity",
-    alias: "deleteAccountsMeIdentity",
-    parameters: [],
-    response: z.object({}).partial(),
-    errors: [
-      { status: 401, schema: ErrorResponse },
-      { status: 404, schema: ErrorResponse },
-    ],
-  },
-  {
     method: "post",
     path: "/admin/rebuild-projections",
     alias: "postAdminRebuildProjections",
@@ -706,17 +695,6 @@ export const endpoints = makeApi([
     response: GetDeviceResponse,
     errors: [
       { status: 401, schema: z.void() },
-      { status: 404, schema: z.void() },
-    ],
-  },
-  {
-    method: "delete",
-    path: "/devices/me",
-    alias: "deleteDevicesMe",
-    parameters: [],
-    response: z.object({}).partial(),
-    errors: [
-      { status: 401, schema: ErrorResponse },
       { status: 404, schema: z.void() },
     ],
   },

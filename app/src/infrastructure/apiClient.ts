@@ -4,8 +4,6 @@ import {
   registerDevice as apiRegisterDevice,
   upgradeAccount as apiUpgradeAccount,
   pairDevice as apiPairDevice,
-  unbindAccount as apiUnbindAccount,
-  unregisterDevice as apiUnregisterDevice,
   releaseClerkIdentity as apiReleaseClerkIdentity,
   deleteAccount as apiDeleteAccount,
   getSync as apiGetSync,
@@ -13,8 +11,6 @@ import {
   type NagApiClient,
   type UpgradeAccountResult,
   type PairDeviceResult,
-  type UnbindAccountResult,
-  type UnregisterDeviceResult,
   type ReleaseClerkIdentityResult,
   type DeleteAccountResult,
   type GetSyncResult,
@@ -139,12 +135,6 @@ export const releaseClerkIdentity = (request: {
   idpToken: string;
 }): Promise<ReleaseClerkIdentityResult> =>
   apiReleaseClerkIdentity(getApiClient(), request, logger);
-
-export const unbindAccount = (): Promise<UnbindAccountResult> =>
-  apiUnbindAccount(getApiClient(), logger);
-
-export const unregisterDevice = (): Promise<UnregisterDeviceResult> =>
-  apiUnregisterDevice(getApiClient(), logger);
 
 export const deleteAccount = (): Promise<DeleteAccountResult> =>
   apiDeleteAccount(getApiClient(), logger);

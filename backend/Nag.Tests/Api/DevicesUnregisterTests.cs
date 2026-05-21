@@ -11,6 +11,11 @@ using Shouldly;
 
 namespace Nag.Tests.Api;
 
+// `DELETE /devices/me` is gated off in production builds — see the
+// matching `#if` in `DevicesEndpoints.cs`. The whole test class
+// compiles together with the endpoint; re-define `RESERVED_ENDPOINTS`
+// to bring both back.
+#if RESERVED_ENDPOINTS
 [Collection(PostgresCollection.Name)]
 public class DevicesUnregisterTests : IClassFixture<DevicesUnregisterTests.Factory>
 {
@@ -179,3 +184,4 @@ public class DevicesUnregisterTests : IClassFixture<DevicesUnregisterTests.Facto
         body.DeviceId.ShouldBe(deviceId);
     }
 }
+#endif

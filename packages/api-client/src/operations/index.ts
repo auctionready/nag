@@ -14,11 +14,6 @@ export {
 } from "./getHabitCompliance";
 export { getSync, type GetSyncResult } from "./getSync";
 export { pairDevice, type PairDeviceResult } from "./pairDevice";
-export { unbindAccount, type UnbindAccountResult } from "./unbindAccount";
-export {
-  unregisterDevice,
-  type UnregisterDeviceResult,
-} from "./unregisterDevice";
 export {
   releaseClerkIdentity,
   type ReleaseClerkIdentityResult,

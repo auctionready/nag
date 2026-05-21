@@ -670,17 +670,29 @@ flowchart TD
 
 ## Backend endpoint reference
 
-| Verb     | Path                          | Auth                             | Used by                                                                                                                                  |
-| -------- | ----------------------------- | -------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| `POST`   | `/devices/register`           | anonymous                        | First-launch register + the 401-refresh path                                                                                             |
-| `POST`   | `/devices/pair`               | anonymous (IdP token in body)    | `runReplaceLocal` (server-data branch of pair-fallback)                                                                                  |
-| `GET`    | `/devices/{id}`               | device token                     | route only; not called from client                                                                                                       |
-| `DELETE` | `/devices/me`                 | device token                     | **not currently called from client** (kept for future "switch identity" UX — see [#212](https://github.com/auctionready/nag/issues/212)) |
-| `POST`   | `/accounts/me/identity`       | device token                     | First-time identity bind                                                                                                                 |
-| `GET`    | `/accounts/me/identity`       | device token                     | not currently called from client                                                                                                         |
-| `DELETE` | `/accounts/me/identity`       | device token                     | **not currently called from client** (kept for future "switch identity" UX)                                                              |
-| `DELETE` | `/accounts/by-clerk-identity` | device token + IdP token in body | `runReplaceServer` (take-over branch of pair-fallback)                                                                                   |
-| `DELETE` | `/accounts/me`                | device token                     | `confirmAndDeleteAccount` + `confirmAndSignOut` (the _Keep on this device_ branch)                                                       |
+| Verb     | Path                          | Auth                             | Used by                                                                                                                 |
+| -------- | ----------------------------- | -------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| `POST`   | `/devices/register`           | anonymous                        | First-launch register + the 401-refresh path                                                                            |
+| `POST`   | `/devices/pair`               | anonymous (IdP token in body)    | `runReplaceLocal` (server-data branch of pair-fallback)                                                                 |
+| `GET`    | `/devices/{id}`               | device token                     | route only; not called from client                                                                                      |
+| `DELETE` | `/devices/me`                 | device token                     | **gated by `#if RESERVED_ENDPOINTS`** — not compiled into any build by default                                          |
+| `POST`   | `/accounts/me/identity`       | device token                     | First-time identity bind                                                                                                |
+| `GET`    | `/accounts/me/identity`       | device token                     | named-route target for the `Location` / `Content-Location` headers on `POST /accounts/me/identity`; not called directly |
+| `DELETE` | `/accounts/me/identity`       | device token                     | **gated by `#if RESERVED_ENDPOINTS`** — not compiled into any build by default                                          |
+| `DELETE` | `/accounts/by-clerk-identity` | device token + IdP token in body | `runReplaceServer` (take-over branch of pair-fallback)                                                                  |
+| `DELETE` | `/accounts/me`                | device token                     | `confirmAndDeleteAccount` + `confirmAndSignOut` (the _Keep on this device_ branch)                                      |
+
+The two `RESERVED_ENDPOINTS`-gated entries (`DELETE /devices/me`,
+`DELETE /accounts/me/identity`) are wrapped in `#if RESERVED_ENDPOINTS`
+in `DevicesEndpoints.cs` and `AccountsEndpoints.cs` — the symbol is
+**not defined by default**, so they don't compile in any build, don't
+get registered with Wolverine at startup (no cold-start cost, no
+entry in the route table), and don't show up in the generated
+OpenAPI document. The matching test methods carry the same gate so
+they come back together with the endpoints. To revive: `dotnet build
+-p:DefineConstants=RESERVED_ENDPOINTS` (or set it in the csproj
+during development), then re-run `pnpm --filter @nag/api-client
+generate` to regenerate the typed Zodios client.
 
 > See [#212](https://github.com/auctionready/nag/issues/212) for the
 > proposed REST-correct reshape: moving the device endpoints under
