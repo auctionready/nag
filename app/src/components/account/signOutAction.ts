@@ -85,12 +85,19 @@ const runRemoveServerData = async (clerkSignOut: () => Promise<void>) => {
     tokenStore: deviceTokenStore,
     log: logger,
   });
-  await clearAllClerkTokens();
+  // Order matters: clerk.signOut() FIRST so Clerk's SDK can run its
+  // normal session-termination path against an intact secure-store
+  // cache, then clearAllClerkTokens() to mop up any secure-store keys
+  // Clerk writes during sign-out. Calling clearAllClerkTokens first
+  // makes signOut see no session and throw "You are signed out", which
+  // we used to catch + log as a warning — cosmetic noise the user
+  // surfaced after testing this flow.
   try {
     await clerkSignOut();
   } catch (err) {
-    logger.warn("clerk signOut threw — local state already cleared", err);
+    logger.warn("clerk signOut threw — clearing tokens anyway", err);
   }
+  await clearAllClerkTokens();
 };
 
 const runPause = async () => {
