@@ -28,13 +28,15 @@ config:
   #   pulumi config set nag:apiDomainName  <subdomain.example.com>
   nag:hostedZoneName: auctionready.co.nz
   nag:apiDomainName: nagapi.auctionready.co.nz
-  nag:clerkIssuer: https://feasible-lynx-68.clerk.accounts.dev
+  nag:clerkIssuer: https://clerk.auctionready.co.nz
   nag:deviceTokenSecret:
     secure: AAABAIToTrPa0YCXX9jkSIVa1sPQHd/5/+fGQq8hGI6NV2o/VlQvxvYc7SE63NlobZK33I+f+dz01UAlDCQ4zIro4RssUjrEQJUH5xsN5do07+d3W6+xenW2yIrbUvOv
   nag:neonApiKey:
     secure: AAABAEs8g0k5Qoc2ZgAoBJSm0T0ukgAIN8Q8QK5QxNejeLGDyQgHTC/BbVhMidz6myavzVC5DsJsWS7mH4LHU5NTrmbu+LJ8fXaWlFRWnnVPqHXNRhTrP93JJcGaaBfWeBieHzI=
   nag:neonOrgId: org-broad-bread-95932480
+  nag:neonProjectName: nag-prod
   nag:sentryDsn:
     secure: AAABANfrqg24ZEdo2SQojM/0/l+JzB8vPTPyG2QkLphG4uOPispt8JpHj4fHS7/yGS7JKtHaQExyZVSM2SSEQhpfnjG/F1qdfSe4lZZM8kqw+9M0PRTpVc1g9DiPJdeiAVKlRvQFw/zjOoL/CyST02lBi1UJxuk3qCQLCQqvug==
+  nag:sentryEnvironment: prod
   nag:adminSecret:
-    secure: AAABABHgJKYU8GtCDsNS+F58TaQBMYSi74PN+4OUvsltVPfy3daasuAv6DuyEsDGFRd3ThsF4TwrlY/IfGuw1WTwWscsZAkNviqakOvvgQIlEwBcG47hEwIlNN4RB1Xf
+    secure: AAABAMaz2oYSMkHNISqc0dsOe6/60fF2bMzNxdw33XaaciKEhfCfzNEg/kv5Zs45yStak1O9iaAHiLbdjAXbXTPvutQ0J67fCbgBCGUjQSge/ck/hyLpv0tee39SFUej
