@@ -8,13 +8,13 @@ const ALL_PROVIDERS = ["apple", "google", "email", "phone"] as const;
 export type Provider = (typeof ALL_PROVIDERS)[number];
 
 export const enabledProviders: ReadonlySet<Provider> = (() => {
-  const raw = process.env.EXPO_PUBLIC_SIGNIN_PROVIDERS;
+  const raw: string | undefined = process.env.EXPO_PUBLIC_SIGNIN_PROVIDERS;
   if (!raw) return new Set(ALL_PROVIDERS);
   return new Set(
     raw
       .split(",")
-      .map((v) => v.trim())
-      .filter((v): v is Provider =>
+      .map((v: string) => v.trim())
+      .filter((v: string): v is Provider =>
         (ALL_PROVIDERS as readonly string[]).includes(v),
       ),
   );
