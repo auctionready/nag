@@ -190,6 +190,19 @@ public static class AccountsEndpoints
         );
     }
 
+#if RESERVED_ENDPOINTS
+    // `DELETE /accounts/me/identity` was wired for a "switch this
+    // account to a different login" UX that got cut from the client
+    // (sign-out handles identity changes by tearing the device down
+    // and re-pairing instead — see docs/IdentityAndAuth.md). Compiled
+    // out by default so it doesn't register with Wolverine, doesn't
+    // appear in the route table, doesn't take up cold-start time, and
+    // doesn't show up in the generated OpenAPI document. Define
+    // `RESERVED_ENDPOINTS` (e.g. `dotnet build
+    // -p:DefineConstants=RESERVED_ENDPOINTS`) to restore it; the same
+    // gate covers the corresponding test methods in
+    // `Nag.Tests/Api/AccountsEndpointsTests.cs`.
+
     /// <summary>
     /// Detaches the calling device's account from its bound Clerk identity.
     /// The caller must be authenticated with a device token (HMAC) — the
@@ -256,6 +269,7 @@ public static class AccountsEndpoints
         log.LogInformation("DELETE /accounts/me/identity unbound account={AccountId}", accountId);
         return Results.NoContent();
     }
+#endif
 
     /// <summary>
     /// Releases the account-to-Clerk-identity binding owned by whatever

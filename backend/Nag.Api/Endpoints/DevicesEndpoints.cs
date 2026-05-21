@@ -237,6 +237,19 @@ public static class DevicesEndpoints
         return Results.Extensions.CreatedAtRoute("getDevicesById", new { id = device.Id }, created);
     }
 
+#if RESERVED_ENDPOINTS
+    // `DELETE /devices/me` was wired for the "start a new account"
+    // branch of the old sign-in conflict prompt, which got cut from
+    // the client (sign-out → Sign out completely now resets the local
+    // identity row instead of cascading the server-side account).
+    // Compiled out by default so it doesn't register with Wolverine,
+    // doesn't appear in the route table, doesn't take up cold-start
+    // time, and doesn't show up in the generated OpenAPI document.
+    // Define `RESERVED_ENDPOINTS` (e.g. `dotnet build
+    // -p:DefineConstants=RESERVED_ENDPOINTS`) to restore it; the same
+    // gate covers the corresponding test methods in
+    // `Nag.Tests/Api/DevicesEndpointsTests.cs`.
+
     /// <summary>
     /// Unpairs the calling device from its account. Both the account id and
     /// device id are read from the device-token claims, never the URL or
@@ -371,4 +384,5 @@ public static class DevicesEndpoints
         );
         return Results.NoContent();
     }
+#endif
 }

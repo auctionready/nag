@@ -269,6 +269,12 @@ public class AccountsEndpointsTests : IClassFixture<AccountsEndpointsTests.Facto
         return (accountId, deviceId, client);
     }
 
+#if RESERVED_ENDPOINTS
+    // These tests cover `DELETE /accounts/me/identity`, which is gated
+    // off in production builds — see the matching `#if` in
+    // `AccountsEndpoints.cs`. Re-define `RESERVED_ENDPOINTS` to bring
+    // both back together.
+
     [Fact]
     public async Task unbind_clears_idp_subject_and_returns_204()
     {
@@ -345,6 +351,7 @@ public class AccountsEndpointsTests : IClassFixture<AccountsEndpointsTests.Facto
 
         response.StatusCode.ShouldBe(HttpStatusCode.Unauthorized);
     }
+#endif
 
     [Fact]
     public async Task delete_me_removes_the_account_devices_and_per_account_data()
