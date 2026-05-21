@@ -763,7 +763,7 @@ export const endpoints = makeApi([
     alias: "getHealth",
     parameters: [],
     response: z.void(),
-    errors: [{ status: 404, schema: z.void() }],
+    errors: [],
   },
   {
     method: "get",

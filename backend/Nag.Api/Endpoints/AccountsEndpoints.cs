@@ -34,10 +34,7 @@ public static class AccountsEndpoints
         var accountIdClaim = user.FindFirstValue(NagClaimTypes.AccountId);
         if (!Guid.TryParse(accountIdClaim, out var accountId))
         {
-            return Results.Json(
-                new ErrorResponse(["unauthenticated"]),
-                statusCode: StatusCodes.Status401Unauthorized
-            );
+            return Results.Extensions.Unauthorized(new ErrorResponse(["unauthenticated"]));
         }
 
         var account = await session.LoadAsync<Account>(accountId, ct);
@@ -71,7 +68,7 @@ public static class AccountsEndpoints
     [NotTenanted]
     [Tags("Accounts")]
     [EndpointName("postAccountsMeIdentity")]
-    [ProducesResponseType(typeof(AccountIdentity), StatusCodes.Status201Created)]
+    [ProducesResponseType<AccountIdentity>(StatusCodes.Status201Created)]
     [ProducesResponseType(typeof(AccountIdentity), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status401Unauthorized)]
@@ -93,10 +90,7 @@ public static class AccountsEndpoints
         var accountIdClaim = user.FindFirstValue(NagClaimTypes.AccountId);
         if (!Guid.TryParse(accountIdClaim, out var accountId))
         {
-            return Results.Json(
-                new ErrorResponse(["unauthenticated"]),
-                statusCode: StatusCodes.Status401Unauthorized
-            );
+            return Results.Extensions.Unauthorized(new ErrorResponse(["unauthenticated"]));
         }
         // Logged for traceability — present on device-token callers,
         // missing on Clerk-token callers (which is fine; the log just
@@ -110,10 +104,7 @@ public static class AccountsEndpoints
         if (!verification.Ok || string.IsNullOrEmpty(verification.Subject))
         {
             var message = verification.Error ?? "invalid idpToken";
-            return Results.Json(
-                new ErrorResponse([message]),
-                statusCode: StatusCodes.Status401Unauthorized
-            );
+            return Results.Extensions.Unauthorized(new ErrorResponse([message]));
         }
         var sub = verification.Subject;
 
@@ -238,10 +229,7 @@ public static class AccountsEndpoints
         var accountIdClaim = user.FindFirstValue(NagClaimTypes.AccountId);
         if (!Guid.TryParse(accountIdClaim, out var accountId))
         {
-            return Results.Json(
-                new ErrorResponse(["unauthenticated"]),
-                statusCode: StatusCodes.Status401Unauthorized
-            );
+            return Results.Extensions.Unauthorized(new ErrorResponse(["unauthenticated"]));
         }
 
         var account = await session.LoadAsync<Account>(accountId, ct);
@@ -306,10 +294,7 @@ public static class AccountsEndpoints
         var accountIdClaim = user.FindFirstValue(NagClaimTypes.AccountId);
         if (!Guid.TryParse(accountIdClaim, out var callerAccountId))
         {
-            return Results.Json(
-                new ErrorResponse(["unauthenticated"]),
-                statusCode: StatusCodes.Status401Unauthorized
-            );
+            return Results.Extensions.Unauthorized(new ErrorResponse(["unauthenticated"]));
         }
         var deviceIdClaim = user.FindFirstValue(NagClaimTypes.DeviceId) ?? "(none)";
 
@@ -319,9 +304,8 @@ public static class AccountsEndpoints
         var verification = await verifier.VerifyAsync(request.IdpToken, ct);
         if (!verification.Ok || string.IsNullOrEmpty(verification.Subject))
         {
-            return Results.Json(
-                new ErrorResponse([verification.Error ?? "invalid idpToken"]),
-                statusCode: StatusCodes.Status401Unauthorized
+            return Results.Extensions.Unauthorized(
+                new ErrorResponse([verification.Error ?? "invalid idpToken"])
             );
         }
         var sub = verification.Subject;
@@ -337,7 +321,7 @@ public static class AccountsEndpoints
                 callerAccountId,
                 deviceIdClaim
             );
-            return Results.NoContent();
+            return TypedResults.NoContent();
         }
 
         log.LogWarning(
@@ -352,7 +336,7 @@ public static class AccountsEndpoints
         await session.SaveChangesAsync(ct);
         resolver.Invalidate(sub);
 
-        return Results.NoContent();
+        return TypedResults.NoContent();
     }
 
     /// <summary>
@@ -386,10 +370,7 @@ public static class AccountsEndpoints
         var accountIdClaim = user.FindFirstValue(NagClaimTypes.AccountId);
         if (!Guid.TryParse(accountIdClaim, out var accountId))
         {
-            return Results.Json(
-                new ErrorResponse(["unauthenticated"]),
-                statusCode: StatusCodes.Status401Unauthorized
-            );
+            return Results.Extensions.Unauthorized(new ErrorResponse(["unauthenticated"]));
         }
 
         // Conjoined-tenant rows are tagged with the account id rendered as
@@ -401,7 +382,7 @@ public static class AccountsEndpoints
 
         var account = await session.LoadAsync<Account>(accountId, ct);
         if (account is null)
-            return Results.NotFound(new ErrorResponse(["account not found"]));
+            return TypedResults.NotFound(new ErrorResponse(["account not found"]));
 
         // Per-account read models and inbox. Each of these types is
         // registered MultiTenanted, so the WHERE clause Marten emits is
@@ -459,6 +440,6 @@ public static class AccountsEndpoints
         resolver.InvalidateAccount(accountId);
 
         log.LogInformation("DELETE /accounts/me wiped account={AccountId}", accountId);
-        return Results.NoContent();
+        return TypedResults.NoContent();
     }
 }

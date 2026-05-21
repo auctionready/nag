@@ -31,10 +31,7 @@ public static class DevicesEndpoints
         var accountIdClaim = user.FindFirstValue(NagClaimTypes.AccountId);
         if (!Guid.TryParse(accountIdClaim, out var accountId))
         {
-            return Results.Json(
-                new ErrorResponse(["unauthenticated"]),
-                statusCode: StatusCodes.Status401Unauthorized
-            );
+            return Results.Extensions.Unauthorized(new ErrorResponse(["unauthenticated"]));
         }
 
         var device = await session.LoadAsync<Device>(id, ct);
@@ -138,9 +135,8 @@ public static class DevicesEndpoints
         var verification = await verifier.VerifyAsync(request.IdpToken, ct);
         if (!verification.Ok || string.IsNullOrEmpty(verification.Subject))
         {
-            return Results.Json(
-                new ErrorResponse([verification.Error ?? "invalid idpToken"]),
-                statusCode: StatusCodes.Status401Unauthorized
+            return Results.Extensions.Unauthorized(
+                new ErrorResponse([verification.Error ?? "invalid idpToken"])
             );
         }
         var sub = verification.Subject;
@@ -286,10 +282,7 @@ public static class DevicesEndpoints
             || !Guid.TryParse(deviceIdClaim, out var deviceId)
         )
         {
-            return Results.Json(
-                new ErrorResponse(["unauthenticated"]),
-                statusCode: StatusCodes.Status401Unauthorized
-            );
+            return Results.Extensions.Unauthorized(new ErrorResponse(["unauthenticated"]));
         }
 
         // Open the session inside the caller's tenant so the cascade

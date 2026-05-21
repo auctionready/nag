@@ -46,7 +46,7 @@ public sealed class FoundAtRoute : IResult, IEndpointMetadataProvider, IStatusCo
     {
         ArgumentNullException.ThrowIfNull(httpContext);
 
-        var path = ResolveRelativePath(httpContext, RouteName, RouteValues);
+        var path = RouteRelativePathResolver.ResolvePath(httpContext, RouteName, RouteValues);
         httpContext.Response.Headers.ContentLocation = path;
         httpContext.Response.StatusCode = StatusCode;
         return Task.CompletedTask;
@@ -63,25 +63,6 @@ public sealed class FoundAtRoute : IResult, IEndpointMetadataProvider, IStatusCo
         builder.Metadata.Add(
             new ProducesResponseTypeMetadata(StatusCodes.Status200OK, typeof(void))
         );
-    }
-
-    internal static string ResolveRelativePath(
-        HttpContext httpContext,
-        string? routeName,
-        RouteValueDictionary routeValues
-    )
-    {
-        var linkGenerator = httpContext.RequestServices.GetRequiredService<LinkGenerator>();
-        var path = routeName is null
-            ? linkGenerator.GetPathByRouteValues(httpContext, routeName: null, routeValues)
-            : linkGenerator.GetPathByName(httpContext, routeName, routeValues);
-
-        if (string.IsNullOrEmpty(path))
-        {
-            throw new InvalidOperationException("No route matches the supplied values.");
-        }
-
-        return path;
     }
 }
 
@@ -123,7 +104,7 @@ public sealed class FoundAtRoute<TValue>
     {
         ArgumentNullException.ThrowIfNull(httpContext);
 
-        var path = FoundAtRoute.ResolveRelativePath(httpContext, RouteName, RouteValues);
+        var path = RouteRelativePathResolver.ResolvePath(httpContext, RouteName, RouteValues);
         httpContext.Response.Headers.ContentLocation = path;
         httpContext.Response.StatusCode = StatusCode;
         return httpContext.Response.WriteAsJsonAsync(Value);

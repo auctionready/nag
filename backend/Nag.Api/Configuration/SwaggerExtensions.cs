@@ -14,8 +14,9 @@ public static class SwaggerExtensions
             c.UseAllOfToExtendReferenceSchemas();
             c.SchemaFilter<EnumSchemaFilter>();
             c.DocumentFilter<CommandSchemasFilter>();
-            c.DocumentFilter<RemoveIResultResponseFilter>();
+            c.DocumentFilter<OrphanIResultSchemaFilter>();
             c.OperationFilter<AllowAnonymousSecurityFilter>();
+            c.OperationFilter<UndeclaredResponseFilter>();
             c.AddSecurityDefinition(
                 "Bearer",
                 new OpenApiSecurityScheme
