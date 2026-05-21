@@ -496,7 +496,7 @@ describe("clearLocalAuth", () => {
 });
 
 describe("resetLocalAccount", () => {
-  it("wipes user data + outbox, resets syncState, and clears the identity binding while keeping deviceId", async () => {
+  it("wipes user data + outbox + identity row entirely so the next launch mints a fresh deviceId", async () => {
     const db = getDb();
     const tokenStore = new InMemoryTokenStore("device-tok");
 
@@ -525,17 +525,17 @@ describe("resetLocalAccount", () => {
       .where(eq(syncState.id, 1));
 
     const before = await loadIdentity(db);
-    const originalDeviceId = before?.deviceId;
-    expect(originalDeviceId).toBeTruthy();
+    expect(before?.deviceId).toBeTruthy();
 
     await resetLocalAccount({ db, tokenStore });
 
-    // Identity row keeps deviceId; everything else is null.
+    // Identity row is gone — `ensureDeviceRegistered` will mint a fresh
+    // deviceId on the next call. That is the takeover-mitigation the
+    // helper exists for: re-using the previous deviceId is what would
+    // re-establish auth on the previous account without proof of
+    // ownership.
     const after = await loadIdentity(db);
-    expect(after?.deviceId).toBe(originalDeviceId);
-    expect(after?.accountId).toBeNull();
-    expect(after?.registeredAt).toBeNull();
-    expect(after?.idpSubject).toBeNull();
+    expect(after).toBeNull();
     expect(await tokenStore.get()).toBeNull();
 
     // Replicated tables + outbox are empty — fresh start.

@@ -336,29 +336,39 @@ export type ResetLocalAccountOptions = {
   db: AnyDb;
   tokenStore: TokenStore;
   log?: EnsureDeviceRegisteredOptions["log"];
-}; /**
- * Wipes every locally-replicated row and clears the per-device server
- * binding, ready for the next sign-in to register a brand-new account.
- * Used by the "start a new account" branch of the sign-in conflict flow,
- * where the server-side `DELETE /devices/me` has already cascaded
- * (account destroyed if last device) and the local mirror has to be
- * scrubbed so nothing from the previous account leaks into the new one.
+};
+
+/**
+ * Wipes every locally-replicated row and deletes the identity row in
+ * full so the next launch mints a brand-new `deviceId`. Used by the
+ * "Sign out completely" branch of the sign-out dialog: dropping the
+ * `deviceId` is what cuts the takeover vector, since otherwise a
+ * subsequent `POST /devices/register` with the same id would idempotently
+ * return the previous account's accountId and re-establish auth without
+ * any proof the new caller was the legitimate owner.
  *
  * Clears:
  *   - `habit` / `goal` / `schedule` / `checkIn` (the replicated user data)
- *   - `outbox` (events queued for the old account are now meaningless)
- *   - `syncState` (resets `highest_server_sequence` so pull-sync fetches
- *     a fresh snapshot from the new account)
- *   - `identity.accountId` / `registeredAt` / `idpSubject`
+ *   - `outbox` (events queued for the previous account are now meaningless)
+ *   - `syncState` (resets `highest_server_sequence` so a future pull-sync
+ *     starts fresh)
+ *   - the entire `identity` row, including `deviceId`
  *   - the secure-store device token
  *
- * Preserves:
- *   - `identity.deviceId` — `/devices/register` is idempotent on it, so
- *     reusing the same id is safe and saves a key-rotation round trip.
+ * Server-side state is left untouched. The previous account (and its
+ * device row paired to the now-discarded `deviceId`) stay alive,
+ * orphaned from this device. If the user signs back in with the same
+ * identity, `runPairFallback` silently re-pairs the device's
+ * freshly-minted row into the surviving account and the data
+ * rehydrates from the server snapshot.
  *
- * Compare with `clearLocalAuth` (preserves user data, just drops the
- * binding) and `switchLocalAccount` (also wipes data but moves to a
- * specific known `accountId`).
+ * Compare with:
+ *   - `clearLocalAuth` (legacy soft sign-out — kept the deviceId, the
+ *     takeover vector this helper closes)
+ *   - `disconnectFromCloud` (the inverse: deletes the *server* account
+ *     and preserves local data + outbox)
+ *   - `switchLocalAccount` (wipes data but moves to a specific known
+ *     `accountId` rather than tearing the identity row down)
  */
 export const resetLocalAccount = async ({
   db,
@@ -376,13 +386,12 @@ export const resetLocalAccount = async ({
       .update(syncState)
       .set({ halted: false, highestServerSequence: 0 })
       .where(eq(syncState.id, 1));
-    await db
-      .update(identity)
-      .set({ accountId: null, registeredAt: null, idpSubject: null })
-      .where(eq(identity.id, 1));
+    await db.delete(identity).where(eq(identity.id, 1));
   });
   await tokenStore.clear();
-  info("identity: reset local account — next sign-in registers fresh");
+  info(
+    "identity: reset to fresh-install state — next launch mints a new deviceId",
+  );
 };
 
 export type DisconnectFromCloudOptions = {
