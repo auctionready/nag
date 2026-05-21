@@ -33,6 +33,19 @@ public static class MartenExtensions
                 }
                 opts.Events.StreamIdentity = JasperFx.Events.StreamIdentity.AsGuid;
 
+                // Marten 9 flips this to true, which rewrites mt_quick_append_events
+                // to declare event_version/seq/return_value as bigint and triggers a
+                // one-shot schema migration. We're nowhere near the 2.1B-event ceiling
+                // and don't want the DDL change; keep the V8 int signatures.
+                opts.Events.EnableBigIntEvents = false;
+
+                // Marten 9 flips this to QuickWithServerTimestamps, which assigns
+                // event Sequence/Version server-side AFTER inline projections run.
+                // HomeBoardProjection.Apply writes `board.LastSequence = e.Sequence`,
+                // which would persist as 0 under the Quick* modes. Keep Rich so the
+                // projection sees the real sequence at apply time.
+                opts.Events.AppendMode = JasperFx.Events.EventAppendMode.Rich;
+
                 // Per-account isolation. Conjoined tenancy tags every event row with
                 // a `tenant_id`; documents flagged below get the same column. The
                 // `IDocumentSession` injected into authenticated handlers is already
@@ -44,7 +57,7 @@ public static class MartenExtensions
                 // `Account` and `Device` stay single-tenant on purpose: they're how
                 // we *find* the tenant in the first place (sub → account, deviceId
                 // → device), so they have to be queryable without a tenant context.
-                opts.Events.TenancyStyle = Marten.Storage.TenancyStyle.Conjoined;
+                opts.Events.TenancyStyle = JasperFx.MultiTenancy.TenancyStyle.Conjoined;
 
                 // Skip per-cold-start pg_catalog introspection in production. Schema
                 // changes are applied out-of-band (one-shot migration), so the Lambda

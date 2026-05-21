@@ -17,7 +17,7 @@ namespace Nag.Core.Projections;
 /// every event lives on the global per-account
 /// <see cref="NagStreams.Root"/> stream, not a per-habit stream.
 /// </summary>
-public sealed class HabitComplianceHistoryProjection
+public sealed partial class HabitComplianceHistoryProjection
     : MultiStreamProjection<HabitComplianceHistory, Guid>
 {
     public HabitComplianceHistoryProjection()

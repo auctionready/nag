@@ -9,10 +9,10 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <!-- Drop the foreign-language satellite resource DLLs that
-         Microsoft.CodeAnalysis.* (transitively pulled in by Wolverine's
-         runtime compiler) bundles for compiler diagnostics. We use
-         TypeLoadMode.Static in production so Roslyn never runs in the
-         Lambda anyway. -->
+         Microsoft.CodeAnalysis.* (pulled in by WolverineFx.RuntimeCompilation)
+         bundles for compiler diagnostics. We use TypeLoadMode.Static in
+         production so Roslyn never runs in the Lambda anyway; the package
+         is referenced so `dotnet run -&#45;&#45; codegen write` works at build time. -->
     <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
   </PropertyGroup>
 
@@ -28,7 +28,8 @@
     <PackageReference Include="Sentry.AspNetCore" Version="6.5.0" />
     <PackageReference Include="Sentry.Serilog" Version="6.5.0" />
     <PackageReference Include="Serilog.AspNetCore" Version="10.0.0" />
-    <PackageReference Include="WolverineFx.Http.Marten" Version="5.39.3" />
+    <PackageReference Include="WolverineFx.Http.Marten" Version="6.0.0" />
+    <PackageReference Include="WolverineFx.RuntimeCompilation" Version="6.0.0" />
   </ItemGroup>
 
   <ItemGroup Condition="'$(Configuration)' == 'Debug'">

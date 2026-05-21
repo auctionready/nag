@@ -20,7 +20,7 @@ namespace Nag.Core.Projections;
 /// look up state.
 /// </para>
 /// </summary>
-public sealed class MonthlyCheckInSummaryProjection
+public sealed partial class MonthlyCheckInSummaryProjection
     : MultiStreamProjection<MonthlyCheckInSummary, string>
 {
     public MonthlyCheckInSummaryProjection()
@@ -196,7 +196,7 @@ public sealed class MonthlyCheckInSummaryProjection
 /// `WeekStartsOn` at slice time, and slicers are pure). Single-tenant
 /// MVP, so the system anchor is fine.
 /// </summary>
-public sealed class WeeklyCheckInSummaryProjection
+public sealed partial class WeeklyCheckInSummaryProjection
     : MultiStreamProjection<WeeklyCheckInSummary, string>
 {
     public WeeklyCheckInSummaryProjection()

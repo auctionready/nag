@@ -11,7 +11,7 @@ namespace Nag.Core.Projections;
 /// Single document keyed by <see cref="NagStreams.Root"/>; consumes the
 /// past-tense event stream emitted by <see cref="Handlers.CommandDispatcher"/>.
 /// </summary>
-public sealed class HomeBoardProjection : SingleStreamProjection<HomeBoard, Guid>
+public sealed partial class HomeBoardProjection : SingleStreamProjection<HomeBoard, Guid>
 {
     public HomeBoardProjection() { }
 
