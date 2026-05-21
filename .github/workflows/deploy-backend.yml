@@ -2,15 +2,28 @@ name: Deploy backend
 
 on:
   workflow_dispatch:
+    inputs:
+      stack:
+        description: Pulumi stack to deploy
+        required: true
+        type: choice
+        default: dev
+        options:
+          - dev
+          - prod
 
 concurrency:
-  group: deploy-backend
+  group: deploy-backend-${{ inputs.stack }}
   cancel-in-progress: false
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    environment: prod
+    # GitHub environment maps to inputs.stack so each stack can carry its
+    # own AWS_DEPLOY_ROLE_ARN / PULUMI_ACCESS_TOKEN / protection rules.
+    # The OIDC trust policy in infra-bootstrap must permit both `dev` and
+    # `prod` environments on this repo.
+    environment: ${{ inputs.stack }}
     permissions:
       id-token: write
       contents: read
@@ -52,7 +65,7 @@ jobs:
       - uses: pulumi/actions@v6
         with:
           command: up
-          stack-name: prod
+          stack-name: ${{ inputs.stack }}
           work-dir: infra
         env:
           PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
