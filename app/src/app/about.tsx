@@ -6,6 +6,7 @@ import { loadIdentity } from "@nag/core";
 import { outbox } from "@nag/schema";
 import { db } from "../db";
 import { tokens } from "../components/theme";
+import { AboutTagline } from "../components/tagline";
 
 type AboutData = {
   accountId: string | null;
@@ -86,6 +87,8 @@ const AboutScreen = () => {
           </>
         )}
       </InfoGroup>
+
+      <AboutTagline />
 
       <View style={{ height: 32 }} />
     </ScrollView>

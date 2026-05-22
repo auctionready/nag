@@ -10,10 +10,11 @@ import {
 import * as SplashScreen from "expo-splash-screen";
 import Svg, { Circle } from "react-native-svg";
 
+import { SplashTagline } from "../tagline";
+
 const ORANGE = "#FF5A36";
 const CREAM = "#FFF8F0";
 const INK = "#1A1410";
-const INK_SOFT = "#2A211B";
 
 // Match the native splash icon (expo-splash-screen plugin imageWidth)
 // so the icon stays put across the native -> JS hand-off.
@@ -165,14 +166,7 @@ export const AnimatedSplash: React.FC = () => {
         />
       </Animated.View>
 
-      <Animated.Text
-        style={[
-          styles.tagline,
-          { opacity: fadeText, transform: [{ translateY: fadeTextY }] },
-        ]}
-      >
-        loading your excuses…
-      </Animated.Text>
+      <SplashTagline fade={fadeText} fadeY={fadeTextY} />
     </Animated.View>
   );
 };
@@ -301,12 +295,5 @@ const styles = StyleSheet.create({
     height: 10,
     borderRadius: 5,
     backgroundColor: ORANGE,
-  },
-  tagline: {
-    marginTop: 28,
-    fontFamily: "JetBrainsMono-Regular",
-    fontSize: 14,
-    color: INK_SOFT,
-    letterSpacing: 0.5,
   },
 });
