@@ -13,6 +13,7 @@ import {
   setBackendOverride,
   type BackendName,
 } from "../infrastructure/devOverrides";
+import { clearAllClerkTokens } from "../infrastructure/clerk";
 import { deviceTokenStore } from "../infrastructure/tokenStore";
 import { log } from "../infrastructure/log";
 
@@ -94,7 +95,13 @@ export const registerDevMenu = (): void => {
     {
       name: "Clear database (no refetch from server)",
       callback: async () => {
-        await clearAll();
+        // Also clear the device token + Clerk session, otherwise the next
+        // boot finds Clerk signed in, runs `ensureDeviceRegistered` →
+        // upgrade → 409 → pair-fallback, and the existing server account's
+        // snapshot install re-hydrates everything we just wiped. Matching
+        // the menu item's promise needs the device truly signed out.
+        await clearAll({ tokenStore: deviceTokenStore });
+        await clearAllClerkTokens();
         DevSettings.reload();
       },
     },
