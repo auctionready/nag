@@ -10,6 +10,8 @@ import {
 import * as SplashScreen from "expo-splash-screen";
 import Svg, { Circle } from "react-native-svg";
 
+import { pickSplashTagline } from "./splashTaglines";
+
 const ORANGE = "#FF5A36";
 const CREAM = "#FFF8F0";
 const INK = "#1A1410";
@@ -35,6 +37,7 @@ export const AnimatedSplash: React.FC = () => {
   const dot3 = useRef(new Animated.Value(0.25)).current;
   const sweep = useRef(new Animated.Value(0)).current;
   const exit = useRef(new Animated.Value(1)).current;
+  const tagline = useRef(pickSplashTagline()).current;
 
   useEffect(() => {
     // Hand off from native to JS on the next frame: gives the JS view a
@@ -165,14 +168,15 @@ export const AnimatedSplash: React.FC = () => {
         />
       </Animated.View>
 
-      <Animated.Text
+      <Animated.View
         style={[
-          styles.tagline,
+          styles.taglineWrap,
           { opacity: fadeText, transform: [{ translateY: fadeTextY }] },
         ]}
       >
-        loading your excuses…
-      </Animated.Text>
+        <Text style={styles.tagline}>“{tagline.quote}”</Text>
+        <Text style={styles.attribution}>— {tagline.attribution}</Text>
+      </Animated.View>
     </Animated.View>
   );
 };
@@ -302,11 +306,26 @@ const styles = StyleSheet.create({
     borderRadius: 5,
     backgroundColor: ORANGE,
   },
-  tagline: {
+  taglineWrap: {
     marginTop: 28,
+    paddingHorizontal: 32,
+    alignItems: "center",
+    maxWidth: SCREEN.width,
+  },
+  tagline: {
     fontFamily: "JetBrainsMono-Regular",
     fontSize: 14,
     color: INK_SOFT,
     letterSpacing: 0.5,
+    textAlign: "center",
+  },
+  attribution: {
+    marginTop: 6,
+    fontFamily: "JetBrainsMono-Regular",
+    fontSize: 12,
+    color: INK_SOFT,
+    opacity: 0.7,
+    letterSpacing: 0.5,
+    textAlign: "center",
   },
 });
