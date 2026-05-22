@@ -1,0 +1,4 @@
+name: nag-blog
+runtime: nodejs
+description: GitHub Pages custom domain with Route 53
+main: index.ts
