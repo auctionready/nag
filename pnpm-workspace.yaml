@@ -19,13 +19,26 @@ approveBuilds: better-sqlite3
 
 catalog:
   "@types/better-sqlite3": ^7.0.0
-  "@types/node": ^25.7.0
+  "@types/node": ^25.9.1
   better-sqlite3: ^12.10.0
   concurrently: ^9.2.1
-  date-fns: ^4.1.0
+  date-fns: ^4.2.1
   drizzle-orm: ^0.45.2
   typescript: ~5.9.3
-  vitest: ^4.1.6
+  vitest: ^4.1.7
   zod: ^4.4.3
 patchedDependencies:
   "@expo/dom-webview@55.0.3": patches/@expo__dom-webview@55.0.3.patch
+minimumReleaseAgeExclude:
+  - "@expo/cli@55.0.32"
+  - "@expo/config-plugins@55.0.10"
+  - "@expo/json-file@10.0.15"
+  - "@expo/metro-config@55.0.23"
+  - "@expo/plist@0.5.4"
+  - "@expo/router-server@55.0.18"
+  - expo-file-system@55.0.22
+  - expo-modules-autolinking@55.0.24
+  - expo-server@55.0.11
+  - expo@55.0.26
+  - expo-image@55.0.11
+  - expo-router@55.0.16

@@ -34,10 +34,7 @@ public static class AccountsEndpoints
         var accountIdClaim = user.FindFirstValue(NagClaimTypes.AccountId);
         if (!Guid.TryParse(accountIdClaim, out var accountId))
         {
-            return Results.Json(
-                new ErrorResponse(["unauthenticated"]),
-                statusCode: StatusCodes.Status401Unauthorized
-            );
+            return Results.Extensions.Unauthorized(new ErrorResponse(["unauthenticated"]));
         }
 
         var account = await session.LoadAsync<Account>(accountId, ct);
@@ -55,7 +52,7 @@ public static class AccountsEndpoints
     /// Binds the calling account to a real identity — sets
     /// <c>IdpSubject</c> from the verified Clerk JWT's <c>sub</c> and
     /// stamps <c>UpgradedAt</c>. The caller must already hold a device
-    /// token (issued at <c>/devices/register</c>); both <c>accountId</c>
+    /// token (issued at <c>POST /devices</c>); both <c>accountId</c>
     /// and <c>deviceId</c> are read from claims, never the body.
     ///
     /// First-time bind returns 201 Created with <c>Location</c> pointing
@@ -64,14 +61,14 @@ public static class AccountsEndpoints
     ///
     /// Returns 409 if the verified identity is already bound to a
     /// different account — the caller is expected to either fall back to
-    /// <c>/devices/pair</c> (join the existing account) or explicitly
+    /// <c>POST /accounts/me/devices</c> (join the existing account) or explicitly
     /// take over via <c>DELETE /accounts/by-clerk-identity</c> followed
     /// by a retry of this endpoint.
     /// </summary>
     [NotTenanted]
     [Tags("Accounts")]
     [EndpointName("postAccountsMeIdentity")]
-    [ProducesResponseType(typeof(AccountIdentity), StatusCodes.Status201Created)]
+    [ProducesResponseType<AccountIdentity>(StatusCodes.Status201Created)]
     [ProducesResponseType(typeof(AccountIdentity), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status401Unauthorized)]
@@ -93,10 +90,7 @@ public static class AccountsEndpoints
         var accountIdClaim = user.FindFirstValue(NagClaimTypes.AccountId);
         if (!Guid.TryParse(accountIdClaim, out var accountId))
         {
-            return Results.Json(
-                new ErrorResponse(["unauthenticated"]),
-                statusCode: StatusCodes.Status401Unauthorized
-            );
+            return Results.Extensions.Unauthorized(new ErrorResponse(["unauthenticated"]));
         }
         // Logged for traceability — present on device-token callers,
         // missing on Clerk-token callers (which is fine; the log just
@@ -110,10 +104,7 @@ public static class AccountsEndpoints
         if (!verification.Ok || string.IsNullOrEmpty(verification.Subject))
         {
             var message = verification.Error ?? "invalid idpToken";
-            return Results.Json(
-                new ErrorResponse([message]),
-                statusCode: StatusCodes.Status401Unauthorized
-            );
+            return Results.Extensions.Unauthorized(new ErrorResponse([message]));
         }
         var sub = verification.Subject;
 
@@ -190,6 +181,19 @@ public static class AccountsEndpoints
         );
     }
 
+#if RESERVED_ENDPOINTS
+    // `DELETE /accounts/me/identity` was wired for a "switch this
+    // account to a different login" UX that got cut from the client
+    // (sign-out handles identity changes by tearing the device down
+    // and re-pairing instead — see docs/IdentityAndAuth.md). Compiled
+    // out by default so it doesn't register with Wolverine, doesn't
+    // appear in the route table, doesn't take up cold-start time, and
+    // doesn't show up in the generated OpenAPI document. Define
+    // `RESERVED_ENDPOINTS` (e.g. `dotnet build
+    // -p:DefineConstants=RESERVED_ENDPOINTS`) to restore it; the same
+    // gate covers the corresponding test methods in
+    // `Nag.Tests/Api/AccountsEndpointsTests.cs`.
+
     /// <summary>
     /// Detaches the calling device's account from its bound Clerk identity.
     /// The caller must be authenticated with a device token (HMAC) — the
@@ -200,9 +204,9 @@ public static class AccountsEndpoints
     /// directly and don't depend on <c>IdpSubject</c>.
     ///
     /// Edge case worth knowing: any second device that was paired via
-    /// <c>/devices/pair</c> before this unbind keeps working (it has its
-    /// own device token). But a *new* device that hasn't paired yet will
-    /// see <c>/devices/pair</c> return 404 ("no account found for this
+    /// <c>POST /accounts/me/devices</c> before this unbind keeps working
+    /// (it has its own device token). But a *new* device that hasn't paired
+    /// yet will see that pair endpoint return 404 ("no account found for this
     /// identity") until some device re-runs the bind. Idempotent —
     /// unbinding an already-anonymous account is a no-op 204.
     /// </summary>
@@ -225,10 +229,7 @@ public static class AccountsEndpoints
         var accountIdClaim = user.FindFirstValue(NagClaimTypes.AccountId);
         if (!Guid.TryParse(accountIdClaim, out var accountId))
         {
-            return Results.Json(
-                new ErrorResponse(["unauthenticated"]),
-                statusCode: StatusCodes.Status401Unauthorized
-            );
+            return Results.Extensions.Unauthorized(new ErrorResponse(["unauthenticated"]));
         }
 
         var account = await session.LoadAsync<Account>(accountId, ct);
@@ -256,6 +257,7 @@ public static class AccountsEndpoints
         log.LogInformation("DELETE /accounts/me/identity unbound account={AccountId}", accountId);
         return Results.NoContent();
     }
+#endif
 
     /// <summary>
     /// Releases the account-to-Clerk-identity binding owned by whatever
@@ -292,10 +294,7 @@ public static class AccountsEndpoints
         var accountIdClaim = user.FindFirstValue(NagClaimTypes.AccountId);
         if (!Guid.TryParse(accountIdClaim, out var callerAccountId))
         {
-            return Results.Json(
-                new ErrorResponse(["unauthenticated"]),
-                statusCode: StatusCodes.Status401Unauthorized
-            );
+            return Results.Extensions.Unauthorized(new ErrorResponse(["unauthenticated"]));
         }
         var deviceIdClaim = user.FindFirstValue(NagClaimTypes.DeviceId) ?? "(none)";
 
@@ -305,9 +304,8 @@ public static class AccountsEndpoints
         var verification = await verifier.VerifyAsync(request.IdpToken, ct);
         if (!verification.Ok || string.IsNullOrEmpty(verification.Subject))
         {
-            return Results.Json(
-                new ErrorResponse([verification.Error ?? "invalid idpToken"]),
-                statusCode: StatusCodes.Status401Unauthorized
+            return Results.Extensions.Unauthorized(
+                new ErrorResponse([verification.Error ?? "invalid idpToken"])
             );
         }
         var sub = verification.Subject;
@@ -323,7 +321,7 @@ public static class AccountsEndpoints
                 callerAccountId,
                 deviceIdClaim
             );
-            return Results.NoContent();
+            return TypedResults.NoContent();
         }
 
         log.LogWarning(
@@ -338,7 +336,7 @@ public static class AccountsEndpoints
         await session.SaveChangesAsync(ct);
         resolver.Invalidate(sub);
 
-        return Results.NoContent();
+        return TypedResults.NoContent();
     }
 
     /// <summary>
@@ -372,10 +370,7 @@ public static class AccountsEndpoints
         var accountIdClaim = user.FindFirstValue(NagClaimTypes.AccountId);
         if (!Guid.TryParse(accountIdClaim, out var accountId))
         {
-            return Results.Json(
-                new ErrorResponse(["unauthenticated"]),
-                statusCode: StatusCodes.Status401Unauthorized
-            );
+            return Results.Extensions.Unauthorized(new ErrorResponse(["unauthenticated"]));
         }
 
         // Conjoined-tenant rows are tagged with the account id rendered as
@@ -387,7 +382,7 @@ public static class AccountsEndpoints
 
         var account = await session.LoadAsync<Account>(accountId, ct);
         if (account is null)
-            return Results.NotFound(new ErrorResponse(["account not found"]));
+            return TypedResults.NotFound(new ErrorResponse(["account not found"]));
 
         // Per-account read models and inbox. Each of these types is
         // registered MultiTenanted, so the WHERE clause Marten emits is
@@ -404,21 +399,35 @@ public static class AccountsEndpoints
         session.DeleteWhere<Device>(d => d.AccountId == accountId);
         session.Delete<Account>(accountId);
 
+        await session.SaveChangesAsync(ct);
+
         // Events are conjoined-tenant but live in `mt_events` /
         // `mt_streams`, which Marten doesn't expose via DeleteWhere.
-        // Drop them in the same unit of work via raw SQL so a partial
-        // failure doesn't leave the account half-deleted.
+        // Both tables are created lazily on first event write, so an
+        // account with no events at all would see them missing — wrap
+        // the deletes in a PL/pgSQL block that catches `undefined_table`.
+        // The block needs internal semicolons, which Marten's
+        // `QueueSqlCommand` rejects, so run it on a separate connection
+        // *after* the main batch commits. Losing atomicity is safe here:
+        // tenant_id-tagged event rows that outlive their account are
+        // unreachable (no Account/Device row resolves to that tenant)
+        // and a subsequent cascade still reaps them.
+        // `tenantId` comes from `accountId.ToString("D")` — hex + dashes
+        // only, so inlining it into the SQL is safe. PL/pgSQL `DO` blocks
+        // don't see outer command parameters, which forces this shape.
         var eventsSchema = store.Options.Events.DatabaseSchemaName;
-        session.QueueSqlCommand(
-            $"delete from {eventsSchema}.mt_events where tenant_id = ?",
-            tenantId
-        );
-        session.QueueSqlCommand(
-            $"delete from {eventsSchema}.mt_streams where tenant_id = ?",
-            tenantId
-        );
-
-        await session.SaveChangesAsync(ct);
+        await using (var conn = store.Storage.Database.CreateConnection())
+        {
+            await conn.OpenAsync(ct);
+            await using var cmd = conn.CreateCommand();
+            cmd.CommandText =
+                $@"DO $do$ BEGIN
+                     DELETE FROM {eventsSchema}.mt_events WHERE tenant_id = '{tenantId}';
+                     DELETE FROM {eventsSchema}.mt_streams WHERE tenant_id = '{tenantId}';
+                   EXCEPTION WHEN undefined_table THEN NULL;
+                   END $do$;";
+            await cmd.ExecuteNonQueryAsync(ct);
+        }
 
         // Drop the cached sub→account mapping so a subsequent Clerk-token
         // request for this identity doesn't 200 against a now-dead row.
@@ -431,6 +440,6 @@ public static class AccountsEndpoints
         resolver.InvalidateAccount(accountId);
 
         log.LogInformation("DELETE /accounts/me wiped account={AccountId}", accountId);
-        return Results.NoContent();
+        return TypedResults.NoContent();
     }
 }

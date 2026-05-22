@@ -43,7 +43,7 @@ export function setupTestDb(name: string): () => TestDb {
     // deleting the row (the row is seeded by migration 0008).
     await db
       .update(schema.syncState)
-      .set({ halted: false, highestServerSequence: 0 })
+      .set({ halted: false, paused: false, highestServerSequence: 0 })
       .where(eq(schema.syncState.id, 1));
     // identity is also single-row but unseeded by migration — every test
     // starts from a registered device unless the test explicitly clears it.

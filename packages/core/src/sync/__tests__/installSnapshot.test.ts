@@ -72,17 +72,38 @@ describe("installSnapshot", () => {
     expect(habits[0].title).toBe("Read");
   });
 
-  it("clears the outbox", async () => {
+  it("drops pending + failed outbox rows but preserves sent ones", async () => {
     const db = getDb();
+    // Pending row via processCommand (newly enqueued, not yet shipped).
     await processCommand(db, {
       type: "CreateHabit",
       habitId: crypto.randomUUID(),
       title: "Pending",
     });
-    expect(await db.select().from(schema.outbox)).not.toHaveLength(0);
+    // A sent row from a prior push — this is the ledger entry a future
+    // `disconnectFromCloud` flips back to pending so the user's history
+    // re-ships to a new server account.
+    await db.insert(schema.outbox).values({
+      id: "00000000-0000-4000-8000-0000000000aa",
+      events: "[]",
+      status: "sent",
+      sentAt: new Date("2026-05-22T00:00:00.000Z"),
+      serverSequence: 7,
+    });
+    // A failed row — server rejected permanently; snapshot install drops it.
+    await db.insert(schema.outbox).values({
+      id: "00000000-0000-4000-8000-0000000000bb",
+      events: "[]",
+      status: "failed",
+      lastError: "bad payload",
+    });
 
     await installSnapshot(db, 50, sampleSnapshot);
-    expect(await db.select().from(schema.outbox)).toHaveLength(0);
+
+    const rows = await db.select().from(schema.outbox);
+    expect(rows).toHaveLength(1);
+    expect(rows[0].status).toBe("sent");
+    expect(rows[0].id).toBe("00000000-0000-4000-8000-0000000000aa");
   });
 
   it("clears halted and advances highest_server_sequence to sequenceAtSnapshot", async () => {

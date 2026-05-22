@@ -3,4 +3,4 @@ config:
   nag-bootstrap:githubOrg: auctionready
   nag-bootstrap:githubRepo: nag
   nag-bootstrap:allowedRefs: refs/heads/main,refs/heads/claude/aws-pulumi-deployment-LETFa
-  nag-bootstrap:allowedEnvironments: prod
+  nag-bootstrap:allowedEnvironments: prod,dev

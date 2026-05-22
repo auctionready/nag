@@ -37,7 +37,7 @@ export const pairDevice = async (
   request: { deviceId: string; idpToken: string; label?: string | null },
   log?: WrapperLog,
 ): Promise<PairDeviceResult> => {
-  log?.debug?.(`POST /devices/pair deviceId=${request.deviceId}`);
+  log?.debug?.(`POST /accounts/me/devices deviceId=${request.deviceId}`);
   const start = Date.now();
   try {
     const response: PairDeviceResponse = await client.postDevicesPair(
@@ -51,7 +51,7 @@ export const pairDevice = async (
       !response.deviceToken
     ) {
       log?.error?.(
-        `POST /devices/pair ok (${elapsed}ms) but response missing fields`,
+        `POST /accounts/me/devices ok (${elapsed}ms) but response missing fields`,
         response,
       );
       return {
@@ -62,7 +62,7 @@ export const pairDevice = async (
       };
     }
     log?.info?.(
-      `POST /devices/pair ok (${elapsed}ms) accountId=${response.accountId}`,
+      `POST /accounts/me/devices ok (${elapsed}ms) accountId=${response.accountId}`,
     );
     return {
       ok: true,
@@ -73,7 +73,7 @@ export const pairDevice = async (
     };
   } catch (error: unknown) {
     return failureFromError(
-      "POST /devices/pair",
+      "POST /accounts/me/devices",
       log,
       Date.now() - start,
       error,

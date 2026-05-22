@@ -77,7 +77,7 @@ const upgradeAccountOnce = async (
 /**
  * POSTs the calling account's identity binding — sets <c>IdpSubject</c>
  * from the verified Clerk JWT's <c>sub</c>. Caller must already hold a
- * device token (from <c>/devices/register</c>); the server reads
+ * device token (from <c>POST /devices</c>); the server reads
  * <c>accountId</c> and <c>deviceId</c> from claims.
  *
  * Idempotent server-side on <c>(account, sub)</c>, so re-attempting

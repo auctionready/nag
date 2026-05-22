@@ -60,7 +60,7 @@ public class NagApiFactory : IAsyncLifetime
 
     /// <summary>
     /// Mints an HMAC device token without going through
-    /// <c>/devices/register</c>, and (by default) seeds an <c>Account</c>
+    /// <c>POST /devices</c>, and (by default) seeds an <c>Account</c>
     /// row so the auth handler's live-account check passes. Pass
     /// <paramref name="seedAccount"/>=<c>false</c> to mint a token whose
     /// account does not exist — used by the negative tests that exercise

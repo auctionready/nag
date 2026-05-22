@@ -27,7 +27,7 @@ public class AccountsEndpointsTests : IClassFixture<AccountsEndpointsTests.Facto
     public sealed class Factory : NagApiFactory;
 
     /// <summary>
-    /// Bootstraps an account+device pair the way <c>POST /devices/register</c>
+    /// Bootstraps an account+device pair the way <c>POST /devices</c>
     /// would in production. Returns an authed client (Bearer = the freshly
     /// issued device token) ready to call any of the account endpoints.
     /// </summary>
@@ -36,7 +36,7 @@ public class AccountsEndpointsTests : IClassFixture<AccountsEndpointsTests.Facto
         var client = _factory.CreateClient();
         var deviceId = Guid.NewGuid();
         var resp = await client.PostAsJsonAsync(
-            "/devices/register",
+            "/devices",
             new RegisterDeviceRequest(deviceId, "test")
         );
         resp.StatusCode.ShouldBe(HttpStatusCode.Created);
@@ -256,7 +256,7 @@ public class AccountsEndpointsTests : IClassFixture<AccountsEndpointsTests.Facto
 
     /// <summary>
     /// Bootstraps a registered+upgraded account and returns the authed
-    /// HTTP client (Bearer = the device token from <c>/devices/register</c>),
+    /// HTTP client (Bearer = the device token from <c>POST /devices</c>),
     /// ready to call <c>DELETE /accounts/me/identity</c>.
     /// </summary>
     private async Task<(Guid AccountId, Guid DeviceId, HttpClient Client)> RegisterAndUpgradeAsync(
@@ -268,6 +268,12 @@ public class AccountsEndpointsTests : IClassFixture<AccountsEndpointsTests.Facto
         (await PostIdentityAsync(client, "any-token")).StatusCode.ShouldBe(HttpStatusCode.Created);
         return (accountId, deviceId, client);
     }
+
+#if RESERVED_ENDPOINTS
+    // These tests cover `DELETE /accounts/me/identity`, which is gated
+    // off in production builds — see the matching `#if` in
+    // `AccountsEndpoints.cs`. Re-define `RESERVED_ENDPOINTS` to bring
+    // both back together.
 
     [Fact]
     public async Task unbind_clears_idp_subject_and_returns_204()
@@ -345,6 +351,7 @@ public class AccountsEndpointsTests : IClassFixture<AccountsEndpointsTests.Facto
 
         response.StatusCode.ShouldBe(HttpStatusCode.Unauthorized);
     }
+#endif
 
     [Fact]
     public async Task delete_me_removes_the_account_devices_and_per_account_data()

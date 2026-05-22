@@ -9,10 +9,6 @@
 # `expo.extra` and `app/src/infrastructure/apiClient.ts` consumes them.
 # This script is what makes the binding happen.
 #
-# Phase 2c removed the build-time NAG_API_KEY: mobile clients now
-# register anonymously on first launch via POST /devices/register and
-# persist the per-device token returned in the response. The only EAS
-# variable this script still needs to push is the backend URL.
 #
 # Usage:
 #   ops/sync-eas-env.sh <pulumi-stack> <eas-environment>
@@ -100,16 +96,3 @@ upsert () {
 }
 
 upsert NAG_API_BASE_URL "$API_URL" plaintext
-
-# NAG_API_KEY is intentionally not pushed: phase 2c moved auth from a
-# shared API key to per-device HMAC tokens issued by /devices/register.
-# Drop any stale NAG_API_KEY left over from earlier builds so the
-# variable doesn't shadow the new flow.
-echo "Removing legacy NAG_API_KEY from '$EAS_ENV' if present…"
-npx --yes eas-cli env:delete \
-  --variable-name NAG_API_KEY \
-  --variable-environment "$EAS_ENV" \
-  --non-interactive --force \
-  >/dev/null 2>&1 || true
-
-echo "Done. Next EAS build with profile bound to '$EAS_ENV' will pick this up."

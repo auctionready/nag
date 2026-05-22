@@ -48,7 +48,7 @@ public sealed class CreatedAtRoute : IResult, IEndpointMetadataProvider, IStatus
     {
         ArgumentNullException.ThrowIfNull(httpContext);
 
-        var path = FoundAtRoute.ResolveRelativePath(httpContext, RouteName, RouteValues);
+        var path = RouteRelativePathResolver.ResolvePath(httpContext, RouteName, RouteValues);
         httpContext.Response.Headers.Location = path;
         httpContext.Response.StatusCode = StatusCode;
         return Task.CompletedTask;
@@ -106,7 +106,7 @@ public sealed class CreatedAtRoute<TValue>
     {
         ArgumentNullException.ThrowIfNull(httpContext);
 
-        var path = FoundAtRoute.ResolveRelativePath(httpContext, RouteName, RouteValues);
+        var path = RouteRelativePathResolver.ResolvePath(httpContext, RouteName, RouteValues);
         httpContext.Response.Headers.Location = path;
         httpContext.Response.StatusCode = StatusCode;
         return httpContext.Response.WriteAsJsonAsync(Value);

@@ -94,7 +94,7 @@ export type EnsureDeviceRegisteredResult = {
  * then asks the server for an `accountId` if we don't already have one.
  *
  *   - First launch: generates a `deviceId`, persists it, calls
- *     `POST /devices/register`, stores the returned `accountId` in
+ *     `POST /devices`, stores the returned `accountId` in
  *     SQLite and the `deviceToken` in `tokenStore`.
  *   - Subsequent launches with `accountId` set and `tokenStore.get()`
  *     yielding a value: no-op (returns immediately).
@@ -188,7 +188,7 @@ export type RefreshDeviceTokenOptions = {
  * Forces a re-registration to refresh the persisted `deviceToken` after
  * the server rejects the current one (typically a 401 caused by the
  * server-side HMAC secret rotating). The persisted `deviceId` is reused
- * — `POST /devices/register` is idempotent on it — so the same account
+ * — `POST /devices` is idempotent on it — so the same account
  * keeps the same id, just with fresh credentials.
  *
  * Returns the new token on success, or `null` if registration failed
@@ -251,7 +251,7 @@ export type SwitchLocalAccountOptions = {
  * fresh snapshot from the new account.
  *
  * The `deviceId` is intentionally left untouched: the server's
- * `/devices/pair` call re-parents the existing Device row rather than
+ * `POST /accounts/me/devices` call re-parents the existing Device row rather than
  * issuing a new id, so the local id stays valid. The new device token
  * (signed for the new accountId) is written to `tokenStore` *after* the
  * SQLite transaction commits — secure-store writes aren't transactional,
@@ -277,7 +277,7 @@ export const switchLocalAccount = async ({
     await db.delete(outbox);
     await db
       .update(syncState)
-      .set({ halted: false, highestServerSequence: 0 })
+      .set({ halted: false, paused: false, highestServerSequence: 0 })
       .where(eq(syncState.id, 1));
     await db
       .update(identity)
@@ -306,7 +306,7 @@ export type ClearLocalAuthOptions = {
  *     to the server in the background)
  *
  * Preserves:
- *   - `identity.deviceId` — so the next sign-in calls `POST /devices/register`
+ *   - `identity.deviceId` — so the next sign-in calls `POST /devices`
  *     with the same id, hits the server's idempotent re-registration path,
  *     and rejoins the same Account
  *   - `habit`/`goal`/`schedule`/`checkIn` — the user's data survives sign-out
@@ -330,4 +330,142 @@ export const clearLocalAuth = async ({
     .where(eq(identity.id, 1));
   await tokenStore.clear();
   info("identity: cleared local auth — sign-in will re-register");
+};
+
+export type ResetLocalAccountOptions = {
+  db: AnyDb;
+  tokenStore: TokenStore;
+  log?: EnsureDeviceRegisteredOptions["log"];
+};
+
+/**
+ * Wipes every locally-replicated row and deletes the identity row in
+ * full so the next launch mints a brand-new `deviceId`. Used by the
+ * "Sign out completely" branch of the sign-out dialog: dropping the
+ * `deviceId` is what cuts the takeover vector, since otherwise a
+ * subsequent `POST /devices` with the same id would idempotently
+ * return the previous account's accountId and re-establish auth without
+ * any proof the new caller was the legitimate owner.
+ *
+ * Clears:
+ *   - `habit` / `goal` / `schedule` / `checkIn` (the replicated user data)
+ *   - `outbox` (events queued for the previous account are now meaningless)
+ *   - `syncState` (resets `highest_server_sequence` so a future pull-sync
+ *     starts fresh)
+ *   - the entire `identity` row, including `deviceId`
+ *   - the secure-store device token
+ *
+ * Server-side state is left untouched. The previous account (and its
+ * device row paired to the now-discarded `deviceId`) stay alive,
+ * orphaned from this device. If the user signs back in with the same
+ * identity, `runPairFallback` silently re-pairs the device's
+ * freshly-minted row into the surviving account and the data
+ * rehydrates from the server snapshot.
+ *
+ * Compare with:
+ *   - `clearLocalAuth` (legacy soft sign-out — kept the deviceId, the
+ *     takeover vector this helper closes)
+ *   - `disconnectFromCloud` (the inverse: deletes the *server* account
+ *     and preserves local data + outbox)
+ *   - `switchLocalAccount` (wipes data but moves to a specific known
+ *     `accountId` rather than tearing the identity row down)
+ */
+export const resetLocalAccount = async ({
+  db,
+  tokenStore,
+  log,
+}: ResetLocalAccountOptions): Promise<void> => {
+  const info = log?.info ?? (() => {});
+  await withTransaction(db, async () => {
+    await db.delete(checkIn);
+    await db.delete(schedule);
+    await db.delete(goal);
+    await db.delete(habit);
+    await db.delete(outbox);
+    await db
+      .update(syncState)
+      .set({ halted: false, paused: false, highestServerSequence: 0 })
+      .where(eq(syncState.id, 1));
+    await db.delete(identity).where(eq(identity.id, 1));
+  });
+  await tokenStore.clear();
+  info(
+    "identity: reset to fresh-install state — next launch mints a new deviceId",
+  );
+};
+
+export type DisconnectFromCloudOptions = {
+  db: AnyDb;
+  tokenStore: TokenStore;
+  log?: EnsureDeviceRegisteredOptions["log"];
+};
+
+/**
+ * Releases the device's server-side binding while leaving every
+ * locally-replicated row in place — the "Disconnect from cloud, keep
+ * my data" action. Called after `DELETE /accounts/me` has wiped the
+ * server-side account so the local mirror is now disconnected from a
+ * dead account; scrubbing the identity row here keeps a future
+ * sign-in's `POST /devices` from "rejoining" an account that no
+ * longer exists.
+ *
+ * Same shape as `clearLocalAuth` (sign-out) plus a `sync_state` reset:
+ * the old account's `highest_server_sequence` is meaningless once that
+ * account is gone, and leaving it set would make pull-sync against
+ * any future new account fail to replicate (the new account's
+ * sequences start at 1, but pull would still ask `since=<old high>`).
+ *
+ * Crucially: every `'sent'` row in the outbox is reverted to
+ * `'pending'` (clearing `sent_at` / `server_sequence` / `last_error`).
+ * The next sign-in registers a brand-new server account; without
+ * re-marking, the dispatcher would only ship rows queued *after*
+ * disconnect, and the new account would silently miss every event
+ * that had already been acknowledged by the previous (now-deleted)
+ * account. Envelope ids are preserved so the re-ship is still
+ * idempotent on the wire.
+ *
+ * Clears:
+ *   - `identity.accountId` / `registeredAt` / `idpSubject`
+ *   - the secure-store device token
+ *   - `sync_state.highest_server_sequence` (back to 0, `halted` cleared)
+ *   - outbox `sent_at` / `server_sequence` / `last_error` (status →
+ *     `'pending'` on every previously-sent row)
+ *
+ * Preserves:
+ *   - `identity.deviceId`
+ *   - `habit` / `goal` / `schedule` / `checkIn` — the whole point
+ *   - outbox `id` / `events` / `created_at` so the re-ship hits the
+ *     server's idempotency dedupe with the same envelope ids
+ *   - `'failed'` outbox rows are left as-is; the user must use the
+ *     existing "Resume sync" action if they want those retried,
+ *     since the reason for failure is usually intrinsic to the event
+ *     payload and won't be cured by a fresh account
+ */
+export const disconnectFromCloud = async ({
+  db,
+  tokenStore,
+  log,
+}: DisconnectFromCloudOptions): Promise<void> => {
+  const info = log?.info ?? (() => {});
+  await withTransaction(db, async () => {
+    await db
+      .update(syncState)
+      .set({ halted: false, paused: false, highestServerSequence: 0 })
+      .where(eq(syncState.id, 1));
+    await db
+      .update(outbox)
+      .set({
+        status: "pending",
+        sentAt: null,
+        serverSequence: null,
+        lastError: null,
+      })
+      .where(eq(outbox.status, "sent"));
+    await db
+      .update(identity)
+      .set({ accountId: null, registeredAt: null, idpSubject: null })
+      .where(eq(identity.id, 1));
+  });
+  await tokenStore.clear();
+  info("identity: disconnected from cloud — local data preserved");
 };

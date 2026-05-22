@@ -1,5 +1,5 @@
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Http.HttpResults;
 using Wolverine.Http;
 
 namespace Nag.Api.Endpoints;
@@ -10,7 +10,6 @@ public static class HealthEndpoints
     [NotTenanted]
     [Tags("Health")]
     [EndpointName("getHealth")]
-    [ProducesResponseType(StatusCodes.Status204NoContent)]
     [WolverineGet("/health")]
-    public static IResult Health() => Results.NoContent();
+    public static NoContent Health() => TypedResults.NoContent();
 }

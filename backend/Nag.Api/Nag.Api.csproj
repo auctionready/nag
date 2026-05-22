@@ -8,11 +8,29 @@
     <RuntimeIdentifiers>linux-arm64</RuntimeIdentifiers>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
+    <!-- Light up the AOT/trim analyzers so new reflective surface (Type.GetType,
+         MakeGenericType, JsonSerializer without a JsonTypeInfo, etc.) trips a
+         build warning as soon as it's introduced. We're not actually publishing
+         with PublishAot today — the existing surface emits ~54 IL2026/IL3050
+         from JsonSerializer/RouteValueDictionary/AddAWSLambdaHosting/
+         RunJasperFxCommands. Those are tracked-but-not-fixed; suppress the two
+         codes so the build stays green while the tripwire still catches
+         new occurrences in other forms. Re-enable when the JSON source-gen
+         context lands and the Wolverine/Lambda AOT pillars close. -->
+    <IsAotCompatible>true</IsAotCompatible>
+    <!-- Emit Nag.Api.xml so Swashbuckle's IncludeXmlComments can surface
+         `/// <summary>` blocks on endpoints and contracts as OpenAPI
+         `description` fields, which then flow through openapi-zod-client
+         into JSDoc on the generated Zodios methods. 1591 ("missing XML
+         comment") is suppressed because Directory.Build.props sets
+         TreatWarningsAsErrors and we don't doc every public member. -->
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <NoWarn>$(NoWarn);IL2026;IL3050;1591;1574</NoWarn>
     <!-- Drop the foreign-language satellite resource DLLs that
-         Microsoft.CodeAnalysis.* (transitively pulled in by Wolverine's
-         runtime compiler) bundles for compiler diagnostics. We use
-         TypeLoadMode.Static in production so Roslyn never runs in the
-         Lambda anyway. -->
+         Microsoft.CodeAnalysis.* (pulled in by WolverineFx.RuntimeCompilation)
+         bundles for compiler diagnostics. We use TypeLoadMode.Static in
+         production so Roslyn never runs in the Lambda anyway; the package
+         is referenced so `dotnet run -&#45;&#45; codegen write` works at build time. -->
     <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
   </PropertyGroup>
 
@@ -28,7 +46,8 @@
     <PackageReference Include="Sentry.AspNetCore" Version="6.5.0" />
     <PackageReference Include="Sentry.Serilog" Version="6.5.0" />
     <PackageReference Include="Serilog.AspNetCore" Version="10.0.0" />
-    <PackageReference Include="WolverineFx.Http.Marten" Version="5.39.3" />
+    <PackageReference Include="WolverineFx.Http.Marten" Version="6.0.0" />
+    <PackageReference Include="WolverineFx.RuntimeCompilation" Version="6.0.0" />
   </ItemGroup>
 
   <ItemGroup Condition="'$(Configuration)' == 'Debug'">

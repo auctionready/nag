@@ -11,7 +11,7 @@ namespace Nag.Core.Projections;
 /// read the prior state in the same transaction it appends the new event,
 /// without any extra round-trip.
 /// </summary>
-public sealed class CheckInIndexProjection : MultiStreamProjection<CheckInState, Guid>
+public sealed partial class CheckInIndexProjection : MultiStreamProjection<CheckInState, Guid>
 {
     public CheckInIndexProjection()
     {

@@ -17,6 +17,13 @@ namespace Nag.Api.Endpoints;
 /// </summary>
 public static class CheckInSummaryEndpoints
 {
+    /// <summary>
+    /// Materialised check-ins for one calendar month (UTC), keyed
+    /// <c>yyyy-MM</c>. Used by the calendar/history screens when the user
+    /// browses a month outside the current/previous month retained locally.
+    /// Empty for months with no recorded check-ins; rejects invalid
+    /// <c>month</c> values with 400.
+    /// </summary>
     [Tags("Read Models")]
     [EndpointName("getMonthlyCheckInSummary")]
     [ProducesResponseType(typeof(MonthlyCheckInSummary), StatusCodes.Status200OK)]
@@ -47,6 +54,13 @@ public static class CheckInSummaryEndpoints
             : Results.Ok(doc);
     }
 
+    /// <summary>
+    /// Materialised check-ins for one Sunday-anchored week, keyed
+    /// <c>yyyy-MM-dd</c> where the date is the week's starting Sunday in
+    /// UTC. Same usage and empty-doc convention as the monthly endpoint;
+    /// rejects non-Sunday dates and invalid year/month/day combinations
+    /// with 400.
+    /// </summary>
     [Tags("Read Models")]
     [EndpointName("getWeeklyCheckInSummary")]
     [ProducesResponseType(typeof(WeeklyCheckInSummary), StatusCodes.Status200OK)]

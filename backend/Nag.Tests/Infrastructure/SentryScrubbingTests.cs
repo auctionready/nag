@@ -7,10 +7,11 @@ namespace Nag.Tests.Infrastructure;
 public class SentryScrubbingTests
 {
     [Theory]
-    [InlineData("https://api.example.com/accounts/upgrade")]
-    [InlineData("https://api.example.com/devices/pair")]
+    [InlineData("https://api.example.com/accounts/me/identity")]
+    [InlineData("https://api.example.com/accounts/me/devices")]
+    [InlineData("https://api.example.com/accounts/by-clerk-identity")]
     [InlineData("https://api.example.com/admin/rebuild-projections")]
-    [InlineData("/accounts/upgrade?trace=1")]
+    [InlineData("/accounts/me/identity?trace=1")]
     public void scrubs_body_and_query_for_sensitive_routes(string url)
     {
         var evt = new SentryEvent

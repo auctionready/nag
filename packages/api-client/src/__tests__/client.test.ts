@@ -212,7 +212,7 @@ describe("nagApiClient", () => {
       const scope = nock(BASE_URL, {
         badheaders: ["authorization"],
       })
-        .post("/devices/register", { deviceId })
+        .post("/devices", { deviceId })
         .reply(200, {
           accountId,
           deviceId,

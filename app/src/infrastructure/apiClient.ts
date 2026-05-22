@@ -44,7 +44,7 @@ let singleton: NagApiClient | null = null;
  * on Android, populated by `ensureDeviceRegistered` on first launch).
  * `onUnauthorized` re-registers and updates the store when the server
  * rejects the current token, then the original request is retried once.
- * Bootstrap calls (`/devices/register` etc.) work without a token
+ * Bootstrap calls (`POST /devices` etc.) work without a token
  * because the request interceptor omits the header when `getToken`
  * returns `null`.
  *
@@ -106,7 +106,7 @@ export const logApiConfig = (): void => {
  * Direct register-device wrapper used both by the boot-time
  * `ensureDeviceRegistered` call and by the 401-refresh flow inside
  * `onUnauthorized`. Goes through the same singleton client — the
- * `/devices/register` endpoint is anonymous and `[NotTenanted]`, so it
+ * `POST /devices` endpoint is anonymous and `[NotTenanted]`, so it
  * accepts the request whether or not the current token is still valid.
  */
 const registerDeviceRaw: RegisterDeviceFn = (
