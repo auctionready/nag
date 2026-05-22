@@ -6,7 +6,7 @@ import { loadIdentity } from "@nag/core";
 import { outbox } from "@nag/schema";
 import { db } from "../db";
 import { tokens } from "../components/theme";
-import { getLastSplashTagline } from "../components/shell";
+import { AboutTagline } from "../components/tagline";
 
 type AboutData = {
   accountId: string | null;
@@ -50,7 +50,6 @@ const AboutScreen = () => {
   }, []);
 
   const registered = data != null && data.accountId != null;
-  const tagline = getLastSplashTagline();
 
   return (
     <ScrollView
@@ -89,19 +88,7 @@ const AboutScreen = () => {
         )}
       </InfoGroup>
 
-      {tagline != null && (
-        <View style={styles.group}>
-          <Text style={styles.groupTitle}>Today’s nag</Text>
-          <View style={styles.card}>
-            <View style={styles.taglineRow}>
-              <Text style={styles.taglineQuote}>“{tagline.quote}”</Text>
-              <Text style={styles.taglineAttribution}>
-                — {tagline.attribution}
-              </Text>
-            </View>
-          </View>
-        </View>
-      )}
+      <AboutTagline />
 
       <View style={{ height: 32 }} />
     </ScrollView>
@@ -189,22 +176,5 @@ const styles = StyleSheet.create({
     fontFamily: "JetBrainsMono",
     fontSize: 12,
     color: tokens.ink,
-  },
-  taglineRow: {
-    paddingHorizontal: 16,
-    paddingVertical: 16,
-    gap: 8,
-  },
-  taglineQuote: {
-    fontFamily: "JetBrainsMono",
-    fontSize: 13,
-    color: tokens.ink,
-    lineHeight: 20,
-  },
-  taglineAttribution: {
-    fontFamily: "JetBrainsMono",
-    fontSize: 11,
-    color: tokens.mute,
-    letterSpacing: 0.4,
   },
 });

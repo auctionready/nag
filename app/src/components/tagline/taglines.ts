@@ -1,9 +1,9 @@
-export type SplashTagline = {
+export type Tagline = {
   quote: string;
   attribution: string;
 };
 
-export const splashTaglines: readonly SplashTagline[] = [
+export const taglines: readonly Tagline[] = [
   {
     quote: "We are what we repeatedly do.",
     attribution: "Will Durant",
@@ -69,13 +69,12 @@ export const splashTaglines: readonly SplashTagline[] = [
   },
 ];
 
-let lastTagline: SplashTagline | null = null;
+let lastTagline: Tagline | null = null;
 
-export const pickSplashTagline = (): SplashTagline => {
-  const picked =
-    splashTaglines[Math.floor(Math.random() * splashTaglines.length)];
+export const pickTagline = (): Tagline => {
+  const picked = taglines[Math.floor(Math.random() * taglines.length)];
   lastTagline = picked;
   return picked;
 };
 
-export const getLastSplashTagline = (): SplashTagline | null => lastTagline;
+export const getLastTagline = (): Tagline | null => lastTagline;
