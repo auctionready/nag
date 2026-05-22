@@ -1,0 +1,292 @@
+---
+import Base from "../layouts/Base.astro";
+---
+
+<Base
+  title="How it works — nag."
+  description="The four-step nag loop: add, cadence, do, see. Plus cadence types and FAQs."
+  current="how-it-works"
+>
+  <!-- ──────── Page header ──────── -->
+  <section class="section-sm" style="padding-top: 80px;">
+    <div class="wrap">
+      <div class="kicker">How it works</div>
+      <h1 class="h-display" style="margin-top: 18px;">
+        add. set cadence.<br />
+        do it. see the dots<span class="dot">.</span>
+      </h1>
+      <p class="lede" style="margin-top: 28px;">
+        Four moves. No onboarding wizard, no setup quiz, no "let's get to know you."
+        You know yourself fine.
+      </p>
+    </div>
+  </section>
+
+  <!-- ──────── Four steps ──────── -->
+  <section style="padding-top: 0;">
+    <div class="wrap">
+      <div class="steps">
+
+        <div class="step">
+          <div class="step-num">01</div>
+          <div class="step-fig" style="background: var(--nag-orange); color: var(--nag-cream); border: 0;">
+            <div style="font-family: var(--mono); font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; opacity: 0.8;">new habit</div>
+            <div>
+              <div style="font-family: var(--display); font-weight: 600; font-size: 26px; letter-spacing: -0.02em;">read 20&nbsp;min</div>
+              <div style="font-family: var(--mono); font-size: 11px; opacity: 0.85; margin-top: 4px;">| typing<span style="opacity:.6">_</span></div>
+            </div>
+          </div>
+          <h3>Add the habit</h3>
+          <p>Plain text. A verb and a thing. Skip the categories.</p>
+        </div>
+
+        <div class="step">
+          <div class="step-num">02</div>
+          <div class="step-fig">
+            <div style="font-family: var(--mono); font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--nag-mute);">cadence</div>
+            <div style="display: flex; flex-direction: column; gap: 10px;">
+              <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+                <span style="padding: 5px 10px; border-radius: 999px; background: var(--nag-ink); color: var(--nag-cream); font-size: 12px; font-family: var(--mono);">daily</span>
+                <span style="padding: 5px 10px; border-radius: 999px; border: 1px solid var(--hairline); font-size: 12px; font-family: var(--mono); color: var(--nag-ink-soft);">3×/wk</span>
+                <span style="padding: 5px 10px; border-radius: 999px; border: 1px solid var(--hairline); font-size: 12px; font-family: var(--mono); color: var(--nag-ink-soft);">m/w/f</span>
+              </div>
+              <div class="cadence-row">
+                <div class="cad-dot"></div><div class="cad-dot"></div><div class="cad-dot"></div>
+                <div class="cad-dot"></div><div class="cad-dot"></div><div class="cad-dot"></div><div class="cad-dot"></div>
+              </div>
+            </div>
+          </div>
+          <h3>Set the cadence</h3>
+          <p>How often, which days, how many times. Nag does the math.</p>
+        </div>
+
+        <div class="step">
+          <div class="step-num">03</div>
+          <div class="step-fig" style="background: var(--nag-ink); color: var(--nag-cream); border: 0;">
+            <div style="font-family: var(--mono); font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; opacity: 0.6;">9:00 pm</div>
+            <div>
+              <div style="font-family: var(--display); font-weight: 600; font-size: 18px; letter-spacing: -0.01em; line-height: 1.25;">
+                still waiting<span class="dot">.</span>
+              </div>
+              <div style="font-family: var(--mono); font-size: 11px; opacity: 0.55; margin-top: 6px;">read 20 min · today</div>
+            </div>
+          </div>
+          <h3>Get nagged</h3>
+          <p>Local notifications, scheduled around your day. Tap to check in or skip.</p>
+        </div>
+
+        <div class="step">
+          <div class="step-num">04</div>
+          <div class="step-fig">
+            <div style="font-family: var(--mono); font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--nag-mute);">last 4 weeks</div>
+            <div>
+              <div style="display: grid; grid-template-columns: repeat(7, 1fr); gap: 3px;">
+                <div class="cell" style="aspect-ratio: 1; background: var(--nag-ink); border-radius: 3px;"></div>
+                <div class="cell" style="aspect-ratio: 1; background: var(--nag-ink); border-radius: 3px;"></div>
+                <div class="cell" style="aspect-ratio: 1; background: rgba(26,20,16,0.08); border-radius: 3px;"></div>
+                <div class="cell" style="aspect-ratio: 1; background: var(--nag-ink); border-radius: 3px;"></div>
+                <div class="cell" style="aspect-ratio: 1; background: var(--nag-ink); border-radius: 3px;"></div>
+                <div class="cell" style="aspect-ratio: 1; background: var(--nag-ink); border-radius: 3px;"></div>
+                <div class="cell" style="aspect-ratio: 1; background: var(--nag-ink); border-radius: 3px;"></div>
+                <div class="cell" style="aspect-ratio: 1; background: var(--nag-ink); border-radius: 3px;"></div>
+                <div class="cell" style="aspect-ratio: 1; background: rgba(26,20,16,0.08); border-radius: 3px;"></div>
+                <div class="cell" style="aspect-ratio: 1; background: var(--nag-ink); border-radius: 3px;"></div>
+                <div class="cell" style="aspect-ratio: 1; background: var(--nag-ink); border-radius: 3px;"></div>
+                <div class="cell" style="aspect-ratio: 1; background: var(--nag-ink); border-radius: 3px;"></div>
+                <div class="cell" style="aspect-ratio: 1; background: var(--nag-ink); border-radius: 3px;"></div>
+                <div class="cell" style="aspect-ratio: 1; background: var(--nag-ink); border-radius: 3px;"></div>
+                <div class="cell" style="aspect-ratio: 1; background: var(--nag-ink); border-radius: 3px;"></div>
+                <div class="cell" style="aspect-ratio: 1; background: var(--nag-ink); border-radius: 3px;"></div>
+                <div class="cell" style="aspect-ratio: 1; background: var(--nag-ink); border-radius: 3px;"></div>
+                <div class="cell" style="aspect-ratio: 1; background: rgba(26,20,16,0.08); border-radius: 3px;"></div>
+                <div class="cell" style="aspect-ratio: 1; background: var(--nag-ink); border-radius: 3px;"></div>
+                <div class="cell" style="aspect-ratio: 1; background: var(--nag-ink); border-radius: 3px;"></div>
+                <div class="cell" style="aspect-ratio: 1; background: var(--nag-ink); border-radius: 3px;"></div>
+                <div class="cell" style="aspect-ratio: 1; background: var(--nag-ink); border-radius: 3px;"></div>
+                <div class="cell" style="aspect-ratio: 1; background: var(--nag-ink); border-radius: 3px;"></div>
+                <div class="cell" style="aspect-ratio: 1; background: var(--nag-ink); border-radius: 3px;"></div>
+                <div class="cell" style="aspect-ratio: 1; border: 1.5px solid var(--nag-orange); border-radius: 3px;"></div>
+                <div class="cell" style="aspect-ratio: 1; background: transparent; border: 1px solid var(--hairline); border-radius: 3px;"></div>
+                <div class="cell" style="aspect-ratio: 1; background: transparent; border: 1px solid var(--hairline); border-radius: 3px;"></div>
+                <div class="cell" style="aspect-ratio: 1; background: transparent; border: 1px solid var(--hairline); border-radius: 3px;"></div>
+              </div>
+              <div style="font-family: var(--mono); font-size: 11px; color: var(--nag-mute); margin-top: 8px;">compliance · 86%</div>
+            </div>
+          </div>
+          <h3>See the truth</h3>
+          <p>Dots show what you actually did. Not what you meant to.</p>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- ──────── Anatomy of a tile ──────── -->
+  <section style="background: var(--nag-cream-2);">
+    <div class="wrap">
+      <div class="section-head">
+        <span class="kicker">Anatomy</span>
+        <h2 class="h-1">A tile, decoded<span class="dot">.</span></h2>
+        <p class="lede">Every habit on the home board is a tile. Glance at one and you know the cadence, today's status, the week so far, and your streak — without opening anything.</p>
+      </div>
+
+      <div style="display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr); gap: clamp(32px, 6vw, 80px); align-items: center;">
+        <div style="position: relative; padding: 60px;">
+          <div class="mock-tile" style="aspect-ratio: 1; min-height: 0;">
+            <div>
+              <div class="t-meta">daily · streak ×12</div>
+              <div class="t-name" style="margin-top: 8px; font-size: 18px;">read 20 min</div>
+            </div>
+            <div class="t-foot">
+              <div class="mock-week" aria-hidden="true">
+                <div class="cell done"></div><div class="cell done"></div><div class="cell done"></div>
+                <div class="cell today"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div>
+              </div>
+              <div class="tile-streak">12<span style="font-size: 14px; opacity:.7">d</span></div>
+            </div>
+          </div>
+        </div>
+
+        <ol style="list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 18px;">
+          <li style="display: grid; grid-template-columns: 36px 1fr; gap: 16px; align-items: baseline;">
+            <span class="kicker" style="color: var(--nag-orange);">01</span>
+            <div>
+              <h3 class="h-3">Cadence label</h3>
+              <p class="body">"daily · streak ×12" — read as a sentence. Cadence first, current streak second.</p>
+            </div>
+          </li>
+          <li style="display: grid; grid-template-columns: 36px 1fr; gap: 16px; align-items: baseline;">
+            <span class="kicker" style="color: var(--nag-orange);">02</span>
+            <div>
+              <h3 class="h-3">Habit name</h3>
+              <p class="body">Whatever you typed. No icon. No category. Tap to drill in.</p>
+            </div>
+          </li>
+          <li style="display: grid; grid-template-columns: 36px 1fr; gap: 16px; align-items: baseline;">
+            <span class="kicker" style="color: var(--nag-orange);">03</span>
+            <div>
+              <h3 class="h-3">Week strip</h3>
+              <p class="body">M&ndash;S. Filled = done. Outlined orange = today, still pending. Dashed = missed.</p>
+            </div>
+          </li>
+          <li style="display: grid; grid-template-columns: 36px 1fr; gap: 16px; align-items: baseline;">
+            <span class="kicker" style="color: var(--nag-orange);">04</span>
+            <div>
+              <h3 class="h-3">Status numeral</h3>
+              <p class="body">Streak count for daily, ratio (2/3) for weekly, ↻ for "scheduled today."</p>
+            </div>
+          </li>
+        </ol>
+      </div>
+    </div>
+  </section>
+
+  <!-- ──────── Cadence types ──────── -->
+  <section id="cadence-types">
+    <div class="wrap">
+      <div class="section-head">
+        <span class="kicker">Cadence types</span>
+        <h2 class="h-1">Five ways to schedule a habit<span class="dot">.</span></h2>
+      </div>
+
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1px; background: var(--hairline); border: 1px solid var(--hairline);">
+        <div style="background: var(--nag-cream); padding: 28px;">
+          <div class="kicker">Daily</div>
+          <h3 class="h-3" style="margin: 10px 0 8px;">Every day</h3>
+          <p class="body">For the non-negotiables.</p>
+          <div class="cadence-row" style="margin-top: 14px;">
+            <div class="cad-dot"></div><div class="cad-dot"></div><div class="cad-dot"></div><div class="cad-dot"></div><div class="cad-dot"></div><div class="cad-dot"></div><div class="cad-dot"></div>
+          </div>
+        </div>
+        <div style="background: var(--nag-cream); padding: 28px;">
+          <div class="kicker">Weekly</div>
+          <h3 class="h-3" style="margin: 10px 0 8px;">X times per week</h3>
+          <p class="body">Flexible — pick any day, just hit the count.</p>
+          <div class="cadence-row" style="margin-top: 14px;">
+            <div class="cad-dot"></div><div class="cad-dot future"></div><div class="cad-dot"></div><div class="cad-dot future"></div><div class="cad-dot"></div><div class="cad-dot future"></div><div class="cad-dot future"></div>
+          </div>
+        </div>
+        <div style="background: var(--nag-cream); padding: 28px;">
+          <div class="kicker">Weekdays</div>
+          <h3 class="h-3" style="margin: 10px 0 8px;">Specific days</h3>
+          <p class="body">M/W/F. Or just Sundays. Whatever fits.</p>
+          <div class="cadence-row" style="margin-top: 14px;">
+            <div class="cad-dot"></div><div class="cad-dot future"></div><div class="cad-dot"></div><div class="cad-dot future"></div><div class="cad-dot"></div><div class="cad-dot future"></div><div class="cad-dot future"></div>
+          </div>
+        </div>
+        <div style="background: var(--nag-cream); padding: 28px;">
+          <div class="kicker">Monthly</div>
+          <h3 class="h-3" style="margin: 10px 0 8px;">Once a month</h3>
+          <p class="body">Bills. Backups. Calling people you love.</p>
+          <div class="cadence-row" style="margin-top: 14px;">
+            <div class="cad-dot"></div><div class="cad-dot future"></div><div class="cad-dot future"></div><div class="cad-dot future"></div>
+          </div>
+        </div>
+        <div style="background: var(--nag-cream); padding: 28px;">
+          <div class="kicker">One-off</div>
+          <h3 class="h-3" style="margin: 10px 0 8px;">Just once</h3>
+          <p class="body">A nag for a single thing on a single day.</p>
+          <div class="cadence-row" style="margin-top: 14px;">
+            <div class="cad-dot today"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ──────── FAQ ──────── -->
+  <section>
+    <div class="wrap">
+      <div style="display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 2fr); gap: clamp(32px, 6vw, 96px);">
+        <div>
+          <span class="kicker">FAQ</span>
+          <h2 class="h-1" style="margin-top: 12px;">Reasonable questions<span class="dot">.</span></h2>
+          <p class="body" style="margin-top: 22px;">Not seeing yours? <a href="#" style="color: var(--nag-orange);">Email me</a>.</p>
+        </div>
+
+        <div class="faq">
+          <details open>
+            <summary>Do I need an account?</summary>
+            <p>No. Nag stores everything locally on your device. There's an optional iCloud / Google Drive backup. That's it. No login screen exists.</p>
+          </details>
+          <details>
+            <summary>Is there a streak feature?</summary>
+            <p>There's a count of consecutive successful days, but it's deliberately small in the UI. Nag tracks long-run compliance — not your ability to be perfect.</p>
+          </details>
+          <details>
+            <summary>How are notifications scheduled?</summary>
+            <p>By default, a single reminder at your set time, then one follow-up two hours later if you haven't checked in. You can adjust per-habit, or turn the follow-up off.</p>
+          </details>
+          <details>
+            <summary>Can I sync between phones?</summary>
+            <p>Yes, via your platform's cloud (iCloud on iOS, Google Drive on Android). Cross-platform sync isn't planned for v1.</p>
+          </details>
+          <details>
+            <summary>How much does it cost?</summary>
+            <p>Nothing. Maybe a one-time "pay me if you want" tip in a later release. No subscriptions ever.</p>
+          </details>
+          <details>
+            <summary>Is it open source?</summary>
+            <p>Not currently — but the data format is documented and you can export everything as JSON or CSV any time.</p>
+          </details>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ──────── CTA band ──────── -->
+  <section style="padding-top: 0;">
+    <div class="wrap">
+      <div class="cta-band">
+        <h2>enough reading<span class="dot" style="color: var(--nag-ink)">.</span></h2>
+        <div class="right">
+          <p>Free · iOS &amp; Android</p>
+          <div class="cta-row">
+            <a href="#" class="btn btn-ink">↓ App Store</a>
+            <a href="#" class="btn btn-ink">↓ Google Play</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+</Base>

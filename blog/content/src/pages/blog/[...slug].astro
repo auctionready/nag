@@ -1,0 +1,105 @@
+---
+import { getCollection, render } from "astro:content";
+import Base from "../../layouts/Base.astro";
+
+export async function getStaticPaths() {
+  const posts = await getCollection("blog");
+  return posts.map((post) => ({
+    params: { slug: post.id },
+    props: { post },
+  }));
+}
+
+const { post } = Astro.props;
+const { Content } = await render(post);
+
+const dateLong = (d: Date) =>
+  d.toLocaleDateString("en-NZ", { day: "2-digit", month: "long", year: "numeric" });
+
+const versionMatch = post.data.title.match(/(\d+\.\d+)/);
+const version = versionMatch?.[1];
+
+const allPosts = (await getCollection("blog")).sort(
+  (a, b) => b.data.pubDate.valueOf() - a.data.pubDate.valueOf(),
+);
+const readNext = allPosts.filter((p) => p.id !== post.id).slice(0, 3);
+
+const dateShort = (d: Date) =>
+  d.toLocaleDateString("en-NZ", { day: "2-digit", month: "short", year: "numeric" }).toLowerCase();
+---
+
+<Base title={`${post.data.title} — nag.`} description={post.data.description} current="blog">
+  <!-- ──────── Article header ──────── -->
+  <article>
+    <section class="article-hd section-sm">
+      <div class="wrap" style="max-width: 920px;">
+        <div style="display: flex; gap: 14px; align-items: center; margin-bottom: 8px;">
+          <a href="/blog" style="font-family: var(--mono); font-size: 12px; letter-spacing: 0.08em; color: var(--nag-mute); text-transform: uppercase;">← all posts</a>
+        </div>
+        <div class="meta">
+          <span class="pill">{post.data.category}</span>
+          <span class="date">{dateLong(post.data.pubDate)}{post.data.readingTime ? ` · ${post.data.readingTime}` : ""}</span>
+        </div>
+        <h1>{post.data.title}</h1>
+        <p class="lede" style="max-width: 60ch;">{post.data.description}</p>
+      </div>
+    </section>
+
+    {version && (
+      <!-- Hero figure -->
+      <section style="padding-top: 0; padding-bottom: 0;">
+        <div class="wrap" style="max-width: 1040px;">
+          <div class="article-hero">
+            <span class="sub">v · {version}.0</span>
+            <span class="v">{version}<span class="dot" style="color: var(--nag-ink)">.</span></span>
+          </div>
+        </div>
+      </section>
+    )}
+
+    <!-- Body -->
+    <section style="padding-top: 0;">
+      <div class="prose">
+        <Content />
+      </div>
+    </section>
+  </article>
+
+  {readNext.length > 0 && (
+    <!-- ──────── Next posts ──────── -->
+    <section style="background: var(--nag-cream-2); padding: 64px 0;">
+      <div class="wrap">
+        <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 32px;">
+          <h2 class="h-2">Read next<span class="dot">.</span></h2>
+          <a href="/blog" style="font-family: var(--mono); font-size: 12px; letter-spacing: 0.08em; color: var(--nag-mute); text-transform: uppercase;">all posts →</a>
+        </div>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 18px;">
+          {readNext.map((p) => (
+            <a href={`/blog/${p.id}`} class="post-card" style="background: #fff; border: 1px solid var(--hairline);">
+              <div class="num">{p.data.number ?? ""} · {p.data.category.toLowerCase()}</div>
+              <h3>{p.data.title}</h3>
+              <p>{p.data.description}</p>
+              <div class="foot"><span class="pill">{p.data.category}</span><span class="arrow">→</span></div>
+            </a>
+          ))}
+        </div>
+      </div>
+    </section>
+  )}
+
+  <!-- ──────── CTA band ──────── -->
+  <section style="padding-top: 0;">
+    <div class="wrap">
+      <div class="cta-band">
+        <h2>try the thing<span class="dot" style="color: var(--nag-ink)">.</span></h2>
+        <div class="right">
+          <p>Free · iOS &amp; Android</p>
+          <div class="cta-row">
+            <a href="#" class="btn btn-ink">↓ App Store</a>
+            <a href="#" class="btn btn-ink">↓ Google Play</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+</Base>
