@@ -12,8 +12,9 @@ public static class SentryScrubbing
     private static readonly string[] SensitivePathPrefixes =
     [
         "/admin/",
-        "/accounts/upgrade",
-        "/devices/pair",
+        "/accounts/me/identity",
+        "/accounts/me/devices",
+        "/accounts/by-clerk-identity",
     ];
 
     public static SentryEvent ScrubSensitiveRequests(SentryEvent sentryEvent)

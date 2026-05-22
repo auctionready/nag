@@ -36,7 +36,7 @@ public class DevicesPairTests : IClassFixture<DevicesPairTests.Factory>
         var sub = $"user_{Guid.NewGuid():N}";
         var deviceId = Guid.NewGuid();
         var registerResp = await client.PostAsJsonAsync(
-            "/devices/register",
+            "/devices",
             new RegisterDeviceRequest(deviceId, "first-phone")
         );
         registerResp.StatusCode.ShouldBe(HttpStatusCode.Created);
@@ -69,12 +69,12 @@ public class DevicesPairTests : IClassFixture<DevicesPairTests.Factory>
         var newDeviceId = Guid.NewGuid();
 
         var response = await client.PostAsJsonAsync(
-            "/devices/pair",
+            "/accounts/me/devices",
             new PairDeviceRequest(newDeviceId, "any-token", "second-phone")
         );
 
         response.StatusCode.ShouldBe(HttpStatusCode.Created);
-        response.Headers.Location!.ToString().ShouldBe($"/devices/{newDeviceId}");
+        response.Headers.Location!.ToString().ShouldBe("/devices/me");
         var body = await response.Content.ReadFromJsonAsync<PairDeviceResponse>();
         body!.AccountId.ShouldBe(accountId);
         body.DeviceId.ShouldBe(newDeviceId);
@@ -89,18 +89,18 @@ public class DevicesPairTests : IClassFixture<DevicesPairTests.Factory>
         var newDeviceId = Guid.NewGuid();
 
         var first = await client.PostAsJsonAsync(
-            "/devices/pair",
+            "/accounts/me/devices",
             new PairDeviceRequest(newDeviceId, "any-token", null)
         );
         first.StatusCode.ShouldBe(HttpStatusCode.Created);
         var firstBody = await first.Content.ReadFromJsonAsync<PairDeviceResponse>();
 
         var second = await client.PostAsJsonAsync(
-            "/devices/pair",
+            "/accounts/me/devices",
             new PairDeviceRequest(newDeviceId, "any-token", "renamed")
         );
         second.StatusCode.ShouldBe(HttpStatusCode.OK);
-        second.Content.Headers.ContentLocation!.ToString().ShouldBe($"/devices/{newDeviceId}");
+        second.Content.Headers.ContentLocation!.ToString().ShouldBe("/devices/me");
         var secondBody = await second.Content.ReadFromJsonAsync<PairDeviceResponse>();
 
         secondBody!.AccountId.ShouldBe(accountId);
@@ -117,7 +117,7 @@ public class DevicesPairTests : IClassFixture<DevicesPairTests.Factory>
             ClerkTokenVerificationResult.Success("user_with_no_upgrade");
 
         var response = await client.PostAsJsonAsync(
-            "/devices/pair",
+            "/accounts/me/devices",
             new PairDeviceRequest(Guid.NewGuid(), "any-token", null)
         );
 
@@ -133,7 +133,7 @@ public class DevicesPairTests : IClassFixture<DevicesPairTests.Factory>
         // Account A owns deviceX (registered, anonymous, then upgraded).
         var deviceX = Guid.NewGuid();
         var registerA = await client.PostAsJsonAsync(
-            "/devices/register",
+            "/devices",
             new RegisterDeviceRequest(deviceX, null)
         );
         var registeredA = await registerA.Content.ReadFromJsonAsync<RegisterDeviceResponse>();
@@ -154,7 +154,7 @@ public class DevicesPairTests : IClassFixture<DevicesPairTests.Factory>
         // Trying to pair deviceX into account B (verified as subB) must conflict.
         _factory.ClerkVerifier.Behavior = _ => ClerkTokenVerificationResult.Success(subB);
         var response = await client.PostAsJsonAsync(
-            "/devices/pair",
+            "/accounts/me/devices",
             new PairDeviceRequest(deviceX, "token-b", null)
         );
 
@@ -166,16 +166,16 @@ public class DevicesPairTests : IClassFixture<DevicesPairTests.Factory>
     {
         // The typical second-device flow: a fresh install auto-registered an
         // anonymous account at boot, the user then signs in with a Clerk
-        // identity that already owns an upgraded account. /accounts/upgrade
+        // identity that already owns an upgraded account. POST /accounts/me/identity
         // refuses (sub already bound elsewhere) — the app falls back to
-        // /devices/pair, which must re-parent this device onto the existing
-        // account so subsequent /sync calls return that account's data.
+        // POST /accounts/me/devices, which must re-parent this device onto the
+        // existing account so subsequent /sync calls return that account's data.
         var client = _factory.CreateClient();
         var (existingAccountId, sub) = await SeedUpgradedAccountAsync(client);
 
         var newDeviceId = Guid.NewGuid();
         var registerResp = await client.PostAsJsonAsync(
-            "/devices/register",
+            "/devices",
             new RegisterDeviceRequest(newDeviceId, "second-phone")
         );
         registerResp.StatusCode.ShouldBe(HttpStatusCode.Created);
@@ -185,7 +185,7 @@ public class DevicesPairTests : IClassFixture<DevicesPairTests.Factory>
 
         _factory.ClerkVerifier.Behavior = _ => ClerkTokenVerificationResult.Success(sub);
         var pairResp = await client.PostAsJsonAsync(
-            "/devices/pair",
+            "/accounts/me/devices",
             new PairDeviceRequest(newDeviceId, "any-token", null)
         );
 
@@ -197,7 +197,7 @@ public class DevicesPairTests : IClassFixture<DevicesPairTests.Factory>
 
         // Re-pairing is idempotent now that the device sits on the new account.
         var second = await client.PostAsJsonAsync(
-            "/devices/pair",
+            "/accounts/me/devices",
             new PairDeviceRequest(newDeviceId, "any-token", null)
         );
         second.StatusCode.ShouldBe(HttpStatusCode.OK);
@@ -213,7 +213,7 @@ public class DevicesPairTests : IClassFixture<DevicesPairTests.Factory>
             ClerkTokenVerificationResult.Failure("signature mismatch");
 
         var response = await client.PostAsJsonAsync(
-            "/devices/pair",
+            "/accounts/me/devices",
             new PairDeviceRequest(Guid.NewGuid(), "garbage", null)
         );
 
@@ -225,7 +225,7 @@ public class DevicesPairTests : IClassFixture<DevicesPairTests.Factory>
     {
         var client = _factory.CreateClient();
         var response = await client.PostAsJsonAsync(
-            "/devices/pair",
+            "/accounts/me/devices",
             new PairDeviceRequest(Guid.Empty, "any-token", null)
         );
         response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
@@ -236,7 +236,7 @@ public class DevicesPairTests : IClassFixture<DevicesPairTests.Factory>
     {
         var client = _factory.CreateClient();
         var response = await client.PostAsJsonAsync(
-            "/devices/pair",
+            "/accounts/me/devices",
             new PairDeviceRequest(Guid.NewGuid(), "", null)
         );
         response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);

@@ -1,7 +1,7 @@
 config:
   aws:region: ap-southeast-2
   # Dev stack runs on a smaller Lambda — traffic is just the team.
-  nag:lambdaMemoryMb: "512"
+  nag:lambdaMemoryMb: "1024"
   nag:logRetentionDays: "14"
   nag:hostedZoneName: auctionready.co.nz
   nag:apiDomainName: nagapi-dev.auctionready.co.nz

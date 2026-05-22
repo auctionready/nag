@@ -4,7 +4,12 @@ import { log } from "./log";
 
 export type AuthMode = "dev-auth" | "clerk";
 
-export type BackendOverride = {
+// Named dev-menu backends. The dev menu persists the chosen name (not
+// the URL) in SecureStore so that, when the URL behind a name changes,
+// the device picks it up on the next reload without needing a wipe.
+export type BackendName = "local" | "apidev";
+
+export type ResolvedBackend = {
   apiBaseUrl: string;
   authMode: AuthMode;
 };
@@ -13,49 +18,64 @@ type Extra = {
   apiBaseUrl?: string;
 };
 
-const URL_KEY = "nag.devOverride.apiBaseUrl";
-const MODE_KEY = "nag.devOverride.authMode";
+const LOCAL_API_BASE_URL = "http://alanmac.christensen.org.nz:5266/";
+const BACKEND_KEY = "nag.devOverride.backend";
+// The implicit dev backend on a fresh install. Picking a different name
+// from the dev menu writes BACKEND_KEY; clearing it falls back here.
+const DEFAULT_DEV_BACKEND: BackendName = "local";
 
 const logger = log("devOverrides");
 
 const extra = (): Extra => (Constants.expoConfig?.extra as Extra) ?? {};
 
+const isBackendName = (s: unknown): s is BackendName =>
+  s === "local" || s === "apidev";
+
 /**
- * Auth-mode default before any SecureStore override is applied. In
- * `__DEV__` builds we default to dev-auth so a fresh `pnpm expo start`
- * against a local backend "just works" without a Clerk sign-in;
- * `EXPO_PUBLIC_NAG_DEV_AUTH=0` opts back into the Clerk flow (typical
- * for cloud-apidev testing). In production builds the flag is ignored
- * and we hard-return `"clerk"`.
+ * Resolve a named backend to its URL + auth mode. Throws if a required
+ * env var is missing — callers must surface the error (dev menu shows
+ * an alert; bootstrap logs and falls back to the default backend).
  */
-const envAuthMode = (): AuthMode => {
-  if (!__DEV__) return "clerk";
-  const flag = process.env.EXPO_PUBLIC_NAG_DEV_AUTH;
-  if (flag === "0") return "clerk";
-  if (flag === "1") return "dev-auth";
-  return "dev-auth";
+export const resolveBackend = (name: BackendName): ResolvedBackend => {
+  if (name === "local") {
+    return { apiBaseUrl: LOCAL_API_BASE_URL, authMode: "dev-auth" };
+  }
+  // name === "apidev" — read the URL via Constants.expoConfig.extra so we
+  // pick up whatever app.config.ts already forwarded from NAG_API_BASE_URL.
+  // Direct process.env access only works for EXPO_PUBLIC_* in the bundled
+  // app; everything else has to go through `extra`.
+  const url = extra().apiBaseUrl;
+  if (!url) {
+    throw new Error(
+      "NAG_API_BASE_URL is not set — add it to app/.env or app/.env.local",
+    );
+  }
+  return { apiBaseUrl: url, authMode: "clerk" };
 };
 
-const envApiBaseUrl = (): string => extra().apiBaseUrl ?? "";
+// Initial values used before `bootstrapDevOverrides` resolves. In dev,
+// the default backend; in production, the EAS-injected URL + clerk.
+const initialBackend = (): ResolvedBackend =>
+  __DEV__
+    ? resolveBackend(DEFAULT_DEV_BACKEND)
+    : { apiBaseUrl: extra().apiBaseUrl ?? "", authMode: "clerk" };
 
 let loaded = false;
-let resolvedAuthMode: AuthMode = envAuthMode();
-let resolvedApiBaseUrl: string = envApiBaseUrl();
-
-const isAuthMode = (s: unknown): s is AuthMode =>
-  s === "dev-auth" || s === "clerk";
+let resolvedAuthMode: AuthMode = initialBackend().authMode;
+let resolvedApiBaseUrl: string = initialBackend().apiBaseUrl;
 
 /**
- * One-shot loader that reads the dev-menu overrides out of SecureStore
- * and resolves the session's `authMode` + `apiBaseUrl` constants. Must
- * be awaited before the React tree mounts so api-client construction
- * (`getApiClient` in `apiClient.ts`) and `<ClerkOrPassthrough>` see the
- * final values. Runs once; subsequent calls are no-ops.
+ * One-shot loader that reads the dev-menu backend selection out of
+ * SecureStore and resolves the session's `authMode` + `apiBaseUrl`
+ * constants. Must be awaited before the React tree mounts so api-client
+ * construction (`getApiClient` in `apiClient.ts`) and
+ * `<ClerkOrPassthrough>` see the final values. Runs once; subsequent
+ * calls are no-ops.
  *
  * In production builds the overrides are ignored — `getAuthMode` and
- * `getApiBaseUrl` hard-return the env values. SecureStore reads are
- * skipped entirely so a maliciously-planted entry can't take effect on
- * a release client.
+ * `getApiBaseUrl` hard-return the env-derived initial values.
+ * SecureStore reads are skipped entirely so a maliciously-planted entry
+ * can't take effect on a release client.
  */
 export const bootstrapDevOverrides = async (): Promise<void> => {
   if (loaded) return;
@@ -64,61 +84,58 @@ export const bootstrapDevOverrides = async (): Promise<void> => {
     return;
   }
   try {
-    const [storedUrl, storedMode] = await Promise.all([
-      SecureStore.getItemAsync(URL_KEY),
-      SecureStore.getItemAsync(MODE_KEY),
-    ]);
-    if (storedUrl) resolvedApiBaseUrl = storedUrl;
-    if (isAuthMode(storedMode)) resolvedAuthMode = storedMode;
-    if (storedUrl || storedMode) {
-      logger.info(
-        `override active apiBaseUrl=${resolvedApiBaseUrl} authMode=${resolvedAuthMode}`,
-      );
+    const stored = await SecureStore.getItemAsync(BACKEND_KEY);
+    if (isBackendName(stored)) {
+      try {
+        const backend = resolveBackend(stored);
+        resolvedApiBaseUrl = backend.apiBaseUrl;
+        resolvedAuthMode = backend.authMode;
+        logger.info(
+          `override active backend=${stored} apiBaseUrl=${resolvedApiBaseUrl} authMode=${resolvedAuthMode}`,
+        );
+      } catch (error: unknown) {
+        logger.warn(
+          `stored backend=${stored} could not be resolved; falling back to default`,
+          error,
+        );
+      }
     }
   } catch (error: unknown) {
-    logger.warn("SecureStore read failed; falling back to env", error);
+    logger.warn("SecureStore read failed; falling back to default", error);
   }
   loaded = true;
 };
 
 /**
  * Resolved auth mode for this session. Read after `bootstrapDevOverrides`
- * resolves; before that, callers see the env-derived default.
+ * resolves; before that, callers see the default backend's auth mode.
  */
 export const getAuthMode = (): AuthMode => resolvedAuthMode;
 
 /**
  * Resolved API base URL for this session. Read after
- * `bootstrapDevOverrides` resolves; before that, callers see the env
- * value from `app.config.ts`'s `extra.apiBaseUrl`.
+ * `bootstrapDevOverrides` resolves; before that, callers see the
+ * default backend's URL.
  */
 export const getApiBaseUrl = (): string => resolvedApiBaseUrl;
 
 /**
- * Persists a new backend override. Caller is responsible for the
- * follow-up DB/secure-store wipe and `DevSettings.reload()` — this just
- * writes the SecureStore entries.
+ * Persists the selected backend name. Validates by resolving first —
+ * throws on missing env so the dev menu can surface the error before
+ * the user reloads. Caller is responsible for the follow-up DB /
+ * secure-store wipe and `DevSettings.reload()`.
  */
-export const setBackendOverride = async (
-  override: BackendOverride,
-): Promise<void> => {
-  await Promise.all([
-    SecureStore.setItemAsync(URL_KEY, override.apiBaseUrl),
-    SecureStore.setItemAsync(MODE_KEY, override.authMode),
-  ]);
-  logger.info(
-    `override set apiBaseUrl=${override.apiBaseUrl} authMode=${override.authMode}`,
-  );
+export const setBackendOverride = async (name: BackendName): Promise<void> => {
+  resolveBackend(name); // throws if env missing
+  await SecureStore.setItemAsync(BACKEND_KEY, name);
+  logger.info(`override set backend=${name}`);
 };
 
 /**
  * Removes any persisted override; the next `bootstrapDevOverrides` call
- * will resolve back to env defaults.
+ * will resolve back to the default backend (`local`).
  */
 export const clearBackendOverride = async (): Promise<void> => {
-  await Promise.all([
-    SecureStore.deleteItemAsync(URL_KEY),
-    SecureStore.deleteItemAsync(MODE_KEY),
-  ]);
-  logger.info("override cleared — env defaults will apply on next reload");
+  await SecureStore.deleteItemAsync(BACKEND_KEY);
+  logger.info("override cleared — default backend will apply on next reload");
 };

@@ -27,12 +27,12 @@ public class DevicesEndpointsTests : IClassFixture<DevicesEndpointsTests.Factory
         var deviceId = Guid.NewGuid();
 
         var response = await client.PostAsJsonAsync(
-            "/devices/register",
+            "/devices",
             new RegisterDeviceRequest(deviceId, "Pixel 9")
         );
 
         response.StatusCode.ShouldBe(HttpStatusCode.Created);
-        response.Headers.Location!.ToString().ShouldBe($"/devices/{deviceId}");
+        response.Headers.Location!.ToString().ShouldBe("/devices/me");
         var result = await response.Content.ReadFromJsonAsync<RegisterDeviceResponse>();
         result.ShouldNotBeNull();
         result!.DeviceId.ShouldBe(deviceId);
@@ -47,19 +47,19 @@ public class DevicesEndpointsTests : IClassFixture<DevicesEndpointsTests.Factory
         var deviceId = Guid.NewGuid();
 
         var firstResponse = await client.PostAsJsonAsync(
-            "/devices/register",
+            "/devices",
             new RegisterDeviceRequest(deviceId, null)
         );
         var first = await firstResponse.Content.ReadFromJsonAsync<RegisterDeviceResponse>();
 
         var secondResponse = await client.PostAsJsonAsync(
-            "/devices/register",
+            "/devices",
             new RegisterDeviceRequest(deviceId, "renamed")
         );
         var second = await secondResponse.Content.ReadFromJsonAsync<RegisterDeviceResponse>();
 
         secondResponse.StatusCode.ShouldBe(HttpStatusCode.OK);
-        secondResponse.Content.Headers.ContentLocation!.ToString().ShouldBe($"/devices/{deviceId}");
+        secondResponse.Content.Headers.ContentLocation!.ToString().ShouldBe("/devices/me");
         second.ShouldNotBeNull();
         second!.AccountId.ShouldBe(first!.AccountId);
         second.DeviceId.ShouldBe(first.DeviceId);
@@ -74,14 +74,14 @@ public class DevicesEndpointsTests : IClassFixture<DevicesEndpointsTests.Factory
 
         var a = await (
             await client.PostAsJsonAsync(
-                "/devices/register",
+                "/devices",
                 new RegisterDeviceRequest(Guid.NewGuid(), null)
             )
         ).Content.ReadFromJsonAsync<RegisterDeviceResponse>();
 
         var b = await (
             await client.PostAsJsonAsync(
-                "/devices/register",
+                "/devices",
                 new RegisterDeviceRequest(Guid.NewGuid(), null)
             )
         ).Content.ReadFromJsonAsync<RegisterDeviceResponse>();
@@ -98,7 +98,7 @@ public class DevicesEndpointsTests : IClassFixture<DevicesEndpointsTests.Factory
         var client = _factory.CreateClient();
 
         var response = await client.PostAsJsonAsync(
-            "/devices/register",
+            "/devices",
             new RegisterDeviceRequest(Guid.Empty, null)
         );
 

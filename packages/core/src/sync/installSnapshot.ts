@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { eq, ne } from "drizzle-orm";
 import { habit, goal, schedule, checkIn, outbox, syncState } from "@nag/schema";
 import type { AnyDb } from "../db";
 import { withTransaction } from "../db/transaction";
@@ -43,16 +43,26 @@ export type ServerSnapshot = {
 
 /**
  * Replaces all replicated tables (`habit`, `goal`, `schedule`, `check_in`)
- * with the snapshot, clears the outbox, advances `highest_server_sequence`
- * to `sequenceAtSnapshot`, and clears `halted`. All in one transaction so
- * a crash mid-install rolls back to the prior state.
+ * with the snapshot, drops non-`sent` outbox rows, advances
+ * `highest_server_sequence` to `sequenceAtSnapshot`, and clears `halted`.
+ * All in one transaction so a crash mid-install rolls back to the prior
+ * state.
  *
- * The outbox wipe is deliberate: snapshot mode is reserved for "client is
- * far behind" cases (fresh install, long offline). The pull-sync runner
- * always drains the outbox before requesting `/sync`, so any pending
- * commands at this point committed in the brief race window between drain
- * and snapshot apply — a tradeoff the user has accepted to keep the
- * client/server reconciliation cheap.
+ * Dropping `pending`/`failed` rows is deliberate: snapshot mode is
+ * reserved for "client is far behind" cases (fresh install, long offline).
+ * The pull-sync runner always drains the outbox before requesting
+ * `/sync`, so any pending commands at this point committed in the brief
+ * race window between drain and snapshot apply — a tradeoff the user has
+ * accepted to keep the client/server reconciliation cheap.
+ *
+ * `sent` rows are intentionally preserved: they're the historical ledger
+ * a future `disconnectFromCloud` re-flags as `pending` so the user's
+ * events can ship to a new server account after a "Remove server data
+ * and sign out" + sign-in (possibly on a different backend). Without
+ * this, the first snapshot install of any session permanently destroys
+ * the ledger and the next disconnect+sign-in has nothing to ship.
+ * Per-row growth is bounded by `SENT_OUTBOX_RETAIN_DEFAULT`'s prune in
+ * `markSent`.
  */
 export const installSnapshot = async (
   db: AnyDb,
@@ -67,7 +77,9 @@ export const installSnapshot = async (
     await db.delete(schedule);
     await db.delete(goal);
     await db.delete(habit);
-    await db.delete(outbox);
+    // Preserve `sent` rows so a future `disconnectFromCloud` can flip
+    // them back to `pending` and re-ship to a new server account.
+    await db.delete(outbox).where(ne(outbox.status, "sent"));
 
     const now = new Date();
 

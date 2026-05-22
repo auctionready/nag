@@ -2,12 +2,7 @@ import React from "react";
 import { ActivityIndicator, StyleSheet, View } from "react-native";
 import * as Sentry from "@sentry/react-native";
 import { useAuth, useUser } from "@clerk/clerk-expo";
-import {
-  clearLocalAuth,
-  ensureDeviceRegistered,
-  loadIdentity,
-  setIdpSubject,
-} from "@nag/core";
+import { ensureDeviceRegistered, loadIdentity, setIdpSubject } from "@nag/core";
 import { db } from "../../db";
 import { registerDevice, upgradeAccount } from "../../infrastructure/apiClient";
 import { log } from "../../infrastructure/log";
@@ -15,6 +10,7 @@ import { useSyncStatus } from "../../infrastructure/syncStatus";
 import { deviceTokenStore } from "../../infrastructure/tokenStore";
 import { tokens } from "../theme";
 import { runPairFallback } from "./conflictResolution";
+import { confirmAndSignOut } from "./signOutAction";
 import { SignedInView } from "./SignedInView";
 import { SignInPanel } from "./SignInPanel";
 import type { UpgradeStatus } from "./types";
@@ -143,14 +139,17 @@ export const SignedInOrOut = () => {
           return;
         }
 
-        // 409 = "this identity is already bound to a different account":
-        // the user has signed in on this device with a Clerk identity that
-        // already owns an account elsewhere. Fall back to the conflict
-        // resolution flow (pair into the existing account, or
-        // force-claim with this device's data).
+        // 409 here can mean only one thing now that sign-out is a hard
+        // wipe of the local identity row: the verified Clerk sub
+        // already owns another account elsewhere ("this identity is
+        // already bound to a different account"). The other 409 — the
+        // device's own account being bound to a stale identity —
+        // can't happen anymore, because hard sign-out tears down the
+        // device's local link to its previous server-side account.
+        // Route every 409 to the existing pair-fallback.
         if (result.kind === "non-retriable" && result.status === 409) {
           logger.info(
-            `upgrade conflicted (${result.message}) — falling back to conflict resolution`,
+            `upgrade conflicted (${result.message}) — falling back to pair-fallback`,
           );
           await runPairFallback({
             deviceId: registration.deviceId,
@@ -175,24 +174,19 @@ export const SignedInOrOut = () => {
     })();
   }, [isLoaded, isSignedIn, user?.id, getToken, kickSync, signOut]);
 
-  // Wrapping signOut so the local auth state is torn down *before* the
-  // Clerk session ends. Order matters: clearing the secure-store token
-  // and identity.accountId stops the dispatcher / pull-sync from
-  // attempting another request under the dying credentials, and the
-  // !isSignedIn effect above resets the rest of the React state
-  // automatically once Clerk reports signed-out. Declared up here, ahead
-  // of the early returns below, to keep the hook order stable across
-  // renders. The trailing kickSync nudges SyncStatusProvider to
-  // re-evaluate `isAnonymous` immediately so the sync dot disappears
-  // without waiting on the next safety-timer tick.
+  // Sign-out is a confirmation dialog with two destructive choices —
+  // "Keep on this device" (delete the server-side account, preserve
+  // local data + outbox, replay outbox on next sign-in) and "Sign out
+  // completely" (wipe every local row including `deviceId` so the
+  // next launch is a fresh-install state). Both fix the takeover
+  // vector that the previous soft sign-out left open. The kickSync
+  // nudges SyncStatusProvider to re-evaluate immediately once the
+  // signed-out state settles.
   const signOutLocal = React.useCallback(async () => {
-    try {
-      await clearLocalAuth({ db, tokenStore: deviceTokenStore });
-    } catch (err) {
-      logger.error("clearLocalAuth threw — continuing with signOut", err);
-    }
-    kickSync("post-signout");
-    await signOut();
+    confirmAndSignOut(async () => {
+      await signOut();
+      kickSync("post-signout");
+    });
   }, [signOut, kickSync]);
 
   if (!isLoaded) {

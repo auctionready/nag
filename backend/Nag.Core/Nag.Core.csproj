@@ -3,11 +3,26 @@
     <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <!-- See Nag.Api.csproj — emit Nag.Core.xml so the contract records
+         (`EventEnvelope`, `RegisterDeviceRequest`, etc.) carry their
+         `/// <summary>` text through into the OpenAPI spec. -->
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <!-- 1591 = missing XML comment on public member; 1574 = `<see cref="...">`
+         pointing at a symbol that didn't resolve (some pre-existing refs
+         point at Marten/Wolverine types that aren't `using`-imported — the
+         comment text still flows through, the cref just renders as plain
+         text). -->
+    <NoWarn>$(NoWarn);1591;1574</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>
     <PackageReference Include="FluentValidation" Version="12.1.1" />
-    <PackageReference Include="Marten" Version="8.37.1" />
-    <PackageReference Include="WolverineFx.Marten" Version="5.39.3" />
+    <PackageReference Include="Marten" Version="9.0.0" />
+    <PackageReference Include="WolverineFx.Marten" Version="6.0.0" />
+    <PackageReference
+      Include="JasperFx.Events.SourceGenerator"
+      Version="2.0.0"
+      PrivateAssets="all"
+    />
   </ItemGroup>
 </Project>

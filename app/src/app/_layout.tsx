@@ -26,14 +26,10 @@ import * as SplashScreen from "expo-splash-screen";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { DatabaseProvider } from "../db/DatabaseProvider";
 import { useShowSplash } from "../hooks/useShowSplash";
-// Dev-menu registration is side-effect only and pulls in `devAuth` +
-// the dev-only imports of `@nag/core` it uses. Wrap in a `__DEV__`
-// guarded `require` so Metro drops the whole subtree from production
-// bundles instead of relying on minifier dead-code elimination.
-if (__DEV__) {
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  require("../db/devMenu");
-}
+// Dev-menu registration is deferred until after `bootstrapDevOverrides`
+// resolves so the "Backend: …" item can display the live URL. Wrap the
+// require in a `__DEV__` guard so Metro drops the dev-menu subtree
+// (and its dev-only `@nag/core` imports) from production bundles.
 
 // Keep the native splash up until fonts load and the JS animated splash mounts;
 // then we hide it and run the reveal animation.
@@ -131,10 +127,17 @@ const RootLayout = () => {
   }, [ref]);
 
   React.useEffect(() => {
-    Promise.all([
-      bootstrapDevOverrides(),
-      wipeSecureStoreIfFreshInstall(),
-    ]).finally(() => setOverridesLoaded(true));
+    Promise.all([bootstrapDevOverrides(), wipeSecureStoreIfFreshInstall()])
+      .then(() => {
+        if (__DEV__) {
+          // prettier-ignore
+          (
+            // eslint-disable-next-line @typescript-eslint/no-require-imports
+            require("../db/devMenu") as typeof import("../db/devMenu")
+          ).registerDevMenu();
+        }
+      })
+      .finally(() => setOverridesLoaded(true));
   }, []);
 
   // Native splash stays up until fonts load. Once we render

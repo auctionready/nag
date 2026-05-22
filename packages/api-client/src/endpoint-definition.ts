@@ -31,9 +31,6 @@ export const ErrorResponse = z
   .partial();
 export type ErrorResponse = z.infer<typeof ErrorResponse>;
 
-export const IResult = z.object({}).partial();
-export type IResult = z.infer<typeof IResult>;
-
 export const ReleaseAccountIdentityRequest = z
   .object({ idpToken: z.string().nullable() })
   .partial();
@@ -592,7 +589,7 @@ export const endpoints = makeApi([
         schema: z.object({ idpToken: z.string().nullable() }).partial(),
       },
     ],
-    response: z.object({}).partial(),
+    response: z.void(),
     errors: [
       { status: 400, schema: ErrorResponse },
       { status: 401, schema: ErrorResponse },
@@ -604,10 +601,23 @@ export const endpoints = makeApi([
     path: "/accounts/me",
     alias: "deleteAccountsMe",
     parameters: [],
-    response: z.object({}).partial(),
+    response: z.void(),
     errors: [
       { status: 401, schema: ErrorResponse },
       { status: 404, schema: ErrorResponse },
+    ],
+  },
+  {
+    method: "post",
+    path: "/accounts/me/devices",
+    alias: "postDevicesPair",
+    parameters: [{ name: "body", type: "Body", schema: PairDeviceRequest }],
+    response: PairDeviceResponse,
+    errors: [
+      { status: 400, schema: ErrorResponse },
+      { status: 401, schema: ErrorResponse },
+      { status: 404, schema: ErrorResponse },
+      { status: 409, schema: ErrorResponse },
     ],
   },
   {
@@ -638,17 +648,6 @@ export const endpoints = makeApi([
       { status: 401, schema: ErrorResponse },
       { status: 404, schema: ErrorResponse },
       { status: 409, schema: ErrorResponse },
-    ],
-  },
-  {
-    method: "delete",
-    path: "/accounts/me/identity",
-    alias: "deleteAccountsMeIdentity",
-    parameters: [],
-    response: z.object({}).partial(),
-    errors: [
-      { status: 401, schema: ErrorResponse },
-      { status: 404, schema: ErrorResponse },
     ],
   },
   {
@@ -699,37 +698,24 @@ export const endpoints = makeApi([
     ],
   },
   {
-    method: "get",
-    path: "/devices/:id",
-    alias: "getDevicesById",
-    parameters: [{ name: "id", type: "Path", schema: z.uuid() }],
-    response: GetDeviceResponse,
-    errors: [
-      { status: 401, schema: z.void() },
-      { status: 404, schema: z.void() },
-    ],
-  },
-  {
     method: "post",
-    path: "/devices/pair",
-    alias: "postDevicesPair",
-    parameters: [{ name: "body", type: "Body", schema: PairDeviceRequest }],
-    response: PairDeviceResponse,
-    errors: [
-      { status: 400, schema: ErrorResponse },
-      { status: 401, schema: ErrorResponse },
-      { status: 404, schema: ErrorResponse },
-      { status: 409, schema: ErrorResponse },
-    ],
-  },
-  {
-    method: "post",
-    path: "/devices/register",
+    path: "/devices",
     alias: "postDevicesRegister",
     parameters: [{ name: "body", type: "Body", schema: RegisterDeviceRequest }],
     response: RegisterDeviceResponse,
     errors: [
       { status: 400, schema: ErrorResponse },
+      { status: 404, schema: z.void() },
+    ],
+  },
+  {
+    method: "get",
+    path: "/devices/me",
+    alias: "getDevicesMe",
+    parameters: [],
+    response: GetDeviceResponse,
+    errors: [
+      { status: 401, schema: z.void() },
       { status: 404, schema: z.void() },
     ],
   },
@@ -776,8 +762,8 @@ export const endpoints = makeApi([
     path: "/health",
     alias: "getHealth",
     parameters: [],
-    response: z.object({}).partial(),
-    errors: [{ status: 404, schema: z.void() }],
+    response: z.void(),
+    errors: [],
   },
   {
     method: "get",

@@ -8,6 +8,7 @@ import {
   type ProviderKey,
   providerFromClerk,
 } from "../glyphs";
+import { SyncPausedBanner } from "../sync";
 import { Group, Row } from "./AccountUI";
 import { DeleteAccountSection } from "./DeleteAccountSection";
 import { SettingsGroups } from "./SettingsGroups";
@@ -51,6 +52,12 @@ export const SignedInView = ({
       style={styles.scroll}
       contentContainerStyle={styles.scrollContent}
     >
+      {/* Surfaces a "Sync paused" banner with a Resume button when the
+          user has paused sync via the sign-out dialog. Renders nothing
+          when sync is in any other state, so the normal Account-screen
+          layout is unaffected. */}
+      <SyncPausedBanner />
+
       {/* Profile header */}
       <View style={styles.profileHeader}>
         <View style={styles.avatarWrap}>

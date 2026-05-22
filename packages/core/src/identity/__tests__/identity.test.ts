@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { eq } from "drizzle-orm";
+import { asc, eq } from "drizzle-orm";
 import {
   identity,
   habit,
@@ -17,6 +17,8 @@ import {
   getAccountId,
   switchLocalAccount,
   clearLocalAuth,
+  resetLocalAccount,
+  disconnectFromCloud,
   type TokenStore,
 } from "../identity";
 import { ensureDevAuthRegistered } from "../devAuth";
@@ -423,8 +425,8 @@ describe("switchLocalAccount", () => {
     const after = await loadIdentity(db);
     expect(after?.accountId).toBe("00000000-0000-4000-8000-0000000000bb");
     expect(after?.registeredAt?.toISOString()).toBe("2026-05-02T12:00:00.000Z");
-    // deviceId is intentionally preserved — server's /devices/pair just
-    // re-parents the existing Device row.
+    // deviceId is intentionally preserved — server's POST /accounts/me/devices
+    // just re-parents the existing Device row.
     expect(after?.deviceId).toBe("00000000-0000-4000-8000-000000000001");
 
     expect(await db.select().from(habit)).toHaveLength(0);
@@ -490,6 +492,189 @@ describe("clearLocalAuth", () => {
     expect(await db.select().from(outbox)).toHaveLength(1);
     const [s] = await db.select().from(syncState).where(eq(syncState.id, 1));
     expect(s.highestServerSequence).toBe(42);
+  });
+});
+
+describe("resetLocalAccount", () => {
+  it("wipes user data + outbox + identity row entirely so the next launch mints a fresh deviceId", async () => {
+    const db = getDb();
+    const tokenStore = new InMemoryTokenStore("device-tok");
+
+    // Seed everything `resetLocalAccount` is supposed to scrub.
+    const [{ habitId }] = await db
+      .insert(habit)
+      .values({ id: crypto.randomUUID(), title: "Old habit" })
+      .returning({ habitId: habit.id });
+    await db.insert(goal).values({ habitId, regularity: "day", frequency: 1 });
+    await db.insert(checkIn).values({
+      id: crypto.randomUUID(),
+      habitId,
+      timestamp: new Date("2026-04-15T08:00:00.000Z"),
+      skipped: false,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+    await db.insert(outbox).values({
+      id: "00000000-0000-4000-8000-0000000000cd",
+      events: "[]",
+      status: "pending",
+    });
+    await db
+      .update(syncState)
+      .set({ halted: true, highestServerSequence: 99 })
+      .where(eq(syncState.id, 1));
+
+    const before = await loadIdentity(db);
+    expect(before?.deviceId).toBeTruthy();
+
+    await resetLocalAccount({ db, tokenStore });
+
+    // Identity row is gone — `ensureDeviceRegistered` will mint a fresh
+    // deviceId on the next call. That is the takeover-mitigation the
+    // helper exists for: re-using the previous deviceId is what would
+    // re-establish auth on the previous account without proof of
+    // ownership.
+    const after = await loadIdentity(db);
+    expect(after).toBeNull();
+    expect(await tokenStore.get()).toBeNull();
+
+    // Replicated tables + outbox are empty — fresh start.
+    expect(await db.select().from(habit)).toHaveLength(0);
+    expect(await db.select().from(goal)).toHaveLength(0);
+    expect(await db.select().from(checkIn)).toHaveLength(0);
+    expect(await db.select().from(outbox)).toHaveLength(0);
+    const [s] = await db.select().from(syncState).where(eq(syncState.id, 1));
+    expect(s.halted).toBe(false);
+    expect(s.highestServerSequence).toBe(0);
+  });
+});
+
+describe("disconnectFromCloud", () => {
+  it("clears identity + token + syncState seq while preserving habits/outbox", async () => {
+    const db = getDb();
+    const tokenStore = new InMemoryTokenStore("device-tok");
+
+    const [{ habitId }] = await db
+      .insert(habit)
+      .values({ id: crypto.randomUUID(), title: "Surviving offline" })
+      .returning({ habitId: habit.id });
+    await db.insert(goal).values({ habitId, regularity: "day", frequency: 1 });
+    await db.insert(checkIn).values({
+      id: crypto.randomUUID(),
+      habitId,
+      timestamp: new Date("2026-04-15T08:00:00.000Z"),
+      skipped: false,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+    await db.insert(outbox).values({
+      id: "00000000-0000-4000-8000-0000000000ef",
+      events: "[]",
+      status: "pending",
+    });
+    await db
+      .update(syncState)
+      .set({ halted: true, highestServerSequence: 142 })
+      .where(eq(syncState.id, 1));
+
+    const before = await loadIdentity(db);
+    const originalDeviceId = before?.deviceId;
+    expect(originalDeviceId).toBeTruthy();
+
+    await disconnectFromCloud({ db, tokenStore });
+
+    const after = await loadIdentity(db);
+    expect(after?.deviceId).toBe(originalDeviceId);
+    expect(after?.accountId).toBeNull();
+    expect(after?.registeredAt).toBeNull();
+    expect(after?.idpSubject).toBeNull();
+    expect(await tokenStore.get()).toBeNull();
+
+    // The whole point: replicated data + outbox stay on the device so
+    // the app remains usable offline and can flush to a new account
+    // on the next sign-in.
+    expect(await db.select().from(habit)).toHaveLength(1);
+    expect(await db.select().from(goal)).toHaveLength(1);
+    expect(await db.select().from(checkIn)).toHaveLength(1);
+    expect(await db.select().from(outbox)).toHaveLength(1);
+
+    // syncState seq must reset — pull-sync against a future new
+    // account starts from 0 and would otherwise stay stuck at the
+    // old high-water mark.
+    const [s] = await db.select().from(syncState).where(eq(syncState.id, 1));
+    expect(s.halted).toBe(false);
+    expect(s.highestServerSequence).toBe(0);
+  });
+
+  it("re-marks previously-sent outbox rows as pending so they ship to the next server account", async () => {
+    const db = getDb();
+    const tokenStore = new InMemoryTokenStore("device-tok");
+
+    // Two rows previously acknowledged by the now-doomed server, plus
+    // one still pending and one failed. After disconnect the dispatcher
+    // must see *both* sent rows back in `pending` so the new account
+    // ends up with the same data the old one held.
+    await db.insert(outbox).values([
+      {
+        id: "00000000-0000-4000-8000-0000000000a1",
+        events: "[]",
+        status: "sent",
+        sentAt: new Date("2026-04-10T00:00:00.000Z"),
+        serverSequence: 10,
+      },
+      {
+        id: "00000000-0000-4000-8000-0000000000a2",
+        events: "[]",
+        status: "sent",
+        sentAt: new Date("2026-04-11T00:00:00.000Z"),
+        serverSequence: 11,
+      },
+      {
+        id: "00000000-0000-4000-8000-0000000000a3",
+        events: "[]",
+        status: "pending",
+      },
+      {
+        id: "00000000-0000-4000-8000-0000000000a4",
+        events: "[]",
+        status: "failed",
+        lastError: "schema validation",
+      },
+    ]);
+
+    await disconnectFromCloud({ db, tokenStore });
+
+    const rows = await db.select().from(outbox).orderBy(asc(outbox.id));
+
+    // Both previously-sent rows back to pending, with sent_at /
+    // server_sequence / last_error cleared so re-shipping starts clean.
+    expect(rows[0]).toMatchObject({
+      id: "00000000-0000-4000-8000-0000000000a1",
+      status: "pending",
+      sentAt: null,
+      serverSequence: null,
+      lastError: null,
+    });
+    expect(rows[1]).toMatchObject({
+      id: "00000000-0000-4000-8000-0000000000a2",
+      status: "pending",
+      sentAt: null,
+      serverSequence: null,
+      lastError: null,
+    });
+    // The already-pending row is untouched.
+    expect(rows[2]).toMatchObject({
+      id: "00000000-0000-4000-8000-0000000000a3",
+      status: "pending",
+    });
+    // Failed rows stay failed — failures are usually intrinsic to the
+    // payload, and the user has a separate "Resume sync" action to
+    // retry them deliberately.
+    expect(rows[3]).toMatchObject({
+      id: "00000000-0000-4000-8000-0000000000a4",
+      status: "failed",
+      lastError: "schema validation",
+    });
   });
 });
 

@@ -176,7 +176,7 @@ describe("operations", () => {
 
     it("returns ok with the server-issued accountId and deviceToken on 200", async () => {
       nock(BASE_URL)
-        .post("/devices/register", (body) => {
+        .post("/devices", (body) => {
           expect(body).toEqual({ deviceId });
           return true;
         })
@@ -201,7 +201,7 @@ describe("operations", () => {
     });
 
     it("treats a 200 with missing deviceToken as non-retriable", async () => {
-      nock(BASE_URL).post("/devices/register").reply(200, {
+      nock(BASE_URL).post("/devices").reply(200, {
         accountId: "ffffffff-1111-4222-8333-444444444444",
         deviceId,
         registeredAt: "2026-04-25T10:00:00.000Z",
@@ -214,7 +214,7 @@ describe("operations", () => {
     });
 
     it("treats a 200 with missing fields as non-retriable", async () => {
-      nock(BASE_URL).post("/devices/register").reply(200, { deviceId });
+      nock(BASE_URL).post("/devices").reply(200, { deviceId });
 
       const result = await registerDevice(makeClient(), { deviceId });
 
@@ -225,7 +225,7 @@ describe("operations", () => {
     });
 
     it("classifies 5xx as transient", async () => {
-      nock(BASE_URL).post("/devices/register").reply(503);
+      nock(BASE_URL).post("/devices").reply(503);
 
       const result = await registerDevice(makeClient(), { deviceId });
 

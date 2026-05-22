@@ -144,7 +144,7 @@ public class AuthTests : IClassFixture<AuthTests.Factory>
     {
         var client = _factory.CreateClient();
         var response = await client.PostAsJsonAsync(
-            "/devices/register",
+            "/devices",
             new { deviceId = Guid.NewGuid(), label = "anon" }
         );
         response.StatusCode.ShouldBe(HttpStatusCode.Created);

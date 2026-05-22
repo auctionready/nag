@@ -33,7 +33,7 @@ export const registerDevice = async (
   request: { deviceId: string },
   log?: WrapperLog,
 ): Promise<RegisterDeviceResult> => {
-  log?.debug?.(`POST /devices/register deviceId=${request.deviceId}`);
+  log?.debug?.(`POST /devices deviceId=${request.deviceId}`);
   const start = Date.now();
   try {
     const response: RegisterDeviceResponse = await client.postDevicesRegister(
@@ -46,7 +46,7 @@ export const registerDevice = async (
       !response.deviceToken
     ) {
       log?.error?.(
-        `POST /devices/register ok (${elapsed}ms) but response missing fields`,
+        `POST /devices ok (${elapsed}ms) but response missing fields`,
         response,
       );
       return {
@@ -57,7 +57,7 @@ export const registerDevice = async (
       };
     }
     log?.info?.(
-      `POST /devices/register ok (${elapsed}ms) accountId=${response.accountId}`,
+      `POST /devices ok (${elapsed}ms) accountId=${response.accountId}`,
     );
     return {
       ok: true,
@@ -67,7 +67,7 @@ export const registerDevice = async (
     };
   } catch (error: unknown) {
     return failureFromError(
-      "POST /devices/register",
+      "POST /devices",
       log,
       Date.now() - start,
       error,

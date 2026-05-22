@@ -13,7 +13,9 @@ export {
 } from "./types";
 export {
   isHalted,
+  isPaused,
   clearHalted,
+  pauseDispatch,
   resumeDispatch,
   countPending,
   countFailed,
