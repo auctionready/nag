@@ -192,13 +192,20 @@ public class SyncEndpointsTests
         }
     }
 
-    public class EmptyStoreReturnsSnapshotWithZeroSequence
+    // Brand-new accounts return mode=replay with an empty event list rather
+    // than snapshot mode. A snapshot here would carry an empty HomeBoard and
+    // the client's installSnapshot path would wipe its locally-preserved
+    // habit/goal/checkIn rows — which is exactly the data the next push is
+    // about to ship to this account (the "Remove server data and sign out"
+    // flow re-marks the outbox to pending and resets the high-water mark to
+    // 0, so it asks since=0 here with a populated local mirror).
+    public class EmptyStoreReturnsEmptyReplay
         : SyncEndpointsTests,
-            IClassFixture<EmptyStoreReturnsSnapshotWithZeroSequence.Factory>
+            IClassFixture<EmptyStoreReturnsEmptyReplay.Factory>
     {
         public sealed class Factory : NagApiFactory;
 
-        public EmptyStoreReturnsSnapshotWithZeroSequence(PostgresFixture pg, Factory factory)
+        public EmptyStoreReturnsEmptyReplay(PostgresFixture pg, Factory factory)
             : base(pg)
         {
             factory.ConnectionString = pg.ConnectionString;
@@ -214,12 +221,9 @@ public class SyncEndpointsTests
             var client = AuthedClient(_factory);
             var raw = await client.GetStringAsync("/sync?since=0");
             using var doc = JsonDocument.Parse(raw);
-            doc.RootElement.GetProperty("mode").GetString().ShouldBe("snapshot");
-            doc.RootElement.GetProperty("sequenceAtSnapshot").GetInt64().ShouldBe(0);
-            doc.RootElement.GetProperty("snapshot")
-                .GetProperty("habits")
-                .GetArrayLength()
-                .ShouldBe(0);
+            doc.RootElement.GetProperty("mode").GetString().ShouldBe("replay");
+            doc.RootElement.GetProperty("events").GetArrayLength().ShouldBe(0);
+            doc.RootElement.GetProperty("headSequence").GetInt64().ShouldBe(0);
         }
     }
 }
