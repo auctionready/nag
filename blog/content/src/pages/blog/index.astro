@@ -1,0 +1,125 @@
+---
+import { getCollection } from "astro:content";
+import Base from "../../layouts/Base.astro";
+
+const allPosts = (await getCollection("blog")).sort(
+  (a, b) => b.data.pubDate.valueOf() - a.data.pubDate.valueOf(),
+);
+
+const featured = allPosts.find((p) => p.data.featured) ?? allPosts[0];
+const rest = allPosts.filter((p) => p.id !== featured?.id);
+
+const dateLong = (d: Date) =>
+  d.toLocaleDateString("en-NZ", { day: "2-digit", month: "long", year: "numeric" });
+const dateShort = (d: Date) =>
+  d.toLocaleDateString("en-NZ", { day: "2-digit", month: "short", year: "numeric" }).toLowerCase();
+---
+
+<Base
+  title="Blog — nag."
+  description="Release notes and occasional thoughts from the nag. workshop."
+  current="blog"
+>
+  <!-- ──────── Header ──────── -->
+  <section class="blog-hero section-sm" style="padding-top: 80px;">
+    <div class="wrap">
+      <div class="kicker">The blog</div>
+      <h1 class="h-display" style="margin-top: 18px;">notes<span class="dot">.</span></h1>
+      <p class="lede" style="margin-top: 22px;">
+        Release write-ups, build logs, the occasional rant about habit
+        design. Updated whenever there's something to say.
+      </p>
+
+      <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-top: 32px;">
+        <button class="btn btn-ink" style="padding: 8px 14px; font-size: 13px;">All</button>
+        <button class="btn btn-ghost" style="padding: 8px 14px; font-size: 13px;">Releases</button>
+        <button class="btn btn-ghost" style="padding: 8px 14px; font-size: 13px;">Build log</button>
+        <button class="btn btn-ghost" style="padding: 8px 14px; font-size: 13px;">Design</button>
+        <button class="btn btn-ghost" style="padding: 8px 14px; font-size: 13px;">Field notes</button>
+      </div>
+    </div>
+  </section>
+
+  {featured && (
+    <!-- ──────── Featured ──────── -->
+    <section style="padding-top: 0; padding-bottom: 0;">
+      <div class="wrap">
+        <div class="blog-feat">
+          <a href={`/blog/${featured.id}`} class="blog-feat-fig" style="text-decoration: none;">
+            <span class="badge">{featured.data.category}</span>
+            <span class="num">{featured.data.title.match(/(\d+\.\d+)/)?.[1] ?? "—"}<span class="dot">.</span></span>
+          </a>
+          <div class="blog-feat-body">
+            <div class="meta">
+              <span class="pill">{featured.data.category}</span>
+              <span>{dateLong(featured.data.pubDate)}</span>
+              {featured.data.readingTime && <span>· {featured.data.readingTime}</span>}
+            </div>
+            <h2>{featured.data.title}</h2>
+            <p class="body-lg">{featured.data.description}</p>
+            <div>
+              <a href={`/blog/${featured.id}`} class="btn btn-ghost" style="padding: 10px 16px; font-size: 14px;">Read the post <span class="arrow">→</span></a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  )}
+
+  <!-- ──────── All posts grid ──────── -->
+  <section id="all" style="padding-top: 0;">
+    <div class="wrap">
+      <div style="display: flex; justify-content: space-between; align-items: baseline; padding: 40px 0 24px;">
+        <h2 class="h-2">Earlier<span class="dot">.</span></h2>
+        <span class="tag">{allPosts.length} post{allPosts.length === 1 ? "" : "s"}</span>
+      </div>
+
+      <div class="post-grid">
+        {rest.map((post) => (
+          <a href={`/blog/${post.id}`} class="post-card">
+            <div class="num">{post.data.number ?? ""} · {dateShort(post.data.pubDate)} · {post.data.category.toLowerCase()}</div>
+            <h3>{post.data.title}</h3>
+            <p>{post.data.description}</p>
+            <div class="foot">
+              <span class="pill">{post.data.category}</span>
+              <span class="arrow">→</span>
+            </div>
+          </a>
+        ))}
+        {rest.length === 0 && (
+          <div class="post-card" style="grid-column: 1 / -1; text-align: center; color: var(--nag-mute);">
+            <p class="body">More posts coming. Subscribe below if you want to know when.</p>
+          </div>
+        )}
+      </div>
+    </div>
+  </section>
+
+  <!-- ──────── Subscribe band ──────── -->
+  <section style="padding-top: 0;">
+    <div class="wrap">
+      <div class="cta-band" style="background: var(--nag-ink); color: var(--nag-cream);">
+        <h2 style="color: var(--nag-cream)">
+          get the next post<span class="dot">.</span>
+        </h2>
+        <div class="right">
+          <p style="color: rgba(255,248,240,0.6);">Short email when something ships. No spam.</p>
+          <form onsubmit="event.preventDefault()" style="display: flex; gap: 8px; flex-wrap: wrap;">
+            <input
+              type="email"
+              placeholder="you@somewhere.nz"
+              style="
+                flex: 1; min-width: 220px;
+                padding: 12px 16px; border-radius: 999px;
+                background: rgba(255,248,240,0.08); color: var(--nag-cream);
+                border: 1px solid rgba(255,248,240,0.18);
+                font: inherit; outline: none;
+              "
+            />
+            <button class="btn btn-primary" type="submit">Subscribe<span class="arrow">→</span></button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </section>
+</Base>

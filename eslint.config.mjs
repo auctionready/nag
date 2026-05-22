@@ -34,6 +34,7 @@ export default [
       "app/expo-env.d.ts",
       "infra/",
       "infra-bootstrap/",
+      "blog/",
     ],
   },
   prettierConfig,
