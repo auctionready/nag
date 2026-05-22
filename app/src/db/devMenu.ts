@@ -1,7 +1,9 @@
 import { Alert, DevSettings } from "react-native";
 import { registerDevMenuItems } from "expo-dev-client";
 import { router } from "expo-router";
-import { clearLocalAuth } from "@nag/core";
+import { eq } from "drizzle-orm";
+import { outbox, syncState } from "@nag/schema";
+import { clearLocalAuth, loadIdentity } from "@nag/core";
 import { ensureDevAuthRegistered } from "@nag/core/dev";
 import { db, resetDatabaseSchema } from "./index";
 import { clearAll, seedSampleData } from "./seed";
@@ -18,12 +20,17 @@ import { deviceTokenStore } from "../infrastructure/tokenStore";
 import { log } from "../infrastructure/log";
 
 const wipeForBackendSwitch = async () => {
+  // Drop auth + sync bookkeeping so the next boot re-authenticates
+  // against the new backend with no stale cursor or queued commands —
+  // but keep habits/check-ins/schedule/goal so day-to-day backend
+  // switching doesn't cost the developer their local data.
   await clearLocalAuth({ db, tokenStore: deviceTokenStore });
   await clearAllClerkTokens();
-  // Drop replicated tables too — the new backend is a different tenant,
-  // so habit IDs / check-ins / outbox rows from the old account would
-  // leak across. `resetDatabaseSchema` re-runs migrations on next boot.
-  resetDatabaseSchema();
+  await db.delete(outbox);
+  await db
+    .update(syncState)
+    .set({ halted: false, highestServerSequence: 0 })
+    .where(eq(syncState.id, 1));
 };
 
 const applyBackendPreset = async (name: BackendName): Promise<void> => {
@@ -40,11 +47,23 @@ const applyBackendPreset = async (name: BackendName): Promise<void> => {
   DevSettings.reload();
 };
 
-const promptBackendSwitch = (): void => {
+const promptBackendSwitch = async (): Promise<void> => {
+  // Block switching while signed in — local habit/check-in IDs were
+  // minted under the current account and would mismatch whatever the
+  // new backend's account already has. Sign out first (which clears the
+  // local mirror of server state) and then re-pick the backend.
+  const identity = await loadIdentity(db);
+  if (identity?.accountId) {
+    Alert.alert(
+      "Sign out first",
+      "Backend switching is disabled while signed in — local data is bound to the current account. Sign out, then switch backends.",
+    );
+    return;
+  }
   const current = `${getApiBaseUrl()} (${getAuthMode()})`;
   Alert.alert(
     "Switch backend",
-    `Current: ${current}\n\nPicking a preset wipes local data and reloads.`,
+    `Current: ${current}\n\nPicking a preset clears auth + sync state and reloads. Habits and check-ins are preserved — use "Clear database" if you want a clean slate.`,
     [
       { text: "Cancel", style: "cancel" },
       {
@@ -72,7 +91,9 @@ export const registerDevMenu = (): void => {
   registerDevMenuItems([
     {
       name: `Backend: ${getApiBaseUrl()} (${getAuthMode()})`,
-      callback: () => promptBackendSwitch(),
+      callback: () => {
+        void promptBackendSwitch();
+      },
     },
     {
       name: "Clear database",
