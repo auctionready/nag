@@ -3,7 +3,7 @@ export type SplashTagline = {
   attribution: string;
 };
 
-export const splashTaglines: ReadonlyArray<SplashTagline> = [
+export const splashTaglines: readonly SplashTagline[] = [
   {
     quote: "We are what we repeatedly do.",
     attribution: "Will Durant",
