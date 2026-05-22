@@ -18,7 +18,7 @@ type Extra = {
   apiBaseUrl?: string;
 };
 
-const LOCAL_API_BASE_URL = "http://localhost:5266/";
+const LOCAL_API_BASE_URL = "http://alanmac.christensen.org.nz:5266/";
 const BACKEND_KEY = "nag.devOverride.backend";
 // The implicit dev backend on a fresh install. Picking a different name
 // from the dev menu writes BACKEND_KEY; clearing it falls back here.
