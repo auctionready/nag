@@ -1,14 +1,11 @@
 import { Alert, DevSettings } from "react-native";
 import { registerDevMenuItems } from "expo-dev-client";
 import { router } from "expo-router";
-import { eq } from "drizzle-orm";
-import { outbox, syncState } from "@nag/schema";
 import { clearLocalAuth, loadIdentity } from "@nag/core";
 import { ensureDevAuthRegistered } from "@nag/core/dev";
 import { db, resetDatabaseSchema } from "./index";
 import { clearAll, seedSampleData } from "./seed";
 import { devFlags } from "../infrastructure/devFlags";
-import { clearAllClerkTokens } from "../infrastructure/clerk";
 import { fetchDevToken } from "../infrastructure/devAuth";
 import {
   getApiBaseUrl,
@@ -18,20 +15,6 @@ import {
 } from "../infrastructure/devOverrides";
 import { deviceTokenStore } from "../infrastructure/tokenStore";
 import { log } from "../infrastructure/log";
-
-const wipeForBackendSwitch = async () => {
-  // Drop auth + sync bookkeeping so the next boot re-authenticates
-  // against the new backend with no stale cursor or queued commands —
-  // but keep habits/check-ins/schedule/goal so day-to-day backend
-  // switching doesn't cost the developer their local data.
-  await clearLocalAuth({ db, tokenStore: deviceTokenStore });
-  await clearAllClerkTokens();
-  await db.delete(outbox);
-  await db
-    .update(syncState)
-    .set({ halted: false, highestServerSequence: 0 })
-    .where(eq(syncState.id, 1));
-};
 
 const applyBackendPreset = async (name: BackendName): Promise<void> => {
   try {
@@ -43,27 +26,33 @@ const applyBackendPreset = async (name: BackendName): Promise<void> => {
     );
     return;
   }
-  await wipeForBackendSwitch();
+  // Sign-out (gated by `promptBackendSwitch`) has already reset
+  // sync_state and reverted sent outbox rows to pending, so the next
+  // boot will sign into the new backend and ship the existing queue
+  // against the new account. No local wipe needed here.
   DevSettings.reload();
 };
 
 const promptBackendSwitch = async (): Promise<void> => {
-  // Block switching while signed in — local habit/check-in IDs were
-  // minted under the current account and would mismatch whatever the
-  // new backend's account already has. Sign out first (which clears the
-  // local mirror of server state) and then re-pick the backend.
+  // Block switching while signed in — the outbox is queued against
+  // that server account and shipping it to a different backend would
+  // tie our local state to a server account we haven't authenticated
+  // against yet. Sign out first; that resets sync_state and reverts
+  // sent outbox rows to pending so the new backend gets the full
+  // history. Applies equally to Clerk and dev-auth — dev-auth is a
+  // drop-in replacement and has the same server-side account binding.
   const identity = await loadIdentity(db);
   if (identity?.accountId) {
     Alert.alert(
       "Sign out first",
-      "Backend switching is disabled while signed in — local data is bound to the current account. Sign out, then switch backends.",
+      "Backend switching is disabled while signed in. Sign out, then switch backends — your local data and queued events will move with you.",
     );
     return;
   }
   const current = `${getApiBaseUrl()} (${getAuthMode()})`;
   Alert.alert(
     "Switch backend",
-    `Current: ${current}\n\nPicking a preset clears auth + sync state and reloads. Habits and check-ins are preserved — use "Clear database" if you want a clean slate.`,
+    `Current: ${current}\n\nPicking a preset reloads against the new backend. Local data and the outbox carry over.`,
     [
       { text: "Cancel", style: "cancel" },
       {
