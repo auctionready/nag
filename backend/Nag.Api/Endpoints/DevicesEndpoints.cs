@@ -12,10 +12,16 @@ namespace Nag.Api.Endpoints;
 
 public static class DevicesEndpoints
 {
-    // Self-resource for the calling device. PRG target for POST /devices
-    // and POST /accounts/me/devices Location headers. Not invoked by the
-    // app today, but keeps register/pair able to return a proper
-    // 201/303 with an addressable target.
+    /// <summary>
+    /// Returns the calling device's row (id, label, account, registered-at).
+    /// Both the device id and the account id are read from the device-token
+    /// claims, so a token can only ever read its own device.
+    ///
+    /// Not invoked by the mobile app today — it's the PRG target that
+    /// <c>POST /devices</c> and <c>POST /accounts/me/devices</c> point at
+    /// via <c>Location</c> / <c>Content-Location</c> headers, so register
+    /// and pair can return a proper 201/200 with an addressable resource.
+    /// </summary>
     [Tags("Devices")]
     [EndpointName("getDevicesMe")]
     [ProducesResponseType(typeof(GetDeviceResponse), StatusCodes.Status200OK)]

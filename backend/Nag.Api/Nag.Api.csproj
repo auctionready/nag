@@ -18,7 +18,14 @@
          new occurrences in other forms. Re-enable when the JSON source-gen
          context lands and the Wolverine/Lambda AOT pillars close. -->
     <IsAotCompatible>true</IsAotCompatible>
-    <NoWarn>$(NoWarn);IL2026;IL3050</NoWarn>
+    <!-- Emit Nag.Api.xml so Swashbuckle's IncludeXmlComments can surface
+         `/// <summary>` blocks on endpoints and contracts as OpenAPI
+         `description` fields, which then flow through openapi-zod-client
+         into JSDoc on the generated Zodios methods. 1591 ("missing XML
+         comment") is suppressed because Directory.Build.props sets
+         TreatWarningsAsErrors and we don't doc every public member. -->
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <NoWarn>$(NoWarn);IL2026;IL3050;1591;1574</NoWarn>
     <!-- Drop the foreign-language satellite resource DLLs that
          Microsoft.CodeAnalysis.* (pulled in by WolverineFx.RuntimeCompilation)
          bundles for compiler diagnostics. We use TypeLoadMode.Static in
