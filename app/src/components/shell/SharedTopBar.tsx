@@ -6,12 +6,13 @@ import { tokens } from "../theme";
 import { SyncDot } from "../sync";
 import { isClerkConfigured } from "../../infrastructure/clerk";
 
-// Subset of `MaterialTopTabBarProps` from `@react-navigation/material-top-tabs`,
-// inlined so this file doesn't need a direct dep on the package
-// (it's transitively present via expo-router). `jumpTo` lives on the
-// SceneRendererProps part of the props, not on `navigation`.
+// Subset of `react-native-tab-view`'s `renderTabBar` props. `jumpTo`
+// takes a route KEY.
 interface TabBarProps {
-  state: { index: number; routes: { name: string; key: string }[] };
+  navigationState: {
+    index: number;
+    routes: { key: string; title?: string }[];
+  };
   jumpTo: (key: string) => void;
 }
 
@@ -89,19 +90,15 @@ const computeInitials = (
  * centre title swaps from the `nag.` wordmark to the page name with a
  * back chevron when not on Today.
  */
-export const SharedTopBar = ({ state, jumpTo }: TabBarProps) => {
+export const SharedTopBar = ({ navigationState, jumpTo }: TabBarProps) => {
   const insets = useSafeAreaInsets();
-  const active = state.routes[state.index]?.name ?? "index";
+  const active = navigationState.routes[navigationState.index]?.key ?? "index";
   const onAccount = active === "account";
   const onCalendar = active === "calendar";
   const onToday = active === "index";
 
-  // material-top-tabs' jumpTo (from SceneRendererProps) takes a route
-  // KEY, not a name. Look up the key by name so the swipe animation
-  // still plays.
-  const goTo = (name: string) => {
-    const route = state.routes.find((r) => r.name === name);
-    if (route) jumpTo(route.key);
+  const goTo = (key: string) => {
+    jumpTo(key);
   };
 
   return (
