@@ -21,7 +21,7 @@ and a much better way to handle missed days.
 <div class="callout">
   <div>
     <div class="label">tl;dr</div>
-    <p style="margin: 6px 0 0;">Free, no account, iOS 17+ &amp; Android 11+. <a href="/#get">Get it here</a>. Backups via iCloud / Drive. Data exports as JSON or CSV any time.</p>
+    <p style="margin: 6px 0 0;">Free, no account, iOS 17+. <a href="/#get">Get it here</a>. Backups via iCloud / Drive. Data exports as JSON or CSV any time.</p>
   </div>
 </div>
 
@@ -69,7 +69,7 @@ post.
     <span class="tag new">new</span>
     <div>
       <strong>2-column tile home board</strong>
-      <div class="body">Rebuilt from scratch. Every tile is glance-readable, with cadence, status, week strip and streak/ratio.</div>
+      <div class="body">Rebuilt from scratch. Every tile is glance-readable, with cadence, last check-in, and the full week at the bottom.</div>
     </div>
   </div>
   <div class="entry">
