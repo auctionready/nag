@@ -1,5 +1,8 @@
 ---
 import Base from "../layouts/Base.astro";
+import HabitIcon from "../components/HabitIcon.astro";
+import MockTile from "../components/MockTile.astro";
+import WeekStrip from "../components/WeekStrip.astro";
 ---
 
 <Base
@@ -58,19 +61,7 @@ import Base from "../layouts/Base.astro";
                   <div class="sync"><span class="led"></span> synced</div>
                 </div>
                 <div class="mock-iconbtn">
-                  <svg
-                    width="16"
-                    height="16"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="1.7"
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                  >
-                    <rect x="3" y="5" width="18" height="16" rx="2"></rect>
-                    <path d="M3 10h18M8 3v4M16 3v4"></path>
-                  </svg>
+                  <HabitIcon name="calendar" />
                 </div>
               </div>
 
@@ -82,292 +73,100 @@ import Base from "../layouts/Base.astro";
 
               <!-- Grid -->
               <div class="mock-grid">
-                <!-- Tile 1: read 20 min, daily -->
-                <div class="mock-tile">
-                  <div class="t-top">
-                    <div class="t-icon">
-                      <svg
-                        width="14"
-                        height="14"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        stroke-width="1.7"
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                      >
-                        <path d="M4 5a2 2 0 0 1 2-2h5v17H6a2 2 0 0 1-2-2V5z"
-                        ></path>
-                        <path d="M20 5a2 2 0 0 0-2-2h-5v17h5a2 2 0 0 0 2-2V5z"
-                        ></path>
-                      </svg>
-                    </div>
-                    <div class="t-cad">daily</div>
-                  </div>
-                  <div class="t-name">read 20 min</div>
-                  <div class="t-last">2h ago</div>
-                  <div class="t-spacer"></div>
-                  <div class="mock-week">
-                    <div class="col">
-                      <span class="lbl">M</span>
-                      <div class="cell done"></div>
-                    </div>
-                    <div class="col">
-                      <span class="lbl">T</span>
-                      <div class="cell done"></div>
-                    </div>
-                    <div class="col">
-                      <span class="lbl">W</span>
-                      <div class="cell done"></div>
-                    </div>
-                    <div class="col">
-                      <span class="lbl is-today">T</span>
-                      <div class="cell today-done"></div>
-                    </div>
-                    <div class="col">
-                      <span class="lbl">F</span>
-                      <div class="cell future"></div>
-                    </div>
-                    <div class="col">
-                      <span class="lbl">S</span>
-                      <div class="cell future"></div>
-                    </div>
-                    <div class="col">
-                      <span class="lbl">S</span>
-                      <div class="cell future"></div>
-                    </div>
-                  </div>
-                </div>
+                <MockTile name="read 20 min" last="2h ago">
+                  <HabitIcon slot="icon" name="book" />
+                  <div slot="cadence" class="t-cad">daily</div>
+                  <WeekStrip
+                    slot="strip"
+                    days={[
+                      "done",
+                      "done",
+                      "done",
+                      "today-done",
+                      "future",
+                      "future",
+                      "future",
+                    ]}
+                  />
+                </MockTile>
 
-                <!-- Tile 2: water, 3× today -->
-                <div class="mock-tile">
-                  <div class="t-top">
-                    <div class="t-icon">
-                      <svg
-                        width="14"
-                        height="14"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        stroke-width="1.7"
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                      >
-                        <path d="M12 3s6 7 6 12a6 6 0 0 1-12 0c0-5 6-12 6-12z"
-                        ></path>
-                      </svg>
-                    </div>
-                    <div class="t-cad-dots">
-                      <span class="today-pre">TODAY</span>
-                      <span class="sd done"></span>
-                      <span class="sd done"></span>
-                      <span class="sd pending"></span>
-                    </div>
+                <MockTile name="drink water" last="3h ago">
+                  <HabitIcon slot="icon" name="water" />
+                  <div slot="cadence" class="t-cad-dots">
+                    <span class="today-pre">TODAY</span>
+                    <span class="sd done"></span>
+                    <span class="sd done"></span>
+                    <span class="sd pending"></span>
                   </div>
-                  <div class="t-name">drink water</div>
-                  <div class="t-last">3h ago</div>
-                  <div class="t-spacer"></div>
-                  <div class="mock-week">
-                    <div class="col">
-                      <span class="lbl">M</span>
-                      <div class="cell done"></div>
-                    </div>
-                    <div class="col">
-                      <span class="lbl">T</span>
-                      <div class="cell done"></div>
-                    </div>
-                    <div class="col">
-                      <span class="lbl">W</span>
-                      <div class="cell done"></div>
-                    </div>
-                    <div class="col">
-                      <span class="lbl is-today">T</span>
-                      <div class="cell today"></div>
-                    </div>
-                    <div class="col">
-                      <span class="lbl">F</span>
-                      <div class="cell future"></div>
-                    </div>
-                    <div class="col">
-                      <span class="lbl">S</span>
-                      <div class="cell future"></div>
-                    </div>
-                    <div class="col">
-                      <span class="lbl">S</span>
-                      <div class="cell future"></div>
-                    </div>
-                  </div>
-                </div>
+                  <WeekStrip
+                    slot="strip"
+                    days={[
+                      "done",
+                      "done",
+                      "done",
+                      "today",
+                      "future",
+                      "future",
+                      "future",
+                    ]}
+                  />
+                </MockTile>
 
-                <!-- Tile 3: gym, M/W/F -->
-                <div class="mock-tile">
-                  <div class="t-top">
-                    <div class="t-icon">
-                      <svg
-                        width="14"
-                        height="14"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        stroke-width="1.7"
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                      >
-                        <path d="M6 6v12M18 6v12M3 9v6M21 9v6M6 12h12"></path>
-                      </svg>
-                    </div>
-                    <div class="t-cad">m·w·f</div>
-                  </div>
-                  <div class="t-name">gym</div>
-                  <div class="t-last">yesterday</div>
-                  <div class="t-spacer"></div>
-                  <div class="mock-week">
-                    <div class="col">
-                      <span class="lbl">M</span>
-                      <div class="cell done"></div>
-                    </div>
-                    <div class="col">
-                      <span class="lbl">T</span>
-                      <div class="cell skip"></div>
-                    </div>
-                    <div class="col">
-                      <span class="lbl">W</span>
-                      <div class="cell done"></div>
-                    </div>
-                    <div class="col">
-                      <span class="lbl is-today">T</span>
-                      <div class="cell skip"></div>
-                    </div>
-                    <div class="col">
-                      <span class="lbl">F</span>
-                      <div class="cell future"></div>
-                    </div>
-                    <div class="col">
-                      <span class="lbl">S</span>
-                      <div class="cell skip"></div>
-                    </div>
-                    <div class="col">
-                      <span class="lbl">S</span>
-                      <div class="cell skip"></div>
-                    </div>
-                  </div>
-                </div>
+                <MockTile name="gym" last="yesterday">
+                  <HabitIcon slot="icon" name="gym" />
+                  <div slot="cadence" class="t-cad">m·w·f</div>
+                  <WeekStrip
+                    slot="strip"
+                    days={[
+                      "done",
+                      "skip",
+                      "done",
+                      "skip",
+                      "future",
+                      "skip",
+                      "skip",
+                    ]}
+                  />
+                </MockTile>
 
-                <!-- Tile 4: call mum, weekly -->
-                <div class="mock-tile">
-                  <div class="t-top">
-                    <div class="t-icon">
-                      <svg
-                        width="14"
-                        height="14"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        stroke-width="1.7"
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                      >
-                        <path
-                          d="M5 4h3l2 5-2 1a11 11 0 0 0 6 6l1-2 5 2v3a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2z"
-                        ></path>
-                      </svg>
-                    </div>
-                    <div class="t-cad-dots">
-                      <span class="sd done"></span>
-                      <span class="sd behind"></span>
-                    </div>
+                <MockTile name="call mum" last="sat">
+                  <HabitIcon slot="icon" name="phone" />
+                  <div slot="cadence" class="t-cad-dots">
+                    <span class="sd done"></span>
+                    <span class="sd behind"></span>
                   </div>
-                  <div class="t-name">call mum</div>
-                  <div class="t-last">sat</div>
-                  <div class="t-spacer"></div>
-                  <div class="mock-week">
-                    <div class="col">
-                      <span class="lbl">M</span>
-                      <div class="cell skip"></div>
-                    </div>
-                    <div class="col">
-                      <span class="lbl">T</span>
-                      <div class="cell done"></div>
-                    </div>
-                    <div class="col">
-                      <span class="lbl">W</span>
-                      <div class="cell skip"></div>
-                    </div>
-                    <div class="col">
-                      <span class="lbl is-today">T</span>
-                      <div class="cell today"></div>
-                    </div>
-                    <div class="col">
-                      <span class="lbl">F</span>
-                      <div class="cell skip"></div>
-                    </div>
-                    <div class="col">
-                      <span class="lbl">S</span>
-                      <div class="cell future"></div>
-                    </div>
-                    <div class="col">
-                      <span class="lbl">S</span>
-                      <div class="cell skip"></div>
-                    </div>
-                  </div>
-                </div>
+                  <WeekStrip
+                    slot="strip"
+                    days={[
+                      "skip",
+                      "done",
+                      "skip",
+                      "today",
+                      "skip",
+                      "future",
+                      "skip",
+                    ]}
+                  />
+                </MockTile>
 
-                <!-- Tile 5: meditate, daily -->
-                <div class="mock-tile">
-                  <div class="t-top">
-                    <div class="t-icon">
-                      <svg
-                        width="14"
-                        height="14"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        stroke-width="1.7"
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                      >
-                        <circle cx="12" cy="12" r="9"></circle>
-                        <path d="M12 3v18M3 12h18"></path>
-                      </svg>
-                    </div>
-                    <div class="t-cad">daily</div>
-                  </div>
-                  <div class="t-name">meditate</div>
-                  <div class="t-last">missed</div>
-                  <div class="t-spacer"></div>
-                  <div class="mock-week">
-                    <div class="col">
-                      <span class="lbl">M</span>
-                      <div class="cell done"></div>
-                    </div>
-                    <div class="col">
-                      <span class="lbl">T</span>
-                      <div class="cell missed"></div>
-                    </div>
-                    <div class="col">
-                      <span class="lbl">W</span>
-                      <div class="cell done"></div>
-                    </div>
-                    <div class="col">
-                      <span class="lbl is-today">T</span>
-                      <div class="cell today"></div>
-                    </div>
-                    <div class="col">
-                      <span class="lbl">F</span>
-                      <div class="cell future"></div>
-                    </div>
-                    <div class="col">
-                      <span class="lbl">S</span>
-                      <div class="cell future"></div>
-                    </div>
-                    <div class="col">
-                      <span class="lbl">S</span>
-                      <div class="cell future"></div>
-                    </div>
-                  </div>
-                </div>
+                <MockTile name="meditate" last="missed">
+                  <HabitIcon slot="icon" name="meditate" />
+                  <div slot="cadence" class="t-cad">daily</div>
+                  <WeekStrip
+                    slot="strip"
+                    days={[
+                      "done",
+                      "missed",
+                      "done",
+                      "today",
+                      "future",
+                      "future",
+                      "future",
+                    ]}
+                  />
+                </MockTile>
 
-                <!-- Add tile -->
+                <!-- Add tile (one-off — not a real habit) -->
                 <div class="mock-tile add">
                   <svg width="12" height="12" viewBox="0 0 14 14" fill="none">
                     <path
@@ -491,7 +290,7 @@ import Base from "../layouts/Base.astro";
   </section>
 
   <!-- ──────── Big quote / pitch ──────── -->
-  <section style="padding-top: 0;">
+  <section class="section-pt-0">
     <div class="wrap">
       <div
         style="display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1.2fr); gap: clamp(32px, 6vw, 96px); align-items: center;"
@@ -520,7 +319,7 @@ import Base from "../layouts/Base.astro";
   </section>
 
   <!-- ──────── Get the app CTA ──────── -->
-  <section id="get" style="padding-top: 0;">
+  <section id="get" class="section-pt-0">
     <div class="wrap">
       <div class="cta-band">
         <h2>

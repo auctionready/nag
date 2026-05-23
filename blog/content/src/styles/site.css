@@ -1941,3 +1941,55 @@ section {
   max-width: 38ch;
   margin-top: 14px;
 }
+
+/* ─────────────── Helpers added during design refactor ─────────────── */
+
+/* Section padding utilities — used to override the default section
+   padding (clamp(64px, 9vw, 128px) 0) where sections butt together. */
+.section-pt-0 {
+  padding-top: 0;
+}
+.section-pb-0 {
+  padding-bottom: 0;
+}
+.section-pt-lg {
+  padding-top: 80px;
+}
+
+/* Heatmap — the 4-week compliance grid in how-it-works step 04.
+   Cells default to the faint "off day" background; modifier classes
+   pick the visible states. */
+.heat {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 3px;
+}
+.heat-cell {
+  aspect-ratio: 1;
+  border-radius: 3px;
+  background: rgba(26, 20, 16, 0.08);
+}
+.heat-cell.done {
+  background: var(--nag-ink);
+}
+.heat-cell.future {
+  background: transparent;
+  border: 1px solid var(--hairline);
+}
+.heat-cell.today {
+  background: transparent;
+  border: 1.5px solid var(--nag-orange);
+}
+
+/* Cadence-types card — the six tiles in how-it-works' cadence section.
+   The featured one (Scheduled) gets an orange top stripe. */
+.cad-card {
+  background: var(--nag-cream);
+  padding: 28px;
+}
+.cad-card.featured {
+  border-top: 3px solid var(--nag-orange);
+}
+.cad-card h3 {
+  margin: 10px 0 8px;
+}
