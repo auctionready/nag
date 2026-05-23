@@ -28,6 +28,8 @@ catalog:
   typescript: ~6.0.3
   vitest: ^4.1.7
   zod: ^4.4.3
+overrides:
+  zod-validation-error: ^4.0.0
 patchedDependencies:
   "@expo/dom-webview@55.0.3": patches/@expo__dom-webview@55.0.3.patch
 minimumReleaseAgeExclude:
