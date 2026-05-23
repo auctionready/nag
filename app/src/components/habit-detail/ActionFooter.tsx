@@ -41,6 +41,7 @@ export const ActionFooter = ({
     () =>
       Gesture.LongPress()
         .minDuration(500)
+        .runOnJS(true)
         // onStart fires asynchronously when the gesture engages, not during render.
         // eslint-disable-next-line react-hooks/refs
         .onStart(() => {
@@ -53,6 +54,7 @@ export const ActionFooter = ({
     () =>
       Gesture.LongPress()
         .minDuration(500)
+        .runOnJS(true)
         // onStart fires asynchronously when the gesture engages, not during render.
         // eslint-disable-next-line react-hooks/refs
         .onStart(() => {
