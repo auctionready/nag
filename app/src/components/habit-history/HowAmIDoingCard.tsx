@@ -38,6 +38,10 @@ export const HowAmIDoingCard = ({ habitExternalId }: HowAmIDoingCardProps) => {
   useEffect(() => {
     if (!isLoaded || !isSignedIn) return;
     let cancelled = false;
+    // Flip to loading before kicking the fetch so the skeleton shows while
+    // we wait. The async resolution below also sets state — those are
+    // outside the effect body and don't trigger the lint.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setState({ kind: "loading" });
     getHabitCompliance(habitExternalId).then(
       (result: GetHabitComplianceResult) => {

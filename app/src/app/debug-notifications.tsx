@@ -15,7 +15,9 @@ const DebugNotificationsScreen = () => {
   };
 
   useEffect(() => {
-    load();
+    // Fire-and-forget mount load.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    void load();
   }, []);
 
   return (

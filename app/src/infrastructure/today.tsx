@@ -2,7 +2,6 @@ import {
   createContext,
   useContext,
   useEffect,
-  useRef,
   useState,
   type PropsWithChildren,
 } from "react";
@@ -36,17 +35,17 @@ const msUntilNextMidnight = (now: Date): number => {
  */
 export const TodayProvider = ({ children }: PropsWithChildren) => {
   const [today, setToday] = useState<Date>(computeStartOfToday);
-  const todayRef = useRef(today);
-  todayRef.current = today;
 
   useEffect(() => {
     const refresh = () => {
-      const next = computeStartOfToday();
-      // No-op when the day hasn't changed — a setState here would
-      // re-render every consumer for nothing.
-      if (next.getTime() !== todayRef.current.getTime()) {
-        setToday(next);
-      }
+      // Functional update so we can compare against the latest committed
+      // value without reading a ref during render. No-op when the day
+      // hasn't changed — a setState here would re-render every consumer
+      // for nothing.
+      setToday((curr) => {
+        const next = computeStartOfToday();
+        return next.getTime() !== curr.getTime() ? next : curr;
+      });
     };
 
     let timer: ReturnType<typeof setTimeout> | undefined;
@@ -104,8 +103,21 @@ const MS_PER_MINUTE = 60_000;
  * Pair with `epochMinuteToDate` at the point of use.
  */
 export const useCurrentEpochMinute = (): number => {
-  useStartOfToday();
-  return Math.floor(Date.now() / MS_PER_MINUTE);
+  const startOfToday = useStartOfToday();
+  // Snapshot Date.now() outside render: lazy init covers first paint, the
+  // effect re-snapshots on day rollover so consumers see a fresh minute
+  // for the new day (within-minute precision is intentionally loose —
+  // consumers re-key off `startOfToday`, not the minute itself).
+  const [minute, setMinute] = useState(() =>
+    Math.floor(Date.now() / MS_PER_MINUTE),
+  );
+  useEffect(() => {
+    // Fires only on calendar-day rollover (rare), and the new value depends
+    // on the external clock so it can't be derived in render.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setMinute(Math.floor(Date.now() / MS_PER_MINUTE));
+  }, [startOfToday]);
+  return minute;
 };
 
 /** Inverse of `useCurrentEpochMinute`: epoch-minute → start-of-minute Date. */

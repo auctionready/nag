@@ -35,6 +35,9 @@ export const SignedInOrOut = () => {
 
     if (!isSignedIn) {
       upgradeStarted.current = false;
+      // Functional updater is a no-op when status is already idle, so the
+      // cascading-render concern doesn't apply here.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setStatus((current) =>
         current.kind === "idle" ? current : { kind: "idle" },
       );

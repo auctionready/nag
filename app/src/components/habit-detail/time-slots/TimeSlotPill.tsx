@@ -1,4 +1,4 @@
-import { forwardRef, useEffect, useRef } from "react";
+import { forwardRef, useEffect, useRef, useState } from "react";
 import { Animated, Pressable, StyleSheet, Text, View } from "react-native";
 import Svg, { Circle, Path } from "react-native-svg";
 import { tokens } from "../../../components/theme";
@@ -46,7 +46,7 @@ export const TimeSlotPill = forwardRef<View, TimeSlotPillProps>(
     // Pulse the pill whenever its visual state flips (e.g. owed → done
     // after a check-in lands), so the result feels acknowledged. Skips
     // the very first render so pills don't pulse when the screen mounts.
-    const scale = useRef(new Animated.Value(1)).current;
+    const [scale] = useState(() => new Animated.Value(1));
     const prevState = useRef<TimeSlotPillState | null>(null);
     useEffect(() => {
       if (prevState.current !== null && prevState.current !== state) {

@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useState } from "react";
 import { Animated, StyleSheet, Text, View } from "react-native";
 import { useSyncStatus } from "../../infrastructure/syncStatus";
 import { isApiConfigured } from "../../infrastructure/apiClient";
@@ -31,7 +31,7 @@ export const SyncDot = ({ showLabel = false }: SyncDotProps) => {
 
   const dotStatus = mapStatus(status);
 
-  const pulse = useRef(new Animated.Value(0)).current;
+  const [pulse] = useState(() => new Animated.Value(0));
   useEffect(() => {
     if (dotStatus !== "syncing") {
       pulse.setValue(0);

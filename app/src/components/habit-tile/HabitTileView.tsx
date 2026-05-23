@@ -1,4 +1,4 @@
-import { useCallback, useRef } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { Animated, Pressable, StyleSheet, Text, View } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import { formatDistanceToNowStrict } from "date-fns";
@@ -49,7 +49,7 @@ export const HabitTileView = ({
   onPress,
   onCheckIn,
 }: HabitTileViewProps) => {
-  const scale = useRef(new Animated.Value(1)).current;
+  const [scale] = useState(() => new Animated.Value(1));
   const didLongPress = useRef(false);
 
   const handleCheckIn = useCallback(() => {
@@ -68,12 +68,18 @@ export const HabitTileView = ({
     void onCheckIn();
   }, [onCheckIn, scale]);
 
-  const longPress = Gesture.LongPress()
-    .minDuration(500)
-    .onStart(() => {
-      didLongPress.current = true;
-      handleCheckIn();
-    });
+  const longPress = useMemo(
+    () =>
+      Gesture.LongPress()
+        .minDuration(500)
+        // onStart fires asynchronously when the gesture engages, not during render.
+        // eslint-disable-next-line react-hooks/refs
+        .onStart(() => {
+          didLongPress.current = true;
+          handleCheckIn();
+        }),
+    [handleCheckIn],
+  );
 
   const chipState = computeChipState({
     goal,
