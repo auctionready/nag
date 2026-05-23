@@ -8,3 +8,8 @@ bin/
 obj/
 dotnet-tools.json
 app/expo-env.d.ts
+
+# Isolated npm subprojects (their own package-lock.json, formatted locally)
+blog/content/
+infra/
+infra-bootstrap/

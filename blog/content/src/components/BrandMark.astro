@@ -1,0 +1,25 @@
+---
+// The little nag glyph: a row of seven dots (one missed, one today)
+// followed by the lowercase "nag" watermark. Used in Nav, Footer, and
+// the in-content notification mock.
+interface Props {
+  class?: string;
+}
+const { class: extraClass } = Astro.props;
+---
+
+<span
+  class={`brand-mark${extraClass ? ` ${extraClass}` : ""}`}
+  aria-hidden="true"
+>
+  <span class="row">
+    <span class="d"></span>
+    <span class="d"></span>
+    <span class="d"></span>
+    <span class="d miss"></span>
+    <span class="d"></span>
+    <span class="d"></span>
+    <span class="d today"></span>
+  </span>
+  <span class="wm">nag</span>
+</span>

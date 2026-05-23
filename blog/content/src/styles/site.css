@@ -179,30 +179,74 @@ section {
   letter-spacing: -0.03em;
   color: var(--nag-ink);
 }
+/* Brand mark = the actual app icon, scaled down.
+   Cream square + 7 cadence dots (dashed 4th = miss, last = orange / today),
+   with "nag" wordmark beneath. */
 .brand-mark {
-  width: 28px;
-  height: 28px;
-  border-radius: 7px;
-  background: var(--nag-orange);
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  background: var(--nag-cream);
   display: inline-flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  color: var(--nag-cream);
-  font-weight: 700;
-  font-size: 18px;
-  letter-spacing: -0.04em;
-  box-shadow: 0 1px 2px rgba(26, 20, 16, 0.18);
+  gap: 3px;
+  padding: 6px 4px 4px;
+  box-shadow:
+    0 1px 2px rgba(26, 20, 16, 0.18),
+    inset 0 0 0 1px rgba(26, 20, 16, 0.06);
+  flex-shrink: 0;
 }
-.brand-mark .pd {
-  width: 5px;
-  height: 5px;
-  background: var(--nag-cream);
+.brand-mark .row {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+.brand-mark .d {
+  width: 3px;
+  height: 3px;
   border-radius: 50%;
-  display: inline-block;
-  margin-left: 1px;
-  align-self: flex-end;
-  margin-bottom: 5px;
+  background: var(--nag-ink);
+  flex-shrink: 0;
 }
+.brand-mark .d.miss {
+  background: transparent;
+  box-shadow: inset 0 0 0 0.6px var(--nag-ink);
+  opacity: 0.7;
+}
+.brand-mark .d.today {
+  background: var(--nag-orange);
+}
+.brand-mark .wm {
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: 11px;
+  line-height: 1;
+  letter-spacing: -0.05em;
+  color: var(--nag-ink);
+}
+/* Dark surfaces (footer) invert: ink square + cream dots */
+.footer .brand-mark {
+  background: var(--nag-ink);
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.4),
+    inset 0 0 0 1px rgba(255, 248, 240, 0.08);
+}
+.footer .brand-mark .d {
+  background: var(--nag-cream);
+}
+.footer .brand-mark .d.miss {
+  background: transparent;
+  box-shadow: inset 0 0 0 0.6px var(--nag-cream);
+}
+.footer .brand-mark .d.today {
+  background: var(--nag-orange);
+}
+.footer .brand-mark .wm {
+  color: var(--nag-cream);
+}
+
 .brand-wm {
   display: inline-flex;
   align-items: flex-end;
@@ -377,18 +421,21 @@ section {
   font-weight: 600;
 }
 
-/* ──────────────────────── Phone mock ─────────────────────────── */
+/* ──────────────────────── Phone mock — iPhone ─────────────────
+   Dynamic Island, home indicator, tighter uniform bezel. */
 .phone {
   position: relative;
   width: 320px;
   height: 660px;
   margin: 0 auto;
-  background: var(--nag-ink);
-  border-radius: 44px;
-  padding: 10px;
+  background: #0a0805;
+  border-radius: 52px;
+  padding: 9px;
   box-shadow:
+    0 0 0 1.5px #2a211b inset,
+    0 0 0 2.5px #4a3f35,
     0 1px 0 rgba(255, 255, 255, 0.06) inset,
-    0 30px 60px -20px rgba(26, 20, 16, 0.35),
+    0 34px 60px -20px rgba(26, 20, 16, 0.4),
     0 2px 6px rgba(26, 20, 16, 0.18);
 }
 .phone-screen {
@@ -396,151 +443,394 @@ section {
   width: 100%;
   height: 100%;
   background: var(--nag-cream);
-  border-radius: 36px;
+  border-radius: 44px;
   overflow: hidden;
 }
+/* Dynamic Island — pill below the top edge, not flush */
 .phone-notch {
   position: absolute;
   left: 50%;
   top: 10px;
   transform: translateX(-50%);
   width: 96px;
-  height: 26px;
-  background: var(--nag-ink);
+  height: 28px;
+  background: #0a0805;
   border-radius: 999px;
+  z-index: 5;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+}
+/* Home indicator — short bar near bottom */
+.phone-home-indicator {
+  position: absolute;
+  left: 50%;
+  bottom: 7px;
+  transform: translateX(-50%);
+  width: 110px;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--nag-ink);
+  opacity: 0.55;
   z-index: 5;
 }
 .phone-status {
   position: absolute;
-  top: 12px;
-  left: 22px;
-  right: 22px;
+  top: 16px;
+  left: 26px;
+  right: 26px;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  font-family: var(--mono);
-  font-size: 11px;
+  font-family: var(--display);
+  font-weight: 600;
+  font-size: 13px;
+  letter-spacing: -0.02em;
   color: var(--nag-ink);
   z-index: 4;
 }
+.phone-status .signal {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.phone-status .signal .bars {
+  display: inline-flex;
+  gap: 1.5px;
+  align-items: end;
+}
+.phone-status .signal .bars span {
+  width: 3px;
+  background: var(--nag-ink);
+  border-radius: 0.5px;
+}
+.phone-status .signal .bars span:nth-child(1) {
+  height: 4px;
+}
+.phone-status .signal .bars span:nth-child(2) {
+  height: 6px;
+}
+.phone-status .signal .bars span:nth-child(3) {
+  height: 8px;
+}
+.phone-status .signal .bars span:nth-child(4) {
+  height: 10px;
+}
+.phone-status .battery {
+  position: relative;
+  width: 22px;
+  height: 11px;
+  border-radius: 3px;
+  border: 1.2px solid var(--nag-ink);
+  padding: 1px;
+}
+.phone-status .battery::after {
+  content: "";
+  position: absolute;
+  right: -3px;
+  top: 3px;
+  width: 1.5px;
+  height: 4px;
+  background: var(--nag-ink);
+  border-radius: 0 1px 1px 0;
+}
+.phone-status .battery .fill {
+  width: 75%;
+  height: 100%;
+  background: var(--nag-ink);
+  border-radius: 1px;
+}
 
-/* compact in-screen home board mock */
+/* ──── In-screen home board mock — matches app Variant A ───────
+   Top bar (avatar · nag./sync · cal) → big "% today" header → 2-col tile grid.
+   Each tile: icon glyph + cadence indicator (top), title (mid), week strip (bottom).
+*/
 .mock-home {
-  padding: 56px 18px 22px;
+  padding: 52px 0 22px;
   height: 100%;
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
   gap: 14px;
+  background: var(--nag-cream);
+  font-family: var(--display);
 }
-.mock-home-hd {
+/* Top bar */
+.mock-topbar {
   display: flex;
+  align-items: center;
   justify-content: space-between;
-  align-items: baseline;
-  padding: 0 6px;
+  padding: 6px 16px 8px;
+  gap: 10px;
 }
-.mock-home-hd .title {
+.mock-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: rgba(26, 20, 16, 0.06);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--display);
   font-weight: 600;
-  font-size: 22px;
+  font-size: 11px;
+  letter-spacing: 0.02em;
+  color: var(--nag-ink);
+}
+.mock-topbar .center {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+.mock-topbar .wm {
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: 16px;
   letter-spacing: -0.02em;
+  color: var(--nag-ink);
 }
-.mock-home-hd .date {
+.mock-topbar .sync {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
   font-family: var(--mono);
-  font-size: 10px;
-  color: var(--nag-mute);
-  letter-spacing: 0.08em;
+  font-size: 8px;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
+  color: var(--nag-mute);
 }
+.mock-topbar .sync .led {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #3cc07a;
+  display: inline-block;
+}
+.mock-iconbtn {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: rgba(26, 20, 16, 0.045);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--nag-ink);
+}
+
+/* Header — big "% today" */
+.mock-hd {
+  padding: 4px 20px 14px;
+}
+.mock-hd .pct {
+  font-family: var(--display);
+  font-weight: 600;
+  font-size: 36px;
+  line-height: 1;
+  letter-spacing: -0.04em;
+  color: var(--nag-ink);
+  display: flex;
+  align-items: baseline;
+  gap: 5px;
+}
+.mock-hd .pct .unit {
+  font-size: 18px;
+  color: var(--nag-mute);
+  font-weight: 500;
+}
+.mock-hd .line {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  color: var(--nag-mute);
+  margin-top: 4px;
+  letter-spacing: 0.02em;
+}
+
+/* 2-col tile grid */
 .mock-grid {
+  flex: 1;
+  padding: 0 14px;
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 10px;
+  gap: 8px;
+  align-content: start;
 }
 .mock-tile {
   background: #fff;
   border: 1px solid var(--hairline-soft);
-  border-radius: 18px;
-  padding: 12px 12px 14px;
-  min-height: 132px;
+  border-radius: 16px;
+  padding: 11px;
   display: flex;
   flex-direction: column;
+  gap: 8px;
+  min-height: 124px;
+  box-shadow: 0 1px 2px rgba(26, 20, 16, 0.04);
+}
+.mock-tile .t-top {
+  display: flex;
+  align-items: flex-start;
   justify-content: space-between;
+  gap: 6px;
 }
-.mock-tile.tile-orange {
-  background: var(--nag-orange);
-  color: var(--nag-cream);
-  border-color: transparent;
+.mock-tile .t-icon {
+  width: 26px;
+  height: 26px;
+  border-radius: 7px;
+  background: rgba(26, 20, 16, 0.04);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--nag-ink);
+  flex-shrink: 0;
 }
-.mock-tile.tile-ink {
+.mock-tile .t-cad {
+  font-family: var(--mono);
+  font-size: 8px;
+  letter-spacing: 0.08em;
+  color: var(--nag-mute);
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.mock-tile .t-cad-dots {
+  display: inline-flex;
+  gap: 3px;
+  align-items: center;
+}
+.mock-tile .t-cad-dots .sd {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+}
+.mock-tile .t-cad-dots .sd.done {
   background: var(--nag-ink);
-  color: var(--nag-cream);
-  border-color: transparent;
+}
+.mock-tile .t-cad-dots .sd.pending {
+  background: transparent;
+  box-shadow: inset 0 0 0 1px rgba(26, 20, 16, 0.18);
+}
+.mock-tile .t-cad-dots .sd.behind {
+  background: transparent;
+  box-shadow: inset 0 0 0 1px var(--nag-orange);
+}
+.mock-tile .t-cad-dots .sd.ahead {
+  background: var(--nag-orange);
+}
+.mock-tile .t-cad-dots .today-pre {
+  font-family: var(--mono);
+  font-size: 7.5px;
+  font-weight: 700;
+  color: var(--nag-orange);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  margin-right: 3px;
 }
 .mock-tile .t-name {
-  font-size: 14px;
+  font-size: 13.5px;
   font-weight: 600;
   letter-spacing: -0.01em;
+  line-height: 1.2;
+  color: var(--nag-ink);
+  text-wrap: pretty;
 }
-.mock-tile .t-meta {
+.mock-tile .t-last {
   font-family: var(--mono);
   font-size: 9px;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  opacity: 0.7;
+  color: var(--nag-mute);
+  margin-top: -4px;
 }
-.mock-tile .t-foot {
-  display: flex;
-  gap: 4px;
-  align-items: end;
-  justify-content: space-between;
+.mock-tile .t-spacer {
+  flex: 1;
 }
+
+/* Week strip — 7 cells, M..S labels above */
 .mock-week {
-  display: flex;
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
   gap: 3px;
 }
+.mock-week .col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+}
+.mock-week .lbl {
+  font-family: var(--mono);
+  font-size: 7.5px;
+  color: var(--nag-mute);
+  letter-spacing: 0.06em;
+}
+.mock-week .lbl.is-today {
+  color: var(--nag-orange);
+  font-weight: 700;
+}
 .mock-week .cell {
-  width: 14px;
-  height: 14px;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  max-width: 18px;
   border-radius: 4px;
-  background: rgba(26, 20, 16, 0.08);
+  background: transparent;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  position: relative;
+  overflow: hidden;
 }
 .mock-week .cell.done {
   background: var(--nag-ink);
 }
+.mock-week .cell.done::after {
+  content: "";
+  width: 6px;
+  height: 6px;
+  background: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 9 9' fill='none'><path d='M2 4.5L4 6.5L7.5 2.5' stroke='%23FFF8F0' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/></svg>")
+    center/contain no-repeat;
+}
 .mock-week .cell.today {
-  background: transparent;
   border: 1.5px solid var(--nag-orange);
 }
-.mock-week .cell.miss {
-  background: transparent;
-  border: 1.5px dashed rgba(26, 20, 16, 0.4);
-}
-.tile-orange .mock-week .cell {
-  background: rgba(255, 248, 240, 0.18);
-}
-.tile-orange .mock-week .cell.done {
-  background: var(--nag-cream);
-}
-.tile-orange .mock-week .cell.today {
-  background: transparent;
-  border: 1.5px solid var(--nag-cream);
-}
-.tile-ink .mock-week .cell {
-  background: rgba(255, 248, 240, 0.14);
-}
-.tile-ink .mock-week .cell.done {
-  background: var(--nag-cream);
-}
-.tile-ink .mock-week .cell.today {
-  background: transparent;
+.mock-week .cell.today-done {
+  background: var(--nag-ink);
   border: 1.5px solid var(--nag-orange);
+}
+.mock-week .cell.today-done::after {
+  content: "";
+  width: 6px;
+  height: 6px;
+  background: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 9 9' fill='none'><path d='M2 4.5L4 6.5L7.5 2.5' stroke='%23FFF8F0' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/></svg>")
+    center/contain no-repeat;
+}
+.mock-week .cell.future {
+  border: 1px solid var(--hairline);
+}
+.mock-week .cell.missed {
+  border: 1px solid var(--hairline);
+}
+.mock-week .cell.missed::after {
+  content: "";
+  width: 9px;
+  height: 9px;
+  background: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 22 22'><line x1='6' y1='16' x2='16' y2='6' stroke='%238A7E72' stroke-width='1.4' stroke-linecap='round'/></svg>")
+    center/contain no-repeat;
+}
+.mock-week .cell.skip::after {
+  content: "";
+  width: 3px;
+  height: 3px;
+  background: var(--hairline);
+  border-radius: 50%;
 }
 
-.tile-streak {
-  font-family: var(--display);
-  font-weight: 700;
-  font-size: 28px;
-  letter-spacing: -0.04em;
+/* Add tile */
+.mock-tile.add {
+  background: transparent;
+  border: 1.5px dashed rgba(26, 20, 16, 0.18);
+  align-items: center;
+  justify-content: center;
+  flex-direction: row;
+  color: var(--nag-mute);
+  font-size: 13px;
+  font-weight: 500;
+  gap: 6px;
 }
 
 /* ────────────────────────── Feature grid ─────────────────────── */
@@ -672,7 +962,7 @@ section {
   background: #fff;
   border: 1px solid var(--hairline-soft);
   border-radius: 16px;
-  height: 200px;
+  min-height: 220px;
   padding: 18px;
   display: flex;
   flex-direction: column;
@@ -688,6 +978,461 @@ section {
   font-size: 14px;
   color: var(--nag-ink-soft);
   margin: 0;
+}
+
+/* Long-press feature callout */
+.longpress {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
+  gap: clamp(32px, 6vw, 80px);
+  align-items: center;
+  background: var(--nag-ink);
+  color: var(--nag-cream);
+  border-radius: 28px;
+  padding: clamp(40px, 6vw, 72px);
+  position: relative;
+  overflow: hidden;
+}
+@media (max-width: 880px) {
+  .longpress {
+    grid-template-columns: 1fr;
+  }
+}
+.longpress::after {
+  content: "";
+  position: absolute;
+  right: -120px;
+  top: -120px;
+  width: 360px;
+  height: 360px;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle at center,
+    rgba(255, 90, 54, 0.18),
+    transparent 60%
+  );
+  pointer-events: none;
+}
+.longpress-body {
+  position: relative;
+  z-index: 1;
+}
+.longpress-body h2 {
+  color: var(--nag-cream);
+}
+.longpress-body .lede {
+  color: rgba(255, 248, 240, 0.78);
+}
+.longpress-body strong {
+  color: var(--nag-cream);
+  font-weight: 600;
+}
+.longpress-list {
+  list-style: none;
+  padding: 0;
+  margin: 28px 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  font-family: var(--display);
+  font-size: 15px;
+  color: rgba(255, 248, 240, 0.85);
+}
+.longpress-list li {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.lp-bullet {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--nag-orange);
+  box-shadow: 0 0 0 3px rgba(255, 90, 54, 0.25);
+  flex-shrink: 0;
+}
+
+.longpress-fig {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 18px;
+  z-index: 1;
+}
+.longpress-stage {
+  position: relative;
+  width: 220px;
+  height: 220px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+/* Pulsing ripple */
+@keyframes lpRipple {
+  0% {
+    transform: scale(0.85);
+    opacity: 0.85;
+  }
+  100% {
+    transform: scale(1.6);
+    opacity: 0;
+  }
+}
+.longpress-ripple {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 200px;
+  height: 200px;
+  margin-left: -100px;
+  margin-top: -100px;
+  border-radius: 24px;
+  border: 2px solid var(--nag-orange);
+  animation: lpRipple 1.8s cubic-bezier(0, 0.6, 0.4, 1) infinite;
+  pointer-events: none;
+}
+.longpress-tile {
+  width: 160px;
+  height: 160px;
+  min-height: 0;
+  padding: 11px;
+  position: relative;
+  z-index: 1;
+  background: #fff;
+  color: var(--nag-ink);
+  border-radius: 16px;
+  border: 1px solid var(--hairline-soft);
+  box-shadow: 0 8px 24px -10px rgba(0, 0, 0, 0.5);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+/* Finger / pressure indicator — soft circular shadow on tile */
+.longpress-finger {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  margin-left: -28px;
+  margin-top: -28px;
+  background: radial-gradient(
+    circle at center,
+    rgba(26, 20, 16, 0.22),
+    rgba(26, 20, 16, 0) 70%
+  );
+  pointer-events: none;
+  z-index: 2;
+}
+.longpress-caption {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  background: rgba(255, 248, 240, 0.06);
+  border: 1px solid rgba(255, 248, 240, 0.1);
+}
+
+/* Month strip — 10-column grid wrapping over 3 rows for 30 days.
+   States: blank (no check-in past), .d (done), .t (today), .f (future) */
+.mock-month {
+  display: grid;
+  grid-template-columns: repeat(10, 1fr);
+  gap: 3px;
+  width: 100%;
+}
+.mock-month .mcell {
+  aspect-ratio: 1 / 1;
+  border-radius: 3px;
+  background: rgba(26, 20, 16, 0.08);
+  display: block;
+  position: relative;
+}
+.mock-month .mcell.d {
+  background: var(--nag-ink);
+}
+.mock-month .mcell.t {
+  background: transparent;
+  box-shadow: inset 0 0 0 1px rgba(26, 20, 16, 0.15);
+}
+.mock-month .mcell.t::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  width: 3px;
+  height: 3px;
+  background: var(--nag-orange);
+  border-radius: 50%;
+}
+.mock-month .mcell.f {
+  background: rgba(26, 20, 16, 0.04);
+}
+
+/* Monthly cadence indicator on a tile — text label + dot row beneath */
+.t-cad-monthly {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  color: var(--nag-mute);
+  text-transform: uppercase;
+}
+.t-cad-monthly .dots {
+  display: inline-flex;
+  gap: 3px;
+  align-items: center;
+}
+.t-cad-monthly .sd {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+}
+.t-cad-monthly .sd.done {
+  background: var(--nag-ink);
+}
+.t-cad-monthly .sd.pending {
+  background: transparent;
+  box-shadow: inset 0 0 0 1px rgba(26, 20, 16, 0.22);
+}
+
+/* Tile examples grid — 4 across on desktop, wraps responsively.
+   Each tile is a realistic ~150px square mounted on a cream stage. */
+.tile-examples {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 28px;
+}
+@media (max-width: 980px) {
+  .tile-examples {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+@media (max-width: 540px) {
+  .tile-examples {
+    grid-template-columns: 1fr;
+  }
+}
+.tile-example {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.tile-example-stage {
+  background: var(--nag-cream);
+  border-radius: 14px;
+  padding: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--hairline-soft);
+  width: fit-content;
+  margin: 0 auto;
+}
+.tile-example-stage .mock-tile {
+  width: 160px;
+  height: 160px;
+  min-height: 0;
+  padding: 11px;
+}
+.tile-example .kicker {
+  margin-top: 6px;
+}
+.tile-example h3 {
+  margin: 4px 0 4px;
+}
+.tile-example p {
+  font-size: 14px;
+}
+
+/* Step figures rendered as actual nag tiles + notification card */
+@keyframes nagBlink {
+  to {
+    opacity: 0;
+  }
+}
+/* Step 01/02 — wrap is the dashed-board background, inner is a single home-board tile */
+.step-fig.step-tile-wrap {
+  background: var(--nag-cream-2);
+  border: 1px solid var(--hairline-soft);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 18px;
+}
+.step-fig.step-tile-wrap .step-tile {
+  background: #fff;
+  border-radius: 16px;
+  border: 1px solid var(--hairline-soft);
+  box-shadow: 0 1px 2px rgba(26, 20, 16, 0.04);
+  width: 160px;
+  aspect-ratio: 1 / 1;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.step-fig.step-tile-wrap .step-tile .t-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 6px;
+}
+.step-fig.step-tile-wrap .step-tile .t-icon {
+  width: 26px;
+  height: 26px;
+  border-radius: 7px;
+  background: rgba(26, 20, 16, 0.04);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--nag-ink);
+  flex-shrink: 0;
+}
+.step-fig.step-tile-wrap .step-tile .t-cad {
+  font-family: var(--mono);
+  font-size: 8.5px;
+  letter-spacing: 0.08em;
+  color: var(--nag-mute);
+  text-transform: uppercase;
+}
+.step-fig.step-tile-wrap .step-tile .t-name {
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  line-height: 1.2;
+  color: var(--nag-ink);
+}
+.step-fig.step-tile-wrap .step-tile .t-last {
+  font-family: var(--mono);
+  font-size: 9px;
+  color: var(--nag-mute);
+  margin-top: -4px;
+}
+.step-fig.step-tile-wrap .step-tile .t-spacer {
+  flex: 1;
+}
+
+/* Notification banner step */
+.step-fig.step-notif {
+  background: radial-gradient(circle at 30% 20%, #ffe4d2, #ffb89a 60%, #f08862);
+  border: 0;
+  padding: 22px 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+.step-fig.step-notif::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    180deg,
+    rgba(0, 0, 0, 0.05) 0%,
+    rgba(0, 0, 0, 0.18) 100%
+  );
+  pointer-events: none;
+}
+.step-fig.step-notif .notif-card {
+  background: rgba(255, 248, 240, 0.92);
+  -webkit-backdrop-filter: blur(20px);
+  backdrop-filter: blur(20px);
+  border-radius: 16px;
+  padding: 12px 14px;
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  box-shadow: 0 8px 24px -8px rgba(0, 0, 0, 0.4);
+  width: 100%;
+  position: relative;
+}
+/* Mini app icon inside notification — uses the brand-mark shape but tightened */
+.step-fig.step-notif .notif-app-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 7px;
+  padding: 5px 4px 4px;
+  gap: 2.5px;
+  flex-shrink: 0;
+  position: relative;
+}
+.step-fig.step-notif .notif-app-icon .row {
+  gap: 1.5px;
+}
+.step-fig.step-notif .notif-app-icon .d {
+  width: 2.2px;
+  height: 2.2px;
+}
+.step-fig.step-notif .notif-app-icon .d.miss {
+  box-shadow: inset 0 0 0 0.5px var(--nag-ink);
+}
+.step-fig.step-notif .notif-app-icon .wm {
+  font-size: 9px;
+}
+/* App icon badge — red dot with count, top-right */
+.step-fig.step-notif .notif-app-icon .notif-badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  min-width: 14px;
+  height: 14px;
+  padding: 0 4px;
+  background: #ff3b30;
+  color: #fff;
+  border-radius: 999px;
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: 9px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 0 0 1.5px rgba(255, 248, 240, 0.92);
+  letter-spacing: -0.02em;
+}
+.step-fig.step-notif .notif-body {
+  flex: 1;
+  min-width: 0;
+}
+.step-fig.step-notif .notif-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-family: var(--display);
+}
+.step-fig.step-notif .notif-title {
+  font-weight: 600;
+  font-size: 12px;
+  color: var(--nag-ink-soft);
+  letter-spacing: -0.01em;
+}
+.step-fig.step-notif .notif-time {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--nag-mute);
+  letter-spacing: 0.04em;
+}
+.step-fig.step-notif .notif-msg {
+  font-family: var(--display);
+  font-weight: 600;
+  font-size: 17px;
+  letter-spacing: -0.02em;
+  color: var(--nag-ink);
+  margin-top: 2px;
+  line-height: 1.15;
+}
+.step-fig.step-notif .notif-sub {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  color: var(--nag-mute);
+  margin-top: 4px;
+  letter-spacing: 0.02em;
 }
 
 /* ──────────────────────────── FAQ ────────────────────────────── */
@@ -1189,13 +1934,62 @@ section {
 .footer .brand {
   color: var(--nag-cream);
 }
-.footer .brand-mark {
-  background: var(--nag-orange);
-}
 .footer .blurb {
   font-size: 14px;
   line-height: 1.5;
   color: rgba(255, 248, 240, 0.7);
   max-width: 38ch;
   margin-top: 14px;
+}
+
+/* ─────────────── Helpers added during design refactor ─────────────── */
+
+/* Section padding utilities — used to override the default section
+   padding (clamp(64px, 9vw, 128px) 0) where sections butt together. */
+.section-pt-0 {
+  padding-top: 0;
+}
+.section-pb-0 {
+  padding-bottom: 0;
+}
+.section-pt-lg {
+  padding-top: 80px;
+}
+
+/* Heatmap — the 4-week compliance grid in how-it-works step 04.
+   Cells default to the faint "off day" background; modifier classes
+   pick the visible states. */
+.heat {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 3px;
+}
+.heat-cell {
+  aspect-ratio: 1;
+  border-radius: 3px;
+  background: rgba(26, 20, 16, 0.08);
+}
+.heat-cell.done {
+  background: var(--nag-ink);
+}
+.heat-cell.future {
+  background: transparent;
+  border: 1px solid var(--hairline);
+}
+.heat-cell.today {
+  background: transparent;
+  border: 1.5px solid var(--nag-orange);
+}
+
+/* Cadence-types card — the six tiles in how-it-works' cadence section.
+   The featured one (Scheduled) gets an orange top stripe. */
+.cad-card {
+  background: var(--nag-cream);
+  padding: 28px;
+}
+.cad-card.featured {
+  border-top: 3px solid var(--nag-orange);
+}
+.cad-card h3 {
+  margin: 10px 0 8px;
 }

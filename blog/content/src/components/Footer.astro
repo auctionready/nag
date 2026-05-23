@@ -1,4 +1,5 @@
 ---
+import BrandMark from "./BrandMark.astro";
 ---
 
 <footer class="footer">
@@ -6,10 +7,13 @@
     <div class="footer-grid">
       <div>
         <a href="/" class="brand">
-          <span class="brand-mark" aria-hidden="true">n<span class="pd"></span></span>
+          <BrandMark />
           <span class="brand-wm">nag<span class="dot">.</span></span>
         </a>
-        <p class="blurb">A habit-enforcement app that follows up. Made by one person in a small house, probably nagging themselves about something right now.</p>
+        <p class="blurb">
+          A habit-embedding app that follows up. Made by one person in a small
+          house, probably nagging themselves about something right now.
+        </p>
       </div>
       <div>
         <h4>Product</h4>
@@ -42,6 +46,9 @@
       <span>© 2026 nag<span class="dot">.</span> · made in NZ</span>
       <span>still waiting.</span>
     </div>
-    <div class="wm">nag<span class="dot" style="color: var(--nag-orange); opacity: 1;">.</span></div>
+    <div class="wm">
+      nag<span class="dot" style="color: var(--nag-orange); opacity: 1;">.</span
+      >
+    </div>
   </div>
 </footer>
