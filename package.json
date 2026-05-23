@@ -36,7 +36,6 @@
     "eslint-plugin-react-compiler": "19.1.0-rc.2",
     "lefthook": "^2.1.8",
     "prettier": "^3.8.3",
-    "prettier-plugin-astro": "^0.14.1",
     "turbo": "^2.9.14",
     "typescript": "catalog:"
   }
