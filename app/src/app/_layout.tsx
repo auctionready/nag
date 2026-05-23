@@ -1,7 +1,7 @@
 // Sentry must initialize before any other module that may emit spans or
 // errors — notably the db module, which opens SQLite at import time.
 import { Sentry, navigationIntegration } from "../infrastructure/sentry";
-import { init, postMigrationInit } from "../infrastructure/init";
+import { init } from "../infrastructure/init";
 import { useNotificationResponseHandler } from "../infrastructure/notificationResponseHandler";
 import { useForegroundNotificationSync } from "../infrastructure/foregroundSync";
 import { useBadgeSync } from "../infrastructure/badgeSync";
@@ -38,9 +38,6 @@ SplashScreen.preventAutoHideAsync().catch(() => undefined);
 init();
 
 const InnerLayout = () => {
-  React.useEffect(() => {
-    postMigrationInit();
-  }, []);
   useNotificationResponseHandler();
   useForegroundNotificationSync();
   useBadgeSync();
