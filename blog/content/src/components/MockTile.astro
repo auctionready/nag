@@ -1,0 +1,40 @@
+---
+// One habit tile, as it appears on the home board.
+//
+// Usage:
+//   <MockTile name="read 20 min" last="2h ago">
+//     <HabitIcon slot="icon" name="book" />
+//     <div slot="cadence" class="t-cad">daily</div>
+//     <WeekStrip slot="strip" days={["done","done","done","today-done","future","future","future"]} />
+//   </MockTile>
+//
+// The cadence slot takes one of: <div class="t-cad">…</div>,
+//   <div class="t-cad-dots">…</div>, or <div class="t-cad-monthly">…</div>
+// — whatever shape that habit needs.
+//
+// The strip slot is usually a <WeekStrip> but can be any markup
+// (e.g. a <div class="mock-month">…</div> for monthly habits).
+//
+// `tileClass` lets you switch to a different tile chrome (e.g. `step-tile`
+// for the smaller, padded variant used in how-it-works step figures).
+// `extraClass` is appended for variants like `longpress-tile` or `add`.
+
+interface Props {
+  name: string;
+  last: string;
+  tileClass?: string;
+  extraClass?: string;
+}
+const { name, last, tileClass = "mock-tile", extraClass } = Astro.props;
+---
+
+<div class={`${tileClass}${extraClass ? ` ${extraClass}` : ""}`}>
+  <div class="t-top">
+    <div class="t-icon"><slot name="icon" /></div>
+    <slot name="cadence" />
+  </div>
+  <div class="t-name">{name}</div>
+  <div class="t-last">{last}</div>
+  <div class="t-spacer"></div>
+  <slot name="strip" />
+</div>
