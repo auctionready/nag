@@ -1,10 +1,24 @@
 {
   "ignore_dirs": [
+    ".git",
+    ".idea",
+    ".vscode",
+    ".github",
+    ".turbo",
+    ".claude",
+    ".agents",
     "node_modules/.cache",
     ".expo",
+    "backend",
+    "blog",
+    "docs",
+    "infra",
+    "infra-bootstrap",
+    "ops",
+    "tools",
+    "patches",
     "ios/build",
     "android/build",
-    "android/.gradle",
-    ".git"
+    "android/.gradle"
   ]
 }
