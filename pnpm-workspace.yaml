@@ -11,12 +11,11 @@ allowBuilds:
   browser-tabs-lock: false
   bufferutil: false
   core-js: false
-  esbuild: false
+  esbuild: true
   lefthook: true
-  msgpackr-extract: true
+  msgpackr-extract: false
   unrs-resolver: false
   utf-8-validate: false
-approveBuilds: better-sqlite3
 
 catalog:
   "@types/better-sqlite3": ^7.0.0
@@ -28,10 +27,8 @@ catalog:
   typescript: ~6.0.3
   vitest: ^4.1.7
   zod: ^4.4.3
-overrides:
-  zod-validation-error: ^4.0.0
-patchedDependencies:
-  "@expo/dom-webview@55.0.3": patches/@expo__dom-webview@55.0.3.patch
+# patchedDependencies:
+#   "@expo/dom-webview@55.0.3": patches/@expo__dom-webview@55.0.3.patch
 minimumReleaseAgeExclude:
   - "@expo/cli@55.0.32"
   - "@expo/config-plugins@55.0.10"

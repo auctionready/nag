@@ -24,6 +24,7 @@
   },
   "dependencies": {
     "@clerk/clerk-expo": "^2.19.31",
+    "@expo/dom-webview": "~56.0.5",
     "@expo/metro-runtime": "~56.0.12",
     "@nag/api-client": "workspace:*",
     "@nag/core": "workspace:*",
