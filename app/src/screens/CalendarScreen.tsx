@@ -1,8 +1,9 @@
 import { useCallback, useMemo, useState } from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
+import { useLocalSearchParams, useRouter } from "expo-router";
+import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import {
   addDays,
-  addMonths,
   differenceInCalendarMonths,
   differenceInCalendarWeeks,
   endOfMonth,
@@ -10,13 +11,16 @@ import {
   format,
   isAfter,
   isSameDay,
-  isSameMonth,
-  startOfDay,
+  parseISO,
   startOfMonth,
   startOfWeek,
-  subDays,
-  subMonths,
 } from "date-fns";
+import {
+  canStepForward,
+  clampDayToToday,
+  stepCalendarDay,
+  type CalendarView,
+} from "@nag/core";
 import {
   CalNavRow,
   MonthView,
@@ -24,9 +28,15 @@ import {
   ViewToggle,
   WeekView,
   useCalendarData,
-  type CalendarView,
 } from "../components/calendar";
 import { tokens } from "../components/theme";
+
+const DAY_PARAM_FORMAT = "yyyy-MM-dd";
+const fmt = (day: Date) => format(day, DAY_PARAM_FORMAT);
+
+// Horizontal travel / fling speed past which a swipe steps a period.
+const SWIPE_THRESHOLD = 50;
+const SWIPE_VELOCITY = 400;
 
 const formatRange = (start: Date, end: Date) => {
   if (start.getMonth() === end.getMonth()) {
@@ -55,6 +65,11 @@ const monthTitle = (monthDate: Date, todayMonthStart: Date): string => {
 
 export const CalendarScreen = () => {
   const { today, weekRows, dayGroups, monthHeat, habits } = useCalendarData();
+  const router = useRouter();
+  const { view: viewParam, day: dayParam } = useLocalSearchParams<{
+    view?: CalendarView;
+    day?: string;
+  }>();
 
   const todayMonthStart = useMemo(() => startOfMonth(today), [today]);
   const todayWeekStart = useMemo(
@@ -62,113 +77,119 @@ export const CalendarScreen = () => {
     [today],
   );
 
-  const [view, setView] = useState<CalendarView>("month");
-  const [monthDate, setMonthDate] = useState<Date>(todayMonthStart);
-  const [weekStart, setWeekStart] = useState<Date>(todayWeekStart);
-  // Week view may have nothing selected (showing the empty bottom),
-  // a habit only (week summary for that habit), a day only (day list),
-  // or both (single-habit slot detail for that day). Month view always
-  // has a day selected.
-  const [selectedDay, setSelectedDay] = useState<Date | null>(today);
+  // The whole screen is derived from two route params: `view` (month/week)
+  // and `day` (yyyy-MM-dd). `day` doubles as both the visible window's
+  // anchor and the selected day, so swiping/navigating never grows the
+  // history stack — the back button always returns straight to the board.
+  const view: CalendarView = viewParam === "week" ? "week" : "month";
+  const baseDay = useMemo(() => {
+    const parsed = dayParam ? parseISO(dayParam) : null;
+    const valid = parsed && !Number.isNaN(parsed.getTime()) ? parsed : today;
+    return clampDayToToday(valid, today);
+  }, [dayParam, today]);
+
+  const monthDate = useMemo(() => startOfMonth(baseDay), [baseDay]);
+  const weekStart = useMemo(
+    () => startOfWeek(baseDay, { weekStartsOn: 1 }),
+    [baseDay],
+  );
+  const selectedDay = baseDay;
+
   const [selectedHabitId, setSelectedHabitId] = useState<string | null>(null);
 
-  // Navigation
+  // Navigation — each handler rewrites the `day`/`view` params in place.
   const goPrev = useCallback(() => {
-    if (view === "month") {
-      setMonthDate((m) => subMonths(m, 1));
-    } else {
-      setWeekStart((w) => subDays(w, 7));
-    }
-  }, [view]);
+    router.setParams({
+      day: fmt(stepCalendarDay({ day: baseDay, view, direction: "prev" })),
+    });
+  }, [router, baseDay, view]);
 
   const goNext = useCallback(() => {
-    if (view === "month") {
-      setMonthDate((m) => {
-        const next = addMonths(m, 1);
-        return isAfter(startOfMonth(next), todayMonthStart) ? m : next;
-      });
-    } else {
-      setWeekStart((w) => {
-        const next = addDays(w, 7);
-        return isAfter(next, todayWeekStart) ? w : next;
-      });
-    }
-  }, [view, todayMonthStart, todayWeekStart]);
+    if (!canStepForward(baseDay, view, today)) return;
+    const next = stepCalendarDay({ day: baseDay, view, direction: "next" });
+    router.setParams({ day: fmt(clampDayToToday(next, today)) });
+  }, [router, baseDay, view, today]);
 
   const goToday = useCallback(() => {
-    if (view === "month") setMonthDate(todayMonthStart);
-    else setWeekStart(todayWeekStart);
-    setSelectedDay(today);
-  }, [view, todayMonthStart, todayWeekStart, today]);
+    router.setParams({ day: fmt(today) });
+  }, [router, today]);
 
-  // Month view: tap a day to select; tapping the selected day is a no-op.
-  // Week view: tap a day to select; tap it again to clear (the bottom
-  // panel then collapses to the empty / habit-only state).
   const handleSelectDay = useCallback(
     (day: Date) => {
       if (isAfter(day, today)) return;
-      const next = startOfDay(day);
-      setSelectedDay((prev) => {
-        if (view === "week" && prev && isSameDay(prev, next)) return null;
-        return next;
-      });
+      router.setParams({ day: fmt(day) });
     },
-    [today, view],
+    [router, today],
   );
 
   const handleViewChange = useCallback(
     (next: CalendarView) => {
-      setView(next);
-      // Anchor the new window on the currently-selected day so the user
-      // doesn't lose their place. If nothing is selected (week view's
-      // empty state), fall back to today.
-      const anchor = selectedDay ?? today;
-      if (next === "month") {
-        setMonthDate(startOfMonth(anchor));
-        // Month view always shows a day's check-ins.
-        if (!selectedDay) setSelectedDay(today);
-        setSelectedHabitId(null);
-      } else {
-        setWeekStart(startOfWeek(anchor, { weekStartsOn: 1 }));
-      }
+      router.setParams({ view: next });
     },
-    [selectedDay, today],
+    [router],
   );
 
-  // Labels for the nav row. The "today" pill is disabled only when
-  // tapping it would do nothing — i.e. the visible window already
-  // covers today AND the selected day is today.
+  // Contextual horizontal swipe over the calendar, matching stock calendar
+  // apps: swipe left → forward in time, swipe right → back. `activeOffsetX`
+  // + `failOffsetY` keep vertical scrolling of the bottom panel intact, and
+  // `runOnJS` lets the handler call `router.setParams` directly.
+  const swipeGesture = useMemo(
+    () =>
+      Gesture.Pan()
+        .activeOffsetX([-20, 20])
+        .failOffsetY([-15, 15])
+        .runOnJS(true)
+        .onEnd((e) => {
+          if (
+            e.translationX < -SWIPE_THRESHOLD ||
+            e.velocityX < -SWIPE_VELOCITY
+          ) {
+            goNext();
+          } else if (
+            e.translationX > SWIPE_THRESHOLD ||
+            e.velocityX > SWIPE_VELOCITY
+          ) {
+            goPrev();
+          }
+        }),
+    [goNext, goPrev],
+  );
+
+  // Labels for the nav row. "next" is disabled once the visible window
+  // already reaches today's period; "today" once the selected day is today.
   const navState = useMemo(() => {
-    const selectedIsToday =
-      selectedDay !== null && isSameDay(selectedDay, today);
+    const prevDay = stepCalendarDay({ day: baseDay, view, direction: "prev" });
+    const nextDay = stepCalendarDay({ day: baseDay, view, direction: "next" });
+    const nextDisabled = !canStepForward(baseDay, view, today);
+    const todayDisabled = isSameDay(baseDay, today);
     if (view === "month") {
-      const onCurrentWindow = isSameMonth(monthDate, today);
       return {
-        prev: format(subMonths(monthDate, 1), "MMM"),
-        next: format(addMonths(monthDate, 1), "MMM"),
-        nextDisabled: onCurrentWindow,
-        todayDisabled: onCurrentWindow && selectedIsToday,
+        prev: format(prevDay, "MMM"),
+        next: format(nextDay, "MMM"),
+        nextDisabled,
+        todayDisabled,
       };
     }
-    const prevStart = subDays(weekStart, 7);
-    const prevEnd = endOfWeek(prevStart, { weekStartsOn: 1 });
-    const nextStart = addDays(weekStart, 7);
-    const nextEnd = endOfWeek(nextStart, { weekStartsOn: 1 });
-    const onCurrentWindow = isSameDay(weekStart, todayWeekStart);
     return {
-      prev: formatRange(prevStart, prevEnd),
-      next: formatRange(nextStart, nextEnd),
-      nextDisabled: onCurrentWindow,
-      todayDisabled: onCurrentWindow && selectedIsToday,
+      prev: formatRange(
+        startOfWeek(prevDay, { weekStartsOn: 1 }),
+        endOfWeek(prevDay, { weekStartsOn: 1 }),
+      ),
+      next: formatRange(
+        startOfWeek(nextDay, { weekStartsOn: 1 }),
+        endOfWeek(nextDay, { weekStartsOn: 1 }),
+      ),
+      nextDisabled,
+      todayDisabled,
     };
-  }, [view, monthDate, weekStart, today, todayWeekStart, selectedDay]);
+  }, [view, baseDay, today]);
 
   const weekRowsData = useMemo(
     () => weekRows(weekStart),
     [weekRows, weekStart],
   );
   const groupsForSelectedDay = useMemo(
-    () => (selectedDay ? dayGroups(selectedDay) : []),
+    () => dayGroups(selectedDay),
     [dayGroups, selectedDay],
   );
 
@@ -224,64 +245,66 @@ export const CalendarScreen = () => {
         : "No check-ins this week";
 
   return (
-    <ScrollView
-      style={styles.container}
-      contentContainerStyle={styles.scrollContent}
-    >
-      {/* Header */}
-      <View style={styles.headerRow}>
-        <View style={styles.headerCol}>
-          <Text style={styles.heading} numberOfLines={1}>
-            {headerTitle}
-          </Text>
-          <Text style={styles.subhead}>{headerSummary}</Text>
+    <GestureDetector gesture={swipeGesture}>
+      <ScrollView
+        style={styles.container}
+        contentContainerStyle={styles.scrollContent}
+      >
+        {/* Header */}
+        <View style={styles.headerRow}>
+          <View style={styles.headerCol}>
+            <Text style={styles.heading} numberOfLines={1}>
+              {headerTitle}
+            </Text>
+            <Text style={styles.subhead}>{headerSummary}</Text>
+          </View>
+          <ViewToggle view={view} onChange={handleViewChange} />
         </View>
-        <ViewToggle view={view} onChange={handleViewChange} />
-      </View>
 
-      {/* Prev / today / next */}
-      <CalNavRow
-        prevLabel={navState.prev}
-        nextLabel={navState.next}
-        onPrev={goPrev}
-        onNext={goNext}
-        onToday={goToday}
-        nextDisabled={navState.nextDisabled}
-        todayDisabled={navState.todayDisabled}
-      />
-
-      {/* Grid */}
-      {view === "month" ? (
-        <MonthView
-          monthDate={monthDate}
-          today={today}
-          selectedDay={selectedDay}
-          heatFor={monthHeat}
-          onSelectDay={handleSelectDay}
+        {/* Prev / today / next */}
+        <CalNavRow
+          prevLabel={navState.prev}
+          nextLabel={navState.next}
+          onPrev={goPrev}
+          onNext={goNext}
+          onToday={goToday}
+          nextDisabled={navState.nextDisabled}
+          todayDisabled={navState.todayDisabled}
         />
-      ) : (
-        <WeekView
+
+        {/* Grid */}
+        {view === "month" ? (
+          <MonthView
+            monthDate={monthDate}
+            today={today}
+            selectedDay={selectedDay}
+            heatFor={monthHeat}
+            onSelectDay={handleSelectDay}
+          />
+        ) : (
+          <WeekView
+            weekStart={weekStart}
+            today={today}
+            selectedDay={selectedDay}
+            selectedHabitId={selectedHabitId}
+            rows={weekRowsData}
+            onSelectDay={handleSelectDay}
+            onSelectHabit={setSelectedHabitId}
+          />
+        )}
+
+        {/* Bottom panel — day check-ins, optionally filtered to one habit. */}
+        <SelectedDayCheckIns
+          day={selectedDay}
+          today={today}
           weekStart={weekStart}
-          today={today}
-          selectedDay={selectedDay}
-          selectedHabitId={selectedHabitId}
-          rows={weekRowsData}
-          onSelectDay={handleSelectDay}
-          onSelectHabit={setSelectedHabitId}
+          groups={groupsForSelectedDay}
+          filteredHabit={view === "week" ? filteredHabit : null}
+          weekRowForFilter={view === "week" ? weekRowForFilter : null}
+          onClearFilter={() => setSelectedHabitId(null)}
         />
-      )}
-
-      {/* Bottom panel — empty / habit-only / day-only / day + habit. */}
-      <SelectedDayCheckIns
-        day={selectedDay}
-        today={today}
-        weekStart={weekStart}
-        groups={groupsForSelectedDay}
-        filteredHabit={view === "week" ? filteredHabit : null}
-        weekRowForFilter={view === "week" ? weekRowForFilter : null}
-        onClearFilter={() => setSelectedHabitId(null)}
-      />
-    </ScrollView>
+      </ScrollView>
+    </GestureDetector>
   );
 };
 

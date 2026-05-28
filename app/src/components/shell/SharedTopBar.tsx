@@ -1,22 +1,11 @@
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useRouter } from "expo-router";
 import Svg, { Circle, Path, Rect } from "react-native-svg";
 import { useUser } from "@clerk/clerk-expo";
 import { tokens } from "../theme";
 import { SyncDot } from "../sync";
 import { isClerkConfigured } from "../../infrastructure/clerk";
-
-// Subset of `react-native-tab-view`'s `renderTabBar` props. `jumpTo`
-// takes a route KEY.
-interface TabBarProps {
-  navigationState: {
-    index: number;
-    routes: { key: string; title?: string }[];
-  };
-  jumpTo: (key: string) => void;
-}
-
-const ACTIVE_HALO = "rgba(255,90,54,0.18)";
 
 /**
  * Avatar content: initials when signed in, person silhouette otherwise.
@@ -84,82 +73,42 @@ const computeInitials = (
 };
 
 /**
- * Top bar shared across the (tabs) navigator — Today / Calendar / Account.
- * Avatar (left) and calendar icon (right) act as tab toggles. The active
- * destination's button fills with brand orange and a soft halo. The
- * centre title swaps from the `nag.` wordmark to the page name with a
- * back chevron when not on Today.
+ * Top bar for the board (home) screen. The avatar (left) opens Account and
+ * the calendar icon (right) opens Calendar — both pushed onto the stack so
+ * each gets a standard back button from the navigator header. The centre
+ * always shows the `nag.` wordmark.
  */
-export const SharedTopBar = ({ navigationState, jumpTo }: TabBarProps) => {
+export const SharedTopBar = () => {
   const insets = useSafeAreaInsets();
-  const active = navigationState.routes[navigationState.index]?.key ?? "index";
-  const onAccount = active === "account";
-  const onCalendar = active === "calendar";
-  const onToday = active === "index";
-
-  const goTo = (key: string) => {
-    jumpTo(key);
-  };
+  const router = useRouter();
 
   return (
     <View style={[styles.wrap, { paddingTop: insets.top }]}>
       <View style={styles.row}>
         <Pressable
-          onPress={() => goTo("account")}
+          onPress={() => router.push("/account")}
           hitSlop={8}
-          style={({ pressed }) => [
-            styles.avatar,
-            onAccount && styles.avatarActive,
-            pressed && styles.pressed,
-          ]}
+          style={({ pressed }) => [styles.avatar, pressed && styles.pressed]}
           accessibilityLabel="Account"
           accessibilityRole="button"
         >
-          <AvatarContent active={onAccount} />
+          <AvatarContent active={false} />
         </Pressable>
 
         <View style={styles.center}>
-          {onToday ? (
-            <View style={styles.titleRow}>
-              <View style={styles.wordmarkRow}>
-                <Text style={styles.wordmark}>nag</Text>
-                <Text style={styles.wordmarkDot}>.</Text>
-              </View>
+          <View style={styles.titleRow}>
+            <View style={styles.wordmarkRow}>
+              <Text style={styles.wordmark}>nag</Text>
+              <Text style={styles.wordmarkDot}>.</Text>
             </View>
-          ) : (
-            <Pressable
-              onPress={() => goTo("index")}
-              hitSlop={10}
-              accessibilityLabel="Back to today"
-              accessibilityRole="button"
-              style={({ pressed }) => [
-                styles.titleRow,
-                pressed && styles.pressed,
-              ]}
-            >
-              <Svg width={11} height={11} viewBox="0 0 11 11" fill="none">
-                <Path
-                  d="M7 1L2.5 5.5 7 10"
-                  stroke={tokens.mute}
-                  strokeWidth={1.7}
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </Svg>
-              <Text style={styles.pageName}>{active}</Text>
-            </Pressable>
-          )}
+          </View>
           <SyncDot showLabel />
         </View>
 
         <Pressable
-          onPress={() => goTo("calendar")}
+          onPress={() => router.push("/calendar")}
           hitSlop={8}
-          style={({ pressed }) => [
-            styles.iconBtn,
-            onCalendar && styles.iconBtnActive,
-            pressed && styles.pressed,
-          ]}
+          style={({ pressed }) => [styles.iconBtn, pressed && styles.pressed]}
           accessibilityLabel="Calendar"
           accessibilityRole="button"
         >
@@ -170,12 +119,12 @@ export const SharedTopBar = ({ navigationState, jumpTo }: TabBarProps) => {
               width={18}
               height={16}
               rx={2}
-              stroke={onCalendar ? tokens.cream : tokens.ink}
+              stroke={tokens.ink}
               strokeWidth={1.7}
             />
             <Path
               d="M3 10h18M8 3v4M16 3v4"
-              stroke={onCalendar ? tokens.cream : tokens.ink}
+              stroke={tokens.ink}
               strokeWidth={1.7}
               strokeLinecap="round"
             />
@@ -205,15 +154,6 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(26,20,16,0.06)",
     alignItems: "center",
     justifyContent: "center",
-  },
-  avatarActive: {
-    backgroundColor: tokens.orange,
-    shadowColor: tokens.orange,
-    shadowOpacity: 0.18,
-    shadowRadius: 0,
-    shadowOffset: { width: 0, height: 0 },
-    borderWidth: 3,
-    borderColor: ACTIVE_HALO,
   },
   avatarText: {
     color: tokens.ink,
@@ -250,12 +190,6 @@ const styles = StyleSheet.create({
     color: tokens.orange,
     letterSpacing: -0.36,
   },
-  pageName: {
-    fontSize: 18,
-    fontWeight: "700",
-    color: tokens.ink,
-    letterSpacing: -0.36,
-  },
   iconBtn: {
     width: 36,
     height: 36,
@@ -263,11 +197,6 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(26,20,16,0.045)",
     alignItems: "center",
     justifyContent: "center",
-  },
-  iconBtnActive: {
-    backgroundColor: tokens.orange,
-    borderWidth: 3,
-    borderColor: ACTIVE_HALO,
   },
   pressed: {
     opacity: 0.7,
