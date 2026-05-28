@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useState } from "react";
 import {
   Animated,
   Dimensions,
@@ -59,7 +59,7 @@ export const TimeSlotActionsPopover = ({
   // tail position the moment the anchor's bounds arrive. `anchor`
   // becoming non-null is the cue to play. Hooks must run unconditionally
   // — the early `visible` short-circuit lives below them.
-  const anim = useRef(new Animated.Value(0)).current;
+  const [anim] = useState(() => new Animated.Value(0));
   useEffect(() => {
     if (!anchor) {
       anim.setValue(0);

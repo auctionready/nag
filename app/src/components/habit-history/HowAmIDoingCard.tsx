@@ -1,8 +1,7 @@
 import { useEffect, useState } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { StyleSheet, Text, View } from "react-native";
 import Svg, { Circle, Path } from "react-native-svg";
 import { useAuth } from "@clerk/clerk-expo";
-import { useRouter } from "expo-router";
 import { addDays, format, startOfDay, startOfWeek } from "date-fns";
 import { schemas, type GetHabitComplianceResult } from "@nag/api-client";
 import { getHabitCompliance } from "../../infrastructure/apiClient";
@@ -34,12 +33,15 @@ const ROLLING_DAYS = 30;
 export const HowAmIDoingCard = ({ habitExternalId }: HowAmIDoingCardProps) => {
   const todayStart = useStartOfToday();
   const { isLoaded, isSignedIn } = useAuth();
-  const router = useRouter();
   const [state, setState] = useState<FetchState>({ kind: "idle" });
 
   useEffect(() => {
     if (!isLoaded || !isSignedIn) return;
     let cancelled = false;
+    // Flip to loading before kicking the fetch so the skeleton shows while
+    // we wait. The async resolution below also sets state — those are
+    // outside the effect body and don't trigger the lint.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setState({ kind: "loading" });
     getHabitCompliance(habitExternalId).then(
       (result: GetHabitComplianceResult) => {
@@ -58,11 +60,7 @@ export const HowAmIDoingCard = ({ habitExternalId }: HowAmIDoingCardProps) => {
 
   if (!isLoaded) return null;
 
-  if (!isSignedIn) {
-    return (
-      <SignInCta variant="default" onPress={() => router.push("/account")} />
-    );
-  }
+  if (!isSignedIn) return null;
 
   if (state.kind === "loading" || state.kind === "idle") {
     return (
@@ -74,7 +72,11 @@ export const HowAmIDoingCard = ({ habitExternalId }: HowAmIDoingCardProps) => {
 
   if (state.kind === "error") {
     return (
-      <SignInCta variant="error" onPress={() => router.push("/account")} />
+      <Card>
+        <Text style={styles.errorText}>
+          Couldn’t load your history (offline right now).
+        </Text>
+      </Card>
     );
   }
 
@@ -158,23 +160,6 @@ const Card = ({ children }: { children: React.ReactNode }) => (
     </View>
     {children}
   </View>
-);
-
-const SignInCta = ({
-  variant,
-  onPress,
-}: {
-  variant: "default" | "error";
-  onPress: () => void;
-}) => (
-  <Pressable style={styles.cta} onPress={onPress}>
-    <Text style={styles.cardEyebrow}>how am i doing</Text>
-    <Text style={styles.ctaBody}>
-      {variant === "error"
-        ? "Sign in to see your history (offline right now)."
-        : "Sign in to see your compliance history."}
-    </Text>
-  </Pressable>
 );
 
 // ── Data shaping helpers ──────────────────────────────────────────────
@@ -458,22 +443,13 @@ const styles = StyleSheet.create({
     height: "50%",
     backgroundColor: tokens.ink,
   },
-  cta: {
-    marginHorizontal: 14,
-    backgroundColor: tokens.surface,
-    borderRadius: 16,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: tokens.border,
-    gap: 6,
-  },
-  ctaBody: {
-    fontSize: 14,
-    color: tokens.inkSoft,
-  },
   skeleton: {
     height: 80,
     backgroundColor: tokens.veryFaint,
     borderRadius: 8,
+  },
+  errorText: {
+    fontSize: 14,
+    color: tokens.inkSoft,
   },
 });

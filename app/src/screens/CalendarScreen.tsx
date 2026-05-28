@@ -25,8 +25,8 @@ import {
   WeekView,
   useCalendarData,
   type CalendarView,
-} from "../../components/calendar";
-import { tokens } from "../../components/theme";
+} from "../components/calendar";
+import { tokens } from "../components/theme";
 
 const formatRange = (start: Date, end: Date) => {
   if (start.getMonth() === end.getMonth()) {
@@ -53,7 +53,7 @@ const monthTitle = (monthDate: Date, todayMonthStart: Date): string => {
   return format(monthDate, "MMMM yyyy");
 };
 
-const CalendarScreen = () => {
+export const CalendarScreen = () => {
   const { today, weekRows, dayGroups, monthHeat, habits } = useCalendarData();
 
   const todayMonthStart = useMemo(() => startOfMonth(today), [today]);
@@ -322,5 +322,3 @@ const styles = StyleSheet.create({
     letterSpacing: 0.3,
   },
 });
-
-export default CalendarScreen;

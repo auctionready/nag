@@ -1,16 +1,16 @@
 import { ScrollView, StyleSheet, Text, View } from "react-native";
-import { SignedInOrOut } from "../../components/account";
-import { tokens } from "../../components/theme";
-import { isClerkConfigured } from "../../infrastructure/clerk";
-import { getAuthMode } from "../../infrastructure/devOverrides";
+import { SignedInOrOut } from "../components/account";
+import { tokens } from "../components/theme";
+import { isClerkConfigured } from "../infrastructure/clerk";
+import { getAuthMode } from "../infrastructure/devOverrides";
 
-const AccountScreen = () => {
+export const AccountScreen = () => {
   if (__DEV__ && getAuthMode() === "dev-auth") {
     // Lazy-required so Metro drops the dev-auth panel (and its
     // /dev/token + ensureDevAuthRegistered imports) from prod bundles.
     const { DevAuthAccountPanel } =
       // eslint-disable-next-line @typescript-eslint/no-require-imports
-      require("../../components/account/DevAuthAccountPanel") as typeof import("../../components/account/DevAuthAccountPanel");
+      require("../components/account/DevAuthAccountPanel") as typeof import("../components/account/DevAuthAccountPanel");
     return <DevAuthAccountPanel />;
   }
   if (!isClerkConfigured()) {
@@ -32,8 +32,6 @@ const AccountScreen = () => {
   }
   return <SignedInOrOut />;
 };
-
-export default AccountScreen;
 
 const styles = StyleSheet.create({
   scroll: {

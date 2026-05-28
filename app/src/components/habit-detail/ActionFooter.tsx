@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { useMemo, useRef } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
@@ -37,18 +37,32 @@ export const ActionFooter = ({
   const didCheckInLongPress = useRef(false);
   const didSkipLongPress = useRef(false);
 
-  const checkInGesture = Gesture.LongPress()
-    .minDuration(500)
-    .onStart(() => {
-      didCheckInLongPress.current = true;
-      onLongPressCheckIn();
-    });
-  const skipGesture = Gesture.LongPress()
-    .minDuration(500)
-    .onStart(() => {
-      didSkipLongPress.current = true;
-      onLongPressSkip();
-    });
+  const checkInGesture = useMemo(
+    () =>
+      Gesture.LongPress()
+        .minDuration(500)
+        .runOnJS(true)
+        // onStart fires asynchronously when the gesture engages, not during render.
+        // eslint-disable-next-line react-hooks/refs
+        .onStart(() => {
+          didCheckInLongPress.current = true;
+          onLongPressCheckIn();
+        }),
+    [onLongPressCheckIn],
+  );
+  const skipGesture = useMemo(
+    () =>
+      Gesture.LongPress()
+        .minDuration(500)
+        .runOnJS(true)
+        // onStart fires asynchronously when the gesture engages, not during render.
+        // eslint-disable-next-line react-hooks/refs
+        .onStart(() => {
+          didSkipLongPress.current = true;
+          onLongPressSkip();
+        }),
+    [onLongPressSkip],
+  );
 
   const handleCheckInTap = () => {
     if (didCheckInLongPress.current) {

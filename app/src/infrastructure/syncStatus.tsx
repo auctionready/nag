@@ -535,8 +535,11 @@ export const SyncStatusProvider = ({ children }: PropsWithChildren) => {
   }, [enabled, kick]);
 
   // Initial counts load (covers the case where we're online from the start
-  // and the dispatcher runs once via NetInfo.fetch above).
+  // and the dispatcher runs once via NetInfo.fetch above). refreshCounts
+  // commits state asynchronously after the query resolves, not during the
+  // effect body — the lint can't see through the Promise.
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     void refreshCounts();
   }, [refreshCounts]);
 

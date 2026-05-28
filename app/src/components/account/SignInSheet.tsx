@@ -140,7 +140,7 @@ const styles = StyleSheet.create({
     justifyContent: "flex-end",
   },
   sheetBackdrop: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: "rgba(10,7,4,0.42)",
   },
   sheet: {

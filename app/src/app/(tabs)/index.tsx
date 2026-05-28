@@ -1,31 +1,38 @@
-import { useRouter } from "expo-router";
-import { useLiveQuery } from "drizzle-orm/expo-sqlite";
-import { db } from "../../db";
-import { allHabits } from "@nag/core";
-import { HabitTile } from "../../components/habit-tile";
-import { Board } from "../../components/board";
+import { useState } from "react";
+import { useWindowDimensions } from "react-native";
+import { TabView, SceneMap } from "react-native-tab-view";
+import { SharedTopBar } from "../../components/shell";
+import { AccountScreen } from "../../screens/AccountScreen";
+import { BoardScreen } from "../../screens/BoardScreen";
+import { CalendarScreen } from "../../screens/CalendarScreen";
 
-const BoardScreen = () => {
-  const router = useRouter();
-  const { data: habits } = useLiveQuery(allHabits(db));
+const renderScene = SceneMap({
+  account: AccountScreen,
+  index: BoardScreen,
+  calendar: CalendarScreen,
+});
 
-  if (!habits) {
-    return null;
-  }
+const routes = [{ key: "account" }, { key: "index" }, { key: "calendar" }];
+
+const TabsLayout = () => {
+  const layout = useWindowDimensions();
+  const [index, setIndex] = useState(1);
 
   return (
-    <Board
-      habits={habits}
-      onAddHabit={() => router.push("/add-habit")}
-      renderTile={(habit) => (
-        <HabitTile
-          id={habit.id}
-          title={habit.title}
-          icon={(habit as { icon?: string | null }).icon}
+    <TabView
+      navigationState={{ index, routes }}
+      renderScene={renderScene}
+      renderTabBar={(props) => (
+        <SharedTopBar
+          navigationState={props.navigationState}
+          jumpTo={props.jumpTo}
         />
       )}
+      onIndexChange={setIndex}
+      initialLayout={{ width: layout.width }}
+      swipeEnabled
     />
   );
 };
 
-export default BoardScreen;
+export default TabsLayout;

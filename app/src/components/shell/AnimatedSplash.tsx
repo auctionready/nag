@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useState } from "react";
 import {
   Animated,
   Dimensions,
@@ -27,15 +27,15 @@ const TAGLINE_FADE_END_MS = 300 + 700;
 export const SPLASH_DURATION_MS = TAGLINE_FADE_END_MS + HOLD_MS + EXIT_MS;
 
 export const AnimatedSplash: React.FC = () => {
-  const fadeDots = useRef(new Animated.Value(0)).current;
-  const fadeDotsY = useRef(new Animated.Value(8)).current;
-  const fadeText = useRef(new Animated.Value(0)).current;
-  const fadeTextY = useRef(new Animated.Value(8)).current;
-  const dot1 = useRef(new Animated.Value(0.25)).current;
-  const dot2 = useRef(new Animated.Value(0.25)).current;
-  const dot3 = useRef(new Animated.Value(0.25)).current;
-  const sweep = useRef(new Animated.Value(0)).current;
-  const exit = useRef(new Animated.Value(1)).current;
+  const [fadeDots] = useState(() => new Animated.Value(0));
+  const [fadeDotsY] = useState(() => new Animated.Value(8));
+  const [fadeText] = useState(() => new Animated.Value(0));
+  const [fadeTextY] = useState(() => new Animated.Value(8));
+  const [dot1] = useState(() => new Animated.Value(0.25));
+  const [dot2] = useState(() => new Animated.Value(0.25));
+  const [dot3] = useState(() => new Animated.Value(0.25));
+  const [sweep] = useState(() => new Animated.Value(0));
+  const [exit] = useState(() => new Animated.Value(1));
 
   useEffect(() => {
     // Hand off from native to JS on the next frame: gives the JS view a

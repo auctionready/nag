@@ -1,6 +1,8 @@
 import { render } from "@testing-library/react-native";
 import { ProgressRing } from "../ProgressRing";
 
+type ReactTestInstance = ReturnType<typeof render>["root"];
+
 describe("ProgressRing", () => {
   const size = 36;
   const strokeWidth = 4;
@@ -16,7 +18,9 @@ describe("ProgressRing", () => {
       <ProgressRing progress={0.5} size={size} strokeWidth={strokeWidth} />,
     );
     const circles = root.findAll(
-      (node: { type: string }) => node.type === "RNSVGCircle",
+      (node: ReactTestInstance) =>
+        typeof node.type === "string" &&
+        (node.type as string) === "RNSVGCircle",
     );
     const foreground = circles[1];
     // rawOffset + strokeWidth to cancel the visual extension from round caps
@@ -30,7 +34,9 @@ describe("ProgressRing", () => {
       <ProgressRing progress={0.25} size={size} strokeWidth={strokeWidth} />,
     );
     const circles = root.findAll(
-      (node: { type: string }) => node.type === "RNSVGCircle",
+      (node: ReactTestInstance) =>
+        typeof node.type === "string" &&
+        (node.type as string) === "RNSVGCircle",
     );
     const foreground = circles[1];
     expect(foreground.props.strokeDashoffset).toBeCloseTo(
@@ -43,7 +49,9 @@ describe("ProgressRing", () => {
       <ProgressRing progress={1} size={size} strokeWidth={strokeWidth} />,
     );
     const fullCircles = full.findAll(
-      (node: { type: string }) => node.type === "RNSVGCircle",
+      (node: ReactTestInstance) =>
+        typeof node.type === "string" &&
+        (node.type as string) === "RNSVGCircle",
     );
     // offset=0 may be null (react-native-svg drops falsy values)
     const fullOffset = fullCircles[1].props.strokeDashoffset ?? 0;
@@ -53,7 +61,9 @@ describe("ProgressRing", () => {
       <ProgressRing progress={0} size={size} strokeWidth={strokeWidth} />,
     );
     const emptyCircles = empty.findAll(
-      (node: { type: string }) => node.type === "RNSVGCircle",
+      (node: ReactTestInstance) =>
+        typeof node.type === "string" &&
+        (node.type as string) === "RNSVGCircle",
     );
     expect(emptyCircles[1].props.strokeDashoffset).toBeCloseTo(circumference);
   });
