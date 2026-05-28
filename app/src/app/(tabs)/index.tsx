@@ -1,38 +1,20 @@
-import { useState } from "react";
-import { useWindowDimensions } from "react-native";
-import { TabView, SceneMap } from "react-native-tab-view";
+import { View, StyleSheet } from "react-native";
 import { SharedTopBar } from "../../components/shell";
-import { AccountScreen } from "../../screens/AccountScreen";
 import { BoardScreen } from "../../screens/BoardScreen";
-import { CalendarScreen } from "../../screens/CalendarScreen";
+import { tokens } from "../../components/theme";
 
-const renderScene = SceneMap({
-  account: AccountScreen,
-  index: BoardScreen,
-  calendar: CalendarScreen,
+const BoardRoute = () => (
+  <View style={styles.container}>
+    <SharedTopBar />
+    <BoardScreen />
+  </View>
+);
+
+export default BoardRoute;
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: tokens.cream,
+  },
 });
-
-const routes = [{ key: "account" }, { key: "index" }, { key: "calendar" }];
-
-const TabsLayout = () => {
-  const layout = useWindowDimensions();
-  const [index, setIndex] = useState(1);
-
-  return (
-    <TabView
-      navigationState={{ index, routes }}
-      renderScene={renderScene}
-      renderTabBar={(props) => (
-        <SharedTopBar
-          navigationState={props.navigationState}
-          jumpTo={props.jumpTo}
-        />
-      )}
-      onIndexChange={setIndex}
-      initialLayout={{ width: layout.width }}
-      swipeEnabled
-    />
-  );
-};
-
-export default TabsLayout;

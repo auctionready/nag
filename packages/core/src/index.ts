@@ -175,3 +175,10 @@ export {
   type ConsolidatedTimeSlot,
 } from "./notificationConsolidator";
 export { overdueHabitsCount } from "./overdueHabits";
+export {
+  stepCalendarDay,
+  clampDayToToday,
+  canStepForward,
+  type CalendarView,
+  type CalendarStepDirection,
+} from "./calendarNav";
