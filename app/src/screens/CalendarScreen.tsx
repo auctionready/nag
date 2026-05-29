@@ -1,6 +1,5 @@
 import { useCallback, useMemo, useState } from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
-import { useLocalSearchParams, useRouter } from "expo-router";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import {
   addDays,
@@ -63,13 +62,21 @@ const monthTitle = (monthDate: Date, todayMonthStart: Date): string => {
   return format(monthDate, "MMMM yyyy");
 };
 
-export const CalendarScreen = () => {
+interface CalendarScreenProps {
+  view: CalendarView;
+  /** Raw `yyyy-MM-dd` from the route (undefined when not set). */
+  day: string | undefined;
+  onChangeView: (view: CalendarView) => void;
+  onChangeDay: (day: string) => void;
+}
+
+export const CalendarScreen = ({
+  view,
+  day: dayParam,
+  onChangeView,
+  onChangeDay,
+}: CalendarScreenProps) => {
   const { today, weekRows, dayGroups, monthHeat, habits } = useCalendarData();
-  const router = useRouter();
-  const { view: viewParam, day: dayParam } = useLocalSearchParams<{
-    view?: CalendarView;
-    day?: string;
-  }>();
 
   const todayMonthStart = useMemo(() => startOfMonth(today), [today]);
   const todayWeekStart = useMemo(
@@ -81,7 +88,6 @@ export const CalendarScreen = () => {
   // and `day` (yyyy-MM-dd). `day` doubles as both the visible window's
   // anchor and the selected day, so swiping/navigating never grows the
   // history stack — the back button always returns straight to the board.
-  const view: CalendarView = viewParam === "week" ? "week" : "month";
   const baseDay = useMemo(() => {
     const parsed = dayParam ? parseISO(dayParam) : null;
     const valid = parsed && !Number.isNaN(parsed.getTime()) ? parsed : today;
@@ -97,36 +103,30 @@ export const CalendarScreen = () => {
 
   const [selectedHabitId, setSelectedHabitId] = useState<string | null>(null);
 
-  // Navigation — each handler rewrites the `day`/`view` params in place.
+  // Navigation — each handler rewrites the `day`/`view` route params via
+  // the callbacks the route owns.
   const goPrev = useCallback(() => {
-    router.setParams({
-      day: fmt(stepCalendarDay({ day: baseDay, view, direction: "prev" })),
-    });
-  }, [router, baseDay, view]);
+    onChangeDay(
+      fmt(stepCalendarDay({ day: baseDay, view, direction: "prev" })),
+    );
+  }, [onChangeDay, baseDay, view]);
 
   const goNext = useCallback(() => {
     if (!canStepForward(baseDay, view, today)) return;
     const next = stepCalendarDay({ day: baseDay, view, direction: "next" });
-    router.setParams({ day: fmt(clampDayToToday(next, today)) });
-  }, [router, baseDay, view, today]);
+    onChangeDay(fmt(clampDayToToday(next, today)));
+  }, [onChangeDay, baseDay, view, today]);
 
   const goToday = useCallback(() => {
-    router.setParams({ day: fmt(today) });
-  }, [router, today]);
+    onChangeDay(fmt(today));
+  }, [onChangeDay, today]);
 
   const handleSelectDay = useCallback(
     (day: Date) => {
       if (isAfter(day, today)) return;
-      router.setParams({ day: fmt(day) });
+      onChangeDay(fmt(day));
     },
-    [router, today],
-  );
-
-  const handleViewChange = useCallback(
-    (next: CalendarView) => {
-      router.setParams({ view: next });
-    },
-    [router],
+    [onChangeDay, today],
   );
 
   // Contextual horizontal swipe over the calendar, matching stock calendar
@@ -258,7 +258,7 @@ export const CalendarScreen = () => {
             </Text>
             <Text style={styles.subhead}>{headerSummary}</Text>
           </View>
-          <ViewToggle view={view} onChange={handleViewChange} />
+          <ViewToggle view={view} onChange={onChangeView} />
         </View>
 
         {/* Prev / today / next */}
