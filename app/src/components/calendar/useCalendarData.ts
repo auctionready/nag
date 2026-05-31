@@ -2,8 +2,8 @@ import { useMemo } from "react";
 import { useLiveQuery } from "drizzle-orm/expo-sqlite";
 import { addDays, isAfter, isSameDay, startOfDay } from "date-fns";
 import {
-  allActiveSchedules,
   allHabits,
+  allSchedules,
   calendarCheckIns,
   createGetDayAgenda,
   goalsForHabits,
@@ -76,7 +76,9 @@ export const useCalendarData = () => {
 
   const { data: habits } = useLiveQuery(allHabits(db));
   const { data: checkIns } = useLiveQuery(calendarCheckIns(db));
-  const { data: schedules } = useLiveQuery(allActiveSchedules(db));
+  // Reminder-agnostic: the calendar shows a habit's scheduled slots even
+  // when its push reminders are off (e.g. seed data sets reminder=false).
+  const { data: schedules } = useLiveQuery(allSchedules(db));
 
   const habitIds = useMemo(() => (habits ?? []).map((h) => h.id), [habits]);
   const habitIdsKey = habitIds.join(",");

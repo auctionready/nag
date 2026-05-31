@@ -74,6 +74,7 @@ export {
   schedulesForHabits,
   schedulesForGoal,
   allActiveSchedules,
+  allSchedules,
 } from "./queries";
 export { processCommand } from "./commands/processor";
 export {
