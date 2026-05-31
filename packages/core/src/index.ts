@@ -20,6 +20,21 @@ export {
 } from "./dayCells";
 export { buildMonthCells, type MonthDayCell } from "./monthCells";
 export {
+  agendaCheckInTime,
+  buildDayAgenda,
+  createGetDayAgenda,
+  type BuildDayAgendaInput,
+  type DayAgenda,
+  type DayAgendaExtra,
+  type DayAgendaHabit,
+  type DayAgendaItem,
+  type DayAgendaItemStatus,
+  type DayAgendaLookups,
+  type DayAgendaResult,
+  type DayAgendaSlot,
+  type DayMode,
+} from "./dayAgenda";
+export {
   type ComplianceColors,
   type ScheduleInfo,
   type TrafficLightCalculator,
@@ -59,6 +74,7 @@ export {
   schedulesForHabits,
   schedulesForGoal,
   allActiveSchedules,
+  allSchedules,
 } from "./queries";
 export { processCommand } from "./commands/processor";
 export {

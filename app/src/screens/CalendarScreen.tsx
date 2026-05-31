@@ -20,14 +20,18 @@ import {
   stepCalendarDay,
   type CalendarView,
 } from "@nag/core";
+import { seqUuid } from "@nag/schema";
 import {
   CalNavRow,
+  CalendarViewNav,
+  DayView,
   MonthView,
   SelectedDayCheckIns,
-  ViewToggle,
   WeekView,
   useCalendarData,
+  type DayAgendaItem,
 } from "../components/calendar";
+import { dispatch } from "../infrastructure/dispatch";
 import { tokens } from "../components/theme";
 
 const DAY_PARAM_FORMAT = "yyyy-MM-dd";
@@ -62,6 +66,45 @@ const monthTitle = (monthDate: Date, todayMonthStart: Date): string => {
   return format(monthDate, "MMMM yyyy");
 };
 
+const dayTitle = (day: Date, today: Date): string => {
+  if (isSameDay(day, today)) return "Today";
+  if (isSameDay(day, addDays(today, 1))) return "Tomorrow";
+  if (isSameDay(day, addDays(today, -1))) return "Yesterday";
+  return format(day, "EEEE");
+};
+
+const dayShort = (day: Date): string => format(day, "EEE d MMM");
+
+const daySummary = (agenda: {
+  items: { status: DayAgendaItem["status"] }[];
+  mode: string;
+}): string => {
+  const count = (s: DayAgendaItem["status"]) =>
+    agenda.items.filter((i) => i.status === s).length;
+  if (agenda.mode === "future") {
+    const total =
+      count("scheduled") + count("done") + count("skip") + count("missed");
+    return total === 0 ? "nothing scheduled" : `${total} scheduled`;
+  }
+  if (agenda.mode === "past") {
+    const done = count("done");
+    const missed = count("missed");
+    const skip = count("skip");
+    if (done + missed + skip === 0) return "no record";
+    return missed > 0
+      ? `${done} done · ${missed} missed · ${skip} skipped`
+      : `${done} done · all on track`;
+  }
+  const overdue = count("overdue");
+  const upcoming = count("upcoming");
+  const done = count("done");
+  const parts: string[] = [];
+  if (overdue > 0) parts.push(`${overdue} overdue`);
+  if (upcoming > 0) parts.push(`${upcoming} upcoming`);
+  parts.push(`${done} logged`);
+  return parts.join(" · ");
+};
+
 interface CalendarScreenProps {
   view: CalendarView;
   /** Raw `yyyy-MM-dd` from the route (undefined when not set). */
@@ -76,7 +119,8 @@ export const CalendarScreen = ({
   onChangeView,
   onChangeDay,
 }: CalendarScreenProps) => {
-  const { today, weekRows, dayGroups, monthHeat, habits } = useCalendarData();
+  const { today, weekRows, dayGroups, dayAgenda, monthHeat, habits } =
+    useCalendarData();
 
   const todayMonthStart = useMemo(() => startOfMonth(today), [today]);
   const todayWeekStart = useMemo(
@@ -84,15 +128,18 @@ export const CalendarScreen = ({
     [today],
   );
 
-  // The whole screen is derived from two route params: `view` (month/week)
+  // The whole screen is derived from two route params: `view` (month/week/day)
   // and `day` (yyyy-MM-dd). `day` doubles as both the visible window's
   // anchor and the selected day, so swiping/navigating never grows the
   // history stack — the back button always returns straight to the board.
+  // Month/week clamp future days back to today (those windows can't show
+  // anything beyond now); day view allows future days so users can preview
+  // tomorrow's scheduled list per the design.
   const baseDay = useMemo(() => {
     const parsed = dayParam ? parseISO(dayParam) : null;
     const valid = parsed && !Number.isNaN(parsed.getTime()) ? parsed : today;
-    return clampDayToToday(valid, today);
-  }, [dayParam, today]);
+    return view === "day" ? valid : clampDayToToday(valid, today);
+  }, [dayParam, today, view]);
 
   const monthDate = useMemo(() => startOfMonth(baseDay), [baseDay]);
   const weekStart = useMemo(
@@ -114,7 +161,7 @@ export const CalendarScreen = ({
   const goNext = useCallback(() => {
     if (!canStepForward(baseDay, view, today)) return;
     const next = stepCalendarDay({ day: baseDay, view, direction: "next" });
-    onChangeDay(fmt(clampDayToToday(next, today)));
+    onChangeDay(fmt(view === "day" ? next : clampDayToToday(next, today)));
   }, [onChangeDay, baseDay, view, today]);
 
   const goToday = useCallback(() => {
@@ -162,6 +209,14 @@ export const CalendarScreen = ({
     const nextDay = stepCalendarDay({ day: baseDay, view, direction: "next" });
     const nextDisabled = !canStepForward(baseDay, view, today);
     const todayDisabled = isSameDay(baseDay, today);
+    if (view === "day") {
+      return {
+        prev: dayShort(prevDay),
+        next: dayShort(nextDay),
+        nextDisabled,
+        todayDisabled,
+      };
+    }
     if (view === "month") {
       return {
         prev: format(prevDay, "MMM"),
@@ -230,19 +285,60 @@ export const CalendarScreen = ({
     return { total, done };
   }, [weekStart, monthHeat]);
 
+  const agendaForDay = useMemo(
+    () => (view === "day" ? dayAgenda(baseDay) : null),
+    [view, dayAgenda, baseDay],
+  );
+
   const headerTitle =
-    view === "month"
-      ? monthTitle(monthDate, todayMonthStart)
-      : weekTitle(weekStart, todayWeekStart);
+    view === "day"
+      ? dayTitle(baseDay, today)
+      : view === "month"
+        ? monthTitle(monthDate, todayMonthStart)
+        : weekTitle(weekStart, todayWeekStart);
 
   const headerSummary =
-    view === "month"
-      ? monthSummary.total > 0
-        ? `${Math.round((monthSummary.done / monthSummary.total) * 100)}% compliance · ${monthSummary.done} of ${monthSummary.total}`
-        : "No check-ins this month"
-      : weekSummary.total > 0
-        ? `${Math.round((weekSummary.done / weekSummary.total) * 100)}% compliance · ${weekSummary.done} of ${weekSummary.total}`
-        : "No check-ins this week";
+    view === "day"
+      ? agendaForDay
+        ? daySummary(agendaForDay)
+        : ""
+      : view === "month"
+        ? monthSummary.total > 0
+          ? `${Math.round((monthSummary.done / monthSummary.total) * 100)}% compliance · ${monthSummary.done} of ${monthSummary.total}`
+          : "No check-ins this month"
+        : weekSummary.total > 0
+          ? `${Math.round((weekSummary.done / weekSummary.total) * 100)}% compliance · ${weekSummary.done} of ${weekSummary.total}`
+          : "No check-ins this week";
+
+  const handleCheckInItem = useCallback(
+    async (item: DayAgendaItem, at: Date) => {
+      await dispatch({
+        type: "CreateCheckIn",
+        checkInId: seqUuid(),
+        habitId: item.habitId,
+        timestamp: at,
+      });
+    },
+    [],
+  );
+
+  const handleSkipItem = useCallback(async (item: DayAgendaItem, at: Date) => {
+    await dispatch({
+      type: "CreateCheckIn",
+      checkInId: seqUuid(),
+      habitId: item.habitId,
+      timestamp: at,
+      skipped: true,
+    });
+  }, []);
+
+  const handleUndoItem = useCallback(async (item: DayAgendaItem) => {
+    if (!item.checkInId) return;
+    await dispatch({
+      type: "DeleteCheckIn",
+      checkInId: item.checkInId,
+    });
+  }, []);
 
   return (
     <GestureDetector gesture={swipeGesture}>
@@ -258,7 +354,7 @@ export const CalendarScreen = ({
             </Text>
             <Text style={styles.subhead}>{headerSummary}</Text>
           </View>
-          <ViewToggle view={view} onChange={onChangeView} />
+          <CalendarViewNav view={view} onChange={onChangeView} />
         </View>
 
         {/* Prev / today / next */}
@@ -272,37 +368,51 @@ export const CalendarScreen = ({
           todayDisabled={navState.todayDisabled}
         />
 
-        {/* Grid */}
-        {view === "month" ? (
-          <MonthView
-            monthDate={monthDate}
-            today={today}
-            selectedDay={selectedDay}
-            heatFor={monthHeat}
-            onSelectDay={handleSelectDay}
-          />
+        {view === "day" ? (
+          agendaForDay && (
+            <DayView
+              day={baseDay}
+              agenda={agendaForDay}
+              onCheckIn={handleCheckInItem}
+              onSkip={handleSkipItem}
+              onUndo={handleUndoItem}
+            />
+          )
         ) : (
-          <WeekView
-            weekStart={weekStart}
-            today={today}
-            selectedDay={selectedDay}
-            selectedHabitId={selectedHabitId}
-            rows={weekRowsData}
-            onSelectDay={handleSelectDay}
-            onSelectHabit={setSelectedHabitId}
-          />
-        )}
+          <>
+            {/* Grid */}
+            {view === "month" ? (
+              <MonthView
+                monthDate={monthDate}
+                today={today}
+                selectedDay={selectedDay}
+                heatFor={monthHeat}
+                onSelectDay={handleSelectDay}
+              />
+            ) : (
+              <WeekView
+                weekStart={weekStart}
+                today={today}
+                selectedDay={selectedDay}
+                selectedHabitId={selectedHabitId}
+                rows={weekRowsData}
+                onSelectDay={handleSelectDay}
+                onSelectHabit={setSelectedHabitId}
+              />
+            )}
 
-        {/* Bottom panel — day check-ins, optionally filtered to one habit. */}
-        <SelectedDayCheckIns
-          day={selectedDay}
-          today={today}
-          weekStart={weekStart}
-          groups={groupsForSelectedDay}
-          filteredHabit={view === "week" ? filteredHabit : null}
-          weekRowForFilter={view === "week" ? weekRowForFilter : null}
-          onClearFilter={() => setSelectedHabitId(null)}
-        />
+            {/* Bottom panel — day check-ins, optionally filtered to one habit. */}
+            <SelectedDayCheckIns
+              day={selectedDay}
+              today={today}
+              weekStart={weekStart}
+              groups={groupsForSelectedDay}
+              filteredHabit={view === "week" ? filteredHabit : null}
+              weekRowForFilter={view === "week" ? weekRowForFilter : null}
+              onClearFilter={() => setSelectedHabitId(null)}
+            />
+          </>
+        )}
       </ScrollView>
     </GestureDetector>
   );

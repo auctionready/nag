@@ -8,7 +8,8 @@ const CalendarRoute = () => {
     day?: string;
   }>();
   const router = useRouter();
-  const view: CalendarView = viewParam === "week" ? "week" : "month";
+  const view: CalendarView =
+    viewParam === "week" ? "week" : viewParam === "month" ? "month" : "day";
 
   return (
     <CalendarScreen

@@ -13,6 +13,8 @@ import {
   checkInsInPeriod,
   schedulesForGoal,
   schedulesForHabits,
+  allActiveSchedules,
+  allSchedules,
   habitsByIds,
 } from "../queries";
 import { subDays } from "date-fns";
@@ -383,6 +385,52 @@ describe("schedulesForGoal", () => {
     const db = getDb();
     const rows = await schedulesForGoal(db, 9999);
     expect(rows).toHaveLength(0);
+  });
+});
+
+describe("allSchedules vs allActiveSchedules", () => {
+  let habitId: string;
+
+  beforeEach(async () => {
+    const db = getDb();
+    const [h] = await db
+      .insert(schema.habit)
+      .values({ id: crypto.randomUUID(), title: "Drink water" })
+      .returning();
+    habitId = h.id;
+    const [g] = await db
+      .insert(schema.goal)
+      .values({ habitId: h.id, regularity: "week", frequency: 2 })
+      .returning();
+    // One reminder-on, one reminder-off (e.g. seed data, or a user who
+    // silenced this slot's push).
+    await db.insert(schema.schedule).values({
+      goalId: g.id,
+      hour: 8,
+      minute: 0,
+      days: 42,
+      reminder: true,
+    });
+    await db.insert(schema.schedule).values({
+      goalId: g.id,
+      hour: 17,
+      minute: 0,
+      days: 42,
+      reminder: false,
+    });
+  });
+
+  it("allActiveSchedules omits the reminder-off slot", async () => {
+    const rows = await allActiveSchedules(getDb());
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({ habitId, hour: 8 });
+  });
+
+  it("allSchedules returns every slot regardless of reminder", async () => {
+    const rows = await allSchedules(getDb());
+    expect(rows).toHaveLength(2);
+    expect(rows.map((r) => r.hour).sort((a, b) => a - b)).toEqual([8, 17]);
+    expect(rows.every((r) => r.habitId === habitId)).toBe(true);
   });
 });
 

@@ -1,16 +1,19 @@
 import { Pressable, StyleSheet, Text, View } from "react-native";
+import type { CalendarView } from "@nag/core";
 import { tokens } from "../theme";
 
-export type CalendarView = "month" | "week";
-
-interface ViewToggleProps {
+interface CalendarViewNavProps {
   view: CalendarView;
   onChange: (next: CalendarView) => void;
 }
 
-export const ViewToggle = ({ view, onChange }: ViewToggleProps) => (
+/**
+ * Three-segment day · week · month picker for the calendar screen. Not a
+ * two-state toggle — each segment is an independent destination.
+ */
+export const CalendarViewNav = ({ view, onChange }: CalendarViewNavProps) => (
   <View style={styles.track}>
-    {(["week", "month"] as const).map((v) => {
+    {(["day", "week", "month"] as const).map((v) => {
       const active = v === view;
       return (
         <Pressable

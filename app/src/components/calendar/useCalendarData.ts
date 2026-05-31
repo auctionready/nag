@@ -2,10 +2,13 @@ import { useMemo } from "react";
 import { useLiveQuery } from "drizzle-orm/expo-sqlite";
 import { addDays, isAfter, isSameDay, startOfDay } from "date-fns";
 import {
-  allActiveSchedules,
   allHabits,
+  allSchedules,
   calendarCheckIns,
+  createGetDayAgenda,
   goalsForHabits,
+  type DayAgenda,
+  type DayAgendaItem,
 } from "@nag/core";
 import { db } from "../../db";
 import { useStartOfToday } from "../../infrastructure/today";
@@ -44,6 +47,8 @@ export interface PerDayCheckIn {
   skipped: boolean;
 }
 
+export type { DayAgenda, DayAgendaItem };
+
 export interface WeekRow {
   habit: CalendarHabit;
   states: CellState[];
@@ -71,7 +76,9 @@ export const useCalendarData = () => {
 
   const { data: habits } = useLiveQuery(allHabits(db));
   const { data: checkIns } = useLiveQuery(calendarCheckIns(db));
-  const { data: schedules } = useLiveQuery(allActiveSchedules(db));
+  // Reminder-agnostic: the calendar shows a habit's scheduled slots even
+  // when its push reminders are off (e.g. seed data sets reminder=false).
+  const { data: schedules } = useLiveQuery(allSchedules(db));
 
   const habitIds = useMemo(() => (habits ?? []).map((h) => h.id), [habits]);
   const habitIdsKey = habitIds.join(",");
@@ -208,11 +215,59 @@ export const useCalendarData = () => {
     [calendarHabits, checkInsByHabitDay],
   );
 
+  const schedulesByHabit = useMemo(() => {
+    const map = new Map<
+      string,
+      {
+        days: number | null;
+        dayOfMonth: number | null;
+        hour: number | null;
+        minute: number | null;
+      }[]
+    >();
+    for (const s of schedules ?? []) {
+      const list = map.get(s.habitId) ?? [];
+      list.push({
+        days: s.days,
+        dayOfMonth: s.dayOfMonth,
+        hour: s.hour,
+        minute: s.minute,
+      });
+      map.set(s.habitId, list);
+    }
+    return map;
+  }, [schedules]);
+
+  const checkInsByHabit = useMemo(() => {
+    const map = new Map<
+      string,
+      { id: string; timestamp: Date; skipped: boolean }[]
+    >();
+    for (const c of checkIns ?? []) {
+      const list = map.get(c.habitId) ?? [];
+      list.push({ id: c.id, timestamp: c.timestamp, skipped: c.skipped });
+      map.set(c.habitId, list);
+    }
+    return map;
+  }, [checkIns]);
+
+  const dayAgenda = useMemo(() => {
+    const getDayAgenda = createGetDayAgenda({
+      habits: calendarHabits,
+      schedulesByHabit,
+      checkInsByHabit,
+    });
+    // `today` is start-of-day (midnight); the core builder needs wall-
+    // clock time so overdue vs. upcoming flips correctly through the day.
+    return (day: Date): DayAgenda => getDayAgenda(day, new Date());
+  }, [calendarHabits, schedulesByHabit, checkInsByHabit]);
+
   return {
     today,
     habits: calendarHabits,
     weekRows,
     dayGroups,
+    dayAgenda,
     monthHeat,
   };
 };

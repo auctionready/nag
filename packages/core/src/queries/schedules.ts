@@ -19,6 +19,28 @@ export const allActiveSchedules = (db: AnyDb) =>
     .innerJoin(habit, eq(goal.habitId, habit.id))
     .where(eq(schedule.reminder, true));
 
+/**
+ * Every schedule across all habits, regardless of the `reminder` flag.
+ *
+ * Unlike {@link allActiveSchedules} (reminder-gated, used to decide which
+ * push notifications to queue), this powers visual surfaces like the
+ * calendar/day-agenda where a slot should still appear even when its push
+ * reminder is silenced — silencing a notification shouldn't also erase the
+ * slot from the schedule view. Mirrors the reasoning in `overdueHabits`.
+ */
+export const allSchedules = (db: AnyDb) =>
+  db
+    .select({
+      habitId: habit.id,
+      hour: schedule.hour,
+      minute: schedule.minute,
+      days: schedule.days,
+      dayOfMonth: schedule.dayOfMonth,
+    })
+    .from(schedule)
+    .innerJoin(goal, eq(schedule.goalId, goal.id))
+    .innerJoin(habit, eq(goal.habitId, habit.id));
+
 export const schedulesForHabits = (db: AnyDb, habitIds: string[]) =>
   db
     .select({
