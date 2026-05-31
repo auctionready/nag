@@ -1,5 +1,5 @@
 import { Pressable, StyleSheet, Text, View } from "react-native";
-import type { UseFormWatch, FieldArrayWithId } from "react-hook-form";
+import type { Control, FieldArrayWithId } from "react-hook-form";
 import { tokens } from "../theme";
 import { ScheduleEntrySummary } from "./ScheduleEntrySummary";
 import { type HabitFormData, type ScheduleEntry } from "./shared";
@@ -7,7 +7,7 @@ import { type HabitFormData, type ScheduleEntry } from "./shared";
 interface ScheduledListProps {
   fields: FieldArrayWithId<HabitFormData, "schedules", "id">[];
   schedules: ScheduleEntry[] | undefined;
-  watch: UseFormWatch<HabitFormData>;
+  control: Control<HabitFormData>;
   onEdit: (index: number) => void;
   onAdd: () => void;
 }
@@ -20,7 +20,7 @@ const minutesOf = (s: ScheduleEntry | undefined): number =>
 export const ScheduledList = ({
   fields,
   schedules,
-  watch,
+  control,
   onEdit,
   onAdd,
 }: ScheduledListProps) => (
@@ -35,7 +35,7 @@ export const ScheduledList = ({
         <ScheduleEntrySummary
           key={field.id}
           index={index}
-          watch={watch}
+          control={control}
           onEdit={() => onEdit(index)}
         />
       ))}

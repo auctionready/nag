@@ -1,5 +1,5 @@
 import { Pressable, StyleSheet, Text, View } from "react-native";
-import type { UseFormWatch } from "react-hook-form";
+import { useWatch, type Control } from "react-hook-form";
 import { tokens } from "../theme";
 import { BellToggle } from "./BellToggle";
 import { ClockBadge } from "./ClockBadge";
@@ -9,7 +9,7 @@ import { parseFormTime, type HabitFormData } from "./shared";
 
 interface ScheduleEntrySummaryProps {
   index: number;
-  watch: UseFormWatch<HabitFormData>;
+  control: Control<HabitFormData>;
   onEdit: () => void;
 }
 
@@ -17,13 +17,14 @@ interface ScheduleEntrySummaryProps {
 // (or pill row when the day mask doesn't match a friendly label) + bell.
 export const ScheduleEntrySummary = ({
   index,
-  watch,
+  control,
   onEdit,
 }: ScheduleEntrySummaryProps) => {
-  const hour = watch(`schedules.${index}.hour`);
-  const minute = watch(`schedules.${index}.minute`);
-  const days = watch(`schedules.${index}.days`) ?? 0;
-  const reminder = watch(`schedules.${index}.reminder`) !== false;
+  const hour = useWatch({ control, name: `schedules.${index}.hour` });
+  const minute = useWatch({ control, name: `schedules.${index}.minute` });
+  const days = useWatch({ control, name: `schedules.${index}.days` }) ?? 0;
+  const reminder =
+    useWatch({ control, name: `schedules.${index}.reminder` }) !== false;
 
   const { hour: h, minute: m } = parseFormTime(hour, minute);
   const time = formatTime(h, m);

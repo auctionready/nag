@@ -3,7 +3,7 @@ import DateTimePicker, {
   type DateTimePickerEvent,
 } from "@react-native-community/datetimepicker";
 import { useEffect, useMemo } from "react";
-import { useForm, Controller } from "react-hook-form";
+import { useForm, Controller, useWatch } from "react-hook-form";
 import { tokens } from "../theme";
 import { timeFromStrings, type ScheduleEntry } from "./shared";
 import { NoDays } from "@nag/core";
@@ -32,7 +32,6 @@ export const ScheduleEntryForm = ({
     handleSubmit,
     register,
     setValue,
-    watch,
     trigger,
     formState: { isValid, isDirty, errors },
   } = useForm<ScheduleEntry>({
@@ -50,9 +49,9 @@ export const ScheduleEntryForm = ({
     void trigger("days");
   }, [trigger]);
 
-  const days = watch("days") ?? NoDays;
-  const hour = watch("hour");
-  const minute = watch("minute");
+  const days = useWatch({ control, name: "days" }) ?? NoDays;
+  const hour = useWatch({ control, name: "hour" });
+  const minute = useWatch({ control, name: "minute" });
 
   const timeValue = useMemo(
     () => timeFromStrings(hour, minute),

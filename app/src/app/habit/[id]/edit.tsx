@@ -70,12 +70,13 @@ const EditHabitScreen = () => {
     router.replace("/(tabs)");
   };
 
-  if (!habitData) {
+  if (!initialValues) {
     return null;
   }
 
   return (
     <HabitForm
+      key={habitId}
       mode="edit"
       initialValues={initialValues}
       onSubmit={onSubmit}

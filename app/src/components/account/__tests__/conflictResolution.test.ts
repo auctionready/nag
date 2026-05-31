@@ -1,6 +1,17 @@
 import { Alert } from "react-native";
 import { runPairFallback } from "../conflictResolution";
 
+import {
+  setIdpSubject as mockSetIdpSubject,
+  switchLocalAccount as mockSwitchLocalAccount,
+} from "@nag/core";
+import {
+  pairDevice as mockPairDevice,
+  releaseClerkIdentity as mockReleaseClerkIdentity,
+  upgradeAccount as mockUpgradeAccount,
+} from "../../../infrastructure/apiClient";
+import { db as mockDb } from "../../../db";
+
 // All API + core dependencies the conflict-resolution module touches are
 // mocked. Each test sets the relevant mock return values then drives the
 // flow by triggering the right Alert.alert button's onPress.
@@ -40,17 +51,6 @@ jest.mock("../../../infrastructure/tokenStore", () => ({
 jest.mock("@nag/schema", () => ({
   habit: { id: "id" },
 }));
-
-import {
-  setIdpSubject as mockSetIdpSubject,
-  switchLocalAccount as mockSwitchLocalAccount,
-} from "@nag/core";
-import {
-  pairDevice as mockPairDevice,
-  releaseClerkIdentity as mockReleaseClerkIdentity,
-  upgradeAccount as mockUpgradeAccount,
-} from "../../../infrastructure/apiClient";
-import { db as mockDb } from "../../../db";
 
 type AlertButton = { text: string; onPress?: () => void };
 type AlertSpy = jest.SpiedFunction<typeof Alert.alert>;

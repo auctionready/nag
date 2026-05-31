@@ -1,6 +1,6 @@
 import { Alert, ScrollView, StyleSheet, View } from "react-native";
-import { useForm, Controller, useFieldArray } from "react-hook-form";
-import { useEffect, useState } from "react";
+import { useForm, Controller, useFieldArray, useWatch } from "react-hook-form";
+import { useState } from "react";
 import { tokens } from "../theme";
 import {
   defaultValues,
@@ -30,8 +30,6 @@ export const HabitForm = ({
   const {
     control,
     handleSubmit,
-    reset,
-    watch,
     setValue,
     getValues,
     formState: { errors, isValid, isSubmitting },
@@ -43,18 +41,10 @@ export const HabitForm = ({
     control,
     name: "schedules",
   });
-  const watchedRegularity = watch("regularity");
-  const watchedSchedules = watch("schedules");
+  const watchedRegularity = useWatch({ control, name: "regularity" });
+  const watchedSchedules = useWatch({ control, name: "schedules" });
   const [editingIndex, setEditingIndex] = useState(-1);
   const [isNewEntry, setIsNewEntry] = useState(false);
-
-  useEffect(() => {
-    if (initialValues) {
-      reset({ ...defaultValues, ...initialValues });
-      setIsNewEntry(false);
-      setEditingIndex(-1);
-    }
-  }, [initialValues, reset]);
 
   const changeRegularity = (
     newValue: FormRegularity,
@@ -161,7 +151,7 @@ export const HabitForm = ({
             <ScheduledList
               fields={fields}
               schedules={watchedSchedules}
-              watch={watch}
+              control={control}
               onEdit={openEditor}
               onAdd={addEntry}
             />

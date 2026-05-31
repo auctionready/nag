@@ -1,5 +1,13 @@
 import { Alert } from "react-native";
 
+import { confirmAndSignOut } from "../signOutAction";
+import {
+  disconnectFromCloud as mockDisconnectFromCloud,
+  pauseDispatch as mockPauseDispatch,
+} from "@nag/core";
+import { deleteAccount as mockDeleteAccount } from "../../../infrastructure/apiClient";
+import { clearAllClerkTokens as mockClearAllClerkTokens } from "../../../infrastructure/clerk";
+
 jest.mock("@nag/core", () => ({
   disconnectFromCloud: jest.fn(),
   pauseDispatch: jest.fn(),
@@ -29,14 +37,6 @@ jest.mock("../../../infrastructure/log", () => ({
     error: jest.fn(),
   }),
 }));
-
-import { confirmAndSignOut } from "../signOutAction";
-import {
-  disconnectFromCloud as mockDisconnectFromCloud,
-  pauseDispatch as mockPauseDispatch,
-} from "@nag/core";
-import { deleteAccount as mockDeleteAccount } from "../../../infrastructure/apiClient";
-import { clearAllClerkTokens as mockClearAllClerkTokens } from "../../../infrastructure/clerk";
 
 type AlertButton = { text: string; onPress?: () => void | Promise<void> };
 
@@ -170,9 +170,9 @@ describe("confirmAndSignOut", () => {
 
     it("Pause button is not styled as destructive (no data loss; reversible)", () => {
       confirmAndSignOut(clerkSignOut);
-      const buttons = alertSpy.mock.calls[0][2] as Array<
-        AlertButton & { style?: string }
-      >;
+      const buttons = alertSpy.mock.calls[0][2] as (AlertButton & {
+        style?: string;
+      })[];
       const pauseBtn = buttons.find((b) => b.text === "Pause server sync");
       expect(pauseBtn?.style).toBeUndefined();
       const removeBtn = buttons.find(
