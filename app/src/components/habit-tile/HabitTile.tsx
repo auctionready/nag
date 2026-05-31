@@ -20,11 +20,13 @@ interface HabitTileProps {
   id: string;
   title: string;
   icon?: string | null;
+  /** Paused habits are greyed out and can't be checked in from the board. */
+  paused?: boolean;
 }
 
 const ALL_DAYS_MASK = 0x7f; // Sun..Sat all set — every day "scheduled" for daily habits.
 
-export const HabitTile = ({ id, title, icon }: HabitTileProps) => {
+export const HabitTile = ({ id, title, icon, paused }: HabitTileProps) => {
   const router = useRouter();
   const goal = useHabitGoalSummary(id);
   const {
@@ -103,13 +105,16 @@ export const HabitTile = ({ id, title, icon }: HabitTileProps) => {
   }, [router, id]);
 
   const handleCheckIn = useCallback(async () => {
+    // Paused habits can't be checked in (the command handler would reject
+    // it too); don't dispatch from the board.
+    if (paused) return;
     await dispatch({
       type: "CreateCheckIn",
       checkInId: seqUuid(),
       habitId: id,
       timestamp: new Date(),
     });
-  }, [id]);
+  }, [id, paused]);
 
   return (
     <HabitTileView
@@ -126,6 +131,7 @@ export const HabitTile = ({ id, title, icon }: HabitTileProps) => {
       todayTimeSlots={todayTimeSlots}
       onPress={handlePress}
       onCheckIn={handleCheckIn}
+      paused={paused}
     />
   );
 };

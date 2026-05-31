@@ -15,6 +15,13 @@
       "when": 1779338779456,
       "tag": "0001_lovely_brother_voodoo",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1780219302528,
+      "tag": "0002_cute_reaper",
+      "breakpoints": true
     }
   ]
 }

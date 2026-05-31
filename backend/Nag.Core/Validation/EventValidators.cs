@@ -64,6 +64,38 @@ public sealed class HabitDeletedValidator : AbstractValidator<HabitDeleted>
     }
 }
 
+public sealed class HabitArchivedValidator : AbstractValidator<HabitArchived>
+{
+    public HabitArchivedValidator()
+    {
+        RuleFor(x => x.HabitId).NotEmpty();
+    }
+}
+
+public sealed class HabitUnarchivedValidator : AbstractValidator<HabitUnarchived>
+{
+    public HabitUnarchivedValidator()
+    {
+        RuleFor(x => x.HabitId).NotEmpty();
+    }
+}
+
+public sealed class HabitPausedValidator : AbstractValidator<HabitPaused>
+{
+    public HabitPausedValidator()
+    {
+        RuleFor(x => x.HabitId).NotEmpty();
+    }
+}
+
+public sealed class HabitUnpausedValidator : AbstractValidator<HabitUnpaused>
+{
+    public HabitUnpausedValidator()
+    {
+        RuleFor(x => x.HabitId).NotEmpty();
+    }
+}
+
 public sealed class CheckInRecordedValidator : AbstractValidator<CheckInRecorded>
 {
     public CheckInRecordedValidator()

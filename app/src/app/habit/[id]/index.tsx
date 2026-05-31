@@ -124,12 +124,20 @@ const HabitScreen = () => {
     });
   };
 
+  // Paused or archived habits can't record new check-ins/skips — gate the
+  // footer and time-slot logging to match the command-handler guard.
+  const interactive =
+    habitData != null &&
+    habitData.archivedAt == null &&
+    habitData.pausedAt == null;
+
   return (
     <HabitDetail
       loading={!habitData}
       title={habitData?.title ?? ""}
       icon={habitData?.icon ?? null}
       description={habitData?.description ?? null}
+      interactive={interactive}
       goalText={goalText}
       regularity={goalData?.regularity ?? null}
       frequency={goalData?.frequency ?? null}

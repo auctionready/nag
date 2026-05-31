@@ -1,8 +1,23 @@
-import { eq, inArray } from "drizzle-orm";
+import { eq, inArray, isNull, isNotNull } from "drizzle-orm";
 import { goal, habit } from "@nag/schema";
 import type { AnyDb } from "../db";
 
 export const allHabits = (db: AnyDb) => db.select().from(habit);
+
+/**
+ * Habits shown on the main board: everything except archived ones.
+ * Archived habits are filtered out here (off-screen) rather than in the
+ * board component; paused habits remain (the board demotes them).
+ */
+export const boardHabits = (db: AnyDb) =>
+  db.select().from(habit).where(isNull(habit.archivedAt));
+
+/**
+ * Archived habits, for the Accounts → Archived Habits subscreen. Newest
+ * archived first.
+ */
+export const archivedHabits = (db: AnyDb) =>
+  db.select().from(habit).where(isNotNull(habit.archivedAt));
 
 export const habitById = (db: AnyDb, habitId: string) =>
   db.select().from(habit).where(eq(habit.id, habitId));

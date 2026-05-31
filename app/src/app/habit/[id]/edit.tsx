@@ -1,20 +1,71 @@
-import { useLocalSearchParams, useRouter } from "expo-router";
+import { useLocalSearchParams, useNavigation, useRouter } from "expo-router";
 import { useLiveQuery } from "drizzle-orm/expo-sqlite";
-import { useMemo } from "react";
+import { useCallback, useLayoutEffect, useMemo } from "react";
 import { db } from "../../../db";
 import { habitById, goalForHabitFull, schedulesForGoal } from "@nag/core";
 import { dispatch } from "../../../infrastructure/dispatch";
 import { HabitForm, type HabitFormData } from "../../../components/habit-form";
+import { HabitActionsMenu } from "../../../components/habit-actions";
 import type { HabitIconKind } from "../../../components/glyphs";
 import { buildGoalPayload } from "../../../operations";
 
 const EditHabitScreen = () => {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
+  const navigation = useNavigation();
   const habitId = id ?? "";
 
   const { data: habits } = useLiveQuery(habitById(db, habitId), [habitId]);
   const habitData = habits?.[0];
+  const archived = habitData?.archivedAt != null;
+  const paused = habitData?.pausedAt != null;
+
+  // Archive/pause hamburger menu in the header. The menu items follow the
+  // lifecycle invariants; each dispatches its command. The command
+  // handlers reject invalid transitions, but the menu only ever shows
+  // valid options for the current state.
+  const onArchive = useCallback(
+    () => dispatch({ type: "ArchiveHabit", habitId }),
+    [habitId],
+  );
+  const onUnarchive = useCallback(
+    () => dispatch({ type: "UnarchiveHabit", habitId }),
+    [habitId],
+  );
+  const onPause = useCallback(
+    () => dispatch({ type: "PauseHabit", habitId }),
+    [habitId],
+  );
+  const onUnpause = useCallback(
+    () => dispatch({ type: "UnpauseHabit", habitId }),
+    [habitId],
+  );
+
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      headerRight: habitData
+        ? () => (
+            <HabitActionsMenu
+              archived={archived}
+              paused={paused}
+              onArchive={onArchive}
+              onUnarchive={onUnarchive}
+              onPause={onPause}
+              onUnpause={onUnpause}
+            />
+          )
+        : undefined,
+    });
+  }, [
+    navigation,
+    habitData,
+    archived,
+    paused,
+    onArchive,
+    onUnarchive,
+    onPause,
+    onUnpause,
+  ]);
 
   const { data: goals } = useLiveQuery(goalForHabitFull(db, habitId), [
     habitId,

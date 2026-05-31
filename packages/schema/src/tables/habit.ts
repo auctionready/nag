@@ -19,4 +19,14 @@ export const habit = sqliteTable("habit", {
   updatedAt: timestamp("updated_at")
     .notNull()
     .$defaultFn(() => new Date()),
+  /**
+   * Lifecycle flags. Non-null `archivedAt` hides the habit from the main
+   * board entirely (it's still reachable via Accounts → Archived Habits);
+   * non-null `pausedAt` drops it from the schedule and demotes it on the
+   * board. Both also drop the habit from reminder/agenda schedules and
+   * block check-ins. The schema permits any combination; the valid state
+   * machine is enforced by command handlers and the server dispatcher.
+   */
+  archivedAt: timestamp("archived_at"),
+  pausedAt: timestamp("paused_at"),
 });

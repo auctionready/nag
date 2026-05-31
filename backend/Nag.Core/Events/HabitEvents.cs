@@ -57,3 +57,28 @@ public sealed record HabitGoalCleared(Guid HabitId);
 /// A habit was deleted. Cascades to its check-ins on the projection side.
 /// </summary>
 public sealed record HabitDeleted(Guid HabitId);
+
+/// <summary>
+/// A habit was archived — hidden from the main board (still reachable via
+/// the archived-habits list) and dropped from the schedule. Valid only
+/// when the habit is not already archived.
+/// </summary>
+public sealed record HabitArchived(Guid HabitId);
+
+/// <summary>
+/// A habit was unarchived, returning it to the active state. Clears both
+/// the archived and paused flags. Valid only when the habit is archived.
+/// </summary>
+public sealed record HabitUnarchived(Guid HabitId);
+
+/// <summary>
+/// A habit was paused — dropped from the schedule and demoted on the
+/// board. Valid only when the habit is neither paused nor archived.
+/// </summary>
+public sealed record HabitPaused(Guid HabitId);
+
+/// <summary>
+/// A habit was unpaused, returning it to the schedule. Valid only when
+/// the habit is paused and not archived.
+/// </summary>
+public sealed record HabitUnpaused(Guid HabitId);

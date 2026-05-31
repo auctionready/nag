@@ -102,6 +102,26 @@ Source: [`tables/habit.ts`](../packages/schema/src/tables/habit.ts)
 The thing you want to do. Title is required; description and icon are
 optional. Created and updated timestamps are set automatically.
 
+`archived_at` and `paused_at` are nullable lifecycle timestamps:
+
+- **Archived** (`archived_at` set) — hidden from the main board (still
+  reachable via Accounts → Archived Habits) and dropped from the schedule.
+- **Paused** (`paused_at` set) — dropped from the schedule and demoted on
+  the board (listed last, greyed out, still openable).
+
+Either flag blocks new check-ins/skips. The schema allows any combination;
+the legal state machine is enforced by the command handlers and the server
+dispatcher (see below). Archive is a superset of pause's schedule removal;
+unarchiving clears **both** flags, returning the habit to active.
+
+Lifecycle events: `HabitArchived`, `HabitUnarchived`, `HabitPaused`,
+`HabitUnpaused` (each carries just `habitId`). Valid transitions: pause iff
+neither paused nor archived; unpause iff paused and not archived; archive
+iff not archived; unarchive iff archived. The transition guards live in the
+app command handlers
+([`commands/handlers`](../packages/core/src/commands/handlers)) and the
+server [`EventDispatcher`](../backend/Nag.Core/Handlers/EventDispatcher.cs).
+
 ### `goal`
 
 Source: [`tables/goal.ts`](../packages/schema/src/tables/goal.ts)

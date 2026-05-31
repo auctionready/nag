@@ -256,6 +256,78 @@ public class EventsEndpointsTests : IClassFixture<EventsEndpointsTests.Factory>
         }
     }
 
+    public class Habit_lifecycle_invariants : EventsEndpointsTests
+    {
+        public Habit_lifecycle_invariants(PostgresFixture pg, Factory factory)
+            : base(pg, factory) { }
+
+        private static object Envelope(string type, Guid habitId) =>
+            new
+            {
+                id = Guid.NewGuid(),
+                timestamp = DateTimeOffset.UtcNow,
+                events = new[] { new { type, payload = new { habitId } } },
+            };
+
+        private async Task<Guid> CreateHabit(HttpClient client)
+        {
+            var habitId = Guid.NewGuid();
+            var envelope = new
+            {
+                id = Guid.NewGuid(),
+                timestamp = DateTimeOffset.UtcNow,
+                events = new[]
+                {
+                    new { type = "HabitCreated", payload = new { habitId, title = "Read" } },
+                },
+            };
+            var resp = await client.PostAsJsonAsync("/events", envelope);
+            resp.StatusCode.ShouldBe(HttpStatusCode.Created);
+            return habitId;
+        }
+
+        [Fact]
+        public async Task archive_then_pause_is_rejected_with_400()
+        {
+            var client = AuthedClient();
+            var habitId = await CreateHabit(client);
+
+            (
+                await client.PostAsJsonAsync("/events", Envelope("HabitArchived", habitId))
+            ).StatusCode.ShouldBe(HttpStatusCode.Created);
+
+            var pause = await client.PostAsJsonAsync("/events", Envelope("HabitPaused", habitId));
+            pause.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+        }
+
+        [Fact]
+        public async Task unarchiving_an_active_habit_is_rejected_with_400()
+        {
+            var client = AuthedClient();
+            var habitId = await CreateHabit(client);
+
+            var resp = await client.PostAsJsonAsync(
+                "/events",
+                Envelope("HabitUnarchived", habitId)
+            );
+            resp.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+        }
+
+        [Fact]
+        public async Task pause_then_unpause_round_trips()
+        {
+            var client = AuthedClient();
+            var habitId = await CreateHabit(client);
+
+            (
+                await client.PostAsJsonAsync("/events", Envelope("HabitPaused", habitId))
+            ).StatusCode.ShouldBe(HttpStatusCode.Created);
+            (
+                await client.PostAsJsonAsync("/events", Envelope("HabitUnpaused", habitId))
+            ).StatusCode.ShouldBe(HttpStatusCode.Created);
+        }
+    }
+
     private static async Task PostHabitCreated(HttpClient client, string title)
     {
         var envelope = new
