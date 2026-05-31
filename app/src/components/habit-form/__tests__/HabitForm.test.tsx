@@ -43,17 +43,6 @@ describe("rendering", () => {
     expect(view.getByText("start nagging me")).toBeTruthy();
   });
 
-  it("does not render delete card without onDelete", () => {
-    expect(view.queryByText("delete habit")).toBeNull();
-  });
-
-  it("renders delete card when onDelete is provided", () => {
-    const { getByText } = render(
-      <HabitForm onSubmit={onSubmit} onDelete={() => {}} />,
-    );
-    expect(getByText("delete habit")).toBeTruthy();
-  });
-
   it("renders 'save changes' label in edit mode", () => {
     const { getByText } = render(<HabitForm onSubmit={onSubmit} mode="edit" />);
     expect(getByText("save changes")).toBeTruthy();
@@ -280,40 +269,6 @@ describe("description", () => {
       });
       expect(getByDisplayValue("My description")).toBeTruthy();
     });
-  });
-});
-
-describe("delete", () => {
-  const onDelete = jest.fn();
-  let view: ReturnType<typeof render>;
-
-  beforeEach(async () => {
-    onDelete.mockClear();
-    jest.spyOn(Alert, "alert");
-    view = render(<HabitForm onSubmit={onSubmit} onDelete={onDelete} />);
-    await act(async () => {
-      fireEvent.press(view.getByText("delete habit"));
-    });
-  });
-
-  it("shows confirmation alert", () => {
-    expect(Alert.alert).toHaveBeenCalledWith(
-      "Delete Habit",
-      expect.any(String),
-      expect.any(Array),
-    );
-  });
-
-  it("does not call onDelete before confirmation", () => {
-    expect(onDelete).not.toHaveBeenCalled();
-  });
-
-  it("calls onDelete when confirmed", async () => {
-    const buttons = (Alert.alert as jest.Mock).mock.calls[0][2];
-    await act(async () => {
-      buttons.find((b: any) => b.text === "Delete").onPress();
-    });
-    expect(onDelete).toHaveBeenCalledTimes(1);
   });
 });
 

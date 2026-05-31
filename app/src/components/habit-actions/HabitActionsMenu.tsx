@@ -4,56 +4,33 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Svg, { Path } from "react-native-svg";
 import { tokens } from "../theme";
 
-export interface HabitActionsMenuProps {
-  archived: boolean;
-  paused: boolean;
-  onArchive: () => void;
-  onUnarchive: () => void;
-  onPause: () => void;
-  onUnpause: () => void;
-}
-
-interface MenuItem {
+export interface HabitActionItem {
   key: string;
   label: string;
   onPress: () => void;
+  /** Render the label in the destructive (orange) colour. */
   danger?: boolean;
 }
 
+export interface HabitActionsMenuProps {
+  items: HabitActionItem[];
+}
+
 /**
- * Hamburger menu for the edit-habit header. The items follow the habit
- * lifecycle invariants: an archived habit only offers Unarchive; an
- * active/paused habit offers Pause-or-Unpause plus Archive. Each item
- * dispatches its command (via the parent's callbacks) and closes.
- *
- * Renders the dropdown inside a transparent Modal so it floats above the
- * screen; the backdrop or any item dismisses it.
+ * Dumb hamburger menu: renders a header button that opens a dropdown of
+ * the given `items` inside a transparent Modal. It owns only presentation
+ * — opening/closing and dismiss-on-tap. The caller (a smart component)
+ * decides which items exist and what they do; selecting one closes the
+ * menu and invokes its `onPress`.
  */
-export const HabitActionsMenu = ({
-  archived,
-  paused,
-  onArchive,
-  onUnarchive,
-  onPause,
-  onUnpause,
-}: HabitActionsMenuProps) => {
+export const HabitActionsMenu = ({ items }: HabitActionsMenuProps) => {
   const insets = useSafeAreaInsets();
   const [open, setOpen] = useState(false);
 
-  const close = () => setOpen(false);
-  const run = (fn: () => void) => () => {
-    close();
-    fn();
+  const select = (item: HabitActionItem) => {
+    setOpen(false);
+    item.onPress();
   };
-
-  const items: MenuItem[] = archived
-    ? [{ key: "unarchive", label: "Unarchive", onPress: run(onUnarchive) }]
-    : [
-        paused
-          ? { key: "unpause", label: "Unpause", onPress: run(onUnpause) }
-          : { key: "pause", label: "Pause", onPress: run(onPause) },
-        { key: "archive", label: "Archive", onPress: run(onArchive) },
-      ];
 
   return (
     <>
@@ -81,14 +58,14 @@ export const HabitActionsMenu = ({
         visible={open}
         transparent
         animationType="fade"
-        onRequestClose={close}
+        onRequestClose={() => setOpen(false)}
       >
-        <Pressable style={styles.backdrop} onPress={close}>
+        <Pressable style={styles.backdrop} onPress={() => setOpen(false)}>
           <View style={[styles.menu, { top: insets.top + 52 }]}>
             {items.map((item, i) => (
               <Pressable
                 key={item.key}
-                onPress={item.onPress}
+                onPress={() => select(item)}
                 accessibilityRole="button"
                 accessibilityLabel={item.label}
                 style={({ pressed }) => [

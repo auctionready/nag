@@ -109,18 +109,19 @@ optional. Created and updated timestamps are set automatically.
 - **Paused** (`paused_at` set) — dropped from the schedule and demoted on
   the board (listed last, greyed out, still openable).
 
-Either flag blocks new check-ins/skips. The schema allows any combination;
-the legal state machine is enforced by the command handlers and the server
-dispatcher (see below). Archive is a superset of pause's schedule removal;
-unarchiving clears **both** flags, returning the habit to active.
+Either flag keeps the habit out of check-ins/skips (its check-in
+affordances are hidden and it carries no schedule slots). Archive is a
+superset of pause's schedule removal; unarchiving clears **both** flags,
+returning the habit to active.
 
 Lifecycle events: `HabitArchived`, `HabitUnarchived`, `HabitPaused`,
-`HabitUnpaused` (each carries just `habitId`). Valid transitions: pause iff
-neither paused nor archived; unpause iff paused and not archived; archive
-iff not archived; unarchive iff archived. The transition guards live in the
-app command handlers
-([`commands/handlers`](../packages/core/src/commands/handlers)) and the
-server [`EventDispatcher`](../backend/Nag.Core/Handlers/EventDispatcher.cs).
+`HabitUnpaused` (each carries just `habitId`). The valid state machine
+(pause iff neither paused nor archived; unpause iff paused and not
+archived; archive iff not archived; unarchive iff archived) is enforced by
+**only offering valid actions in the UI** — the `HabitActions` menu
+([`components/habit-actions`](../app/src/components/habit-actions)) — rather
+than by guards in the command handlers or server validation, so an invalid
+transition is never dispatched in the first place.
 
 ### `goal`
 

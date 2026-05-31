@@ -11,27 +11,20 @@ import type { CheckInRecorded } from "../../events";
  * arrive out of order); only the user-driven local command needs the
  * up-front check.
  *
- * A paused or archived habit cannot be checked in or skipped — both
- * states take the habit out of active tracking — so the command is
- * rejected here, the single point every check-in/skip path routes
- * through.
+ * Paused and archived habits can't be checked in or skipped, but that's
+ * prevented in the UI (their check-in affordances are hidden and they
+ * carry no schedule slots) rather than guarded here.
  */
 export const handleCreateCheckIn = async (
   db: AnyDb,
   { checkInId, habitId, timestamp, skipped }: CreateCheckIn,
 ): Promise<{ events: [CheckInRecorded] }> => {
   const [parent] = await db
-    .select({ archivedAt: habit.archivedAt, pausedAt: habit.pausedAt })
+    .select({ id: habit.id })
     .from(habit)
     .where(eq(habit.id, habitId));
   if (!parent) {
     throw new Error(`CreateCheckIn: habit id=${habitId} not found`);
-  }
-  if (parent.archivedAt != null) {
-    throw new Error(`CreateCheckIn: habit id=${habitId} is archived`);
-  }
-  if (parent.pausedAt != null) {
-    throw new Error(`CreateCheckIn: habit id=${habitId} is paused`);
   }
 
   const event: CheckInRecorded = {

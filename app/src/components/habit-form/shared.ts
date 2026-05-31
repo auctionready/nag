@@ -23,7 +23,6 @@ export type HabitFormData = {
 export interface HabitFormProps {
   initialValues?: Partial<HabitFormData>;
   onSubmit: (data: HabitFormData) => Promise<void>;
-  onDelete?: () => void;
   mode?: "create" | "edit";
 }
 

@@ -1,11 +1,11 @@
 import { useLocalSearchParams, useNavigation, useRouter } from "expo-router";
 import { useLiveQuery } from "drizzle-orm/expo-sqlite";
-import { useCallback, useLayoutEffect, useMemo } from "react";
+import { useLayoutEffect, useMemo } from "react";
 import { db } from "../../../db";
 import { habitById, goalForHabitFull, schedulesForGoal } from "@nag/core";
 import { dispatch } from "../../../infrastructure/dispatch";
 import { HabitForm, type HabitFormData } from "../../../components/habit-form";
-import { HabitActionsMenu } from "../../../components/habit-actions";
+import { HabitActions } from "../../../components/habit-actions";
 import type { HabitIconKind } from "../../../components/glyphs";
 import { buildGoalPayload } from "../../../operations";
 
@@ -20,52 +20,22 @@ const EditHabitScreen = () => {
   const archived = habitData?.archivedAt != null;
   const paused = habitData?.pausedAt != null;
 
-  // Archive/pause hamburger menu in the header. The menu items follow the
-  // lifecycle invariants; each dispatches its command. The command
-  // handlers reject invalid transitions, but the menu only ever shows
-  // valid options for the current state.
-  const onArchive = useCallback(
-    () => dispatch({ type: "ArchiveHabit", habitId }),
-    [habitId],
-  );
-  const onUnarchive = useCallback(
-    () => dispatch({ type: "UnarchiveHabit", habitId }),
-    [habitId],
-  );
-  const onPause = useCallback(
-    () => dispatch({ type: "PauseHabit", habitId }),
-    [habitId],
-  );
-  const onUnpause = useCallback(
-    () => dispatch({ type: "UnpauseHabit", habitId }),
-    [habitId],
-  );
-
+  // Header hamburger menu (archive / pause / delete). The smart
+  // HabitActions component owns the lifecycle logic and only offers
+  // actions valid for the current state.
   useLayoutEffect(() => {
     navigation.setOptions({
       headerRight: habitData
         ? () => (
-            <HabitActionsMenu
+            <HabitActions
+              habitId={habitId}
               archived={archived}
               paused={paused}
-              onArchive={onArchive}
-              onUnarchive={onUnarchive}
-              onPause={onPause}
-              onUnpause={onUnpause}
             />
           )
         : undefined,
     });
-  }, [
-    navigation,
-    habitData,
-    archived,
-    paused,
-    onArchive,
-    onUnarchive,
-    onPause,
-    onUnpause,
-  ]);
+  }, [navigation, habitData, habitId, archived, paused]);
 
   const { data: goals } = useLiveQuery(goalForHabitFull(db, habitId), [
     habitId,
@@ -116,11 +86,6 @@ const EditHabitScreen = () => {
     router.back();
   };
 
-  const onDelete = async () => {
-    await dispatch({ type: "DeleteHabit", habitId });
-    router.replace("/(tabs)");
-  };
-
   if (!initialValues) {
     return null;
   }
@@ -131,7 +96,6 @@ const EditHabitScreen = () => {
       mode="edit"
       initialValues={initialValues}
       onSubmit={onSubmit}
-      onDelete={onDelete}
     />
   );
 };

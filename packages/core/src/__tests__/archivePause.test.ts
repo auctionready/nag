@@ -70,23 +70,6 @@ describe("ArchiveHabit / UnarchiveHabit", () => {
     expect(f.archivedAt).toBeNull();
     expect(f.pausedAt).toBeNull();
   });
-
-  it("rejects archiving an already-archived habit", async () => {
-    const db = getDb();
-    const habitId = await createHabit(db, "Read");
-    await processCommand(db, { type: "ArchiveHabit", habitId });
-    await expect(
-      processCommand(db, { type: "ArchiveHabit", habitId }),
-    ).rejects.toThrow();
-  });
-
-  it("rejects unarchiving a non-archived habit", async () => {
-    const db = getDb();
-    const habitId = await createHabit(db, "Read");
-    await expect(
-      processCommand(db, { type: "UnarchiveHabit", habitId }),
-    ).rejects.toThrow();
-  });
 });
 
 describe("PauseHabit / UnpauseHabit", () => {
@@ -97,62 +80,6 @@ describe("PauseHabit / UnpauseHabit", () => {
     expect((await flags(db, habitId)).pausedAt).toBeInstanceOf(Date);
     await processCommand(db, { type: "UnpauseHabit", habitId });
     expect((await flags(db, habitId)).pausedAt).toBeNull();
-  });
-
-  it("rejects pausing an already-paused habit", async () => {
-    const db = getDb();
-    const habitId = await createHabit(db, "Read");
-    await processCommand(db, { type: "PauseHabit", habitId });
-    await expect(
-      processCommand(db, { type: "PauseHabit", habitId }),
-    ).rejects.toThrow();
-  });
-
-  it("rejects pausing an archived habit", async () => {
-    const db = getDb();
-    const habitId = await createHabit(db, "Read");
-    await processCommand(db, { type: "ArchiveHabit", habitId });
-    await expect(
-      processCommand(db, { type: "PauseHabit", habitId }),
-    ).rejects.toThrow();
-  });
-
-  it("rejects unpausing a non-paused habit", async () => {
-    const db = getDb();
-    const habitId = await createHabit(db, "Read");
-    await expect(
-      processCommand(db, { type: "UnpauseHabit", habitId }),
-    ).rejects.toThrow();
-  });
-});
-
-describe("check-in blocking", () => {
-  it("rejects a check-in for a paused habit", async () => {
-    const db = getDb();
-    const habitId = await createHabit(db, "Read");
-    await processCommand(db, { type: "PauseHabit", habitId });
-    await expect(
-      processCommand(db, {
-        type: "CreateCheckIn",
-        checkInId: crypto.randomUUID(),
-        habitId,
-        timestamp: new Date(),
-      }),
-    ).rejects.toThrow();
-  });
-
-  it("rejects a check-in for an archived habit", async () => {
-    const db = getDb();
-    const habitId = await createHabit(db, "Read");
-    await processCommand(db, { type: "ArchiveHabit", habitId });
-    await expect(
-      processCommand(db, {
-        type: "CreateCheckIn",
-        checkInId: crypto.randomUUID(),
-        habitId,
-        timestamp: new Date(),
-      }),
-    ).rejects.toThrow();
   });
 });
 
