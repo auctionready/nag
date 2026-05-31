@@ -311,29 +311,26 @@ export const CalendarScreen = ({
           : "No check-ins this week";
 
   const handleCheckInItem = useCallback(
-    async (item: DayAgendaItem, backfillAt: Date | null) => {
+    async (item: DayAgendaItem, at: Date) => {
       await dispatch({
         type: "CreateCheckIn",
         checkInId: seqUuid(),
         habitId: item.habitId,
-        timestamp: backfillAt ?? new Date(),
+        timestamp: at,
       });
     },
     [],
   );
 
-  const handleSkipItem = useCallback(
-    async (item: DayAgendaItem, backfillAt: Date | null) => {
-      await dispatch({
-        type: "CreateCheckIn",
-        checkInId: seqUuid(),
-        habitId: item.habitId,
-        timestamp: backfillAt ?? new Date(),
-        skipped: true,
-      });
-    },
-    [],
-  );
+  const handleSkipItem = useCallback(async (item: DayAgendaItem, at: Date) => {
+    await dispatch({
+      type: "CreateCheckIn",
+      checkInId: seqUuid(),
+      habitId: item.habitId,
+      timestamp: at,
+      skipped: true,
+    });
+  }, []);
 
   const handleUndoItem = useCallback(async (item: DayAgendaItem) => {
     if (!item.checkInId) return;

@@ -1,6 +1,10 @@
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import Svg, { Path } from "react-native-svg";
-import { formatTimeSlotTime, formatTimeOfDay } from "@nag/core";
+import {
+  agendaCheckInTime,
+  formatTimeSlotTime,
+  formatTimeOfDay,
+} from "@nag/core";
 import { tokens } from "../theme";
 import { HabitGlyph } from "../glyphs";
 import type { DayAgenda, DayAgendaItem } from "./useCalendarData";
@@ -9,13 +13,12 @@ interface DayViewProps {
   day: Date;
   agenda: DayAgenda;
   /**
-   * Called when the user taps the check button on an actionable row.
-   * `backfillAt` is set for past-day or scheduled-slot rows so the
-   * caller can record the check-in at the slot's exact time. For
-   * today's overdue/upcoming rows it's omitted (use now).
+   * Called when the user logs a row. `at` is the timestamp to record —
+   * a slotted row's deemed slot time (so the new check-in pairs back to
+   * the intended slot even when the day has several slots), otherwise now.
    */
-  onCheckIn: (item: DayAgendaItem, backfillAt: Date | null) => void;
-  onSkip: (item: DayAgendaItem, backfillAt: Date | null) => void;
+  onCheckIn: (item: DayAgendaItem, at: Date) => void;
+  onSkip: (item: DayAgendaItem, at: Date) => void;
   /** Called when the user wants to undo an already-logged check-in. */
   onUndo: (item: DayAgendaItem) => void;
 }
@@ -56,19 +59,11 @@ export const DayView = ({
     );
   }
 
-  const backfillFor = (item: DayAgendaItem): Date | null => {
-    if (mode === "today") return null;
-    if (item.slotHour === undefined || item.slotMinute === undefined) {
-      return new Date(day.getFullYear(), day.getMonth(), day.getDate(), 12, 0);
-    }
-    return new Date(
-      day.getFullYear(),
-      day.getMonth(),
-      day.getDate(),
-      item.slotHour,
-      item.slotMinute,
-    );
-  };
+  // Record at the slot's deemed time so a new check-in pairs back to the
+  // intended slot — recording at wall-clock `now` can land on a different
+  // slot whose scheduled time is nearer (see `agendaCheckInTime`).
+  const checkInTimeFor = (item: DayAgendaItem): Date =>
+    agendaCheckInTime(item, day, new Date());
 
   return (
     <View style={styles.container}>
@@ -80,8 +75,8 @@ export const DayView = ({
               item={item}
               tone="orange"
               primary
-              onCheckIn={() => onCheckIn(item, backfillFor(item))}
-              onSkip={() => onSkip(item, backfillFor(item))}
+              onCheckIn={() => onCheckIn(item, checkInTimeFor(item))}
+              onSkip={() => onSkip(item, checkInTimeFor(item))}
             />
           ))}
         </Section>
@@ -95,8 +90,8 @@ export const DayView = ({
               item={item}
               tone="soft"
               primary={false}
-              onCheckIn={() => onCheckIn(item, backfillFor(item))}
-              onSkip={() => onSkip(item, backfillFor(item))}
+              onCheckIn={() => onCheckIn(item, checkInTimeFor(item))}
+              onSkip={() => onSkip(item, checkInTimeFor(item))}
             />
           ))}
         </Section>
@@ -128,7 +123,7 @@ export const DayView = ({
                 item={item}
                 last={i === logged.length - 1}
                 actionable={mode !== "future"}
-                onCheckIn={() => onCheckIn(item, backfillFor(item))}
+                onCheckIn={() => onCheckIn(item, checkInTimeFor(item))}
                 onUndo={() => onUndo(item)}
               />
             ))}

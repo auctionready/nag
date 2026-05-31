@@ -246,3 +246,34 @@ export const createGetDayAgenda =
     }
     return { items, mode };
   };
+
+/**
+ * The timestamp to record when logging (check-in or skip) `item` on `day`.
+ *
+ * Slotted items record at their slot's *deemed* time (the scheduled
+ * hour/minute), NOT wall-clock `now`. This is essential when a habit has
+ * several slots in one day: {@link buildDayAgenda} pairs check-ins to slots
+ * by nearest time-of-day, so recording an overdue 9am dose at 12:30 would
+ * otherwise land on a 1pm slot — marking the wrong slot done and leaving the
+ * overdue one overdue. Recording at the slot's exact time pins it to the
+ * intended slot (distance 0).
+ *
+ * Slotless items (ad-hoc extras with no scheduled time) have no deemed time,
+ * so they record at `now`.
+ */
+export const agendaCheckInTime = (
+  item: Pick<DayAgendaItem, "slotHour" | "slotMinute">,
+  day: Date,
+  now: Date,
+): Date => {
+  if (item.slotHour === undefined || item.slotMinute === undefined) {
+    return now;
+  }
+  return new Date(
+    day.getFullYear(),
+    day.getMonth(),
+    day.getDate(),
+    item.slotHour,
+    item.slotMinute,
+  );
+};

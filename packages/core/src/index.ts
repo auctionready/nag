@@ -20,6 +20,7 @@ export {
 } from "./dayCells";
 export { buildMonthCells, type MonthDayCell } from "./monthCells";
 export {
+  agendaCheckInTime,
   buildDayAgenda,
   createGetDayAgenda,
   type BuildDayAgendaInput,

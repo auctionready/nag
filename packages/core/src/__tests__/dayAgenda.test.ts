@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { buildDayAgenda, createGetDayAgenda } from "../dayAgenda";
+import {
+  agendaCheckInTime,
+  buildDayAgenda,
+  createGetDayAgenda,
+} from "../dayAgenda";
 import { Day } from "../days";
 
 // 2026-05-02 is Saturday — matches the design's "today" frame
@@ -291,5 +295,80 @@ describe("createGetDayAgenda", () => {
     expect(getDayAgenda(today(), today(9)).items[0].status).toBe("upcoming");
     // And a different day yields a different mode.
     expect(getDayAgenda(tomorrow(), today(13)).mode).toBe("future");
+  });
+});
+
+describe("agendaCheckInTime", () => {
+  it("records a slotted item at its deemed slot time, not now", () => {
+    const ts = agendaCheckInTime(
+      { slotHour: 9, slotMinute: 0 },
+      today(),
+      today(12, 30),
+    );
+    expect(ts).toEqual(today(9, 0));
+  });
+
+  it("records a slotless item at now", () => {
+    const now = today(12, 30);
+    const ts = agendaCheckInTime({}, today(), now);
+    expect(ts).toBe(now);
+  });
+
+  it("anchors the slot time to the agenda's day, not now's day", () => {
+    const ts = agendaCheckInTime(
+      { slotHour: 8, slotMinute: 0 },
+      yesterday(),
+      today(12, 30),
+    );
+    expect(ts).toEqual(yesterday(8, 0));
+  });
+
+  // Regression: a habit with an earlier overdue slot and a later upcoming
+  // slot. Checking in the overdue slot must mark *it* done — not the later
+  // one. buildDayAgenda pairs by nearest time, so the recording timestamp
+  // decides which slot the new check-in lands on.
+  describe("checking an overdue slot with a later slot in the same day", () => {
+    const schedules = [
+      { days: 0, dayOfMonth: null, hour: 8, minute: 0 },
+      { days: 0, dayOfMonth: null, hour: 13, minute: 0 },
+    ];
+    // 12:30 — past the 8am slot (overdue), before the 1pm slot (upcoming).
+    const now = today(12, 30);
+
+    it("baseline: 8am overdue, 1pm upcoming", () => {
+      const { slots } = buildDayAgenda({
+        schedules,
+        checkIns: [],
+        day: today(),
+        now,
+      });
+      expect(slots.map((s) => s.status)).toEqual(["overdue", "upcoming"]);
+    });
+
+    it("recording at the deemed slot time marks the overdue slot done", () => {
+      const ts = agendaCheckInTime(
+        { slotHour: 8, slotMinute: 0 },
+        today(),
+        now,
+      );
+      const { slots } = buildDayAgenda({
+        schedules,
+        checkIns: [{ timestamp: ts, skipped: false }],
+        day: today(),
+        now,
+      });
+      expect(slots.map((s) => s.status)).toEqual(["done", "upcoming"]);
+    });
+
+    it("recording at now would mis-pair to the nearer 1pm slot (the bug)", () => {
+      const { slots } = buildDayAgenda({
+        schedules,
+        checkIns: [{ timestamp: now, skipped: false }],
+        day: today(),
+        now,
+      });
+      // 12:30 is nearer 1pm than 8am, so the check-in lands on the wrong slot.
+      expect(slots.map((s) => s.status)).toEqual(["overdue", "done"]);
+    });
   });
 });
