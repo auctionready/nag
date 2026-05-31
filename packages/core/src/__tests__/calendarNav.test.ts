@@ -80,6 +80,34 @@ describe("stepCalendarDay", () => {
       ).toBe(true);
     });
   });
+
+  describe("day view", () => {
+    it("advances one day on next", () => {
+      expect(
+        isSameDay(
+          stepCalendarDay({
+            day: d(2026, 5, 2),
+            view: "day",
+            direction: "next",
+          }),
+          d(2026, 5, 3),
+        ),
+      ).toBe(true);
+    });
+
+    it("goes back one day on prev", () => {
+      expect(
+        isSameDay(
+          stepCalendarDay({
+            day: d(2026, 5, 2),
+            view: "day",
+            direction: "prev",
+          }),
+          d(2026, 5, 1),
+        ),
+      ).toBe(true);
+    });
+  });
 });
 
 describe("clampDayToToday", () => {
@@ -120,6 +148,15 @@ describe("canStepForward", () => {
 
     it("blocks stepping past the current week", () => {
       expect(canStepForward(d(2026, 5, 25), "week", today)).toBe(false);
+    });
+  });
+
+  describe("day view", () => {
+    const today = d(2026, 5, 28);
+
+    it("always allows stepping forward (future days are read-only but viewable)", () => {
+      expect(canStepForward(today, "day", today)).toBe(true);
+      expect(canStepForward(d(2027, 1, 1), "day", today)).toBe(true);
     });
   });
 });

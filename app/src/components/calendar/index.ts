@@ -7,12 +7,15 @@ export type {
   CalendarHabit,
   CalendarCheckIn,
   DayCheckInGroup,
+  DayAgenda,
+  DayAgendaItem,
   WeekRow,
 } from "./useCalendarData";
-export { ViewToggle, type CalendarView } from "./ViewToggle";
+export { CalendarViewNav } from "./CalendarViewNav";
 export { CalNavRow } from "./CalNavRow";
 export { MonthView } from "./MonthView";
 export { WeekView } from "./WeekView";
+export { DayView } from "./DayView";
 export { SelectedDayCheckIns } from "./SelectedDayCheckIns";
 export {
   cellStateForDay,
