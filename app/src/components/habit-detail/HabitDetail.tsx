@@ -41,6 +41,13 @@ export interface HabitDetailProps {
   checkIns: RecentCheckInItem[];
   /** Compliance color for today (used to tint within-day overlays). */
   complianceColor?: string;
+  /**
+   * Whether new check-ins / skips can be recorded. False for paused or
+   * archived habits — the footer and time-slot logging are suppressed,
+   * mirroring the command-handler guard. Editing existing check-ins is
+   * unaffected. Defaults to true.
+   */
+  interactive?: boolean;
   showSkip: boolean;
   /** The day the user has tapped on the week strip. */
   selectedDay: Date | null;
@@ -80,6 +87,7 @@ export const HabitDetail = ({
   schedules,
   checkIns,
   complianceColor: _complianceColor,
+  interactive = true,
   showSkip,
   selectedDay,
   onSelectDay,
@@ -119,6 +127,7 @@ export const HabitDetail = ({
       checkInsThisPeriod={checkInsThisPeriod}
       schedules={schedules}
       checkIns={checkIns}
+      interactive={interactive}
       showSkip={showSkip}
       selectedDay={selectedDay}
       onSelectDay={onSelectDay}
@@ -145,6 +154,7 @@ interface DetailViewProps {
   checkInsThisPeriod: number;
   schedules: ScheduleInfo[];
   checkIns: RecentCheckInItem[];
+  interactive: boolean;
   showSkip: boolean;
   selectedDay: Date | null;
   onSelectDay: (day: Date | null) => void;
@@ -173,6 +183,7 @@ const DetailView = ({
   checkInsThisPeriod,
   schedules,
   checkIns,
+  interactive,
   showSkip,
   selectedDay,
   onSelectDay,
@@ -394,8 +405,10 @@ const DetailView = ({
             eyebrow={slotsEyebrow}
             slots={slotsForDay}
             isToday={cardIsToday}
-            onCheckInForTimeSlot={handleCheckInForTimeSlot}
-            onSkipForTimeSlot={handleSkipForTimeSlot}
+            onCheckInForTimeSlot={
+              interactive ? handleCheckInForTimeSlot : undefined
+            }
+            onSkipForTimeSlot={interactive ? handleSkipForTimeSlot : undefined}
             onDeleteForTimeSlot={handleDeleteForTimeSlot}
           />
         )}
@@ -415,13 +428,15 @@ const DetailView = ({
         />
       </ScrollView>
 
-      <ActionFooter
-        showSkip={showSkip}
-        onCheckIn={handleCheckInTap}
-        onLongPressCheckIn={handleCheckInLongPress}
-        onSkip={handleSkipTap}
-        onLongPressSkip={handleSkipLongPress}
-      />
+      {interactive && (
+        <ActionFooter
+          showSkip={showSkip}
+          onCheckIn={handleCheckInTap}
+          onLongPressCheckIn={handleCheckInLongPress}
+          onSkip={handleSkipTap}
+          onLongPressSkip={handleSkipLongPress}
+        />
+      )}
 
       {pickerState && (
         <CheckInDatePickerModal

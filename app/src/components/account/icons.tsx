@@ -32,6 +32,22 @@ export const iconSkip = () => (
     <Path d="M7 4l3 3-3 3" />
   </Svg>
 );
+export const iconArchive = () => (
+  <Svg
+    width={14}
+    height={14}
+    viewBox="0 0 14 14"
+    fill="none"
+    stroke={tokens.ink}
+    strokeWidth={1.7}
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <Path d="M1.5 3.5h11v2.5h-11z" />
+    <Path d="M2.5 6v6h9V6" />
+    <Path d="M5.5 8.5h3" />
+  </Svg>
+);
 export const iconAbout = () => (
   <Svg
     width={14}

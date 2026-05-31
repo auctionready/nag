@@ -26,6 +26,12 @@ public sealed record HomeHabit
     public HomeGoal? Goal { get; init; }
     public List<HomeSchedule> Schedules { get; init; } = [];
     public List<HomeCheckIn> PeriodCheckIns { get; init; } = [];
+
+    /// <summary>Set when the habit is archived (hidden from the board).</summary>
+    public DateTimeOffset? ArchivedAt { get; init; }
+
+    /// <summary>Set when the habit is paused (off the schedule, demoted).</summary>
+    public DateTimeOffset? PausedAt { get; init; }
 }
 
 public sealed record HomeGoal(Regularity Regularity, int? Frequency);

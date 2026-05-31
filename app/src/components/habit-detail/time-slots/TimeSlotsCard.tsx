@@ -59,6 +59,10 @@ export const TimeSlotsCard = ({
     ? slots.findIndex((s) => s.status === "upcoming")
     : -1;
 
+  // No check-in handler ⇒ logging is disabled (paused/archived habit).
+  // Pills that already have a check-in/skip stay tappable for undo.
+  const canLog = onCheckInForTimeSlot != null;
+
   const pillRefs = useRef<Record<number, View | null>>({});
   const [activeIdx, setActiveIdx] = useState<number | null>(null);
   const [anchor, setAnchor] = useState<TimeSlotPillBounds | null>(null);
@@ -101,7 +105,12 @@ export const TimeSlotsCard = ({
       <View style={styles.pillsRow}>
         {slots.map((slot, i) => {
           const pillState = mapStatus(slot.status);
-          const interactive = isInteractive(slot.status, i, firstUpcomingIdx);
+          const interactive = isInteractive(
+            slot.status,
+            i,
+            firstUpcomingIdx,
+            canLog,
+          );
           return (
             <TimeSlotPill
               key={`${slot.hour}:${slot.minute}:${i}`}
@@ -143,8 +152,12 @@ const isInteractive = (
   status: TimeSlotStatus,
   idx: number,
   firstUpcomingIdx: number,
+  canLog: boolean,
 ): boolean => {
+  // done/skipped pills open the undo popover regardless of logging.
   if (status === "done" || status === "skipped") return true;
+  // missed / upcoming pills only open the log popover when logging is on.
+  if (!canLog) return false;
   if (status === "missed") return true;
   return idx === firstUpcomingIdx;
 };

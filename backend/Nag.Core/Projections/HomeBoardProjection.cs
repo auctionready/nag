@@ -83,6 +83,43 @@ public sealed partial class HomeBoardProjection : SingleStreamProjection<HomeBoa
         board.Habits.RemoveAll(h => h.Id == e.Data.HabitId);
     }
 
+    public void Apply(IEvent<HabitArchived> e, HomeBoard board)
+    {
+        board.LastSequence = e.Sequence;
+        ReplaceHabit(board, e.Data.HabitId, h => h with { ArchivedAt = e.Timestamp });
+    }
+
+    public void Apply(IEvent<HabitUnarchived> e, HomeBoard board)
+    {
+        board.LastSequence = e.Sequence;
+        // Unarchive returns the habit to fully active — clears both flags.
+        ReplaceHabit(board, e.Data.HabitId, h => h with { ArchivedAt = null, PausedAt = null });
+    }
+
+    public void Apply(IEvent<HabitPaused> e, HomeBoard board)
+    {
+        board.LastSequence = e.Sequence;
+        ReplaceHabit(board, e.Data.HabitId, h => h with { PausedAt = e.Timestamp });
+    }
+
+    public void Apply(IEvent<HabitUnpaused> e, HomeBoard board)
+    {
+        board.LastSequence = e.Sequence;
+        ReplaceHabit(board, e.Data.HabitId, h => h with { PausedAt = null });
+    }
+
+    private static void ReplaceHabit(
+        HomeBoard board,
+        Guid habitId,
+        Func<HomeHabit, HomeHabit> update
+    )
+    {
+        var idx = board.Habits.FindIndex(h => h.Id == habitId);
+        if (idx < 0)
+            return;
+        board.Habits[idx] = update(board.Habits[idx]);
+    }
+
     public void Apply(IEvent<CheckInRecorded> e, HomeBoard board)
     {
         board.LastSequence = e.Sequence;

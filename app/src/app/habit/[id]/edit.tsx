@@ -1,20 +1,41 @@
-import { useLocalSearchParams, useRouter } from "expo-router";
+import { useLocalSearchParams, useNavigation, useRouter } from "expo-router";
 import { useLiveQuery } from "drizzle-orm/expo-sqlite";
-import { useMemo } from "react";
+import { useLayoutEffect, useMemo } from "react";
 import { db } from "../../../db";
 import { habitById, goalForHabitFull, schedulesForGoal } from "@nag/core";
 import { dispatch } from "../../../infrastructure/dispatch";
 import { HabitForm, type HabitFormData } from "../../../components/habit-form";
+import { HabitActions } from "../../../components/habit-actions";
 import type { HabitIconKind } from "../../../components/glyphs";
 import { buildGoalPayload } from "../../../operations";
 
 const EditHabitScreen = () => {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
+  const navigation = useNavigation();
   const habitId = id ?? "";
 
   const { data: habits } = useLiveQuery(habitById(db, habitId), [habitId]);
   const habitData = habits?.[0];
+  const archived = habitData?.archivedAt != null;
+  const paused = habitData?.pausedAt != null;
+
+  // Header hamburger menu (archive / pause / delete). The smart
+  // HabitActions component owns the lifecycle logic and only offers
+  // actions valid for the current state.
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      headerRight: habitData
+        ? () => (
+            <HabitActions
+              habitId={habitId}
+              archived={archived}
+              paused={paused}
+            />
+          )
+        : undefined,
+    });
+  }, [navigation, habitData, habitId, archived, paused]);
 
   const { data: goals } = useLiveQuery(goalForHabitFull(db, habitId), [
     habitId,
@@ -65,11 +86,6 @@ const EditHabitScreen = () => {
     router.back();
   };
 
-  const onDelete = async () => {
-    await dispatch({ type: "DeleteHabit", habitId });
-    router.replace("/(tabs)");
-  };
-
   if (!initialValues) {
     return null;
   }
@@ -80,7 +96,6 @@ const EditHabitScreen = () => {
       mode="edit"
       initialValues={initialValues}
       onSubmit={onSubmit}
-      onDelete={onDelete}
     />
   );
 };

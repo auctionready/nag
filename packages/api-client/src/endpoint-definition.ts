@@ -192,6 +192,40 @@ export const EventEntry_HabitDeleted = z
   .passthrough();
 export type EventEntry_HabitDeleted = z.infer<typeof EventEntry_HabitDeleted>;
 
+export const HabitArchived = z.object({ habitId: z.uuid() }).partial();
+export type HabitArchived = z.infer<typeof HabitArchived>;
+
+export const EventEntry_HabitArchived = z
+  .object({ type: z.literal("HabitArchived"), payload: HabitArchived })
+  .passthrough();
+export type EventEntry_HabitArchived = z.infer<typeof EventEntry_HabitArchived>;
+
+export const HabitUnarchived = z.object({ habitId: z.uuid() }).partial();
+export type HabitUnarchived = z.infer<typeof HabitUnarchived>;
+
+export const EventEntry_HabitUnarchived = z
+  .object({ type: z.literal("HabitUnarchived"), payload: HabitUnarchived })
+  .passthrough();
+export type EventEntry_HabitUnarchived = z.infer<
+  typeof EventEntry_HabitUnarchived
+>;
+
+export const HabitPaused = z.object({ habitId: z.uuid() }).partial();
+export type HabitPaused = z.infer<typeof HabitPaused>;
+
+export const EventEntry_HabitPaused = z
+  .object({ type: z.literal("HabitPaused"), payload: HabitPaused })
+  .passthrough();
+export type EventEntry_HabitPaused = z.infer<typeof EventEntry_HabitPaused>;
+
+export const HabitUnpaused = z.object({ habitId: z.uuid() }).partial();
+export type HabitUnpaused = z.infer<typeof HabitUnpaused>;
+
+export const EventEntry_HabitUnpaused = z
+  .object({ type: z.literal("HabitUnpaused"), payload: HabitUnpaused })
+  .passthrough();
+export type EventEntry_HabitUnpaused = z.infer<typeof EventEntry_HabitUnpaused>;
+
 export const CheckInRecorded = z
   .object({
     checkInId: z.uuid(),
@@ -281,6 +315,10 @@ export const EventEntry = z.discriminatedUnion("type", [
   EventEntry_HabitGoalDefined,
   EventEntry_HabitGoalCleared,
   EventEntry_HabitDeleted,
+  EventEntry_HabitArchived,
+  EventEntry_HabitUnarchived,
+  EventEntry_HabitPaused,
+  EventEntry_HabitUnpaused,
   EventEntry_CheckInRecorded,
   EventEntry_CheckInMoved,
   EventEntry_CheckInMarkedSkipped,
@@ -363,6 +401,58 @@ export type EventEnvelope_HabitDeleted = z.infer<
   typeof EventEnvelope_HabitDeleted
 >;
 
+export const EventEnvelope_HabitArchived = z
+  .object({
+    sequence: z.int(),
+    id: z.uuid(),
+    timestamp: IsoDatetime,
+    type: z.literal("HabitArchived"),
+    payload: HabitArchived,
+  })
+  .passthrough();
+export type EventEnvelope_HabitArchived = z.infer<
+  typeof EventEnvelope_HabitArchived
+>;
+
+export const EventEnvelope_HabitUnarchived = z
+  .object({
+    sequence: z.int(),
+    id: z.uuid(),
+    timestamp: IsoDatetime,
+    type: z.literal("HabitUnarchived"),
+    payload: HabitUnarchived,
+  })
+  .passthrough();
+export type EventEnvelope_HabitUnarchived = z.infer<
+  typeof EventEnvelope_HabitUnarchived
+>;
+
+export const EventEnvelope_HabitPaused = z
+  .object({
+    sequence: z.int(),
+    id: z.uuid(),
+    timestamp: IsoDatetime,
+    type: z.literal("HabitPaused"),
+    payload: HabitPaused,
+  })
+  .passthrough();
+export type EventEnvelope_HabitPaused = z.infer<
+  typeof EventEnvelope_HabitPaused
+>;
+
+export const EventEnvelope_HabitUnpaused = z
+  .object({
+    sequence: z.int(),
+    id: z.uuid(),
+    timestamp: IsoDatetime,
+    type: z.literal("HabitUnpaused"),
+    payload: HabitUnpaused,
+  })
+  .passthrough();
+export type EventEnvelope_HabitUnpaused = z.infer<
+  typeof EventEnvelope_HabitUnpaused
+>;
+
 export const EventEnvelope_CheckInRecorded = z
   .object({
     sequence: z.int(),
@@ -434,6 +524,10 @@ export const EventEnvelope = z.discriminatedUnion("type", [
   EventEnvelope_HabitGoalDefined,
   EventEnvelope_HabitGoalCleared,
   EventEnvelope_HabitDeleted,
+  EventEnvelope_HabitArchived,
+  EventEnvelope_HabitUnarchived,
+  EventEnvelope_HabitPaused,
+  EventEnvelope_HabitUnpaused,
   EventEnvelope_CheckInRecorded,
   EventEnvelope_CheckInMoved,
   EventEnvelope_CheckInMarkedSkipped,
@@ -553,6 +647,8 @@ export const HomeHabit = z
     goal: HomeGoal.nullable(),
     schedules: z.array(HomeSchedule).nullable(),
     periodCheckIns: z.array(HomeCheckIn).nullable(),
+    archivedAt: IsoDatetime.nullable(),
+    pausedAt: IsoDatetime.nullable(),
   })
   .partial();
 export type HomeHabit = z.infer<typeof HomeHabit>;

@@ -59,6 +59,8 @@ export {
 } from "./trafficLight";
 export {
   allHabits,
+  boardHabits,
+  archivedHabits,
   habitById,
   habitsByIds,
   goalForHabit,

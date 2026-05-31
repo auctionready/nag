@@ -12,4 +12,10 @@ pre-commit:
     - name: csharpier
       glob: "*.{cs,csproj}"
       root: backend/
-      run: dotnet csharpier format {staged_files} && git add {staged_files}
+      run: dotnet csharpier format {staged_files}
+      # Re-stage csharpier's reformats via lefthook's built-in (not a manual
+      # `git add`): with `root: backend/`, a `git add {staged_files}` inside
+      # git's commit hook resolves the backend-relative paths against the repo
+      # root and stages phantom duplicates (e.g. `Nag.Core/...`). stage_fixed
+      # handles the root prefix correctly.
+      stage_fixed: true

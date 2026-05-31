@@ -55,6 +55,26 @@ export const DeleteHabit = z.object({
   habitId: z.uuid(),
 });
 
+export const ArchiveHabit = z.object({
+  type: z.literal("ArchiveHabit"),
+  habitId: z.uuid(),
+});
+
+export const UnarchiveHabit = z.object({
+  type: z.literal("UnarchiveHabit"),
+  habitId: z.uuid(),
+});
+
+export const PauseHabit = z.object({
+  type: z.literal("PauseHabit"),
+  habitId: z.uuid(),
+});
+
+export const UnpauseHabit = z.object({
+  type: z.literal("UnpauseHabit"),
+  habitId: z.uuid(),
+});
+
 export const CreateCheckIn = z.object({
   type: z.literal("CreateCheckIn"),
   checkInId: z.uuid(),
@@ -85,6 +105,10 @@ export const Command = z.discriminatedUnion("type", [
   CreateHabit,
   UpdateHabit,
   DeleteHabit,
+  ArchiveHabit,
+  UnarchiveHabit,
+  PauseHabit,
+  UnpauseHabit,
   CreateCheckIn,
   DeleteCheckIn,
   UpdateCheckIn,
@@ -95,6 +119,10 @@ export type Command = z.infer<typeof Command>;
 export type CreateHabit = z.infer<typeof CreateHabit>;
 export type UpdateHabit = z.infer<typeof UpdateHabit>;
 export type DeleteHabit = z.infer<typeof DeleteHabit>;
+export type ArchiveHabit = z.infer<typeof ArchiveHabit>;
+export type UnarchiveHabit = z.infer<typeof UnarchiveHabit>;
+export type PauseHabit = z.infer<typeof PauseHabit>;
+export type UnpauseHabit = z.infer<typeof UnpauseHabit>;
 export type CreateCheckIn = z.infer<typeof CreateCheckIn>;
 export type DeleteCheckIn = z.infer<typeof DeleteCheckIn>;
 export type UpdateCheckIn = z.infer<typeof UpdateCheckIn>;

@@ -86,6 +86,88 @@ public class HomeBoardProjectionTests
         }
     }
 
+    public class Archive_and_pause_flags : HomeBoardProjectionTests
+    {
+        public Archive_and_pause_flags(PostgresFixture fixture)
+            : base(fixture) { }
+
+        [Fact]
+        public async Task archive_sets_archivedAt()
+        {
+            await using var store = _fixture.CreateStore("proj_archive");
+            await using var session = store.LightweightSession();
+
+            var habitId = Guid.NewGuid();
+            session.Events.Append(
+                NagStreams.Root,
+                new HabitCreated(habitId, "Read"),
+                new HabitArchived(habitId)
+            );
+            await session.SaveChangesAsync();
+
+            var board = await session.LoadAsync<HomeBoard>(NagStreams.Root);
+            board!.Habits[0].ArchivedAt.ShouldNotBeNull();
+        }
+
+        [Fact]
+        public async Task pause_sets_pausedAt()
+        {
+            await using var store = _fixture.CreateStore("proj_pause");
+            await using var session = store.LightweightSession();
+
+            var habitId = Guid.NewGuid();
+            session.Events.Append(
+                NagStreams.Root,
+                new HabitCreated(habitId, "Read"),
+                new HabitPaused(habitId)
+            );
+            await session.SaveChangesAsync();
+
+            var board = await session.LoadAsync<HomeBoard>(NagStreams.Root);
+            board!.Habits[0].PausedAt.ShouldNotBeNull();
+        }
+
+        [Fact]
+        public async Task unpause_clears_pausedAt()
+        {
+            await using var store = _fixture.CreateStore("proj_unpause");
+            await using var session = store.LightweightSession();
+
+            var habitId = Guid.NewGuid();
+            session.Events.Append(
+                NagStreams.Root,
+                new HabitCreated(habitId, "Read"),
+                new HabitPaused(habitId),
+                new HabitUnpaused(habitId)
+            );
+            await session.SaveChangesAsync();
+
+            var board = await session.LoadAsync<HomeBoard>(NagStreams.Root);
+            board!.Habits[0].PausedAt.ShouldBeNull();
+        }
+
+        [Fact]
+        public async Task unarchive_clears_both_flags()
+        {
+            await using var store = _fixture.CreateStore("proj_unarchive");
+            await using var session = store.LightweightSession();
+
+            var habitId = Guid.NewGuid();
+            session.Events.Append(
+                NagStreams.Root,
+                new HabitCreated(habitId, "Read"),
+                new HabitPaused(habitId),
+                new HabitArchived(habitId),
+                new HabitUnarchived(habitId)
+            );
+            await session.SaveChangesAsync();
+
+            var board = await session.LoadAsync<HomeBoard>(NagStreams.Root);
+            board!.Habits[0].ArchivedAt.ShouldBeNull();
+            board.Habits[0].PausedAt.ShouldBeNull();
+        }
+    }
+
     public class CheckInRecorded_appends_to_period : HomeBoardProjectionTests
     {
         public CheckInRecorded_appends_to_period(PostgresFixture fixture)

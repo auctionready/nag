@@ -27,7 +27,7 @@
     "prepare": "lefthook install --force",
     "postinstall": "node tools/check-dotnet-version.mjs"
   },
-  "packageManager": "pnpm@11.2.2",
+  "packageManager": "pnpm@11.5.0",
   "devDependencies": {
     "concurrently": "catalog:",
     "eslint": "^9.39.4",

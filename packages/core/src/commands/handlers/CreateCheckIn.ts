@@ -10,6 +10,10 @@ import type { CheckInRecorded } from "../../events";
  * apply path itself is tolerant of a missing parent (sync replay can
  * arrive out of order); only the user-driven local command needs the
  * up-front check.
+ *
+ * Paused and archived habits can't be checked in or skipped, but that's
+ * prevented in the UI (their check-in affordances are hidden and they
+ * carry no schedule slots) rather than guarded here.
  */
 export const handleCreateCheckIn = async (
   db: AnyDb,

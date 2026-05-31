@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "expo-router";
@@ -8,15 +9,18 @@ import { SyncDot } from "../sync";
 interface AppHeaderShellProps {
   title: string;
   onBack?: () => void;
+  /** Right-side content. Defaults to the `SyncDot` when not provided. */
+  right?: ReactNode;
 }
 
 /**
- * Pure presentational header — title, optional back button, SyncDot.
- * Use directly when a screen needs to render its own header (e.g. tab
- * routes whose parent navigator doesn't provide a Stack header). For
- * Stack screens use `AppHeaderForStack`.
+ * Pure presentational header — title, optional back button, and a
+ * right-side slot (the SyncDot by default, or a screen-supplied action
+ * such as the edit-habit hamburger menu). Use directly when a screen
+ * needs to render its own header (e.g. tab routes whose parent navigator
+ * doesn't provide a Stack header). For Stack screens use `AppHeader`.
  */
-const AppHeaderShell = ({ title, onBack }: AppHeaderShellProps) => {
+const AppHeaderShell = ({ title, onBack, right }: AppHeaderShellProps) => {
   const insets = useSafeAreaInsets();
   return (
     <View style={[styles.wrap, { paddingTop: insets.top }]}>
@@ -49,7 +53,7 @@ const AppHeaderShell = ({ title, onBack }: AppHeaderShellProps) => {
           {title.toLowerCase()}
         </Text>
         <View style={[styles.side, styles.sideRight]}>
-          <SyncDot />
+          {right ?? <SyncDot />}
         </View>
       </View>
     </View>
@@ -61,11 +65,20 @@ const AppHeaderShell = ({ title, onBack }: AppHeaderShellProps) => {
 // (it's transitively present via expo-router).
 interface StackHeaderShape {
   back?: { title: string | undefined };
-  options: { title?: string };
+  options: {
+    title?: string;
+    // React Navigation types this as `(props) => ReactNode`; we don't use
+    // the props, but the param keeps the shape assignable from the real
+    // `NativeStackNavigationOptions`.
+    headerRight?: (props: any) => ReactNode;
+  };
 }
 
 /**
- * Adapter that lets `AppHeaderShell` time-slot into a Stack's `header` option.
+ * Adapter that lets `AppHeaderShell` time-slot into a Stack's `header`
+ * option. A screen can set `headerRight` (via `navigation.setOptions`)
+ * to replace the default SyncDot with its own action — e.g. the
+ * edit-habit hamburger menu.
  */
 export const AppHeader = ({ options, back }: StackHeaderShape) => {
   const navigation = useNavigation();
@@ -73,6 +86,7 @@ export const AppHeader = ({ options, back }: StackHeaderShape) => {
     <AppHeaderShell
       title={options.title ?? ""}
       onBack={back ? () => navigation.goBack() : undefined}
+      right={options.headerRight?.(undefined)}
     />
   );
 };

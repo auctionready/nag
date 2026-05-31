@@ -4,6 +4,10 @@ import { applyHabitDetailsEdited } from "./HabitDetailsEdited";
 import { applyHabitGoalDefined } from "./HabitGoalDefined";
 import { applyHabitGoalCleared } from "./HabitGoalCleared";
 import { applyHabitDeleted } from "./HabitDeleted";
+import { applyHabitArchived } from "./HabitArchived";
+import { applyHabitUnarchived } from "./HabitUnarchived";
+import { applyHabitPaused } from "./HabitPaused";
+import { applyHabitUnpaused } from "./HabitUnpaused";
 import { applyCheckInRecorded } from "./CheckInRecorded";
 import { applyCheckInMoved } from "./CheckInMoved";
 import { applyCheckInMarkedSkipped } from "./CheckInMarkedSkipped";
@@ -15,6 +19,10 @@ export { applyHabitDetailsEdited } from "./HabitDetailsEdited";
 export { applyHabitGoalDefined } from "./HabitGoalDefined";
 export { applyHabitGoalCleared } from "./HabitGoalCleared";
 export { applyHabitDeleted } from "./HabitDeleted";
+export { applyHabitArchived } from "./HabitArchived";
+export { applyHabitUnarchived } from "./HabitUnarchived";
+export { applyHabitPaused } from "./HabitPaused";
+export { applyHabitUnpaused } from "./HabitUnpaused";
 export { applyCheckInRecorded } from "./CheckInRecorded";
 export { applyCheckInMoved } from "./CheckInMoved";
 export { applyCheckInMarkedSkipped } from "./CheckInMarkedSkipped";
@@ -38,6 +46,10 @@ export const eventHandlers = {
   HabitGoalDefined: applyHabitGoalDefined,
   HabitGoalCleared: applyHabitGoalCleared,
   HabitDeleted: applyHabitDeleted,
+  HabitArchived: applyHabitArchived,
+  HabitUnarchived: applyHabitUnarchived,
+  HabitPaused: applyHabitPaused,
+  HabitUnpaused: applyHabitUnpaused,
   CheckInRecorded: applyCheckInRecorded,
   CheckInMoved: applyCheckInMoved,
   CheckInMarkedSkipped: applyCheckInMarkedSkipped,
