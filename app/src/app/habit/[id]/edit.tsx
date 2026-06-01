@@ -24,10 +24,15 @@ const EditHabitScreen = () => {
   const archived = habitData?.archivedAt != null;
   const paused = habitData?.pausedAt != null;
 
-  // Archived habits are read-only — they can't be edited. Bounce back to
-  // the detail screen (also fires right after archiving from the menu).
+  // Archived habits are read-only — they can't be edited. Leave the
+  // editor (this also fires right after archiving from the menu). Pop back
+  // to the detail screen we came from rather than `replace`-ing, which
+  // would stack a duplicate detail and break the back button.
   useEffect(() => {
-    if (habitData && archived) {
+    if (!habitData || !archived) return;
+    if (router.canGoBack()) {
+      router.back();
+    } else {
       router.replace(`/habit/${habitId}`);
     }
   }, [habitData, archived, habitId, router]);
