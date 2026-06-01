@@ -115,13 +115,21 @@ superset of pause's schedule removal; unarchiving clears **both** flags,
 returning the habit to active.
 
 Lifecycle events: `HabitArchived`, `HabitUnarchived`, `HabitPaused`,
-`HabitUnpaused` (each carries just `habitId`). The valid state machine
-(pause iff neither paused nor archived; unpause iff paused and not
-archived; archive iff not archived; unarchive iff archived) is enforced by
-**only offering valid actions in the UI** — the `HabitActions` menu
-([`components/habit-actions`](../app/src/components/habit-actions)) — rather
-than by guards in the command handlers or server validation, so an invalid
-transition is never dispatched in the first place.
+`HabitUnpaused` (each carries just `habitId`). The valid state machine is
+pause iff neither paused nor archived; unpause iff paused and not archived;
+archive iff not archived; unarchive iff archived. It's enforced in two
+layers, both client-side:
+
+- The UI only offers valid actions — the `HabitActions` menu
+  ([`components/habit-actions`](../app/src/components/habit-actions)) greys
+  out / omits actions that don't apply.
+- The **command handlers** ([`commands/handlers`](../packages/core/src/commands/handlers))
+  read the habit's current flags and emit the event only for a valid
+  transition (e.g. an `ArchiveHabit` on an already-archived habit emits
+  nothing). This makes the commands idempotent without throwing.
+
+The server doesn't validate these events — events are immutable facts it
+appends and projects, so the check belongs on the command, not the event.
 
 ### `goal`
 

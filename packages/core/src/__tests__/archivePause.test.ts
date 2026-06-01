@@ -47,6 +47,14 @@ const flags = async (db: AnyDb, habitId: string) => {
   return h;
 };
 
+/** Count outbox-enqueued events of a given type (emitted by handlers). */
+const outboxEventCount = async (db: AnyDb, type: string): Promise<number> => {
+  const rows = await db.select().from(schema.outbox);
+  return rows
+    .flatMap((r) => JSON.parse(r.events) as { type: string }[])
+    .filter((e) => e.type === type).length;
+};
+
 describe("ArchiveHabit / UnarchiveHabit", () => {
   it("archive sets archivedAt", async () => {
     const db = getDb();
@@ -80,6 +88,49 @@ describe("PauseHabit / UnpauseHabit", () => {
     expect((await flags(db, habitId)).pausedAt).toBeInstanceOf(Date);
     await processCommand(db, { type: "UnpauseHabit", habitId });
     expect((await flags(db, habitId)).pausedAt).toBeNull();
+  });
+});
+
+// The command handlers check current state and emit no event for an
+// invalid/redundant transition (idempotent, never erroring).
+describe("transition guards (handlers emit no event when invalid)", () => {
+  it("does not re-emit when archiving an already-archived habit", async () => {
+    const db = getDb();
+    const habitId = await createHabit(db, "Read");
+    await processCommand(db, { type: "ArchiveHabit", habitId });
+    await processCommand(db, { type: "ArchiveHabit", habitId });
+    expect(await outboxEventCount(db, "HabitArchived")).toBe(1);
+  });
+
+  it("does not emit when unarchiving a non-archived habit", async () => {
+    const db = getDb();
+    const habitId = await createHabit(db, "Read");
+    await processCommand(db, { type: "UnarchiveHabit", habitId });
+    expect(await outboxEventCount(db, "HabitUnarchived")).toBe(0);
+  });
+
+  it("does not emit when pausing an archived habit", async () => {
+    const db = getDb();
+    const habitId = await createHabit(db, "Read");
+    await processCommand(db, { type: "ArchiveHabit", habitId });
+    await processCommand(db, { type: "PauseHabit", habitId });
+    expect(await outboxEventCount(db, "HabitPaused")).toBe(0);
+    expect((await flags(db, habitId)).pausedAt).toBeNull();
+  });
+
+  it("does not emit when pausing an already-paused habit", async () => {
+    const db = getDb();
+    const habitId = await createHabit(db, "Read");
+    await processCommand(db, { type: "PauseHabit", habitId });
+    await processCommand(db, { type: "PauseHabit", habitId });
+    expect(await outboxEventCount(db, "HabitPaused")).toBe(1);
+  });
+
+  it("does not emit when unpausing a non-paused habit", async () => {
+    const db = getDb();
+    const habitId = await createHabit(db, "Read");
+    await processCommand(db, { type: "UnpauseHabit", habitId });
+    expect(await outboxEventCount(db, "HabitUnpaused")).toBe(0);
   });
 });
 
