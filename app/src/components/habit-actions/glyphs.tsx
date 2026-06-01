@@ -1,4 +1,4 @@
-import Svg, { Path, Rect } from "react-native-svg";
+import Svg, { Circle, Path, Rect } from "react-native-svg";
 import { tokens } from "../theme";
 
 interface GlyphProps {
@@ -6,15 +6,12 @@ interface GlyphProps {
   size?: number;
 }
 
-/** Hamburger / three-line menu trigger. */
+/** Overflow menu trigger — horizontal ellipsis (three dots). */
 export const MenuGlyph = ({ color = tokens.ink, size = 16 }: GlyphProps) => (
-  <Svg width={size} height={size} viewBox="0 0 16 16" fill="none">
-    <Path
-      d="M2.5 4.5h11M2.5 8h11M2.5 11.5h11"
-      stroke={color}
-      strokeWidth={1.8}
-      strokeLinecap="round"
-    />
+  <Svg width={size} height={size} viewBox="0 0 16 16" fill={color}>
+    <Circle cx={3.2} cy={8} r={1.45} />
+    <Circle cx={8} cy={8} r={1.45} />
+    <Circle cx={12.8} cy={8} r={1.45} />
   </Svg>
 );
 
