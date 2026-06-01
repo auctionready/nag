@@ -48,6 +48,8 @@ export interface HabitDetailProps {
    * read-only footer, and the paused footer caption. Defaults to active.
    */
   status?: HabitStatus;
+  /** When the habit was paused — caps the back-fill picker. */
+  pausedAt?: Date | null;
   /** Resume a paused habit (from the banner). */
   onResume?: () => void;
   /** Unarchive an archived habit (from the banner / read-only footer). */
@@ -99,6 +101,7 @@ export const HabitDetail = ({
   checkIns,
   complianceColor: _complianceColor,
   status = "active",
+  pausedAt,
   onResume,
   onUnarchive,
   interactive = true,
@@ -142,6 +145,7 @@ export const HabitDetail = ({
       schedules={schedules}
       checkIns={checkIns}
       status={status}
+      pausedAt={pausedAt}
       onResume={onResume}
       onUnarchive={onUnarchive}
       interactive={interactive}
@@ -172,6 +176,7 @@ interface DetailViewProps {
   schedules: ScheduleInfo[];
   checkIns: RecentCheckInItem[];
   status: HabitStatus;
+  pausedAt?: Date | null;
   onResume?: () => void;
   onUnarchive?: () => void;
   interactive: boolean;
@@ -204,6 +209,7 @@ const DetailView = ({
   schedules,
   checkIns,
   status,
+  pausedAt,
   onResume,
   onUnarchive,
   interactive,
@@ -308,35 +314,47 @@ const DetailView = ({
   } | null>(null);
 
   const pickerConfig = useMemo(() => {
-    if (selectedDay) {
+    const base = (() => {
+      if (selectedDay) {
+        return {
+          mode: "time" as const,
+          minimumDate: startOfDay(selectedDay),
+          maximumDate: isSameCalendarDay(selectedDay, now)
+            ? now
+            : endOfDay(selectedDay),
+        };
+      }
+      if (regularity === "week") {
+        return {
+          mode: "datetime" as const,
+          minimumDate: periodStart("week", now),
+          maximumDate: now,
+        };
+      }
+      if (regularity === "month") {
+        return {
+          mode: "datetime" as const,
+          minimumDate: startOfMonth(now),
+          maximumDate: now,
+        };
+      }
       return {
         mode: "time" as const,
-        minimumDate: startOfDay(selectedDay),
-        maximumDate: isSameCalendarDay(selectedDay, now)
-          ? now
-          : endOfDay(selectedDay),
-      };
-    }
-    if (regularity === "week") {
-      return {
-        mode: "datetime" as const,
-        minimumDate: periodStart("week", now),
+        minimumDate: startOfDay(now),
         maximumDate: now,
       };
-    }
-    if (regularity === "month") {
+    })();
+    // Paused habits can only back-fill before the pause moment.
+    if (status === "paused" && pausedAt) {
       return {
-        mode: "datetime" as const,
-        minimumDate: startOfMonth(now),
-        maximumDate: now,
+        ...base,
+        maximumDate: pausedAt,
+        minimumDate:
+          base.minimumDate > pausedAt ? startOfDay(pausedAt) : base.minimumDate,
       };
     }
-    return {
-      mode: "time" as const,
-      minimumDate: startOfDay(now),
-      maximumDate: now,
-    };
-  }, [selectedDay, regularity, now]);
+    return base;
+  }, [selectedDay, regularity, now, status, pausedAt]);
 
   const handlePickerConfirm = (date: Date, skipped?: boolean) => {
     if (!pickerState) return;
@@ -458,9 +476,19 @@ const DetailView = ({
 
       {status === "archived" ? (
         <ArchivedFooter onUnarchive={onUnarchive ?? noop} />
+      ) : status === "paused" ? (
+        // Paused: no live "log now" — tap opens the picker to back-fill an
+        // earlier slot (capped at the pause moment by pickerConfig).
+        <ActionFooter
+          paused
+          showSkip={showSkip}
+          onCheckIn={handleCheckInLongPress}
+          onLongPressCheckIn={handleCheckInLongPress}
+          onSkip={handleSkipLongPress}
+          onLongPressSkip={handleSkipLongPress}
+        />
       ) : (
         <ActionFooter
-          paused={status === "paused"}
           showSkip={showSkip}
           onCheckIn={handleCheckInTap}
           onLongPressCheckIn={handleCheckInLongPress}

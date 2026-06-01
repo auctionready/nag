@@ -128,7 +128,7 @@ export const ActionFooter = ({
       </View>
       <Text style={styles.hint}>
         {paused
-          ? "nags are paused · you can still log manually"
+          ? "paused · back-fill an earlier slot from before you paused"
           : "tap to log now · long-press to set a different time"}
       </Text>
     </View>

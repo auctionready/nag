@@ -109,10 +109,13 @@ optional. Created and updated timestamps are set automatically.
 - **Paused** (`paused_at` set) — dropped from the schedule and demoted on
   the board (listed last, greyed out, still openable).
 
-Either flag keeps the habit out of check-ins/skips (its check-in
-affordances are hidden and it carries no schedule slots). Archive is a
-superset of pause's schedule removal; unarchiving clears **both** flags,
-returning the habit to active.
+Check-in rules: an **archived** habit is read-only (no check-ins or
+skips). A **paused** habit stops accruing from the moment it was paused —
+you can back-fill a check-in whose deemed time predates `paused_at`, but
+nothing from the pause onward (the detail footer's picker is capped at
+`paused_at`, and `CreateCheckIn` enforces it). Archive is a superset of
+pause's schedule removal; unarchiving clears **both** flags, returning the
+habit to active.
 
 Lifecycle events: `HabitArchived`, `HabitUnarchived`, `HabitPaused`,
 `HabitUnpaused` (each carries just `habitId`). Valid transitions:

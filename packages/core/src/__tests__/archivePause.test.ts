@@ -134,6 +134,44 @@ describe("transition guards (handlers emit no event when invalid)", () => {
   });
 });
 
+const checkIn = (db: AnyDb, habitId: string, timestamp: Date) =>
+  processCommand(db, {
+    type: "CreateCheckIn",
+    checkInId: crypto.randomUUID(),
+    habitId,
+    timestamp,
+  });
+
+describe("check-in lifecycle rules", () => {
+  it("rejects a check-in for an archived habit", async () => {
+    const db = getDb();
+    const habitId = await createHabit(db, "Read");
+    await processCommand(db, { type: "ArchiveHabit", habitId });
+    await expect(checkIn(db, habitId, new Date())).rejects.toThrow();
+  });
+
+  it("rejects a check-in at/after the pause time", async () => {
+    const db = getDb();
+    const habitId = await createHabit(db, "Read");
+    await processCommand(db, { type: "PauseHabit", habitId });
+    await expect(
+      checkIn(db, habitId, new Date(Date.now() + 1000)),
+    ).rejects.toThrow();
+  });
+
+  it("allows backfilling a check-in before the pause time", async () => {
+    const db = getDb();
+    const habitId = await createHabit(db, "Read");
+    await processCommand(db, { type: "PauseHabit", habitId });
+    await checkIn(db, habitId, new Date(Date.now() - 60_000));
+    const rows = await db
+      .select()
+      .from(schema.checkIn)
+      .where(eq(schema.checkIn.habitId, habitId));
+    expect(rows).toHaveLength(1);
+  });
+});
+
 describe("query filtering", () => {
   it("boardHabits excludes archived but keeps paused", async () => {
     const db = getDb();

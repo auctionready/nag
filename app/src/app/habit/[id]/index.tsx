@@ -134,8 +134,10 @@ const HabitScreen = () => {
     : paused
       ? "paused"
       : "active";
-  // Archived habits are read-only; paused habits stay manually loggable.
-  const interactive = !archived;
+  // Live logging (immediate check-in + today's time slots) is for active
+  // habits only. Archived is read-only; paused allows back-filling earlier
+  // check-ins via the footer picker, capped at `pausedAt`.
+  const interactive = !archived && !paused;
 
   return (
     <HabitDetail
@@ -144,6 +146,7 @@ const HabitScreen = () => {
       icon={habitData?.icon ?? null}
       description={habitData?.description ?? null}
       status={status}
+      pausedAt={habitData?.pausedAt ?? null}
       onResume={() => dispatch({ type: "UnpauseHabit", habitId })}
       onUnarchive={() => dispatch({ type: "UnarchiveHabit", habitId })}
       interactive={interactive}
