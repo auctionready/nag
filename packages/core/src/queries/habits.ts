@@ -1,4 +1,4 @@
-import { eq, inArray, isNull, isNotNull } from "drizzle-orm";
+import { desc, eq, inArray, isNull, isNotNull } from "drizzle-orm";
 import { goal, habit } from "@nag/schema";
 import type { AnyDb } from "../db";
 
@@ -17,7 +17,11 @@ export const boardHabits = (db: AnyDb) =>
  * archived first.
  */
 export const archivedHabits = (db: AnyDb) =>
-  db.select().from(habit).where(isNotNull(habit.archivedAt));
+  db
+    .select()
+    .from(habit)
+    .where(isNotNull(habit.archivedAt))
+    .orderBy(desc(habit.archivedAt));
 
 export const habitById = (db: AnyDb, habitId: string) =>
   db.select().from(habit).where(eq(habit.id, habitId));

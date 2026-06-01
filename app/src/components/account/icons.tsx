@@ -1,4 +1,4 @@
-import Svg, { Circle, Path } from "react-native-svg";
+import Svg, { Circle, Path, Rect } from "react-native-svg";
 import { tokens } from "../theme";
 
 // ── Inline icon factories for settings rows ──────────────────────
@@ -39,13 +39,13 @@ export const iconArchive = () => (
     viewBox="0 0 14 14"
     fill="none"
     stroke={tokens.ink}
-    strokeWidth={1.7}
+    strokeWidth={1.5}
     strokeLinecap="round"
     strokeLinejoin="round"
   >
-    <Path d="M1.5 3.5h11v2.5h-11z" />
-    <Path d="M2.5 6v6h9V6" />
-    <Path d="M5.5 8.5h3" />
+    <Rect x={2} y={2.5} width={10} height={2.6} rx={0.8} />
+    <Path d="M3 5.5v5.2a1 1 0 001 1h6a1 1 0 001-1V5.5" />
+    <Path d="M5.8 8h2.4" />
   </Svg>
 );
 export const iconAbout = () => (

@@ -46,4 +46,24 @@ describe("HabitActionsMenu", () => {
     fireEvent.press(view.getByText("Archive"));
     expect(view.queryByText("Archive")).toBeNull();
   });
+
+  it("does not invoke a disabled item", () => {
+    const onPress = jest.fn();
+    const items: HabitActionItem[] = [
+      { key: "pause", label: "Pause", onPress, disabled: true },
+    ];
+    const view = render(<HabitActionsMenu items={items} />);
+    open(view);
+    fireEvent.press(view.getByText("Pause"));
+    expect(onPress).not.toHaveBeenCalled();
+  });
+
+  it("renders an item's sub caption", () => {
+    const items: HabitActionItem[] = [
+      { key: "archive", label: "Archive", sub: "hide it", onPress: jest.fn() },
+    ];
+    const view = render(<HabitActionsMenu items={items} />);
+    open(view);
+    expect(view.getByText("hide it")).toBeTruthy();
+  });
 });
