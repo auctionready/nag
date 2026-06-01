@@ -1,20 +1,53 @@
-import { useLocalSearchParams, useRouter } from "expo-router";
+import { useLocalSearchParams, useNavigation, useRouter } from "expo-router";
 import { useLiveQuery } from "drizzle-orm/expo-sqlite";
-import { useMemo } from "react";
+import { useEffect, useLayoutEffect, useMemo } from "react";
 import { db } from "../../../db";
+import { habitStatus } from "@nag/schema";
 import { habitById, goalForHabitFull, schedulesForGoal } from "@nag/core";
 import { dispatch } from "../../../infrastructure/dispatch";
-import { HabitForm, type HabitFormData } from "../../../components/habit-form";
+import {
+  HabitForm,
+  StatusNote,
+  type HabitFormData,
+} from "../../../components/habit-form";
+import { HabitActions } from "../../../components/habit-actions";
 import type { HabitIconKind } from "../../../components/glyphs";
 import { buildGoalPayload } from "../../../operations";
 
 const EditHabitScreen = () => {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
+  const navigation = useNavigation();
   const habitId = id ?? "";
 
   const { data: habits } = useLiveQuery(habitById(db, habitId), [habitId]);
   const habitData = habits?.[0];
+  const status = habitStatus(habitData ?? {});
+  const archived = status === "archived";
+  const paused = status === "paused";
+
+  // Archived habits are read-only — they can't be edited. Leave the
+  // editor (this also fires right after archiving from the menu). Pop back
+  // to the detail screen we came from rather than `replace`-ing, which
+  // would stack a duplicate detail and break the back button.
+  useEffect(() => {
+    if (!habitData || !archived) return;
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace(`/habit/${habitId}`);
+    }
+  }, [habitData, archived, habitId, router]);
+
+  // Header hamburger menu (pause / archive / delete). The smart
+  // HabitActions component owns the lifecycle logic.
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      headerRight: habitData
+        ? () => <HabitActions habitId={habitId} paused={paused} />
+        : undefined,
+    });
+  }, [navigation, habitData, habitId, paused]);
 
   const { data: goals } = useLiveQuery(goalForHabitFull(db, habitId), [
     habitId,
@@ -65,12 +98,9 @@ const EditHabitScreen = () => {
     router.back();
   };
 
-  const onDelete = async () => {
-    await dispatch({ type: "DeleteHabit", habitId });
-    router.replace("/(tabs)");
-  };
-
-  if (!initialValues) {
+  // Archived habits redirect to detail (effect above) — don't flash the
+  // editable form in the meantime.
+  if (!initialValues || archived) {
     return null;
   }
 
@@ -80,7 +110,7 @@ const EditHabitScreen = () => {
       mode="edit"
       initialValues={initialValues}
       onSubmit={onSubmit}
-      onDelete={onDelete}
+      banner={<StatusNote status={status} />}
     />
   );
 };

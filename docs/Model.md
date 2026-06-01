@@ -102,6 +102,47 @@ Source: [`tables/habit.ts`](../packages/schema/src/tables/habit.ts)
 The thing you want to do. Title is required; description and icon are
 optional. Created and updated timestamps are set automatically.
 
+`archived_at` and `paused_at` are nullable lifecycle timestamps:
+
+- **Archived** (`archived_at` set) — hidden from the main board (still
+  reachable via Accounts → Archived Habits) and dropped from the schedule.
+  Read-only: the detail screen hides its edit button and the editor isn't
+  reachable (it redirects back) — unarchive from the detail status banner
+  to edit again.
+- **Paused** (`paused_at` set) — dropped from the schedule and demoted on
+  the board (listed last, greyed out, still openable).
+
+Check-in rules: an **archived** habit is read-only — no check-ins or
+skips (`CreateCheckIn` rejects them, and the detail footer is the
+read-only "unarchive to log" prompt). A **paused** habit can still be
+checked in manually; pausing only stops the nags and demotes it on the
+board. On the detail screen the check-in/skip footer logs as normal,
+while the scheduled time-slot pills are back-fill-gated to slots up to
+`paused_at` (a presentation nicety, not enforced server-side). Archive is
+a superset of pause's schedule removal; unarchiving clears **both** flags,
+returning the habit to active.
+
+Lifecycle events: `HabitArchived`, `HabitUnarchived`, `HabitPaused`,
+`HabitUnpaused` (each carries just `habitId`). Valid transitions:
+
+- **pause** — only when not paused and not archived
+- **unpause** — only when paused (and not archived)
+- **archive** — only when not archived
+- **unarchive** — only when archived
+
+This is enforced in two layers, both client-side:
+
+- The UI only offers valid actions — the `HabitActions` menu
+  ([`components/habit-actions`](../app/src/components/habit-actions)) omits
+  actions that don't apply.
+- The **command handlers** ([`commands/handlers`](../packages/core/src/commands/handlers))
+  read the habit's current flags and emit the event only for a valid
+  transition (e.g. an `ArchiveHabit` on an already-archived habit emits
+  nothing). This makes the commands idempotent without throwing.
+
+The server doesn't validate these events — events are immutable facts it
+appends and projects, so the check belongs on the command, not the event.
+
 ### `goal`
 
 Source: [`tables/goal.ts`](../packages/schema/src/tables/goal.ts)

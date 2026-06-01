@@ -12,7 +12,6 @@ import {
 import { AllDays } from "@nag/core";
 import { AdHocCard } from "./AdHocCard";
 import { CadencePills } from "./CadencePills";
-import { DangerZoneCard } from "./DangerZoneCard";
 import { ErrorText } from "./ErrorText";
 import { FrequencyCard } from "./FrequencyCard";
 import { IdentityCard } from "./IdentityCard";
@@ -24,8 +23,8 @@ import { SectionLabel } from "./SectionLabel";
 export const HabitForm = ({
   initialValues,
   onSubmit,
-  onDelete,
   mode = "create",
+  banner,
 }: HabitFormProps) => {
   const {
     control,
@@ -119,6 +118,7 @@ export const HabitForm = ({
         style={styles.container}
         contentContainerStyle={styles.content}
       >
+        {banner}
         <IdentityCard control={control} titleError={errors.title?.message} />
 
         <View style={styles.section}>
@@ -157,8 +157,6 @@ export const HabitForm = ({
             />
           )}
         </View>
-
-        {onDelete && <DangerZoneCard onDelete={onDelete} />}
       </ScrollView>
 
       <View style={styles.footer}>

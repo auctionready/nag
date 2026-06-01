@@ -19,6 +19,7 @@ import { deviceTokenStore } from "../../infrastructure/tokenStore";
 import { log } from "../../infrastructure/log";
 import { tokens } from "../theme";
 import { confirmAndDeleteAccount } from "./deleteAccountAction";
+import { SettingsGroups } from "./SettingsGroups";
 
 const logger = log("dev-auth:account");
 
@@ -112,6 +113,7 @@ export const DevAuthAccountPanel = () => {
             <Text style={styles.destructiveButtonText}>Delete account</Text>
           </Pressable>
         </View>
+        <SettingsGroups />
       </ScrollView>
     );
   }
@@ -141,6 +143,7 @@ export const DevAuthAccountPanel = () => {
           <Text style={styles.primaryButtonText}>Sign in as dev user</Text>
         </Pressable>
       </View>
+      <SettingsGroups />
     </ScrollView>
   );
 };

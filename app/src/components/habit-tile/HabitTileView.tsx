@@ -34,6 +34,8 @@ export interface HabitTileViewProps {
   todayTimeSlots?: TimeSlotDotState[];
   onPress: () => void;
   onCheckIn: () => Promise<void>;
+  /** Paused habits render dimmed and disable the long-press check-in. */
+  paused?: boolean;
 }
 
 export const HabitTileView = ({
@@ -48,6 +50,7 @@ export const HabitTileView = ({
   todayTimeSlots,
   onPress,
   onCheckIn,
+  paused,
 }: HabitTileViewProps) => {
   const [scale] = useState(() => new Animated.Value(1));
   const didLongPress = useRef(false);
@@ -73,13 +76,14 @@ export const HabitTileView = ({
       Gesture.LongPress()
         .minDuration(500)
         .runOnJS(true)
+        .enabled(!paused)
         // onStart fires asynchronously when the gesture engages, not during render.
         // eslint-disable-next-line react-hooks/refs
         .onStart(() => {
           didLongPress.current = true;
           handleCheckIn();
         }),
-    [handleCheckIn],
+    [handleCheckIn, paused],
   );
 
   const chipState = computeChipState({
@@ -104,7 +108,13 @@ export const HabitTileView = ({
         }}
         style={styles.wrapper}
       >
-        <Animated.View style={[styles.tile, { transform: [{ scale }] }]}>
+        <Animated.View
+          style={[
+            styles.tile,
+            paused && styles.tilePaused,
+            { transform: [{ scale }] },
+          ]}
+        >
           <View style={styles.header}>
             <View style={styles.iconBox}>
               <HabitGlyph
@@ -154,6 +164,9 @@ const styles = StyleSheet.create({
     minHeight: 156,
     flexDirection: "column",
     gap: 10,
+  },
+  tilePaused: {
+    opacity: 0.55,
   },
   header: {
     flexDirection: "row",

@@ -1,6 +1,13 @@
-import { eq, inArray } from "drizzle-orm";
+import { and, eq, inArray, isNull } from "drizzle-orm";
 import { goal, habit, schedule } from "@nag/schema";
 import type { AnyDb } from "../db";
+
+// Paused and archived habits are out of the schedule entirely — neither
+// reminders nor the calendar/agenda should surface their slots. Predicate
+// on the `habit` table, so it only applies to queries that join `habit`.
+// (The habit's own schedule still shows on its detail/edit screen via
+// `schedulesForHabit` / `schedulesForGoal`, which are not filtered.)
+const habitOnSchedule = and(isNull(habit.pausedAt), isNull(habit.archivedAt));
 
 export const allActiveSchedules = (db: AnyDb) =>
   db
@@ -17,7 +24,7 @@ export const allActiveSchedules = (db: AnyDb) =>
     .from(schedule)
     .innerJoin(goal, eq(schedule.goalId, goal.id))
     .innerJoin(habit, eq(goal.habitId, habit.id))
-    .where(eq(schedule.reminder, true));
+    .where(and(eq(schedule.reminder, true), habitOnSchedule));
 
 /**
  * Every schedule across all habits, regardless of the `reminder` flag.
@@ -39,7 +46,8 @@ export const allSchedules = (db: AnyDb) =>
     })
     .from(schedule)
     .innerJoin(goal, eq(schedule.goalId, goal.id))
-    .innerJoin(habit, eq(goal.habitId, habit.id));
+    .innerJoin(habit, eq(goal.habitId, habit.id))
+    .where(habitOnSchedule);
 
 export const schedulesForHabits = (db: AnyDb, habitIds: string[]) =>
   db
@@ -52,12 +60,16 @@ export const schedulesForHabits = (db: AnyDb, habitIds: string[]) =>
     })
     .from(schedule)
     .innerJoin(goal, eq(schedule.goalId, goal.id))
+    .innerJoin(habit, eq(goal.habitId, habit.id))
     .where(
-      inArray(
-        goal.habitId,
-        habitIds.length > 0
-          ? habitIds
-          : ["00000000-0000-0000-0000-000000000000"],
+      and(
+        inArray(
+          goal.habitId,
+          habitIds.length > 0
+            ? habitIds
+            : ["00000000-0000-0000-0000-000000000000"],
+        ),
+        habitOnSchedule,
       ),
     );
 

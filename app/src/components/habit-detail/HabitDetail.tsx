@@ -1,7 +1,7 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
 import { format, startOfDay, endOfDay, startOfMonth } from "date-fns";
-import type { Regularity } from "@nag/schema";
+import type { HabitStatus, Regularity } from "@nag/schema";
 import {
   habitProgressSnapshot,
   isSameCalendarDay,
@@ -21,6 +21,7 @@ import { DetailWeekStrip } from "./DetailWeekStrip";
 import { TimeSlotsCard } from "./time-slots";
 import { CheckInsCard } from "./CheckInsCard";
 import { ActionFooter } from "./ActionFooter";
+import { ArchivedFooter } from "./ArchivedFooter";
 import { CheckInDatePickerModal } from "./CheckInDatePickerModal";
 import { cadenceSummary } from "./cadenceSummary";
 import type { RecentCheckInItem } from "./types";
@@ -41,6 +42,27 @@ export interface HabitDetailProps {
   checkIns: RecentCheckInItem[];
   /** Compliance color for today (used to tint within-day overlays). */
   complianceColor?: string;
+  /**
+   * Lifecycle status. Drives the archived dim + read-only footer, the
+   * hidden edit button, and the paused slot back-fill gating. Defaults to
+   * active.
+   */
+  status?: HabitStatus;
+  /** When the habit was paused — caps which time-slots can be back-filled. */
+  pausedAt?: Date | null;
+  /**
+   * The status indicator rendered above the content (e.g.
+   * `HabitStatusBanner`). Owns its own resume/unarchive actions; this
+   * component only places it.
+   */
+  banner?: ReactNode;
+  /**
+   * Whether new check-ins / skips can be recorded. False for archived
+   * habits — the live footer and time-slot logging are replaced by a
+   * read-only prompt. Paused habits can still be logged manually. Editing
+   * existing check-ins is unaffected. Defaults to true.
+   */
+  interactive?: boolean;
   showSkip: boolean;
   /** The day the user has tapped on the week strip. */
   selectedDay: Date | null;
@@ -80,6 +102,10 @@ export const HabitDetail = ({
   schedules,
   checkIns,
   complianceColor: _complianceColor,
+  status = "active",
+  pausedAt,
+  banner,
+  interactive = true,
   showSkip,
   selectedDay,
   onSelectDay,
@@ -119,6 +145,10 @@ export const HabitDetail = ({
       checkInsThisPeriod={checkInsThisPeriod}
       schedules={schedules}
       checkIns={checkIns}
+      status={status}
+      pausedAt={pausedAt}
+      banner={banner}
+      interactive={interactive}
       showSkip={showSkip}
       selectedDay={selectedDay}
       onSelectDay={onSelectDay}
@@ -145,6 +175,10 @@ interface DetailViewProps {
   checkInsThisPeriod: number;
   schedules: ScheduleInfo[];
   checkIns: RecentCheckInItem[];
+  status: HabitStatus;
+  pausedAt?: Date | null;
+  banner?: ReactNode;
+  interactive: boolean;
   showSkip: boolean;
   selectedDay: Date | null;
   onSelectDay: (day: Date | null) => void;
@@ -173,6 +207,10 @@ const DetailView = ({
   checkInsThisPeriod,
   schedules,
   checkIns,
+  status,
+  pausedAt,
+  banner,
+  interactive,
   showSkip,
   selectedDay,
   onSelectDay,
@@ -365,9 +403,13 @@ const DetailView = ({
         onBack={onBack}
         onEdit={onEdit}
         onOpenHistory={onOpenHistory}
+        // Archived habits are read-only — bring them back from the status
+        // banner before editing.
+        showEdit={status !== "archived"}
       />
+      {banner}
       <ScrollView
-        style={styles.scroll}
+        style={[styles.scroll, status === "archived" && styles.dimmed]}
         contentContainerStyle={styles.scrollContent}
       >
         <HeroCard
@@ -394,8 +436,16 @@ const DetailView = ({
             eyebrow={slotsEyebrow}
             slots={slotsForDay}
             isToday={cardIsToday}
-            onCheckInForTimeSlot={handleCheckInForTimeSlot}
-            onSkipForTimeSlot={handleSkipForTimeSlot}
+            slotDay={selectedDay ?? now}
+            // Paused habits can still back-fill slots up to the pause
+            // moment; later slots stay disabled.
+            maxLogTime={
+              status === "paused" ? (pausedAt ?? undefined) : undefined
+            }
+            onCheckInForTimeSlot={
+              interactive ? handleCheckInForTimeSlot : undefined
+            }
+            onSkipForTimeSlot={interactive ? handleSkipForTimeSlot : undefined}
             onDeleteForTimeSlot={handleDeleteForTimeSlot}
           />
         )}
@@ -415,13 +465,19 @@ const DetailView = ({
         />
       </ScrollView>
 
-      <ActionFooter
-        showSkip={showSkip}
-        onCheckIn={handleCheckInTap}
-        onLongPressCheckIn={handleCheckInLongPress}
-        onSkip={handleSkipTap}
-        onLongPressSkip={handleSkipLongPress}
-      />
+      {/* Archived is read-only; active and paused both log via the footer
+          (paused logging still works — it just stops the nags). */}
+      {status === "archived" ? (
+        <ArchivedFooter />
+      ) : (
+        <ActionFooter
+          showSkip={showSkip}
+          onCheckIn={handleCheckInTap}
+          onLongPressCheckIn={handleCheckInLongPress}
+          onSkip={handleSkipTap}
+          onLongPressSkip={handleSkipLongPress}
+        />
+      )}
 
       {pickerState && (
         <CheckInDatePickerModal
@@ -482,6 +538,9 @@ const styles = StyleSheet.create({
   },
   scroll: {
     flex: 1,
+  },
+  dimmed: {
+    opacity: 0.55,
   },
   scrollContent: {
     gap: 12,

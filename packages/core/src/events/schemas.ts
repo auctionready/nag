@@ -68,6 +68,26 @@ export const HabitDeleted = z.object({
   habitId: Uuid,
 });
 
+export const HabitArchived = z.object({
+  type: z.literal("HabitArchived"),
+  habitId: Uuid,
+});
+
+export const HabitUnarchived = z.object({
+  type: z.literal("HabitUnarchived"),
+  habitId: Uuid,
+});
+
+export const HabitPaused = z.object({
+  type: z.literal("HabitPaused"),
+  habitId: Uuid,
+});
+
+export const HabitUnpaused = z.object({
+  type: z.literal("HabitUnpaused"),
+  habitId: Uuid,
+});
+
 export const CheckInRecorded = z.object({
   type: z.literal("CheckInRecorded"),
   checkInId: Uuid,
@@ -111,6 +131,10 @@ export const Event = z.discriminatedUnion("type", [
   HabitGoalDefined,
   HabitGoalCleared,
   HabitDeleted,
+  HabitArchived,
+  HabitUnarchived,
+  HabitPaused,
+  HabitUnpaused,
   CheckInRecorded,
   CheckInMoved,
   CheckInMarkedSkipped,
@@ -124,6 +148,10 @@ export type HabitDetailsEdited = z.infer<typeof HabitDetailsEdited>;
 export type HabitGoalDefined = z.infer<typeof HabitGoalDefined>;
 export type HabitGoalCleared = z.infer<typeof HabitGoalCleared>;
 export type HabitDeleted = z.infer<typeof HabitDeleted>;
+export type HabitArchived = z.infer<typeof HabitArchived>;
+export type HabitUnarchived = z.infer<typeof HabitUnarchived>;
+export type HabitPaused = z.infer<typeof HabitPaused>;
+export type HabitUnpaused = z.infer<typeof HabitUnpaused>;
 export type CheckInRecorded = z.infer<typeof CheckInRecorded>;
 export type CheckInMoved = z.infer<typeof CheckInMoved>;
 export type CheckInMarkedSkipped = z.infer<typeof CheckInMarkedSkipped>;
@@ -136,6 +164,10 @@ export const EventTypeNames = [
   "HabitGoalDefined",
   "HabitGoalCleared",
   "HabitDeleted",
+  "HabitArchived",
+  "HabitUnarchived",
+  "HabitPaused",
+  "HabitUnpaused",
   "CheckInRecorded",
   "CheckInMoved",
   "CheckInMarkedSkipped",
