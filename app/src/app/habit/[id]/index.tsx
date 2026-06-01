@@ -2,7 +2,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { useLiveQuery } from "drizzle-orm/expo-sqlite";
 import { parse, format } from "date-fns";
 import { db } from "../../../db";
-import { getTitle, seqUuid } from "@nag/schema";
+import { getTitle, habitStatus, seqUuid } from "@nag/schema";
 import {
   habitById,
   goalForHabitFull,
@@ -17,7 +17,7 @@ import { dispatch } from "../../../infrastructure/dispatch";
 import { useStartOfToday } from "../../../infrastructure/today";
 import {
   HabitDetail,
-  type HabitStatus,
+  HabitStatusBanner,
 } from "../../../components/habit-detail";
 import { complianceColors } from "../../../components/compliance";
 
@@ -127,17 +127,11 @@ const HabitScreen = () => {
     });
   };
 
-  const archived = habitData?.archivedAt != null;
-  const paused = habitData?.pausedAt != null;
-  const status: HabitStatus = archived
-    ? "archived"
-    : paused
-      ? "paused"
-      : "active";
+  const status = habitStatus(habitData ?? {});
   // Time-slot logging is available to active and paused habits (archived
   // is read-only). For paused, HabitDetail additionally gates each slot to
   // times up to `pausedAt` so only earlier slots can be back-filled.
-  const interactive = !archived;
+  const interactive = status !== "archived";
 
   return (
     <HabitDetail
@@ -147,8 +141,7 @@ const HabitScreen = () => {
       description={habitData?.description ?? null}
       status={status}
       pausedAt={habitData?.pausedAt ?? null}
-      onResume={() => dispatch({ type: "UnpauseHabit", habitId })}
-      onUnarchive={() => dispatch({ type: "UnarchiveHabit", habitId })}
+      banner={<HabitStatusBanner habitId={habitId} status={status} />}
       interactive={interactive}
       goalText={goalText}
       regularity={goalData?.regularity ?? null}

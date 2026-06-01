@@ -1,4 +1,4 @@
-export { habit } from "./habit";
+export { habit, habitStatus, type HabitStatus } from "./habit";
 export { checkIn } from "./checkIn";
 export { goal, getTitle } from "./goal";
 export { schedule } from "./schedule";

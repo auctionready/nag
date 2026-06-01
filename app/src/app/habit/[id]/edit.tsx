@@ -2,6 +2,7 @@ import { useLocalSearchParams, useNavigation, useRouter } from "expo-router";
 import { useLiveQuery } from "drizzle-orm/expo-sqlite";
 import { useEffect, useLayoutEffect, useMemo } from "react";
 import { db } from "../../../db";
+import { habitStatus } from "@nag/schema";
 import { habitById, goalForHabitFull, schedulesForGoal } from "@nag/core";
 import { dispatch } from "../../../infrastructure/dispatch";
 import {
@@ -21,8 +22,9 @@ const EditHabitScreen = () => {
 
   const { data: habits } = useLiveQuery(habitById(db, habitId), [habitId]);
   const habitData = habits?.[0];
-  const archived = habitData?.archivedAt != null;
-  const paused = habitData?.pausedAt != null;
+  const status = habitStatus(habitData ?? {});
+  const archived = status === "archived";
+  const paused = status === "paused";
 
   // Archived habits are read-only — they can't be edited. Leave the
   // editor (this also fires right after archiving from the menu). Pop back
@@ -108,7 +110,7 @@ const EditHabitScreen = () => {
       mode="edit"
       initialValues={initialValues}
       onSubmit={onSubmit}
-      banner={<StatusNote status={paused ? "paused" : "active"} />}
+      banner={<StatusNote status={status} />}
     />
   );
 };

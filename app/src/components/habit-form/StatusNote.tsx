@@ -1,9 +1,10 @@
 import { StyleSheet, Text, View } from "react-native";
 import Svg, { Path, Rect } from "react-native-svg";
+import type { HabitStatus } from "@nag/schema";
 import { tokens } from "../theme";
 
 export interface StatusNoteProps {
-  status: "active" | "paused" | "archived";
+  status: HabitStatus;
 }
 
 /**

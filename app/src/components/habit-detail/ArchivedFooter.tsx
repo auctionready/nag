@@ -1,44 +1,35 @@
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Svg, { Path } from "react-native-svg";
 import { tokens } from "../theme";
 
-export interface ArchivedFooterProps {
-  onUnarchive: () => void;
-}
-
 /**
  * Read-only footer shown on an archived habit's detail screen in place of
- * the check-in / skip actions: archived habits can't be logged against
- * until they're brought back.
+ * the check-in / skip actions: archived habits can't be logged against.
+ * Unarchiving is offered by the status banner at the top of the screen.
  */
-export const ArchivedFooter = ({ onUnarchive }: ArchivedFooterProps) => {
+export const ArchivedFooter = () => {
   const { bottom } = useSafeAreaInsets();
   return (
     <View style={[styles.wrap, { paddingBottom: 14 + bottom }]}>
-      <Pressable
-        onPress={onUnarchive}
-        accessibilityRole="button"
-        accessibilityLabel="Unarchive to log check-ins"
-        style={({ pressed }) => [styles.button, pressed && styles.pressed]}
-      >
+      <View style={styles.note}>
         <Svg
-          width={14}
-          height={14}
+          width={13}
+          height={13}
           viewBox="0 0 14 14"
           fill="none"
           stroke={tokens.mute}
-          strokeWidth={1.7}
+          strokeWidth={1.6}
           strokeLinecap="round"
           strokeLinejoin="round"
         >
-          <Path d="M7 10.5V4M4 6.5L7 3.5 10 6.5" />
+          <Path d="M2 4.5h10v2.2h-10z" />
+          <Path d="M3 6.7v4.3a1 1 0 001 1h6a1 1 0 001-1V6.7" />
+          <Path d="M5.6 9h2.8" />
         </Svg>
-        <Text style={styles.buttonText}>unarchive to log check-ins</Text>
-      </Pressable>
-      <Text style={styles.sub}>
-        archived habits stay read-only · history is kept
-      </Text>
+        <Text style={styles.noteText}>read-only · unarchive above to log</Text>
+      </View>
+      <Text style={styles.sub}>archived habits keep their record</Text>
     </View>
   );
 };
@@ -52,25 +43,18 @@ const styles = StyleSheet.create({
     borderTopColor: tokens.veryFaint,
     gap: 6,
   },
-  button: {
-    paddingVertical: 15,
-    paddingHorizontal: 18,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: tokens.border,
+  note: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     gap: 8,
+    paddingVertical: 13,
   },
-  pressed: {
-    opacity: 0.7,
-  },
-  buttonText: {
+  noteText: {
     color: tokens.mute,
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: "600",
-    letterSpacing: -0.15,
+    letterSpacing: -0.14,
   },
   sub: {
     fontFamily: "JetBrainsMono",

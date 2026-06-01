@@ -1,7 +1,7 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
 import { format, startOfDay, endOfDay, startOfMonth } from "date-fns";
-import type { Regularity } from "@nag/schema";
+import type { HabitStatus, Regularity } from "@nag/schema";
 import {
   habitProgressSnapshot,
   isSameCalendarDay,
@@ -22,7 +22,6 @@ import { TimeSlotsCard } from "./time-slots";
 import { CheckInsCard } from "./CheckInsCard";
 import { ActionFooter } from "./ActionFooter";
 import { ArchivedFooter } from "./ArchivedFooter";
-import { StatusBanner, type HabitStatus } from "./StatusBanner";
 import { CheckInDatePickerModal } from "./CheckInDatePickerModal";
 import { cadenceSummary } from "./cadenceSummary";
 import type { RecentCheckInItem } from "./types";
@@ -44,17 +43,19 @@ export interface HabitDetailProps {
   /** Compliance color for today (used to tint within-day overlays). */
   complianceColor?: string;
   /**
-   * Lifecycle status. Drives the indicator banner, the archived dim +
-   * read-only footer, and the paused hint footer + slot back-fill gating.
-   * Defaults to active.
+   * Lifecycle status. Drives the archived dim + read-only footer, the
+   * hidden edit button, and the paused slot back-fill gating. Defaults to
+   * active.
    */
   status?: HabitStatus;
   /** When the habit was paused — caps which time-slots can be back-filled. */
   pausedAt?: Date | null;
-  /** Resume a paused habit (from the banner). */
-  onResume?: () => void;
-  /** Unarchive an archived habit (from the banner / read-only footer). */
-  onUnarchive?: () => void;
+  /**
+   * The status indicator rendered above the content (e.g.
+   * `HabitStatusBanner`). Owns its own resume/unarchive actions; this
+   * component only places it.
+   */
+  banner?: ReactNode;
   /**
    * Whether new check-ins / skips can be recorded. False for archived
    * habits — the live footer and time-slot logging are replaced by a
@@ -103,8 +104,7 @@ export const HabitDetail = ({
   complianceColor: _complianceColor,
   status = "active",
   pausedAt,
-  onResume,
-  onUnarchive,
+  banner,
   interactive = true,
   showSkip,
   selectedDay,
@@ -147,8 +147,7 @@ export const HabitDetail = ({
       checkIns={checkIns}
       status={status}
       pausedAt={pausedAt}
-      onResume={onResume}
-      onUnarchive={onUnarchive}
+      banner={banner}
       interactive={interactive}
       showSkip={showSkip}
       selectedDay={selectedDay}
@@ -178,8 +177,7 @@ interface DetailViewProps {
   checkIns: RecentCheckInItem[];
   status: HabitStatus;
   pausedAt?: Date | null;
-  onResume?: () => void;
-  onUnarchive?: () => void;
+  banner?: ReactNode;
   interactive: boolean;
   showSkip: boolean;
   selectedDay: Date | null;
@@ -211,8 +209,7 @@ const DetailView = ({
   checkIns,
   status,
   pausedAt,
-  onResume,
-  onUnarchive,
+  banner,
   interactive,
   showSkip,
   selectedDay,
@@ -410,11 +407,7 @@ const DetailView = ({
         // banner before editing.
         showEdit={status !== "archived"}
       />
-      <StatusBanner
-        status={status}
-        onResume={onResume ?? noop}
-        onUnarchive={onUnarchive ?? noop}
-      />
+      {banner}
       <ScrollView
         style={[styles.scroll, status === "archived" && styles.dimmed]}
         contentContainerStyle={styles.scrollContent}
@@ -475,7 +468,7 @@ const DetailView = ({
       {/* Archived is read-only; active and paused both log via the footer
           (paused logging still works — it just stops the nags). */}
       {status === "archived" ? (
-        <ArchivedFooter onUnarchive={onUnarchive ?? noop} />
+        <ArchivedFooter />
       ) : (
         <ActionFooter
           showSkip={showSkip}
@@ -512,8 +505,6 @@ const DetailView = ({
     </View>
   );
 };
-
-const noop = () => {};
 
 const periodEyebrow = (regularity: Regularity | null): string => {
   if (regularity === "week") return "this week · check-ins";

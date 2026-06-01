@@ -30,3 +30,16 @@ export const habit = sqliteTable("habit", {
   archivedAt: timestamp("archived_at"),
   pausedAt: timestamp("paused_at"),
 });
+
+/** A habit's lifecycle state, derived from its `archivedAt`/`pausedAt` flags. */
+export type HabitStatus = "active" | "paused" | "archived";
+
+/**
+ * Derives a habit's {@link HabitStatus} from its lifecycle flags. Archived
+ * takes precedence over paused.
+ */
+export const habitStatus = (h: {
+  archivedAt?: Date | null;
+  pausedAt?: Date | null;
+}): HabitStatus =>
+  h.archivedAt != null ? "archived" : h.pausedAt != null ? "paused" : "active";
