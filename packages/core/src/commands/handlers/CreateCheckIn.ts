@@ -12,22 +12,18 @@ import type { CheckInRecorded } from "../../events";
  *
  * Lifecycle rules:
  * - Archived habits are read-only — no check-ins or skips at all.
- * - Paused habits stop accruing once paused: a check-in is only allowed
- *   if its deemed `timestamp` is at or before `pausedAt` (back-fill
- *   earlier slots, but nothing *after* the pause). The boundary is
- *   inclusive so it matches the back-fill picker, whose maximum is
- *   `pausedAt` — confirming the picker at its cap must not be rejected.
- *
- * The UI keeps within these bounds (archived is read-only; the paused
- * back-fill picker is capped at `pausedAt`); the checks here are the
- * authoritative guard.
+ * - Paused habits can still be logged manually (the detail footer's
+ *   check-in / skip always works); pausing only stops the nags and demotes
+ *   the habit. The scheduled time-slot pills are back-fill-gated to slots
+ *   up to `pausedAt` in the UI, but that's a presentation nicety — not
+ *   enforced here.
  */
 export const handleCreateCheckIn = async (
   db: AnyDb,
   { checkInId, habitId, timestamp, skipped }: CreateCheckIn,
 ): Promise<{ events: [CheckInRecorded] }> => {
   const [parent] = await db
-    .select({ archivedAt: habit.archivedAt, pausedAt: habit.pausedAt })
+    .select({ archivedAt: habit.archivedAt })
     .from(habit)
     .where(eq(habit.id, habitId));
   if (!parent) {
@@ -35,11 +31,6 @@ export const handleCreateCheckIn = async (
   }
   if (parent.archivedAt != null) {
     throw new Error(`CreateCheckIn: habit id=${habitId} is archived`);
-  }
-  if (parent.pausedAt != null && timestamp > parent.pausedAt) {
-    throw new Error(
-      `CreateCheckIn: habit id=${habitId} is paused; only check-ins up to the pause are allowed`,
-    );
   }
 
   const event: CheckInRecorded = {

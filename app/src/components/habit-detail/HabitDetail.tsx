@@ -1,6 +1,5 @@
 import { useMemo, useState } from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { format, startOfDay, endOfDay, startOfMonth } from "date-fns";
 import type { Regularity } from "@nag/schema";
 import {
@@ -227,7 +226,6 @@ const DetailView = ({
   onEditCheckInTimestamp,
   now,
 }: DetailViewProps) => {
-  const { bottom: safeBottom } = useSafeAreaInsets();
   const cardAnchor: Date = useMemo(
     () =>
       !selectedDay
@@ -471,16 +469,10 @@ const DetailView = ({
         />
       </ScrollView>
 
+      {/* Archived is read-only; active and paused both log via the footer
+          (paused logging still works — it just stops the nags). */}
       {status === "archived" ? (
         <ArchivedFooter onUnarchive={onUnarchive ?? noop} />
-      ) : status === "paused" ? (
-        // Paused: no "log now" footer. Back-fill happens through the
-        // scheduled time-slot pills (gated to slots up to the pause).
-        <View style={[styles.pausedFooter, { paddingBottom: 14 + safeBottom }]}>
-          <Text style={styles.pausedFooterText}>
-            nags are paused · back-fill earlier slots above
-          </Text>
-        </View>
       ) : (
         <ActionFooter
           showSkip={showSkip}
@@ -559,19 +551,5 @@ const styles = StyleSheet.create({
   scrollContent: {
     gap: 12,
     paddingBottom: 18,
-  },
-  pausedFooter: {
-    paddingHorizontal: 14,
-    paddingTop: 12,
-    backgroundColor: tokens.cream,
-    borderTopWidth: 1,
-    borderTopColor: tokens.veryFaint,
-  },
-  pausedFooterText: {
-    fontFamily: "JetBrainsMono",
-    fontSize: 9.5,
-    color: tokens.mute,
-    letterSpacing: 0.6,
-    textAlign: "center",
   },
 });
