@@ -3,10 +3,11 @@ import { goal, habit, schedule } from "@nag/schema";
 import type { AnyDb } from "../db";
 
 // Paused and archived habits are out of the schedule entirely — neither
-// reminders nor the calendar/agenda should surface their slots. (The
-// habit's own schedule still shows on its detail/edit screen via
+// reminders nor the calendar/agenda should surface their slots. Predicate
+// on the `habit` table, so it only applies to queries that join `habit`.
+// (The habit's own schedule still shows on its detail/edit screen via
 // `schedulesForHabit` / `schedulesForGoal`, which are not filtered.)
-const onSchedule = and(isNull(habit.pausedAt), isNull(habit.archivedAt));
+const habitOnSchedule = and(isNull(habit.pausedAt), isNull(habit.archivedAt));
 
 export const allActiveSchedules = (db: AnyDb) =>
   db
@@ -23,7 +24,7 @@ export const allActiveSchedules = (db: AnyDb) =>
     .from(schedule)
     .innerJoin(goal, eq(schedule.goalId, goal.id))
     .innerJoin(habit, eq(goal.habitId, habit.id))
-    .where(and(eq(schedule.reminder, true), onSchedule));
+    .where(and(eq(schedule.reminder, true), habitOnSchedule));
 
 /**
  * Every schedule across all habits, regardless of the `reminder` flag.
@@ -46,7 +47,7 @@ export const allSchedules = (db: AnyDb) =>
     .from(schedule)
     .innerJoin(goal, eq(schedule.goalId, goal.id))
     .innerJoin(habit, eq(goal.habitId, habit.id))
-    .where(onSchedule);
+    .where(habitOnSchedule);
 
 export const schedulesForHabits = (db: AnyDb, habitIds: string[]) =>
   db
@@ -68,7 +69,7 @@ export const schedulesForHabits = (db: AnyDb, habitIds: string[]) =>
             ? habitIds
             : ["00000000-0000-0000-0000-000000000000"],
         ),
-        onSchedule,
+        habitOnSchedule,
       ),
     );
 
