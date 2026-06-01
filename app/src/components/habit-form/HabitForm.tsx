@@ -24,6 +24,7 @@ export const HabitForm = ({
   initialValues,
   onSubmit,
   mode = "create",
+  banner,
 }: HabitFormProps) => {
   const {
     control,
@@ -117,6 +118,7 @@ export const HabitForm = ({
         style={styles.container}
         contentContainerStyle={styles.content}
       >
+        {banner}
         <IdentityCard control={control} titleError={errors.title?.message} />
 
         <View style={styles.section}>

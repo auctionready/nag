@@ -21,6 +21,8 @@ import { DetailWeekStrip } from "./DetailWeekStrip";
 import { TimeSlotsCard } from "./time-slots";
 import { CheckInsCard } from "./CheckInsCard";
 import { ActionFooter } from "./ActionFooter";
+import { ArchivedFooter } from "./ArchivedFooter";
+import { StatusBanner, type HabitStatus } from "./StatusBanner";
 import { CheckInDatePickerModal } from "./CheckInDatePickerModal";
 import { cadenceSummary } from "./cadenceSummary";
 import type { RecentCheckInItem } from "./types";
@@ -42,10 +44,19 @@ export interface HabitDetailProps {
   /** Compliance color for today (used to tint within-day overlays). */
   complianceColor?: string;
   /**
-   * Whether new check-ins / skips can be recorded. False for paused or
-   * archived habits — the footer and time-slot logging are suppressed,
-   * mirroring the command-handler guard. Editing existing check-ins is
-   * unaffected. Defaults to true.
+   * Lifecycle status. Drives the indicator banner, the archived dim +
+   * read-only footer, and the paused footer caption. Defaults to active.
+   */
+  status?: HabitStatus;
+  /** Resume a paused habit (from the banner). */
+  onResume?: () => void;
+  /** Unarchive an archived habit (from the banner / read-only footer). */
+  onUnarchive?: () => void;
+  /**
+   * Whether new check-ins / skips can be recorded. False for archived
+   * habits — the live footer and time-slot logging are replaced by a
+   * read-only prompt. Paused habits can still be logged manually. Editing
+   * existing check-ins is unaffected. Defaults to true.
    */
   interactive?: boolean;
   showSkip: boolean;
@@ -87,6 +98,9 @@ export const HabitDetail = ({
   schedules,
   checkIns,
   complianceColor: _complianceColor,
+  status = "active",
+  onResume,
+  onUnarchive,
   interactive = true,
   showSkip,
   selectedDay,
@@ -127,6 +141,9 @@ export const HabitDetail = ({
       checkInsThisPeriod={checkInsThisPeriod}
       schedules={schedules}
       checkIns={checkIns}
+      status={status}
+      onResume={onResume}
+      onUnarchive={onUnarchive}
       interactive={interactive}
       showSkip={showSkip}
       selectedDay={selectedDay}
@@ -154,6 +171,9 @@ interface DetailViewProps {
   checkInsThisPeriod: number;
   schedules: ScheduleInfo[];
   checkIns: RecentCheckInItem[];
+  status: HabitStatus;
+  onResume?: () => void;
+  onUnarchive?: () => void;
   interactive: boolean;
   showSkip: boolean;
   selectedDay: Date | null;
@@ -183,6 +203,9 @@ const DetailView = ({
   checkInsThisPeriod,
   schedules,
   checkIns,
+  status,
+  onResume,
+  onUnarchive,
   interactive,
   showSkip,
   selectedDay,
@@ -377,8 +400,13 @@ const DetailView = ({
         onEdit={onEdit}
         onOpenHistory={onOpenHistory}
       />
+      <StatusBanner
+        status={status}
+        onResume={onResume ?? noop}
+        onUnarchive={onUnarchive ?? noop}
+      />
       <ScrollView
-        style={styles.scroll}
+        style={[styles.scroll, status === "archived" && styles.dimmed]}
         contentContainerStyle={styles.scrollContent}
       >
         <HeroCard
@@ -428,8 +456,11 @@ const DetailView = ({
         />
       </ScrollView>
 
-      {interactive && (
+      {status === "archived" ? (
+        <ArchivedFooter onUnarchive={onUnarchive ?? noop} />
+      ) : (
         <ActionFooter
+          paused={status === "paused"}
           showSkip={showSkip}
           onCheckIn={handleCheckInTap}
           onLongPressCheckIn={handleCheckInLongPress}
@@ -465,6 +496,8 @@ const DetailView = ({
   );
 };
 
+const noop = () => {};
+
 const periodEyebrow = (regularity: Regularity | null): string => {
   if (regularity === "week") return "this week · check-ins";
   if (regularity === "month") return "this month · check-ins";
@@ -497,6 +530,9 @@ const styles = StyleSheet.create({
   },
   scroll: {
     flex: 1,
+  },
+  dimmed: {
+    opacity: 0.55,
   },
   scrollContent: {
     gap: 12,

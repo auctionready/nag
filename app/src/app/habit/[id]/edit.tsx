@@ -4,7 +4,11 @@ import { useLayoutEffect, useMemo } from "react";
 import { db } from "../../../db";
 import { habitById, goalForHabitFull, schedulesForGoal } from "@nag/core";
 import { dispatch } from "../../../infrastructure/dispatch";
-import { HabitForm, type HabitFormData } from "../../../components/habit-form";
+import {
+  HabitForm,
+  StatusNote,
+  type HabitFormData,
+} from "../../../components/habit-form";
 import { HabitActions } from "../../../components/habit-actions";
 import type { HabitIconKind } from "../../../components/glyphs";
 import { buildGoalPayload } from "../../../operations";
@@ -90,12 +94,15 @@ const EditHabitScreen = () => {
     return null;
   }
 
+  const status = archived ? "archived" : paused ? "paused" : "active";
+
   return (
     <HabitForm
       key={habitId}
       mode="edit"
       initialValues={initialValues}
       onSubmit={onSubmit}
+      banner={<StatusNote status={status} />}
     />
   );
 };

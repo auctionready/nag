@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import type { Regularity } from "@nag/schema";
 import { AllDays } from "@nag/core";
 import type { HabitIconKind } from "../glyphs";
@@ -24,6 +25,8 @@ export interface HabitFormProps {
   initialValues?: Partial<HabitFormData>;
   onSubmit: (data: HabitFormData) => Promise<void>;
   mode?: "create" | "edit";
+  /** Optional content rendered at the top of the form (e.g. status note). */
+  banner?: ReactNode;
 }
 
 export const defaultValues: HabitFormData = {

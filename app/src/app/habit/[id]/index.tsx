@@ -15,7 +15,10 @@ import {
 } from "@nag/core";
 import { dispatch } from "../../../infrastructure/dispatch";
 import { useStartOfToday } from "../../../infrastructure/today";
-import { HabitDetail } from "../../../components/habit-detail";
+import {
+  HabitDetail,
+  type HabitStatus,
+} from "../../../components/habit-detail";
 import { complianceColors } from "../../../components/compliance";
 
 const DAY_PARAM_FORMAT = "yyyy-MM-dd";
@@ -124,12 +127,15 @@ const HabitScreen = () => {
     });
   };
 
-  // Paused or archived habits can't record new check-ins/skips — gate the
-  // footer and time-slot logging to match the command-handler guard.
-  const interactive =
-    habitData != null &&
-    habitData.archivedAt == null &&
-    habitData.pausedAt == null;
+  const archived = habitData?.archivedAt != null;
+  const paused = habitData?.pausedAt != null;
+  const status: HabitStatus = archived
+    ? "archived"
+    : paused
+      ? "paused"
+      : "active";
+  // Archived habits are read-only; paused habits stay manually loggable.
+  const interactive = !archived;
 
   return (
     <HabitDetail
@@ -137,6 +143,9 @@ const HabitScreen = () => {
       title={habitData?.title ?? ""}
       icon={habitData?.icon ?? null}
       description={habitData?.description ?? null}
+      status={status}
+      onResume={() => dispatch({ type: "UnpauseHabit", habitId })}
+      onUnarchive={() => dispatch({ type: "UnarchiveHabit", habitId })}
       interactive={interactive}
       goalText={goalText}
       regularity={goalData?.regularity ?? null}
