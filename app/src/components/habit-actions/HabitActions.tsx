@@ -17,7 +17,8 @@ export interface HabitActionsProps {
  * (so an invalid command is never dispatched) and what each one does —
  * and hands a ready-made list of items to the menu.
  *
- * - Pause / Resume — disabled while archived.
+ * - Pause / Resume — omitted entirely while archived (you can't pause an
+ *   archived habit).
  * - Archive / Unarchive.
  * - Delete (destructive) — confirms, then navigates back to the board.
  */
@@ -45,61 +46,54 @@ export const HabitActions = ({
       ],
     );
 
-  const pauseItem: HabitActionItem = archived
-    ? {
-        key: "pause",
-        label: "pause habit",
-        sub: "unavailable while archived",
-        icon: <PauseGlyph color={tokens.ink} />,
-        disabled: true,
-      }
-    : paused
+  const items: HabitActionItem[] = [];
+
+  // No pause control while archived.
+  if (!archived) {
+    items.push(
+      paused
+        ? {
+            key: "pause",
+            label: "resume habit",
+            sub: "turn the nags back on",
+            icon: <PlayGlyph color={tokens.ink} />,
+            onPress: () => dispatch({ type: "UnpauseHabit", habitId }),
+          }
+        : {
+            key: "pause",
+            label: "pause habit",
+            sub: "stop the nags, stays on your board",
+            icon: <PauseGlyph color={tokens.ink} />,
+            onPress: () => dispatch({ type: "PauseHabit", habitId }),
+          },
+    );
+  }
+
+  items.push(
+    archived
       ? {
-          key: "pause",
-          label: "resume habit",
-          sub: "turn the nags back on",
-          icon: <PlayGlyph color={tokens.ink} />,
-          onPress: () => dispatch({ type: "UnpauseHabit", habitId }),
+          key: "archive",
+          label: "unarchive habit",
+          sub: "put it back on your board",
+          icon: <ArchiveGlyph color={tokens.ink} />,
+          onPress: () => dispatch({ type: "UnarchiveHabit", habitId }),
         }
       : {
-          key: "pause",
-          label: "pause habit",
-          sub: "stop the nags, stays on your board",
-          icon: <PauseGlyph color={tokens.ink} />,
-          onPress: () => dispatch({ type: "PauseHabit", habitId }),
-        };
-
-  const archiveItem: HabitActionItem = archived
-    ? {
-        key: "archive",
-        label: "unarchive habit",
-        sub: "put it back on your board",
-        icon: <ArchiveGlyph color={tokens.ink} />,
-        divider: true,
-        onPress: () => dispatch({ type: "UnarchiveHabit", habitId }),
-      }
-    : {
-        key: "archive",
-        label: "archive habit",
-        sub: "hide from your board, keep its record",
-        icon: <ArchiveGlyph color={tokens.ink} />,
-        divider: true,
-        onPress: () => dispatch({ type: "ArchiveHabit", habitId }),
-      };
-
-  const items: HabitActionItem[] = [
-    pauseItem,
-    archiveItem,
+          key: "archive",
+          label: "archive habit",
+          sub: "hide from your board, keep its record",
+          icon: <ArchiveGlyph color={tokens.ink} />,
+          onPress: () => dispatch({ type: "ArchiveHabit", habitId }),
+        },
     {
       key: "delete",
       label: "delete habit",
       sub: "removes it and its record for good",
       icon: <TrashGlyph color={tokens.orange} />,
       danger: true,
-      divider: true,
       onPress: confirmDelete,
     },
-  ];
+  );
 
   return <HabitActionsMenu items={items} />;
 };

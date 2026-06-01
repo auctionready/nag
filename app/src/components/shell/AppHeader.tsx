@@ -67,10 +67,10 @@ interface StackHeaderShape {
   back?: { title: string | undefined };
   options: {
     title?: string;
-    // React Navigation types this as `(props) => ReactNode`; we don't use
-    // the props, but the param keeps the shape assignable from the real
-    // `NativeStackNavigationOptions`.
-    headerRight?: (props: any) => ReactNode;
+    // Method syntax (not a property) so the param is checked bivariantly —
+    // that keeps `unknown` here assignable from React Navigation's real
+    // `headerRight?: (props: NativeStackHeaderItemProps) => ReactNode`.
+    headerRight?(props: unknown): ReactNode;
   };
 }
 

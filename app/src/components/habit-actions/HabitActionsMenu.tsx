@@ -1,8 +1,9 @@
 import type { ReactNode } from "react";
 import { useState } from "react";
-import { Modal, Pressable, StyleSheet, Text, View } from "react-native";
+import { Modal, Pressable, StyleSheet, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { tokens } from "../theme";
+import { ActionsMenuItem } from "./ActionsMenuItem";
 import { MenuGlyph } from "./glyphs";
 
 export interface HabitActionItem {
@@ -17,8 +18,6 @@ export interface HabitActionItem {
   danger?: boolean;
   /** Greyed-out and non-interactive. */
   disabled?: boolean;
-  /** Draw a hairline divider above this item. */
-  divider?: boolean;
 }
 
 export interface HabitActionsMenuProps {
@@ -26,11 +25,12 @@ export interface HabitActionsMenuProps {
 }
 
 /**
- * Dumb hamburger menu: a header button that opens a dropdown of the given
- * `items` inside a transparent Modal. It owns only presentation — open /
- * close, the active-button treatment, and dismiss-on-tap. The caller (a
- * smart component) decides which items exist, their copy/icons, and what
- * each does; selecting an enabled item closes the menu and runs it.
+ * Dumb overflow menu: an ellipsis header button that opens a dropdown of
+ * the given `items` inside a transparent Modal. It owns only presentation
+ * — open / close, the active-button treatment, dividers, and
+ * dismiss-on-tap. The caller (a smart component) decides which items
+ * exist, their copy/icons, and what each does; selecting an enabled item
+ * closes the menu and runs it.
  */
 export const HabitActionsMenu = ({ items }: HabitActionsMenuProps) => {
   const insets = useSafeAreaInsets();
@@ -62,39 +62,17 @@ export const HabitActionsMenu = ({ items }: HabitActionsMenuProps) => {
       >
         <Pressable style={styles.backdrop} onPress={() => setOpen(false)}>
           <View style={[styles.menu, { top: insets.top + 52 }]}>
-            {items.map((item) => (
-              <Pressable
+            {items.map((item, i) => (
+              <ActionsMenuItem
                 key={item.key}
-                onPress={() => select(item)}
+                label={item.label}
+                sub={item.sub}
+                icon={item.icon}
+                danger={item.danger}
                 disabled={item.disabled}
-                accessibilityRole="button"
-                accessibilityLabel={item.label}
-                accessibilityState={{ disabled: !!item.disabled }}
-                style={({ pressed }) => [
-                  styles.item,
-                  item.divider && styles.divider,
-                  item.disabled && styles.itemDisabled,
-                  pressed && !item.disabled && styles.itemPressed,
-                ]}
-              >
-                {item.icon != null && (
-                  <View
-                    style={[styles.badge, item.danger && styles.badgeDanger]}
-                  >
-                    {item.icon}
-                  </View>
-                )}
-                <View style={styles.itemText}>
-                  <Text
-                    style={[styles.label, item.danger && styles.labelDanger]}
-                  >
-                    {item.label}
-                  </Text>
-                  {item.sub != null && (
-                    <Text style={styles.sub}>{item.sub}</Text>
-                  )}
-                </View>
-              </Pressable>
+                withDivider={i > 0}
+                onPress={() => select(item)}
+              />
             ))}
           </View>
         </Pressable>
@@ -132,53 +110,5 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.2,
     shadowRadius: 34,
     elevation: 12,
-  },
-  item: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-    paddingVertical: 12,
-    paddingHorizontal: 14,
-  },
-  divider: {
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: tokens.border,
-  },
-  itemDisabled: {
-    opacity: 0.4,
-  },
-  itemPressed: {
-    backgroundColor: tokens.inkTint,
-  },
-  badge: {
-    width: 30,
-    height: 30,
-    borderRadius: 9,
-    backgroundColor: tokens.inkTint,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  badgeDanger: {
-    backgroundColor: "rgba(255,90,54,0.12)",
-  },
-  itemText: {
-    flex: 1,
-    minWidth: 0,
-  },
-  label: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: tokens.ink,
-    letterSpacing: -0.14,
-  },
-  labelDanger: {
-    color: tokens.orange,
-  },
-  sub: {
-    fontFamily: "JetBrainsMono",
-    fontSize: 10,
-    color: tokens.mute,
-    letterSpacing: 0.4,
-    marginTop: 1,
   },
 });

@@ -20,7 +20,7 @@ export const SettingsGroups = () => {
         icon={iconArchive()}
         label="Archived Habits"
         detail={archivedCount > 0 ? String(archivedCount) : undefined}
-        onPress={() => router.navigate("/account/archived-habits")}
+        onPress={() => router.navigate("/archived-habits")}
       />
       <Row
         icon={iconAbout()}

@@ -115,14 +115,18 @@ superset of pause's schedule removal; unarchiving clears **both** flags,
 returning the habit to active.
 
 Lifecycle events: `HabitArchived`, `HabitUnarchived`, `HabitPaused`,
-`HabitUnpaused` (each carries just `habitId`). The valid state machine is
-pause iff neither paused nor archived; unpause iff paused and not archived;
-archive iff not archived; unarchive iff archived. It's enforced in two
-layers, both client-side:
+`HabitUnpaused` (each carries just `habitId`). Valid transitions:
+
+- **pause** — only when not paused and not archived
+- **unpause** — only when paused (and not archived)
+- **archive** — only when not archived
+- **unarchive** — only when archived
+
+This is enforced in two layers, both client-side:
 
 - The UI only offers valid actions — the `HabitActions` menu
-  ([`components/habit-actions`](../app/src/components/habit-actions)) greys
-  out / omits actions that don't apply.
+  ([`components/habit-actions`](../app/src/components/habit-actions)) omits
+  actions that don't apply.
 - The **command handlers** ([`commands/handlers`](../packages/core/src/commands/handlers))
   read the habit's current flags and emit the event only for a valid
   transition (e.g. an `ArchiveHabit` on an already-archived habit emits

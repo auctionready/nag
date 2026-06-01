@@ -5,3 +5,5 @@ export type {
   HabitActionsMenuProps,
   HabitActionItem,
 } from "./HabitActionsMenu";
+export { ActionsMenuItem } from "./ActionsMenuItem";
+export type { ActionsMenuItemProps } from "./ActionsMenuItem";

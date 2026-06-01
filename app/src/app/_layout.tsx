@@ -57,7 +57,7 @@ const InnerLayout = () => {
         />
         <Stack.Screen name="account" options={{ title: "Account" }} />
         <Stack.Screen
-          name="account/archived-habits"
+          name="archived-habits"
           options={{ title: "Archived Habits" }}
         />
         <Stack.Screen name="calendar" options={{ title: "Calendar" }} />
