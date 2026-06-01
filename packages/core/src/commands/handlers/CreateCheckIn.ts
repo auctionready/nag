@@ -12,10 +12,11 @@ import type { CheckInRecorded } from "../../events";
  *
  * Lifecycle rules:
  * - Archived habits are read-only — no check-ins or skips at all.
- * - Paused habits stop accruing from the moment they were paused: a
- *   check-in is only allowed if its deemed `timestamp` predates
- *   `pausedAt` (you can back-fill earlier slots, but not log anything
- *   from the pause onward).
+ * - Paused habits stop accruing once paused: a check-in is only allowed
+ *   if its deemed `timestamp` is at or before `pausedAt` (back-fill
+ *   earlier slots, but nothing *after* the pause). The boundary is
+ *   inclusive so it matches the back-fill picker, whose maximum is
+ *   `pausedAt` — confirming the picker at its cap must not be rejected.
  *
  * The UI keeps within these bounds (archived is read-only; the paused
  * back-fill picker is capped at `pausedAt`); the checks here are the
@@ -35,9 +36,9 @@ export const handleCreateCheckIn = async (
   if (parent.archivedAt != null) {
     throw new Error(`CreateCheckIn: habit id=${habitId} is archived`);
   }
-  if (parent.pausedAt != null && timestamp >= parent.pausedAt) {
+  if (parent.pausedAt != null && timestamp > parent.pausedAt) {
     throw new Error(
-      `CreateCheckIn: habit id=${habitId} is paused; only check-ins before the pause are allowed`,
+      `CreateCheckIn: habit id=${habitId} is paused; only check-ins up to the pause are allowed`,
     );
   }
 

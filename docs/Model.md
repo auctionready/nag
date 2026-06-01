@@ -110,12 +110,14 @@ optional. Created and updated timestamps are set automatically.
   the board (listed last, greyed out, still openable).
 
 Check-in rules: an **archived** habit is read-only (no check-ins or
-skips). A **paused** habit stops accruing from the moment it was paused —
-you can back-fill a check-in whose deemed time predates `paused_at`, but
-nothing from the pause onward (the detail footer's picker is capped at
-`paused_at`, and `CreateCheckIn` enforces it). Archive is a superset of
-pause's schedule removal; unarchiving clears **both** flags, returning the
-habit to active.
+skips). A **paused** habit stops accruing once paused — you can back-fill
+a check-in whose deemed time is at or before `paused_at`, but nothing
+after. On the detail screen this is done through the scheduled time-slot
+pills, which stay tappable for slots up to `paused_at` and are disabled
+beyond it (the "log now" footer is replaced by a hint); `CreateCheckIn`
+enforces the same inclusive boundary. Archive is a superset of pause's
+schedule removal; unarchiving clears **both** flags, returning the habit
+to active.
 
 Lifecycle events: `HabitArchived`, `HabitUnarchived`, `HabitPaused`,
 `HabitUnpaused` (each carries just `habitId`). Valid transitions:

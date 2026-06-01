@@ -150,7 +150,7 @@ describe("check-in lifecycle rules", () => {
     await expect(checkIn(db, habitId, new Date())).rejects.toThrow();
   });
 
-  it("rejects a check-in at/after the pause time", async () => {
+  it("rejects a check-in after the pause time", async () => {
     const db = getDb();
     const habitId = await createHabit(db, "Read");
     await processCommand(db, { type: "PauseHabit", habitId });
@@ -164,6 +164,19 @@ describe("check-in lifecycle rules", () => {
     const habitId = await createHabit(db, "Read");
     await processCommand(db, { type: "PauseHabit", habitId });
     await checkIn(db, habitId, new Date(Date.now() - 60_000));
+    const rows = await db
+      .select()
+      .from(schema.checkIn)
+      .where(eq(schema.checkIn.habitId, habitId));
+    expect(rows).toHaveLength(1);
+  });
+
+  it("allows a check-in at exactly the pause time (picker cap boundary)", async () => {
+    const db = getDb();
+    const habitId = await createHabit(db, "Read");
+    await processCommand(db, { type: "PauseHabit", habitId });
+    const pausedAt = (await flags(db, habitId)).pausedAt as Date;
+    await checkIn(db, habitId, pausedAt);
     const rows = await db
       .select()
       .from(schema.checkIn)

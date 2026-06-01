@@ -134,10 +134,10 @@ const HabitScreen = () => {
     : paused
       ? "paused"
       : "active";
-  // Live logging (immediate check-in + today's time slots) is for active
-  // habits only. Archived is read-only; paused allows back-filling earlier
-  // check-ins via the footer picker, capped at `pausedAt`.
-  const interactive = !archived && !paused;
+  // Time-slot logging is available to active and paused habits (archived
+  // is read-only). For paused, HabitDetail additionally gates each slot to
+  // times up to `pausedAt` so only earlier slots can be back-filled.
+  const interactive = !archived;
 
   return (
     <HabitDetail

@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { format, startOfDay, endOfDay, startOfMonth } from "date-fns";
 import type { Regularity } from "@nag/schema";
 import {
@@ -45,10 +46,11 @@ export interface HabitDetailProps {
   complianceColor?: string;
   /**
    * Lifecycle status. Drives the indicator banner, the archived dim +
-   * read-only footer, and the paused footer caption. Defaults to active.
+   * read-only footer, and the paused hint footer + slot back-fill gating.
+   * Defaults to active.
    */
   status?: HabitStatus;
-  /** When the habit was paused — caps the back-fill picker. */
+  /** When the habit was paused — caps which time-slots can be back-filled. */
   pausedAt?: Date | null;
   /** Resume a paused habit (from the banner). */
   onResume?: () => void;
@@ -225,6 +227,7 @@ const DetailView = ({
   onEditCheckInTimestamp,
   now,
 }: DetailViewProps) => {
+  const { bottom: safeBottom } = useSafeAreaInsets();
   const cardAnchor: Date = useMemo(
     () =>
       !selectedDay
@@ -314,47 +317,35 @@ const DetailView = ({
   } | null>(null);
 
   const pickerConfig = useMemo(() => {
-    const base = (() => {
-      if (selectedDay) {
-        return {
-          mode: "time" as const,
-          minimumDate: startOfDay(selectedDay),
-          maximumDate: isSameCalendarDay(selectedDay, now)
-            ? now
-            : endOfDay(selectedDay),
-        };
-      }
-      if (regularity === "week") {
-        return {
-          mode: "datetime" as const,
-          minimumDate: periodStart("week", now),
-          maximumDate: now,
-        };
-      }
-      if (regularity === "month") {
-        return {
-          mode: "datetime" as const,
-          minimumDate: startOfMonth(now),
-          maximumDate: now,
-        };
-      }
+    if (selectedDay) {
       return {
         mode: "time" as const,
-        minimumDate: startOfDay(now),
-        maximumDate: now,
-      };
-    })();
-    // Paused habits can only back-fill before the pause moment.
-    if (status === "paused" && pausedAt) {
-      return {
-        ...base,
-        maximumDate: pausedAt,
-        minimumDate:
-          base.minimumDate > pausedAt ? startOfDay(pausedAt) : base.minimumDate,
+        minimumDate: startOfDay(selectedDay),
+        maximumDate: isSameCalendarDay(selectedDay, now)
+          ? now
+          : endOfDay(selectedDay),
       };
     }
-    return base;
-  }, [selectedDay, regularity, now, status, pausedAt]);
+    if (regularity === "week") {
+      return {
+        mode: "datetime" as const,
+        minimumDate: periodStart("week", now),
+        maximumDate: now,
+      };
+    }
+    if (regularity === "month") {
+      return {
+        mode: "datetime" as const,
+        minimumDate: startOfMonth(now),
+        maximumDate: now,
+      };
+    }
+    return {
+      mode: "time" as const,
+      minimumDate: startOfDay(now),
+      maximumDate: now,
+    };
+  }, [selectedDay, regularity, now]);
 
   const handlePickerConfirm = (date: Date, skipped?: boolean) => {
     if (!pickerState) return;
@@ -451,6 +442,12 @@ const DetailView = ({
             eyebrow={slotsEyebrow}
             slots={slotsForDay}
             isToday={cardIsToday}
+            slotDay={selectedDay ?? now}
+            // Paused habits can still back-fill slots up to the pause
+            // moment; later slots stay disabled.
+            maxLogTime={
+              status === "paused" ? (pausedAt ?? undefined) : undefined
+            }
             onCheckInForTimeSlot={
               interactive ? handleCheckInForTimeSlot : undefined
             }
@@ -477,16 +474,13 @@ const DetailView = ({
       {status === "archived" ? (
         <ArchivedFooter onUnarchive={onUnarchive ?? noop} />
       ) : status === "paused" ? (
-        // Paused: no live "log now" — tap opens the picker to back-fill an
-        // earlier slot (capped at the pause moment by pickerConfig).
-        <ActionFooter
-          paused
-          showSkip={showSkip}
-          onCheckIn={handleCheckInLongPress}
-          onLongPressCheckIn={handleCheckInLongPress}
-          onSkip={handleSkipLongPress}
-          onLongPressSkip={handleSkipLongPress}
-        />
+        // Paused: no "log now" footer. Back-fill happens through the
+        // scheduled time-slot pills (gated to slots up to the pause).
+        <View style={[styles.pausedFooter, { paddingBottom: 14 + safeBottom }]}>
+          <Text style={styles.pausedFooterText}>
+            nags are paused · back-fill earlier slots above
+          </Text>
+        </View>
       ) : (
         <ActionFooter
           showSkip={showSkip}
@@ -565,5 +559,19 @@ const styles = StyleSheet.create({
   scrollContent: {
     gap: 12,
     paddingBottom: 18,
+  },
+  pausedFooter: {
+    paddingHorizontal: 14,
+    paddingTop: 12,
+    backgroundColor: tokens.cream,
+    borderTopWidth: 1,
+    borderTopColor: tokens.veryFaint,
+  },
+  pausedFooterText: {
+    fontFamily: "JetBrainsMono",
+    fontSize: 9.5,
+    color: tokens.mute,
+    letterSpacing: 0.6,
+    textAlign: "center",
   },
 });

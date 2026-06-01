@@ -28,6 +28,12 @@ interface TimeSlotsCardProps {
    * `matchCheckInsToTimeSlots`.
    */
   isToday: boolean;
+  /** The day these slots belong to (selected day or today) — used to turn
+   * a slot's hour/minute into a concrete time for the `maxLogTime` gate. */
+  slotDay?: Date;
+  /** Latest time a slot may be logged. Slots after this are non-loggable
+   * (used for paused habits, capped at `pausedAt`). Undefined = no cap. */
+  maxLogTime?: Date | null;
   /** Record a check-in pinned to this Time slot's time. */
   onCheckInForTimeSlot?: (hour: number, minute: number) => void;
   /** Record a skip pinned to this Time slot's time. */
@@ -47,6 +53,8 @@ export const TimeSlotsCard = ({
   eyebrow,
   slots,
   isToday,
+  slotDay,
+  maxLogTime,
   onCheckInForTimeSlot,
   onSkipForTimeSlot,
   onDeleteForTimeSlot,
@@ -59,9 +67,27 @@ export const TimeSlotsCard = ({
     ? slots.findIndex((s) => s.status === "upcoming")
     : -1;
 
-  // No check-in handler ⇒ logging is disabled (paused/archived habit).
-  // Pills that already have a check-in/skip stay tappable for undo.
+  // No check-in handler ⇒ logging is disabled (archived habit). Pills
+  // that already have a check-in/skip stay tappable for undo.
   const canLog = onCheckInForTimeSlot != null;
+
+  // A specific slot is loggable when logging is on AND (no cap, or the
+  // slot's time is at/before the cap). The cap is `pausedAt` for paused
+  // habits, so only slots up to the pause can be back-filled.
+  const slotLoggable = (hour: number, minute: number): boolean => {
+    if (!canLog) return false;
+    if (!maxLogTime || !slotDay) return true;
+    const t = new Date(
+      slotDay.getFullYear(),
+      slotDay.getMonth(),
+      slotDay.getDate(),
+      hour,
+      minute,
+      0,
+      0,
+    );
+    return t <= maxLogTime;
+  };
 
   const pillRefs = useRef<Record<number, View | null>>({});
   const [activeIdx, setActiveIdx] = useState<number | null>(null);
@@ -109,7 +135,7 @@ export const TimeSlotsCard = ({
             slot.status,
             i,
             firstUpcomingIdx,
-            canLog,
+            slotLoggable(slot.hour, slot.minute),
           );
           return (
             <TimeSlotPill

@@ -7,8 +7,6 @@ import { tokens } from "../../components/theme";
 
 interface ActionFooterProps {
   showSkip: boolean;
-  /** Paused habit — nags are off, but manual logging still works. */
-  paused?: boolean;
   /** Tap → log immediately. */
   onCheckIn: () => void;
   /** Long-press → open the retro time-picker for a check-in. */
@@ -27,7 +25,6 @@ interface ActionFooterProps {
  */
 export const ActionFooter = ({
   showSkip,
-  paused,
   onCheckIn,
   onLongPressCheckIn,
   onSkip,
@@ -127,9 +124,7 @@ export const ActionFooter = ({
         )}
       </View>
       <Text style={styles.hint}>
-        {paused
-          ? "paused · back-fill an earlier slot from before you paused"
-          : "tap to log now · long-press to set a different time"}
+        tap to log now · long-press to set a different time
       </Text>
     </View>
   );
