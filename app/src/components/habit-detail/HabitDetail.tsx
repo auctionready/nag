@@ -406,6 +406,9 @@ const DetailView = ({
         onBack={onBack}
         onEdit={onEdit}
         onOpenHistory={onOpenHistory}
+        // Archived habits are read-only — bring them back from the status
+        // banner before editing.
+        showEdit={status !== "archived"}
       />
       <StatusBanner
         status={status}

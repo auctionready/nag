@@ -7,26 +7,22 @@ import { ArchiveGlyph, PauseGlyph, PlayGlyph, TrashGlyph } from "./glyphs";
 
 export interface HabitActionsProps {
   habitId: string;
-  archived: boolean;
   paused: boolean;
 }
 
 /**
  * Smart wrapper around the dumb {@link HabitActionsMenu}. It owns the
- * habit-lifecycle logic — which actions are valid for the current state
- * (so an invalid command is never dispatched) and what each one does —
- * and hands a ready-made list of items to the menu.
+ * habit-lifecycle logic and hands a ready-made list of items to the menu.
  *
- * - Pause / Resume — omitted entirely while archived (you can't pause an
- *   archived habit).
- * - Archive / Unarchive.
+ * Only reachable for active/paused habits — archived habits are read-only
+ * and can't be opened in the editor (you unarchive them from the detail
+ * screen's status banner), so there's no "unarchive" item here.
+ *
+ * - Pause / Resume.
+ * - Archive (the edit screen navigates away once archived).
  * - Delete (destructive) — confirms, then navigates back to the board.
  */
-export const HabitActions = ({
-  habitId,
-  archived,
-  paused,
-}: HabitActionsProps) => {
+export const HabitActions = ({ habitId, paused }: HabitActionsProps) => {
   const router = useRouter();
 
   const confirmDelete = () =>
@@ -46,45 +42,29 @@ export const HabitActions = ({
       ],
     );
 
-  const items: HabitActionItem[] = [];
-
-  // No pause control while archived.
-  if (!archived) {
-    items.push(
-      paused
-        ? {
-            key: "pause",
-            label: "resume habit",
-            sub: "turn the nags back on",
-            icon: <PlayGlyph color={tokens.ink} />,
-            onPress: () => dispatch({ type: "UnpauseHabit", habitId }),
-          }
-        : {
-            key: "pause",
-            label: "pause habit",
-            sub: "stop the nags, stays on your board",
-            icon: <PauseGlyph color={tokens.ink} />,
-            onPress: () => dispatch({ type: "PauseHabit", habitId }),
-          },
-    );
-  }
-
-  items.push(
-    archived
+  const items: HabitActionItem[] = [
+    paused
       ? {
-          key: "archive",
-          label: "unarchive habit",
-          sub: "put it back on your board",
-          icon: <ArchiveGlyph color={tokens.ink} />,
-          onPress: () => dispatch({ type: "UnarchiveHabit", habitId }),
+          key: "pause",
+          label: "resume habit",
+          sub: "turn the nags back on",
+          icon: <PlayGlyph color={tokens.ink} />,
+          onPress: () => dispatch({ type: "UnpauseHabit", habitId }),
         }
       : {
-          key: "archive",
-          label: "archive habit",
-          sub: "hide from your board, keep its record",
-          icon: <ArchiveGlyph color={tokens.ink} />,
-          onPress: () => dispatch({ type: "ArchiveHabit", habitId }),
+          key: "pause",
+          label: "pause habit",
+          sub: "stop the nags, stays on your board",
+          icon: <PauseGlyph color={tokens.ink} />,
+          onPress: () => dispatch({ type: "PauseHabit", habitId }),
         },
+    {
+      key: "archive",
+      label: "archive habit",
+      sub: "hide from your board, keep its record",
+      icon: <ArchiveGlyph color={tokens.ink} />,
+      onPress: () => dispatch({ type: "ArchiveHabit", habitId }),
+    },
     {
       key: "delete",
       label: "delete habit",
@@ -93,7 +73,7 @@ export const HabitActions = ({
       danger: true,
       onPress: confirmDelete,
     },
-  );
+  ];
 
   return <HabitActionsMenu items={items} />;
 };

@@ -106,6 +106,9 @@ optional. Created and updated timestamps are set automatically.
 
 - **Archived** (`archived_at` set) — hidden from the main board (still
   reachable via Accounts → Archived Habits) and dropped from the schedule.
+  Read-only: the detail screen hides its edit button and the editor isn't
+  reachable (it redirects back) — unarchive from the detail status banner
+  to edit again.
 - **Paused** (`paused_at` set) — dropped from the schedule and demoted on
   the board (listed last, greyed out, still openable).
 

@@ -1,6 +1,6 @@
 import { useLocalSearchParams, useNavigation, useRouter } from "expo-router";
 import { useLiveQuery } from "drizzle-orm/expo-sqlite";
-import { useLayoutEffect, useMemo } from "react";
+import { useEffect, useLayoutEffect, useMemo } from "react";
 import { db } from "../../../db";
 import { habitById, goalForHabitFull, schedulesForGoal } from "@nag/core";
 import { dispatch } from "../../../infrastructure/dispatch";
@@ -24,22 +24,23 @@ const EditHabitScreen = () => {
   const archived = habitData?.archivedAt != null;
   const paused = habitData?.pausedAt != null;
 
-  // Header hamburger menu (archive / pause / delete). The smart
-  // HabitActions component owns the lifecycle logic and only offers
-  // actions valid for the current state.
+  // Archived habits are read-only — they can't be edited. Bounce back to
+  // the detail screen (also fires right after archiving from the menu).
+  useEffect(() => {
+    if (habitData && archived) {
+      router.replace(`/habit/${habitId}`);
+    }
+  }, [habitData, archived, habitId, router]);
+
+  // Header hamburger menu (pause / archive / delete). The smart
+  // HabitActions component owns the lifecycle logic.
   useLayoutEffect(() => {
     navigation.setOptions({
       headerRight: habitData
-        ? () => (
-            <HabitActions
-              habitId={habitId}
-              archived={archived}
-              paused={paused}
-            />
-          )
+        ? () => <HabitActions habitId={habitId} paused={paused} />
         : undefined,
     });
-  }, [navigation, habitData, habitId, archived, paused]);
+  }, [navigation, habitData, habitId, paused]);
 
   const { data: goals } = useLiveQuery(goalForHabitFull(db, habitId), [
     habitId,
@@ -90,11 +91,11 @@ const EditHabitScreen = () => {
     router.back();
   };
 
-  if (!initialValues) {
+  // Archived habits redirect to detail (effect above) — don't flash the
+  // editable form in the meantime.
+  if (!initialValues || archived) {
     return null;
   }
-
-  const status = archived ? "archived" : paused ? "paused" : "active";
 
   return (
     <HabitForm
@@ -102,7 +103,7 @@ const EditHabitScreen = () => {
       mode="edit"
       initialValues={initialValues}
       onSubmit={onSubmit}
-      banner={<StatusNote status={status} />}
+      banner={<StatusNote status={paused ? "paused" : "active"} />}
     />
   );
 };
