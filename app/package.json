@@ -10,7 +10,7 @@
     "test:ui": "maestro test .maestro/",
     "typecheck": "tsc --noEmit",
     "check:circular": "dpdm --no-warning --no-tree --exit-code circular:1 'src/**/*.{ts,tsx}'",
-    "eas-build-on-success": "bash ./scripts/upload-sourcemaps.sh"
+    "eas-build-on-success": "bash ./scripts/upload-sourcemaps.sh || true"
   },
   "jest": {
     "preset": "jest-expo",
