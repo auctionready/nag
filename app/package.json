@@ -9,8 +9,7 @@
     "test": "jest --passWithNoTests --reporters=default --reporters=jest-junit",
     "test:ui": "maestro test .maestro/",
     "typecheck": "tsc --noEmit",
-    "check:circular": "dpdm --no-warning --no-tree --exit-code circular:1 'src/**/*.{ts,tsx}'",
-    "eas-build-on-success": "bash ./scripts/upload-sourcemaps.sh || true"
+    "check:circular": "dpdm --no-warning --no-tree --exit-code circular:1 'src/**/*.{ts,tsx}'"
   },
   "jest": {
     "preset": "jest-expo",
@@ -58,7 +57,7 @@
     "react-native-svg": "^15.15.4"
   },
   "devDependencies": {
-    "@sentry/cli": "2.58.4",
+    "@sentry/cli": "3.4.3",
     "@testing-library/react-native": "^13.3.3",
     "@types/jest": "29.5.14",
     "@types/react": "~19.2.15",
