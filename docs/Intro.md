@@ -190,5 +190,7 @@ detail's week strip use a tri-state classifier
   pairing, and account deletion. Sequence diagrams for every flow.
 - [Dev Server Hosting](./DevServerHosting.md) — running the Expo dev
   server on a VPS behind Caddy or nginx, deployed on CI success.
+- [EAS Update](./eas-update.md) — shipping JS/asset-only changes over the air
+  to preview/production builds without a full native rebuild.
 - [`CLAUDE.md`](../CLAUDE.md) — project conventions, coding style, tooling,
   and AI-agent workflow.

@@ -3,6 +3,8 @@ import { ConfigContext, ExpoConfig } from "expo/config";
 const IS_DEV = process.env.APP_VARIANT === "development";
 const IS_PREVIEW = process.env.APP_VARIANT === "preview";
 
+const PROJECT_ID = "bc1ee86a-bc83-4f06-aa4f-d4f757d18e55";
+
 const bundleId = () => {
   if (IS_DEV) return "com.auctionready.nag.app.dev";
   if (IS_PREVIEW) return "com.auctionready.nag.app.preview";
@@ -24,6 +26,11 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   icon: "./assets/icon.png",
   userInterfaceStyle: "light",
   scheme: "nag",
+  runtimeVersion: { policy: "fingerprint" },
+  updates: {
+    url: `https://u.expo.dev/${PROJECT_ID}`,
+    fallbackToCacheTimeout: 0,
+  },
   ios: {
     ...config.ios,
     supportsTablet: true,
@@ -66,7 +73,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   ],
   extra: {
     eas: {
-      projectId: "bc1ee86a-bc83-4f06-aa4f-d4f757d18e55",
+      projectId: PROJECT_ID,
     },
     apiBaseUrl: process.env.NAG_API_BASE_URL ?? "",
     clerkPublishableKey: process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY ?? "",

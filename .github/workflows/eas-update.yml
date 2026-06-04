@@ -1,0 +1,63 @@
+name: EAS update
+
+on:
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: EAS Update branch (maps to the build's channel)
+        required: true
+        type: choice
+        default: preview
+        options:
+          - preview
+          - production
+      message:
+        description: Update message (defaults to the commit SHA)
+        required: false
+        type: string
+        default: ""
+
+concurrency:
+  group: eas-update-${{ github.ref }}-${{ inputs.branch }}
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: ./.github/actions/node-setup
+
+      # `eas update` does NOT read a build profile's eas.json `env` block, so the
+      # published JS bundle must be built with the same env the target build used
+      # or it will mismatch (config + fingerprint runtimeVersion). Keep these in
+      # sync with the matching profile in app/eas.json.
+      - name: Resolve update env
+        id: env
+        env:
+          BRANCH: ${{ inputs.branch }}
+        run: |
+          if [ "$BRANCH" = "production" ]; then
+            echo "app_variant=production" >> "$GITHUB_OUTPUT"
+            echo "signin_providers=email" >> "$GITHUB_OUTPUT"
+          else
+            echo "app_variant=preview" >> "$GITHUB_OUTPUT"
+            echo "signin_providers=email,apple,google,phone" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: EAS update (${{ inputs.branch }})
+        working-directory: app
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+          APP_VARIANT: ${{ steps.env.outputs.app_variant }}
+          EXPO_PUBLIC_SIGNIN_PROVIDERS: ${{ steps.env.outputs.signin_providers }}
+          NAG_API_BASE_URL: ${{ vars.NAG_API_BASE_URL }}
+          EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY: ${{ vars.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY }}
+        run: |
+          BRANCH="${{ inputs.branch }}"
+          MESSAGE="${{ inputs.message }}"
+          if [ -z "$MESSAGE" ]; then
+            MESSAGE="CI update ${{ github.sha }}"
+          fi
+          eas update --branch "$BRANCH" --message "$MESSAGE" --non-interactive
