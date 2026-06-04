@@ -10,7 +10,8 @@
       "distribution": "internal",
       "env": {
         "APP_VARIANT": "development",
-        "EXPO_PUBLIC_SIGNIN_PROVIDERS": "email,apple,google,phone"
+        "EXPO_PUBLIC_SIGNIN_PROVIDERS": "email,apple,google,phone",
+        "SENTRY_ALLOW_FAILURE": "true"
       },
       "node": "24.14.1"
     },
@@ -19,7 +20,8 @@
       "environment": "preview",
       "env": {
         "APP_VARIANT": "preview",
-        "EXPO_PUBLIC_SIGNIN_PROVIDERS": "email,apple,google,phone"
+        "EXPO_PUBLIC_SIGNIN_PROVIDERS": "email,apple,google,phone",
+        "SENTRY_ALLOW_FAILURE": "true"
       },
       "node": "24.14.1"
     },
@@ -27,7 +29,8 @@
       "autoIncrement": true,
       "env": {
         "APP_VARIANT": "production",
-        "EXPO_PUBLIC_SIGNIN_PROVIDERS": "email"
+        "EXPO_PUBLIC_SIGNIN_PROVIDERS": "email",
+        "SENTRY_ALLOW_FAILURE": "true"
       },
       "node": "24.14.1"
     }
