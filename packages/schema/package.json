@@ -12,7 +12,7 @@
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
     "test": "vitest run",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsgo --noEmit"
   },
   "peerDependencies": {
     "drizzle-orm": "catalog:"
@@ -20,6 +20,7 @@
   "devDependencies": {
     "@types/better-sqlite3": "catalog:",
     "@types/node": "catalog:",
+    "@typescript/native-preview": "catalog:",
     "better-sqlite3": "catalog:",
     "drizzle-kit": "^0.31.10",
     "drizzle-orm": "catalog:",
