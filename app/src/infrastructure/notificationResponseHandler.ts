@@ -1,19 +1,13 @@
 import * as Notifications from "expo-notifications";
 import { router, useRootNavigationState } from "expo-router";
+import { format } from "date-fns";
 import { useEffect, useRef } from "react";
 
 const navigateFor = (response: Notifications.NotificationResponse): void => {
   const data = response.notification.request.content.data;
   if (!data?.habitIds || !Array.isArray(data.habitIds)) return;
-  const params = new URLSearchParams();
-  params.set("habitIds", (data.habitIds as string[]).join(","));
-  if (typeof data.timeSlotHour === "number") {
-    params.set("h", String(data.timeSlotHour));
-  }
-  if (typeof data.timeSlotMinute === "number") {
-    params.set("m", String(data.timeSlotMinute));
-  }
-  router.push(`/check-in-time-slot?${params.toString()}`);
+  const today = format(new Date(), "yyyy-MM-dd");
+  router.push(`/calendar?view=day&day=${today}`);
 };
 
 export const useNotificationResponseHandler = (): void => {

@@ -81,14 +81,13 @@ reminders at specific times.
 Each schedule can have reminders enabled (the default) or disabled. When
 multiple habits have schedules whose reminders line up in the same time slot,
 the app **consolidates** them into a single notification rather than firing
-several at once. Tapping the consolidated notification opens a dedicated
-time-slot-check-in screen that lists every habit due in that time slot so you can check
-them all in (or skip them) in one place.
+several at once. Tapping the notification opens the **day calendar on today**
+so you can see everything due and check it in from there.
 
 See [`notificationConsolidator.ts`](../packages/core/src/notificationConsolidator.ts)
 for the grouping logic and
-[`app/src/app/check-in-time-slot.tsx`](../app/src/app/check-in-time-slot.tsx) for the
-time slot screen.
+[`app/src/infrastructure/notificationResponseHandler.ts`](../app/src/infrastructure/notificationResponseHandler.ts)
+for the tap-handling that routes to the day calendar.
 
 The app icon also carries a **badge** with the number of habits overdue
 today — habits with at least one timed slot whose scheduled time has
