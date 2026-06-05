@@ -8,7 +8,7 @@
     "ios": "expo run:ios",
     "test": "jest --passWithNoTests --reporters=default --reporters=jest-junit",
     "test:ui": "maestro test .maestro/",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsgo --noEmit",
     "check:circular": "dpdm --no-warning --no-tree --exit-code circular:1 'src/**/*.{ts,tsx}'"
   },
   "jest": {
@@ -61,6 +61,7 @@
     "@testing-library/react-native": "^13.3.3",
     "@types/jest": "29.5.14",
     "@types/react": "~19.2.15",
+    "@typescript/native-preview": "catalog:",
     "babel-plugin-inline-import": "^3.0.0",
     "babel-preset-expo": "~56.0.14",
     "dpdm": "^4.2.0",
