@@ -28,6 +28,7 @@
     },
     "production": {
       "autoIncrement": true,
+      "environment": "production",
       "channel": "production",
       "env": {
         "APP_VARIANT": "production",
