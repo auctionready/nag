@@ -44,7 +44,6 @@ public static class EventsEndpoints
         EventDispatcher dispatcher,
         IDocumentSession session,
         JsonSerializerOptions jsonOptions,
-        LinkGenerator linkGenerator,
         CancellationToken ct
     )
     {
