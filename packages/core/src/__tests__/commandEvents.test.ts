@@ -360,8 +360,8 @@ describe("CreateCheckIn emits CheckInRecorded", () => {
       {
         type: "CheckInRecorded",
         payload: {
-          checkInId: checkInId,
-          habitId: habitId,
+          checkInId,
+          habitId,
           timestamp: ts.toISOString(),
           skipped: false,
         },
@@ -426,8 +426,8 @@ describe("UpdateCheckIn event combinations", () => {
       {
         type: "CheckInMoved",
         payload: {
-          checkInId: checkInId,
-          habitId: habitId,
+          checkInId,
+          habitId,
           oldTimestamp: oldTs.toISOString(),
           newTimestamp: newTs.toISOString(),
         },
@@ -452,8 +452,8 @@ describe("UpdateCheckIn event combinations", () => {
       {
         type: "CheckInMarkedSkipped",
         payload: {
-          checkInId: checkInId,
-          habitId: habitId,
+          checkInId,
+          habitId,
           timestamp: ts.toISOString(),
         },
       },
@@ -477,8 +477,8 @@ describe("UpdateCheckIn event combinations", () => {
       {
         type: "CheckInMarkedDone",
         payload: {
-          checkInId: checkInId,
-          habitId: habitId,
+          checkInId,
+          habitId,
           timestamp: ts.toISOString(),
         },
       },
@@ -588,8 +588,8 @@ describe("DeleteCheckIn emits CheckInDeleted", () => {
       {
         type: "CheckInDeleted",
         payload: {
-          checkInId: checkInId,
-          habitId: habitId,
+          checkInId,
+          habitId,
           timestamp: ts.toISOString(),
         },
       },

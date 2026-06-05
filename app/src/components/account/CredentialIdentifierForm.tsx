@@ -54,13 +54,13 @@ export const CredentialIdentifierForm = ({
       <ProviderButton
         primary
         label={flow.busy ? "Sending…" : "Send code"}
-        icon={<View />}
+        icon=<View />
         onPress={onSubmit}
         busy={flow.busy}
       />
       <ProviderButton
         label="Back"
-        icon={<View />}
+        icon=<View />
         onPress={onBack}
         disabled={flow.busy}
       />

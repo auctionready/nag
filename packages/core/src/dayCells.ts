@@ -134,7 +134,7 @@ export const classifyScheduledDays = ({
   schedules: ScheduleInfo[];
   checkIns: { timestamp: Date; skipped?: boolean | null }[];
 }): TimeSlotCompletion => {
-  const timeSlotsByDay: number[] = new Array(7).fill(0);
+  const timeSlotsByDay: number[] = Array.from({ length: 7 }, () => 0);
   for (const s of schedules) {
     if (s.hour === null || s.hour === undefined) continue;
     const days = s.days ?? 0;
@@ -146,8 +146,8 @@ export const classifyScheduledDays = ({
       }
     }
   }
-  const checkInsByDay: number[] = new Array(7).fill(0);
-  const skipsByDay: number[] = new Array(7).fill(0);
+  const checkInsByDay: number[] = Array.from({ length: 7 }, () => 0);
+  const skipsByDay: number[] = Array.from({ length: 7 }, () => 0);
   for (const c of checkIns) {
     const dow = c.timestamp.getDay();
     checkInsByDay[dow] += 1;

@@ -138,7 +138,7 @@ export const TimeSlotActionsPopover = ({
               <PopButton
                 primary
                 label="check in"
-                glyph={<CheckGlyph color={tokens.cream} />}
+                glyph=<CheckGlyph color={tokens.cream} />
                 onPress={() => {
                   onCheckIn();
                   onDismiss();
@@ -146,7 +146,7 @@ export const TimeSlotActionsPopover = ({
               />
               <PopButton
                 label="skip"
-                glyph={<SkipGlyph color={tokens.cream} />}
+                glyph=<SkipGlyph color={tokens.cream} />
                 onPress={() => {
                   onSkip();
                   onDismiss();
@@ -157,7 +157,7 @@ export const TimeSlotActionsPopover = ({
             <PopButton
               danger
               label={mode === "undo-checkin" ? "undo check-in" : "undo skip"}
-              glyph={<UndoGlyph color={tokens.orange} />}
+              glyph=<UndoGlyph color={tokens.orange} />
               onPress={() => {
                 onDelete();
                 onDismiss();
