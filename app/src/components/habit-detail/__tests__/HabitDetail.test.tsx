@@ -54,9 +54,7 @@ afterEach(() => {
 describe("HabitDetail", () => {
   describe("loading", () => {
     it("renders loading text", () => {
-      const { getByText } = render(
-        <HabitDetail {...baseProps} loading={true} />,
-      );
+      const { getByText } = render(<HabitDetail {...baseProps} loading />);
       expect(getByText("Loading...")).toBeTruthy();
     });
   });

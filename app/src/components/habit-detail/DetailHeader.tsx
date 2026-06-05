@@ -42,7 +42,7 @@ export const DetailHeader = ({
         <IconButton
           accessibilityLabel="Back"
           onPress={onBack}
-          glyph={<ChevronLeftGlyph color={tokens.ink} />}
+          glyph=<ChevronLeftGlyph color={tokens.ink} />
         />
         <Text style={styles.eyebrow} numberOfLines={1}>
           {title}
@@ -52,14 +52,14 @@ export const DetailHeader = ({
             <IconButton
               accessibilityLabel="History"
               onPress={onOpenHistory}
-              glyph={<BarChartGlyph color={tokens.ink} />}
+              glyph=<BarChartGlyph color={tokens.ink} />
             />
           )}
           {showEdit && (
             <IconButton
               accessibilityLabel="Edit"
               onPress={onEdit}
-              glyph={<EditGlyph color={tokens.ink} strokeWidth={1.7} />}
+              glyph=<EditGlyph color={tokens.ink} strokeWidth={1.7} />
             />
           )}
         </View>

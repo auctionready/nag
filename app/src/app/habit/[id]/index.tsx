@@ -141,7 +141,7 @@ const HabitScreen = () => {
       description={habitData?.description ?? null}
       status={status}
       pausedAt={habitData?.pausedAt ?? null}
-      banner={<HabitStatusBanner habitId={habitId} status={status} />}
+      banner=<HabitStatusBanner habitId={habitId} status={status} />
       interactive={interactive}
       goalText={goalText}
       regularity={goalData?.regularity ?? null}

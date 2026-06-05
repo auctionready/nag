@@ -110,7 +110,7 @@ const EditHabitScreen = () => {
       mode="edit"
       initialValues={initialValues}
       onSubmit={onSubmit}
-      banner={<StatusNote status={status} />}
+      banner=<StatusNote status={status} />
     />
   );
 };

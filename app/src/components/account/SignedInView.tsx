@@ -88,9 +88,11 @@ export const SignedInView = ({
 
       <Group title="Linked account">
         <Row
-          icon={
-            <ProviderGlyph provider={provider} size={14} color={tokens.ink} />
-          }
+          icon=<ProviderGlyph
+            provider={provider}
+            size={14}
+            color={tokens.ink}
+          />
           label={`Signed in with ${PROVIDER_LABELS[provider]}`}
           detail={email || undefined}
           chevron={false}
