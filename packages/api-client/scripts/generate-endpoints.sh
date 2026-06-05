@@ -18,8 +18,7 @@ pnpm exec openapi-zod-client "$URL" \
   -o "$OUTPUT" \
   --template "$TEMPLATE" \
   --with-alias \
-  --export-schemas \
-  --prettier "$PKG_DIR/../../.prettierrc"
+  --export-schemas
 
 # `sed -i` takes a different argument shape on BSD (macOS) vs GNU (Linux/CI):
 # BSD requires a backup-suffix argument, GNU treats one as a literal suffix.
@@ -35,7 +34,7 @@ sed -i.bak -E \
 rm -f "$OUTPUT.bak"
 
 # openapi-zod-client bundles its own prettier; re-format with the repo's
-# pinned prettier so output matches what lefthook/`pnpm format` produce.
-pnpm exec prettier --write "$OUTPUT"
+# oxfmt so output matches what lefthook/`pnpm format` produce.
+pnpm exec oxfmt "$OUTPUT"
 
 echo "Done."

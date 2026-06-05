@@ -17,7 +17,7 @@ Numbers gathered with Turborepo 2.9.12 layered over the existing scripts. Same m
 - Each package's `typecheck` script is `tsc --noEmit` (was: composite `tsc -b` at root).
 - Dropped `composite: true` and project references from `tsconfig.json`s; per-package configs are now standalone.
 - Added `typecheck` script to `app/package.json`.
-- `eslint` and `prettier --check` use their own `--cache` flags as inner-loop caches; turbo wraps them as the outer cache.
+- Linting (`oxlint`) and format-check (`oxfmt --check`) are fast Rust tools that need no inner-loop cache of their own; turbo provides the outer cache. (This section originally described `eslint`/`prettier --cache`, replaced by oxlint/oxfmt.)
 - Root scripts:
   - `typecheck` → `turbo run typecheck`
   - `test:app` → `turbo run test --filter=!@nag/backend`
@@ -64,5 +64,5 @@ Note: `TURBO_TOKEN` is currently set in this user's shell without `TURBO_TEAM`, 
 
 - **Cold check:app barely changed** (14.45s → 12.59s) because the work is the same; turbo just orchestrates. Wins are entirely on warm/affected paths.
 - **Per-task cold time is slightly worse** for some tasks vs running directly (small per-task pnpm + turbo overhead), e.g. core test: 3.63s direct → 4.77s through turbo. Cached run is 28ms.
-- **`//#lint` and `//#format:check:app` are root tasks** with broad input globs — touching almost any file invalidates them. To make them per-package would require splitting eslint/prettier scope per package (larger refactor, deferred).
+- **`//#lint` and `//#format:check:app` are root tasks** with broad input globs — touching almost any file invalidates them. To make them per-package would require splitting oxlint/oxfmt scope per package (larger refactor, deferred).
 - **CI not wired up yet** — current commit changes scripts but doesn't add remote-cache env vars to `ci.yml`. Should be a follow-up so we can measure CI re-run-on-same-SHA delta.

@@ -14,8 +14,8 @@
     "test": "vitest run",
     "typecheck": "tsgo --noEmit"
   },
-  "peerDependencies": {
-    "drizzle-orm": "catalog:"
+  "dependencies": {
+    "uuidv7": "^1.2.1"
   },
   "devDependencies": {
     "@types/better-sqlite3": "catalog:",
@@ -27,7 +27,7 @@
     "typescript": "catalog:",
     "vitest": "catalog:"
   },
-  "dependencies": {
-    "uuidv7": "^1.2.1"
+  "peerDependencies": {
+    "drizzle-orm": "catalog:"
   }
 }

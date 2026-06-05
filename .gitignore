@@ -6,7 +6,6 @@ dist/
 ios/
 android/
 *.db
-.eslintcache
 
 # Beads / Dolt files (added by bd init)
 .dolt/

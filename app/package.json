@@ -1,6 +1,7 @@
 {
   "name": "@nag/app",
   "version": "1.0.0",
+  "private": true,
   "main": "expo-router/entry",
   "scripts": {
     "start": "expo start",
@@ -10,17 +11,6 @@
     "test:ui": "maestro test .maestro/",
     "typecheck": "tsgo --noEmit",
     "check:circular": "dpdm --no-warning --no-tree --exit-code circular:1 'src/**/*.{ts,tsx}'"
-  },
-  "jest": {
-    "preset": "jest-expo",
-    "testPathIgnorePatterns": [
-      "/node_modules/",
-      "/dist/"
-    ]
-  },
-  "jest-junit": {
-    "outputDirectory": "./junit",
-    "outputName": "results.xml"
   },
   "dependencies": {
     "@clerk/clerk-expo": "^2.19.31",
@@ -70,7 +60,17 @@
     "jest-junit": "^17.0.0",
     "typescript": "~6.0.3"
   },
-  "private": true,
+  "jest": {
+    "preset": "jest-expo",
+    "testPathIgnorePatterns": [
+      "/node_modules/",
+      "/dist/"
+    ]
+  },
+  "jest-junit": {
+    "outputDirectory": "./junit",
+    "outputName": "results.xml"
+  },
   "engines": {
     "node": ">=24"
   }
