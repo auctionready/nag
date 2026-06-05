@@ -1,14 +1,14 @@
 {
   "name": "@nag/pages-infra",
   "main": "index.ts",
-  "devDependencies": {
-    "@types/node": "^24",
-    "typescript": "^5.9"
-  },
   "dependencies": {
     "@pulumi/aws": "^6.83.3",
     "@pulumi/command": "^1.2.1",
     "@pulumi/github": "^6.13.1",
     "@pulumi/pulumi": "^3.242.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24",
+    "typescript": "^5.9"
   }
 }

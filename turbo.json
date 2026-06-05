@@ -104,12 +104,13 @@
         "app/**/*.{ts,tsx,js,jsx,cjs,mjs}",
         "packages/*/src/**/*.{ts,tsx,js,jsx,cjs,mjs}",
         "packages/*/*.{ts,js,cjs,mjs}",
-        "eslint.config.*",
-        ".eslintrc*",
+        "tools/oxlint-rules/**",
+        "oxlint.config.*",
+        ".oxlintrc*",
         "*.config.{ts,js,cjs,mjs}",
         "package.json"
       ],
-      "outputs": [".eslintcache"]
+      "outputs": []
     },
     "//#check:openapi": {
       "inputs": [
@@ -135,11 +136,10 @@
         "app/**/*.{ts,tsx,js,jsx,json,md,yml,yaml}",
         "packages/**/*.{ts,tsx,js,jsx,json,md,yml,yaml}",
         "*.{ts,tsx,js,jsx,json,md,yml,yaml}",
-        ".prettierrc*",
-        ".prettierignore",
+        ".oxfmtrc*",
         "package.json"
       ],
-      "outputs": ["node_modules/.cache/prettier/**"]
+      "outputs": []
     }
   }
 }

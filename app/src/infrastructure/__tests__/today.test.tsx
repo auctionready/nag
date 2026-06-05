@@ -1,6 +1,5 @@
-import { Text } from "react-native";
 import { render, act } from "@testing-library/react-native";
-import { AppState, type NativeEventSubscription } from "react-native";
+import { AppState, Text, type NativeEventSubscription } from "react-native";
 import {
   TodayProvider,
   epochMinuteToDate,
@@ -11,8 +10,9 @@ import {
 type AppStateChangeListener = Parameters<typeof AppState.addEventListener>[1];
 
 describe("TodayProvider / useStartOfToday", () => {
-  // Object-wrapped so the mockImplementation closure mutates a property,
-  // not a top-level `let` (react-compiler flags the latter as a side effect).
+  // Object-wrapped so the mockImplementation closure mutates a property
+  // rather than reassigning an outer `let`, keeping the captured listener
+  // explicit and easy to reset between tests.
   const captured: { listener: AppStateChangeListener | null } = {
     listener: null,
   };
@@ -108,8 +108,7 @@ describe("TodayProvider / useStartOfToday", () => {
     jest.setSystemTime(new Date(2026, 4, 7, 9, 0));
 
     // jest.fn() instead of an outside-component `let` so the in-render
-    // mutation is a function call, which react-compiler doesn't flag
-    // as a side-effecting closure write.
+    // call is an explicit, observable render counter.
     const onRender = jest.fn();
     const Counter = () => {
       useStartOfToday();

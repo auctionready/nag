@@ -2,17 +2,14 @@
   "name": "nag",
   "private": true,
   "type": "module",
-  "engines": {
-    "node": ">=24"
-  },
   "scripts": {
     "dev": "pnpm typecheck && pnpm lint",
-    "lint": "eslint . --cache --cache-location .eslintcache",
-    "lint:fix": "eslint . --fix",
+    "lint": "oxlint -c oxlint.config.js",
+    "lint:fix": "oxlint -c oxlint.config.js --fix",
     "format": "concurrently -g \"pnpm format:app\" \"pnpm format:backend\"",
-    "format:app": "prettier --write .",
+    "format:app": "oxfmt",
     "format:check": "concurrently -g \"pnpm format:check:app\" \"pnpm format:check:backend\"",
-    "format:check:app": "prettier --check . --cache --cache-location node_modules/.cache/prettier/check",
+    "format:check:app": "oxfmt --check",
     "format:check:backend": "pnpm --filter @nag/backend check:format",
     "format:backend": "pnpm --filter @nag/backend format",
     "test": "pnpm test:app && pnpm test:backend",
@@ -27,16 +24,17 @@
     "prepare": "lefthook install --force",
     "postinstall": "node tools/check-dotnet-version.mjs"
   },
-  "packageManager": "pnpm@11.5.0",
   "devDependencies": {
     "concurrently": "catalog:",
-    "eslint": "^9.39.4",
-    "eslint-config-expo": "^56.0.4",
-    "eslint-config-prettier": "^10.1.8",
-    "eslint-plugin-react-compiler": "19.1.0-rc.2",
     "lefthook": "^2.1.9",
-    "prettier": "^3.8.3",
+    "oxfmt": "^0.53.0",
+    "oxlint": "^1.68.0",
+    "oxlint-config-universe": "^0.0.3",
     "turbo": "^2.9.16",
     "typescript": "catalog:"
-  }
+  },
+  "engines": {
+    "node": ">=24"
+  },
+  "packageManager": "pnpm@11.5.0"
 }

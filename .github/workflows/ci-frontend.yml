@@ -12,9 +12,9 @@ on:
       - "pnpm-lock.yaml"
       - "pnpm-workspace.yaml"
       - "tsconfig.json"
-      - "eslint.config.mjs"
-      - ".prettierrc"
-      - ".prettierignore"
+      - "oxlint.config.js"
+      - ".oxlintrc.json"
+      - ".oxfmtrc.json"
       - "turbo.json"
       - ".github/workflows/ci-frontend.yml"
 
