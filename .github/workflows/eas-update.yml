@@ -31,33 +31,33 @@ jobs:
 
       # `eas update` does NOT read a build profile's eas.json `env` block, so the
       # published JS bundle must be built with the same env the target build used
-      # or it will mismatch (config + fingerprint runtimeVersion). Keep these in
-      # sync with the matching profile in app/eas.json.
-      - name: Resolve update env
+      # or it will mismatch (config + fingerprint runtimeVersion). The branch name
+      # matches the build profile name, so mirror that profile's `env` here from
+      # the single source of truth (eas.json) rather than duplicating values.
+      - name: Resolve update env from eas.json
         id: env
+        working-directory: app
         env:
           BRANCH: ${{ inputs.branch }}
         run: |
-          if [ "$BRANCH" = "production" ]; then
-            echo "app_variant=production" >> "$GITHUB_OUTPUT"
-            echo "signin_providers=email" >> "$GITHUB_OUTPUT"
-          else
-            echo "app_variant=preview" >> "$GITHUB_OUTPUT"
-            echo "signin_providers=email,apple,google,phone" >> "$GITHUB_OUTPUT"
-          fi
+          PROFILE_ENV=$(jq -e --arg b "$BRANCH" '.build[$b].env' eas.json)
+          echo "app_variant=$(echo "$PROFILE_ENV" | jq -re '.APP_VARIANT')" >> "$GITHUB_OUTPUT"
+          echo "signin_providers=$(echo "$PROFILE_ENV" | jq -re '.EXPO_PUBLIC_SIGNIN_PROVIDERS')" >> "$GITHUB_OUTPUT"
 
+      # `--environment` loads the hosted env vars (NAG_API_BASE_URL,
+      # EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY, ...) from the same EAS environment the
+      # build profile uses, so they match the build exactly. The branch name
+      # equals the environment name (preview / production).
       - name: EAS update (${{ inputs.branch }})
         working-directory: app
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
           APP_VARIANT: ${{ steps.env.outputs.app_variant }}
           EXPO_PUBLIC_SIGNIN_PROVIDERS: ${{ steps.env.outputs.signin_providers }}
-          NAG_API_BASE_URL: ${{ vars.NAG_API_BASE_URL }}
-          EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY: ${{ vars.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY }}
         run: |
           BRANCH="${{ inputs.branch }}"
           MESSAGE="${{ inputs.message }}"
           if [ -z "$MESSAGE" ]; then
             MESSAGE="CI update ${{ github.sha }}"
           fi
-          eas update --branch "$BRANCH" --message "$MESSAGE" --non-interactive
+          eas update --branch "$BRANCH" --environment "$BRANCH" --message "$MESSAGE" --non-interactive
