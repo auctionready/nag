@@ -17,11 +17,9 @@ import tsParser from "@typescript-eslint/parser";
 // pass never overlaps with oxlint's ruleset.
 export default [
   {
-    files: [
-      "app/**/*.{ts,tsx}",
-      "packages/*/src/**/*.{ts,tsx}",
-      "packages/*/*.{ts,tsx}",
-    ],
+    // React only lives in `app`; the `packages/*` (core algorithms, drizzle
+    // schema, api client) are non-React, so these rules don't apply there.
+    files: ["app/**/*.{ts,tsx}"],
     plugins: { "react-hooks": reactHooks },
     languageOptions: {
       parser: tsParser,

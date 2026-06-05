@@ -4,8 +4,8 @@
   "type": "module",
   "scripts": {
     "dev": "pnpm typecheck && pnpm lint",
-    "lint": "concurrently -g -n oxlint,react-hooks \"oxlint -c oxlint.config.js\" \"eslint .\"",
-    "lint:fix": "concurrently -g -n oxlint,react-hooks \"oxlint -c oxlint.config.js --fix\" \"eslint . --fix\"",
+    "lint": "concurrently -g -n oxlint,react-hooks \"oxlint -c oxlint.config.js\" \"eslint app\"",
+    "lint:fix": "concurrently -g -n oxlint,react-hooks \"oxlint -c oxlint.config.js --fix\" \"eslint app --fix\"",
     "format": "concurrently -g \"pnpm format:app\" \"pnpm format:backend\"",
     "format:app": "oxfmt",
     "format:check": "concurrently -g \"pnpm format:check:app\" \"pnpm format:check:backend\"",
