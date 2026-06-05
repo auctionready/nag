@@ -4,8 +4,8 @@
   "type": "module",
   "scripts": {
     "dev": "pnpm typecheck && pnpm lint",
-    "lint": "oxlint -c oxlint.config.js",
-    "lint:fix": "oxlint -c oxlint.config.js --fix",
+    "lint": "concurrently -g -n oxlint,react-hooks \"oxlint -c oxlint.config.js\" \"eslint .\"",
+    "lint:fix": "concurrently -g -n oxlint,react-hooks \"oxlint -c oxlint.config.js --fix\" \"eslint . --fix\"",
     "format": "concurrently -g \"pnpm format:app\" \"pnpm format:backend\"",
     "format:app": "oxfmt",
     "format:check": "concurrently -g \"pnpm format:check:app\" \"pnpm format:check:backend\"",
@@ -25,7 +25,10 @@
     "postinstall": "node tools/check-dotnet-version.mjs"
   },
   "devDependencies": {
+    "@typescript-eslint/parser": "^8.60.1",
     "concurrently": "catalog:",
+    "eslint": "^9.39.4",
+    "eslint-plugin-react-hooks": "^7.1.1",
     "lefthook": "^2.1.9",
     "oxfmt": "^0.53.0",
     "oxlint": "^1.68.0",

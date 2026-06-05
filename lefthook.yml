@@ -5,6 +5,11 @@ pre-commit:
       glob: "*.{js,jsx,ts,tsx,mjs,cjs}"
       run: pnpm oxlint -c oxlint.config.js {staged_files}
 
+    # React Hooks / React Compiler rules oxlint can't run (see eslint.config.mjs)
+    - name: react-hooks
+      glob: "*.{ts,tsx}"
+      run: pnpm eslint --no-warn-ignored {staged_files}
+
     - name: format
       glob: "*.{js,jsx,ts,tsx,mjs,cjs,json,md,yaml,yml,css}"
       run: pnpm oxfmt {staged_files} && git add {staged_files}

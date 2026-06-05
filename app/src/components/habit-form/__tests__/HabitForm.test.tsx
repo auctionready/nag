@@ -3,7 +3,6 @@ import { Alert } from "react-native";
 import { HabitForm } from "../HabitForm";
 
 jest.mock("../ScheduleEditorModal", () => {
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
   const { Pressable, View } = require("react-native");
   return {
     ScheduleEditorModal: ({ onCommit, onCancel }: any) => (

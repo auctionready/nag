@@ -107,6 +107,7 @@
         "tools/oxlint-rules/**",
         "oxlint.config.*",
         ".oxlintrc*",
+        "eslint.config.*",
         "*.config.{ts,js,cjs,mjs}",
         "package.json"
       ],

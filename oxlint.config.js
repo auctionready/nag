@@ -12,6 +12,12 @@ export default defineConfig({
   rules: {
     // Zod convention: same name for schema + inferred type.
     "typescript/no-redeclare": "off",
+    // Braces on single-statement ifs are not enforced here (team preference).
+    curly: "off",
+    // Allow `void somePromise();` as a statement to mark an intentionally
+    // un-awaited (fire-and-forget) promise; still flag `void` inside
+    // expressions, which is almost always a mistake.
+    "no-void": ["warn", { allowAsStatement: true }],
     // Catch fresh-each-render values (Date, {}, [], conditional-with-call)
     // passed to useLiveQuery deps. exhaustive-deps can't help here because
     // useLiveQuery's first arg is a query object rather than a callback,
