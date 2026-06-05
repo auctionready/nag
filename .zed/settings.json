@@ -1,0 +1,102 @@
+// Project Zed settings — mirrors the repo's JS/TS toolchain.
+//
+// Requires two Zed extensions (install via `zed: extensions`):
+//   - "tsgo" — TypeScript native preview (@typescript/native-preview) LSP
+//   - "Oxc"  — oxlint diagnostics + oxfmt formatter language servers
+//
+// CLI equivalents this matches:
+//   tsgo   -> `tsgo --noEmit` (typecheck script in each package)
+//   oxlint -> `oxlint -c oxlint.config.js` (lint script)
+//   oxfmt  -> `oxfmt` (.oxfmtrc.json, printWidth 80)
+{
+  "lsp": {
+    "tsgo": {
+      "settings": {
+        // Pin to the same @typescript/native-preview version as the workspace
+        // catalog (pnpm-workspace.yaml).
+        "package_version": "7.0.0-dev.20260421.2"
+      }
+    },
+    "oxlint": {
+      "initialization_options": {
+        "settings": {
+          // The CLI runs `oxlint -c oxlint.config.js`; point the LSP at the
+          // same config so diagnostics match.
+          "configPath": "./oxlint.config.js",
+          "disableNestedConfig": false,
+          "run": "onType",
+          "fixKind": "safe_fix",
+          "unusedDisableDirectives": "deny"
+        }
+      }
+    },
+    "oxfmt": {
+      "initialization_options": {
+        "settings": {
+          // null => auto-discover .oxfmtrc.json at the repo root.
+          "fmt.configPath": null,
+          "run": "onSave"
+        }
+      }
+    }
+  },
+  "languages": {
+    "TypeScript": {
+      // tsgo replaces the default TS servers; oxlint + eslint still attach via "...".
+      "language_servers": [
+        "tsgo",
+        "!vtsls",
+        "!typescript-language-server",
+        "..."
+      ],
+      "format_on_save": "on",
+      "prettier": { "allowed": false },
+      "formatter": [
+        { "language_server": { "name": "oxfmt" } },
+        { "code_action": "source.fixAll.oxc" }
+      ]
+    },
+    "TSX": {
+      "language_servers": [
+        "tsgo",
+        "!vtsls",
+        "!typescript-language-server",
+        "..."
+      ],
+      "format_on_save": "on",
+      "prettier": { "allowed": false },
+      "formatter": [
+        { "language_server": { "name": "oxfmt" } },
+        { "code_action": "source.fixAll.oxc" }
+      ]
+    },
+    "JavaScript": {
+      "format_on_save": "on",
+      "prettier": { "allowed": false },
+      "formatter": [
+        { "language_server": { "name": "oxfmt" } },
+        { "code_action": "source.fixAll.oxc" }
+      ]
+    },
+    "JSON": {
+      "format_on_save": "on",
+      "prettier": { "allowed": false },
+      "formatter": [{ "language_server": { "name": "oxfmt" } }]
+    },
+    "JSONC": {
+      "format_on_save": "on",
+      "prettier": { "allowed": false },
+      "formatter": [{ "language_server": { "name": "oxfmt" } }]
+    },
+    "Markdown": {
+      "format_on_save": "on",
+      "prettier": { "allowed": false },
+      "formatter": [{ "language_server": { "name": "oxfmt" } }]
+    },
+    "YAML": {
+      "format_on_save": "on",
+      "prettier": { "allowed": false },
+      "formatter": [{ "language_server": { "name": "oxfmt" } }]
+    }
+  }
+}
