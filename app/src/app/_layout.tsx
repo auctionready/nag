@@ -133,9 +133,7 @@ const RootLayout = () => {
     Promise.all([bootstrapDevOverrides(), wipeSecureStoreIfFreshInstall()])
       .then(() => {
         if (__DEV__) {
-          // prettier-ignore
           (
-            // eslint-disable-next-line @typescript-eslint/no-require-imports
             require("../db/devMenu") as typeof import("../db/devMenu")
           ).registerDevMenu();
         }

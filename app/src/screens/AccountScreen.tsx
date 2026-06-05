@@ -9,7 +9,6 @@ export const AccountScreen = () => {
     // Lazy-required so Metro drops the dev-auth panel (and its
     // /dev/token + ensureDevAuthRegistered imports) from prod bundles.
     const { DevAuthAccountPanel } =
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
       require("../components/account/DevAuthAccountPanel") as typeof import("../components/account/DevAuthAccountPanel");
     return <DevAuthAccountPanel />;
   }

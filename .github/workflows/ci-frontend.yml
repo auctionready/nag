@@ -15,6 +15,7 @@ on:
       - "oxlint.config.js"
       - ".oxlintrc.json"
       - ".oxfmtrc.json"
+      - "eslint.config.mjs"
       - "turbo.json"
       - ".github/workflows/ci-frontend.yml"
 

@@ -3,6 +3,11 @@ packages:
   - "app"
   - "backend"
 dedupePeerDependents: true
+# eslint-plugin-react-hooks v7 / babel-plugin-react-compiler import
+# `zod-validation-error/v4`, a subpath only present in v4.0.0+. pnpm otherwise
+# resolves the v3 line (3.5.4) which dropped that subpath, breaking plugin load.
+overrides:
+  zod-validation-error: "^4.0.0"
 allowBuilds:
   "@clerk/shared": false
   "@pulumi/neon": true
