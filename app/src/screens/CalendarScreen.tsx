@@ -10,13 +10,14 @@ import {
   format,
   isAfter,
   isSameDay,
-  parseISO,
   startOfMonth,
   startOfWeek,
 } from "date-fns";
 import {
   canStepForward,
   clampDayToToday,
+  formatDayParam,
+  parseDayParam,
   stepCalendarDay,
   type CalendarView,
 } from "@nag/core";
@@ -34,8 +35,7 @@ import {
 import { dispatch } from "../infrastructure/dispatch";
 import { tokens } from "../components/theme";
 
-const DAY_PARAM_FORMAT = "yyyy-MM-dd";
-const fmt = (day: Date) => format(day, DAY_PARAM_FORMAT);
+const fmt = formatDayParam;
 
 // Horizontal travel / fling speed past which a swipe steps a period.
 const SWIPE_THRESHOLD = 50;
@@ -136,7 +136,7 @@ export const CalendarScreen = ({
   // anything beyond now); day view allows future days so users can preview
   // tomorrow's scheduled list per the design.
   const baseDay = useMemo(() => {
-    const parsed = dayParam ? parseISO(dayParam) : null;
+    const parsed = dayParam ? parseDayParam(dayParam, today) : null;
     const valid = parsed && !Number.isNaN(parsed.getTime()) ? parsed : today;
     return view === "day" ? valid : clampDayToToday(valid, today);
   }, [dayParam, today, view]);

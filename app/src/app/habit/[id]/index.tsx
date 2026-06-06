@@ -1,6 +1,5 @@
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useLiveQuery } from "drizzle-orm/expo-sqlite";
-import { parse, format } from "date-fns";
 import { db } from "../../../db";
 import { getTitle, habitStatus, seqUuid } from "@nag/schema";
 import {
@@ -9,6 +8,8 @@ import {
   checkInsForHabit,
   checkInCount,
   combineScheduleDays,
+  formatDayParam,
+  parseDayParam,
   periodStart,
   schedulesForHabit,
   tileColor,
@@ -20,8 +21,6 @@ import {
   HabitStatusBanner,
 } from "../../../components/habit-detail";
 import { complianceColors } from "../../../components/compliance";
-
-const DAY_PARAM_FORMAT = "yyyy-MM-dd";
 
 const HabitScreen = () => {
   const { id, day } = useLocalSearchParams<{
@@ -54,7 +53,7 @@ const HabitScreen = () => {
   // with a `days` mask we default to "today is selected".
   const hasWeeklyDaysSchedule =
     goalData?.regularity === "week" && combineScheduleDays(schedules) !== 0;
-  const parsedDay = day ? parse(day, DAY_PARAM_FORMAT, todayStart) : null;
+  const parsedDay = day ? parseDayParam(day, todayStart) : null;
   const selectedDay =
     parsedDay && parsedDay <= todayStart
       ? parsedDay
@@ -91,7 +90,7 @@ const HabitScreen = () => {
   const handleSelectDay = (nextDay: Date | null) => {
     if (nextDay && nextDay > todayStart) return;
     router.setParams({
-      day: nextDay ? format(nextDay, DAY_PARAM_FORMAT) : undefined,
+      day: nextDay ? formatDayParam(nextDay) : undefined,
     });
   };
 

@@ -1,12 +1,12 @@
 import * as Notifications from "expo-notifications";
 import { router, useRootNavigationState } from "expo-router";
-import { format } from "date-fns";
+import { formatDayParam } from "@nag/core";
 import { useEffect, useRef } from "react";
 
 const navigateFor = (response: Notifications.NotificationResponse): void => {
   const data = response.notification.request.content.data;
   if (!data?.habitIds || !Array.isArray(data.habitIds)) return;
-  const today = format(new Date(), "yyyy-MM-dd");
+  const today = formatDayParam(new Date());
   router.push(`/calendar?view=day&day=${today}`);
 };
 
