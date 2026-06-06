@@ -14,6 +14,7 @@ export {
   buildDayCells,
   checkInDaysMask,
   classifyScheduledDays,
+  fullySkippedDaysMask,
   type DayCell,
   type BuildDayCellsInput,
   type TimeSlotCompletion,

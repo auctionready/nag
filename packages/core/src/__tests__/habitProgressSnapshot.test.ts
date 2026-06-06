@@ -279,6 +279,41 @@ describe("habitProgressSnapshot", () => {
       expect(snap.unscheduledWeeklyMask & Day.Tue).toBeFalsy();
     });
 
+    it("flags an off-day skip in skippedDaysMask (scheduled weekday habit)", () => {
+      // Regression for the bug where a weekday-scheduled habit checked in on
+      // Saturday (an off-day) and then edited to a skip rendered as a plain
+      // tick in the week strips. The skip lands in `anyCheckInDaysMask` but
+      // must also be in `skippedDaysMask` so renderers paint it "set aside".
+      const snap = habitProgressSnapshot(
+        base({
+          schedules: [
+            timed(Day.Mon | Day.Tue | Day.Wed | Day.Thu | Day.Fri, 21, 30),
+          ],
+          periodCheckIns: [
+            // Sat Jun 7, the only check-in that day, skipped.
+            { timestamp: new Date(2025, 5, 7, 23, 46), skipped: true },
+          ],
+        }),
+      );
+      expect(snap.skippedDaysMask & Day.Sat).toBeTruthy();
+      expect(snap.anyCheckInDaysMask & Day.Sat).toBeTruthy();
+      expect(snap.completedDaysMask & Day.Sat).toBeFalsy();
+    });
+
+    it("flags an unscheduled-weekly skip in skippedDaysMask", () => {
+      const snap = habitProgressSnapshot(
+        base({
+          schedules: [],
+          periodCheckIns: [
+            { timestamp: new Date(2025, 5, 2, 9, 0), skipped: true }, // Mon skip
+            { timestamp: new Date(2025, 5, 4, 9, 0) }, // Wed real
+          ],
+        }),
+      );
+      expect(snap.skippedDaysMask & Day.Mon).toBeTruthy();
+      expect(snap.skippedDaysMask & Day.Wed).toBeFalsy();
+    });
+
     it("unscheduledWeeklyMask is 0 for daily habits", () => {
       const snap = habitProgressSnapshot(
         base({

@@ -3,6 +3,7 @@ import {
   buildDayCells,
   checkInDaysMask,
   classifyScheduledDays,
+  fullySkippedDaysMask,
 } from "../dayCells";
 import { Day } from "../days";
 
@@ -435,5 +436,45 @@ describe("checkInDaysMask", () => {
         { timestamp: new Date(2025, 5, 20, 8, 0) },
       ]),
     ).toBe(Day.Mon | Day.Wed | Day.Fri);
+  });
+});
+
+describe("fullySkippedDaysMask", () => {
+  it("returns 0 for an empty list", () => {
+    expect(fullySkippedDaysMask([])).toBe(0);
+  });
+
+  it("flags a day whose only check-in is a skip", () => {
+    expect(
+      fullySkippedDaysMask([
+        { timestamp: new Date(2025, 5, 16, 8, 0), skipped: true },
+      ]),
+    ).toBe(Day.Mon);
+  });
+
+  it("does not flag a day with a real check-in", () => {
+    expect(
+      fullySkippedDaysMask([{ timestamp: new Date(2025, 5, 16, 8, 0) }]),
+    ).toBe(0);
+  });
+
+  it("does not flag a day with a mix of skip and real check-ins", () => {
+    expect(
+      fullySkippedDaysMask([
+        { timestamp: new Date(2025, 5, 16, 8, 0), skipped: true },
+        { timestamp: new Date(2025, 5, 16, 12, 0) },
+      ]),
+    ).toBe(0);
+  });
+
+  it("flags fully-skipped days regardless of any schedule (off-day skips)", () => {
+    // The defining difference from classifyScheduledDays: this is unaware of
+    // schedules, so a skip on an otherwise unscheduled day still counts.
+    // Sat=Jun 21.
+    expect(
+      fullySkippedDaysMask([
+        { timestamp: new Date(2025, 5, 21, 8, 0), skipped: true },
+      ]),
+    ).toBe(Day.Sat);
   });
 });

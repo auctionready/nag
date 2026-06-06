@@ -95,7 +95,9 @@ export const HabitTile = ({ id, title, icon, paused }: HabitTileProps) => {
             scheduledDaysMask: effectiveScheduledMask,
             checkedInDaysMask: effectiveCheckedInMask,
             partialDaysMask: hasSchedule ? snap.partialDaysMask : 0,
-            skippedDaysMask: hasSchedule ? snap.skippedDaysMask : 0,
+            // Schedule-agnostic: an off-day or unscheduled-weekly skip should
+            // still read as "set aside" rather than a plain check-in.
+            skippedDaysMask: snap.skippedDaysMask,
             anyCheckInDaysMask: effectiveAnyCheckInMask,
           }
         : undefined;

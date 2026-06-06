@@ -105,6 +105,31 @@ export const buildDayCells = ({
 export const checkInDaysMask = (checkIns: { timestamp: Date }[]): number =>
   checkIns.reduce((mask, c) => mask | (1 << c.timestamp.getDay()), 0);
 
+/**
+ * Day-of-week bitmask (Sun=bit0..Sat=bit6) of days that have at least one
+ * check-in and where *every* check-in is a skip — i.e. the day was
+ * intentionally set aside. Unlike `classifyScheduledDays`'s
+ * `skippedDaysMask` (scheduled days only), this also covers off-days and
+ * frequency-only days, so a skip the user logged on an unscheduled day
+ * still reads as "set aside" rather than a plain check-in.
+ */
+export const fullySkippedDaysMask = (
+  checkIns: { timestamp: Date; skipped?: boolean | null }[],
+): number => {
+  const seen = Array.from({ length: 7 }, () => false);
+  const done = Array.from({ length: 7 }, () => false);
+  for (const c of checkIns) {
+    const dow = c.timestamp.getDay();
+    seen[dow] = true;
+    if (!c.skipped) done[dow] = true;
+  }
+  let mask = 0;
+  for (let dow = 0; dow < 7; dow++) {
+    if (seen[dow] && !done[dow]) mask |= 1 << dow;
+  }
+  return mask;
+};
+
 export interface TimeSlotCompletion {
   /** Days where check-ins meet or exceed that day's scheduled time-slot count. */
   completedDaysMask: number;
