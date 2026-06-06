@@ -79,10 +79,6 @@ const InnerLayout = () => {
           name="debug-notifications"
           options={{ title: "Scheduled Notifications" }}
         />
-        <Stack.Screen
-          name="check-in-time-slot"
-          options={{ title: "Check In" }}
-        />
       </Stack>
     </View>
   );

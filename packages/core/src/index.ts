@@ -197,6 +197,8 @@ export {
   stepCalendarDay,
   clampDayToToday,
   canStepForward,
+  formatDayParam,
+  parseDayParam,
   type CalendarView,
   type CalendarStepDirection,
 } from "./calendarNav";

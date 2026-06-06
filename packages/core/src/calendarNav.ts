@@ -1,7 +1,9 @@
 import {
   addDays,
   addMonths,
+  format,
   isAfter,
+  parse,
   startOfMonth,
   startOfWeek,
   subDays,
@@ -13,6 +15,20 @@ import {
  * single day. Day view drives a per-habit per-slot agenda for that date.
  */
 export type CalendarView = "day" | "month" | "week";
+
+/** `yyyy-MM-dd` — the calendar `?day=` route param and notification payload. */
+const DAY_PARAM_FORMAT = "yyyy-MM-dd";
+
+/** Format a date as the `yyyy-MM-dd` calendar route param. */
+export const formatDayParam = (day: Date): string =>
+  format(day, DAY_PARAM_FORMAT);
+
+/**
+ * Parse a `yyyy-MM-dd` calendar route param into a local date, anchored to
+ * `reference` (typically the start of today) for the time-of-day fields.
+ */
+export const parseDayParam = (param: string, reference: Date): Date =>
+  parse(param, DAY_PARAM_FORMAT, reference);
 
 /** Step one period earlier (`prev`) or later (`next`). */
 export type CalendarStepDirection = "prev" | "next";

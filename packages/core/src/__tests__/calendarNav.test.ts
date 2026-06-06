@@ -4,6 +4,8 @@ import {
   stepCalendarDay,
   clampDayToToday,
   canStepForward,
+  formatDayParam,
+  parseDayParam,
 } from "../calendarNav";
 
 // Local-time constructor so the tests are timezone-independent: every date
@@ -107,6 +109,35 @@ describe("stepCalendarDay", () => {
         ),
       ).toBe(true);
     });
+  });
+});
+
+describe("formatDayParam", () => {
+  it("formats a date as yyyy-MM-dd", () => {
+    expect(formatDayParam(d(2026, 6, 6))).toBe("2026-06-06");
+  });
+
+  it("zero-pads single-digit months and days", () => {
+    expect(formatDayParam(d(2026, 1, 9))).toBe("2026-01-09");
+  });
+});
+
+describe("parseDayParam", () => {
+  // Anchored to midnight so the parsed result is also midnight-local.
+  const reference = d(2026, 6, 6);
+
+  it("round-trips with formatDayParam", () => {
+    const day = d(2026, 3, 14);
+    expect(isSameDay(parseDayParam(formatDayParam(day), reference), day)).toBe(
+      true,
+    );
+  });
+
+  it("takes time-of-day from the reference (midnight when anchored to start-of-day)", () => {
+    const parsed = parseDayParam("2026-03-14", reference);
+    expect(parsed.getHours()).toBe(0);
+    expect(parsed.getMinutes()).toBe(0);
+    expect(isSameDay(parsed, d(2026, 3, 14))).toBe(true);
   });
 });
 
