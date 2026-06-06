@@ -11,6 +11,8 @@ interface CheckInRowProps {
   entry: RecentCheckInItem;
   last: boolean;
   fmt: string;
+  /** True when this check-in lands on a day the habit isn't scheduled for. */
+  offDay?: boolean;
   onRemove: () => void;
   onEdit?: () => void;
 }
@@ -47,10 +49,15 @@ export const CheckInRow = ({
   entry,
   last,
   fmt,
+  offDay,
   onRemove,
   onEdit,
 }: CheckInRowProps) => {
   const isSkipped = entry.skipped === true;
+  // An off-day check-in is a bonus — the habit wasn't scheduled that day,
+  // so it reads as an extra rather than a plain "logged" entry. Skips keep
+  // their own subline.
+  const subline = isSkipped ? "(skipped)" : offDay ? "off-day extra" : "logged";
   const showRecorded = wasBackFilled(entry);
   const showEdited = wasEdited(entry);
 
@@ -106,7 +113,7 @@ export const CheckInRow = ({
         <View style={styles.rowText}>
           <Text style={styles.timestamp}>{format(entry.timestamp, fmt)}</Text>
           <Text style={styles.subline} numberOfLines={1}>
-            {isSkipped ? "(skipped)" : "logged"}
+            {subline}
           </Text>
           {showEdited ? (
             <Text style={styles.metaLine}>

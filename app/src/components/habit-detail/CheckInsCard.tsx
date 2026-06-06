@@ -1,4 +1,5 @@
 import { LayoutAnimation, StyleSheet, Text, View } from "react-native";
+import { isOffDay } from "@nag/core";
 import { tokens } from "../../components/theme";
 import { CheckInRow } from "./CheckInRow";
 import type { RecentCheckInItem } from "./types";
@@ -10,6 +11,11 @@ interface CheckInsCardProps {
   eyebrow: string;
   /** True when scoped to a single calendar day; controls timestamp format. */
   singleDay: boolean;
+  /**
+   * Habit's combined day-of-week schedule mask (0 = frequency-only). Lets
+   * each row flag check-ins landing on an unscheduled day as off-day extras.
+   */
+  scheduledDaysMask?: number;
   /**
    * True when scheduled time-slot pills are visible above the list — the
    * empty-state hint then points at the pills as the primary way to log
@@ -35,6 +41,7 @@ export const CheckInsCard = ({
   eyebrow,
   singleDay,
   hasScheduleSlots,
+  scheduledDaysMask = 0,
   onRemove,
   onEditTimestamp,
 }: CheckInsCardProps) => {
@@ -74,6 +81,7 @@ export const CheckInsCard = ({
             entry={item}
             last={i === checkIns.length - 1}
             fmt={fmt}
+            offDay={isOffDay(scheduledDaysMask, item.timestamp)}
             onRemove={() => handleRemove(item.id)}
             onEdit={
               onEditTimestamp

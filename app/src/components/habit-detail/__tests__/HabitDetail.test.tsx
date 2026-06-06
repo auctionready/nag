@@ -115,6 +115,49 @@ describe("HabitDetail", () => {
       expect((called as Date).getTime()).toBeGreaterThanOrEqual(before);
       expect((called as Date).getTime()).toBeLessThanOrEqual(after);
     });
+
+    it("relabels the primary action as a bonus on an off-day", async () => {
+      // Mon-Fri schedule, "now" is a Sunday → today is an off-day.
+      const weekdays = Day.Mon | Day.Tue | Day.Wed | Day.Thu | Day.Fri;
+      const view = await render(
+        <HabitDetail
+          {...baseProps}
+          regularity="week"
+          frequency={3}
+          // Even with showSkip on, the Skip action is suppressed on off-days.
+          showSkip
+          schedules={[
+            { days: weekdays, dayOfMonth: null, hour: 21, minute: 30 },
+          ]}
+        />,
+      );
+      expect(view.getByText("Off-day extra")).toBeTruthy();
+      expect(view.getByLabelText("Log off-day extra")).toBeTruthy();
+      // The primary button's own label flips away from "Check-in" (the
+      // empty-state hint still contains that word, so assert via label).
+      expect(view.queryByLabelText("Check-in")).toBeNull();
+      // Skip is meaningless on an off-day → hidden even though showSkip is set.
+      expect(view.queryByLabelText("Skip")).toBeNull();
+    });
+
+    it("keeps the Check-in label on a scheduled day", async () => {
+      // Same schedule but "now" is a Wednesday → a scheduled day.
+      const weekdays = Day.Mon | Day.Tue | Day.Wed | Day.Thu | Day.Fri;
+      const view = await render(
+        <HabitDetail
+          {...baseProps}
+          regularity="week"
+          frequency={3}
+          schedules={[
+            { days: weekdays, dayOfMonth: null, hour: 21, minute: 30 },
+          ]}
+        />,
+        // 2025-06-18 is a Wednesday.
+        new Date(2025, 5, 18, 10, 0),
+      );
+      expect(view.getByLabelText("Check-in")).toBeTruthy();
+      expect(view.queryByText("Off-day extra")).toBeNull();
+    });
   });
 
   describe("header buttons", () => {
@@ -427,6 +470,59 @@ describe("HabitDetail", () => {
         />,
       );
       expect(view.getByText("1 entry")).toBeTruthy();
+    });
+
+    it("labels an off-day check-in as an off-day extra", async () => {
+      // Mon-Fri schedule, check-in (and "now") on Sunday → off-day extra.
+      const weekdays = Day.Mon | Day.Tue | Day.Wed | Day.Thu | Day.Fri;
+      const view = await render(
+        <HabitDetail
+          {...baseProps}
+          regularity="week"
+          frequency={3}
+          schedules={[
+            { days: weekdays, dayOfMonth: null, hour: 21, minute: 30 },
+          ]}
+          checkIns={[
+            {
+              id: "ci-sun",
+              timestamp: sundayAt(8),
+              createdAt: sundayAt(8),
+              updatedAt: sundayAt(8),
+              skipped: null,
+            },
+          ]}
+        />,
+      );
+      expect(view.getByText("off-day extra")).toBeTruthy();
+      expect(view.queryByText("logged")).toBeNull();
+    });
+
+    it("labels a scheduled-day check-in as logged", async () => {
+      const weekdays = Day.Mon | Day.Tue | Day.Wed | Day.Thu | Day.Fri;
+      const view = await render(
+        <HabitDetail
+          {...baseProps}
+          regularity="week"
+          frequency={3}
+          schedules={[
+            { days: weekdays, dayOfMonth: null, hour: 21, minute: 30 },
+          ]}
+          checkIns={[
+            {
+              id: "ci-wed",
+              timestamp: new Date(2025, 5, 18, 21, 30),
+              createdAt: new Date(2025, 5, 18, 21, 30),
+              updatedAt: new Date(2025, 5, 18, 21, 30),
+              skipped: null,
+            },
+          ]}
+          // 2025-06-18 is a Wednesday — a scheduled day.
+        />,
+        new Date(2025, 5, 18, 22, 0),
+      );
+      expect(view.getByText("logged")).toBeTruthy();
+      expect(view.queryByText("off-day extra")).toBeNull();
     });
 
     it("scopes the list to the selected day", async () => {

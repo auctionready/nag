@@ -113,6 +113,16 @@ export const checkInDaysMask = (checkIns: { timestamp: Date }[]): number =>
  * frequency-only days, so a skip the user logged on an unscheduled day
  * still reads as "set aside" rather than a plain check-in.
  */
+/**
+ * True when `date` falls on a day the habit isn't scheduled for — the habit
+ * has a day-of-week schedule but this day-of-week isn't in it. A habit with
+ * no day-of-week schedule (frequency-only) has no off-days, so this is
+ * always false there. Used to label off-day check-ins as "bonus" extras and
+ * to suppress the skip affordance on days nothing was due.
+ */
+export const isOffDay = (scheduledDaysMask: number, date: Date): boolean =>
+  scheduledDaysMask !== 0 && (scheduledDaysMask & (1 << date.getDay())) === 0;
+
 export const fullySkippedDaysMask = (
   checkIns: { timestamp: Date; skipped?: boolean | null }[],
 ): number => {

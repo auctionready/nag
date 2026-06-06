@@ -4,6 +4,7 @@ import {
   checkInDaysMask,
   classifyScheduledDays,
   fullySkippedDaysMask,
+  isOffDay,
 } from "../dayCells";
 import { Day } from "../days";
 
@@ -476,5 +477,23 @@ describe("fullySkippedDaysMask", () => {
         { timestamp: new Date(2025, 5, 21, 8, 0), skipped: true },
       ]),
     ).toBe(Day.Sat);
+  });
+});
+
+describe("isOffDay", () => {
+  it("is true when the date's weekday isn't in the schedule mask", () => {
+    // Mon-Fri schedule, date is Saturday (Jun 21).
+    const weekdays = Day.Mon | Day.Tue | Day.Wed | Day.Thu | Day.Fri;
+    expect(isOffDay(weekdays, new Date(2025, 5, 21, 9, 0))).toBe(true);
+  });
+
+  it("is false when the date's weekday is in the schedule mask", () => {
+    const weekdays = Day.Mon | Day.Tue | Day.Wed | Day.Thu | Day.Fri;
+    // Monday (Jun 16) is scheduled.
+    expect(isOffDay(weekdays, new Date(2025, 5, 16, 9, 0))).toBe(false);
+  });
+
+  it("is always false for a frequency-only habit (mask 0)", () => {
+    expect(isOffDay(0, new Date(2025, 5, 21, 9, 0))).toBe(false);
   });
 });
