@@ -176,7 +176,10 @@ export {
   weekDayEntries,
   mondayFirstDayLetters,
   isSameCalendarDay,
+  atTimeOfDay,
+  appliesOnDay,
 } from "./days";
+export { groupBy } from "./groupBy";
 export { formatTimeSlotTime, formatTimeOfDay } from "./format";
 export {
   setNotificationScheduler,
@@ -193,6 +196,16 @@ export {
   type ConsolidatedTimeSlot,
 } from "./notificationConsolidator";
 export { overdueHabitsCount } from "./overdueHabits";
+export {
+  getBadgeInputs,
+  overdueCountAt,
+  buildBadgeTransitions,
+  type BadgeInputs,
+  type BadgeTransition,
+  type BadgeCheckIn,
+  type SchedulesByHabit,
+  type CheckInsByHabit,
+} from "./badgeSchedule";
 export {
   stepCalendarDay,
   clampDayToToday,

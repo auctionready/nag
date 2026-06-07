@@ -1,4 +1,4 @@
-import { isSameCalendarDay } from "../days";
+import { appliesOnDay, isSameCalendarDay } from "../days";
 import type { ScheduleInfo } from "./types";
 
 export type TimeSlotStatus = "done" | "skipped" | "missed" | "upcoming";
@@ -53,13 +53,11 @@ export const matchCheckInsToTimeSlots = ({
   checkIns,
   now,
 }: MatchCheckInsToTimeSlotsInput): MatchCheckInsToTimeSlotsResult => {
-  const todayBit = 1 << now.getDay();
   const todaysTimeSlots = schedules
-    .filter((s) => {
-      if (s.hour === null || s.hour === undefined) return false;
-      const days = s.days ?? 0;
-      return days === 0 || (days & todayBit) !== 0;
-    })
+    .filter(
+      (s) =>
+        s.hour !== null && s.hour !== undefined && appliesOnDay(s.days, now),
+    )
     .map((s) => ({ hour: s.hour as number, minute: s.minute ?? 0 }))
     .sort((a, b) => a.hour * 60 + a.minute - (b.hour * 60 + b.minute));
 

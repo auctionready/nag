@@ -1,6 +1,13 @@
+import { addDays, addMonths, startOfDay, startOfMonth } from "date-fns";
 import type { AnyDb } from "./db";
+import { atTimeOfDay } from "./days";
 import { allActiveSchedules, checkInsForHabitsOnDay } from "./queries";
 import { matchCheckInsToTimeSlots } from "./trafficLight";
+import {
+  buildBadgeTransitions,
+  getBadgeInputs,
+  overdueCountAt,
+} from "./badgeSchedule";
 
 export interface ConsolidatedNotificationScheduler {
   /**
@@ -18,6 +25,18 @@ export interface ConsolidatedNotificationScheduler {
     title: string;
     body: string;
     data: Record<string, unknown>;
+    fireAt: Date;
+    /** App-icon badge to apply when this reminder is delivered. */
+    badge?: number;
+  }): Promise<void>;
+  /**
+   * Schedule a badge-only notification (no alert/sound) that sets the app-icon
+   * badge at `fireAt`. Used to advance the overdue badge for slots with no
+   * reminder (silenced) and to reset it at midnight, while backgrounded.
+   */
+  scheduleBadgeNotification(params: {
+    identifier: string;
+    badge: number;
     fireAt: Date;
   }): Promise<void>;
 }
@@ -136,7 +155,15 @@ export const consolidateSchedules = (
 export const DAILY_HORIZON_DAYS = 7;
 export const WEEKLY_HORIZON_WEEKS = 4;
 export const MONTHLY_HORIZON_MONTHS = 3;
-const TOTAL_OCCURRENCE_CAP = 60;
+
+/**
+ * Combined ceiling on pending local notifications (reminders + badge-only),
+ * kept under iOS's hard cap of 64 with headroom. Badge-only notifications are
+ * reserved first (nearest-term, today) and reminders fill the rest.
+ */
+const PENDING_NOTIFICATION_CAP = 60;
+/** Max badge-only notifications reserved within the pending cap. */
+const BADGE_NOTIFICATION_CAP = 16;
 
 /**
  * Compute the next N concrete occurrence `Date`s for a time-slot, strictly
@@ -149,6 +176,7 @@ export const nextOccurrences = (
   timeSlot: ConsolidatedTimeSlot,
   now: Date,
 ): Date[] => {
+  const at = (day: Date) => atTimeOfDay(day, timeSlot.hour, timeSlot.minute);
   const out: Date[] = [];
   if (timeSlot.regularity === "day") {
     for (
@@ -156,34 +184,17 @@ export const nextOccurrences = (
       out.length < DAILY_HORIZON_DAYS && i < DAILY_HORIZON_DAYS + 2;
       i++
     ) {
-      const d = new Date(
-        now.getFullYear(),
-        now.getMonth(),
-        now.getDate() + i,
-        timeSlot.hour,
-        timeSlot.minute,
-        0,
-        0,
-      );
+      const d = at(addDays(now, i));
       if (d > now) out.push(d);
     }
   } else if (timeSlot.regularity === "week") {
-    const todayDow = now.getDay();
-    const offsetToFirst = (timeSlot.dow! - todayDow + 7) % 7;
+    const offsetToFirst = (timeSlot.dow! - now.getDay() + 7) % 7;
     for (
       let w = 0;
       out.length < WEEKLY_HORIZON_WEEKS && w < WEEKLY_HORIZON_WEEKS + 2;
       w++
     ) {
-      const d = new Date(
-        now.getFullYear(),
-        now.getMonth(),
-        now.getDate() + offsetToFirst + 7 * w,
-        timeSlot.hour,
-        timeSlot.minute,
-        0,
-        0,
-      );
+      const d = at(addDays(now, offsetToFirst + 7 * w));
       if (d > now) out.push(d);
     }
   } else {
@@ -197,7 +208,7 @@ export const nextOccurrences = (
       const m = now.getMonth() + i;
       const lastDayOfMonth = new Date(y, m + 1, 0).getDate();
       if (dom > lastDayOfMonth) continue;
-      const d = new Date(y, m, dom, timeSlot.hour, timeSlot.minute, 0, 0);
+      const d = at(new Date(y, m, dom));
       if (d > now) out.push(d);
     }
   }
@@ -244,6 +255,7 @@ const noop: ConsolidatedNotificationScheduler = {
   requestPermissions: async () => true,
   cancelAllTimeSlotNotifications: async () => {},
   scheduleTimeSlotNotification: async () => {},
+  scheduleBadgeNotification: async () => {},
 };
 
 let scheduler: ConsolidatedNotificationScheduler = noop;
@@ -309,16 +321,8 @@ export const syncAllNotifications = async (
   if (!granted) return;
 
   // Widest possible lookup window across all time-slots: up to ~3 months out.
-  const lookupStart = new Date(
-    now.getFullYear(),
-    now.getMonth(),
-    now.getDate(),
-  );
-  const lookupEnd = new Date(
-    now.getFullYear(),
-    now.getMonth() + MONTHLY_HORIZON_MONTHS + 1,
-    1,
-  );
+  const lookupStart = startOfDay(now);
+  const lookupEnd = startOfMonth(addMonths(now, MONTHLY_HORIZON_MONTHS + 1));
   const allHabitIds = Array.from(new Set(timeSlots.flatMap((s) => s.habitIds)));
   const checkInRows = await checkInsForHabitsOnDay(
     db,
@@ -365,10 +369,30 @@ export const syncAllNotifications = async (
   }
 
   candidates.sort((a, b) => a.fireAt.getTime() - b.fireAt.getTime());
-  const picked = candidates.slice(0, TOTAL_OCCURRENCE_CAP);
 
-  await Promise.all(
-    picked.map(({ timeSlot, fireAt, pendingIdxs }) => {
+  // Badge: pre-schedule the app-icon overdue count so it stays fresh while
+  // backgrounded. Bell-agnostic (silenced reminders still count). Each
+  // reminder occurrence carries the count as of its fire time; today's
+  // transitions with no reminder (silenced habits) get a badge-only
+  // notification, plus a midnight reset.
+  const badgeInputs = await getBadgeInputs(db, now);
+  const badgeTransitions = buildBadgeTransitions(badgeInputs, now);
+
+  // Reserve room for badge-only notifications under the pending cap, then let
+  // reminders fill the rest.
+  const reservedBadge = Math.min(
+    BADGE_NOTIFICATION_CAP,
+    badgeTransitions.length,
+  );
+  const picked = candidates.slice(0, PENDING_NOTIFICATION_CAP - reservedBadge);
+
+  const reminderFireAtMs = new Set(picked.map((p) => p.fireAt.getTime()));
+  const badgeOnly = badgeTransitions
+    .filter((t) => !reminderFireAtMs.has(t.fireAt.getTime()))
+    .slice(0, BADGE_NOTIFICATION_CAP);
+
+  await Promise.all([
+    ...picked.map(({ timeSlot, fireAt, pendingIdxs }) => {
       const pendingTitles = pendingIdxs.map((i) => timeSlot.titles[i]);
       const { title, body } = timeSlotContent(timeSlot, pendingTitles);
       return scheduler.scheduleTimeSlotNotification({
@@ -381,7 +405,15 @@ export const syncAllNotifications = async (
           timeSlotMinute: timeSlot.minute,
         },
         fireAt,
+        badge: overdueCountAt(badgeInputs, fireAt),
       });
     }),
-  );
+    ...badgeOnly.map((t) =>
+      scheduler.scheduleBadgeNotification({
+        identifier: `badge-${ymd(t.fireAt)}-${pad(t.fireAt.getHours())}${pad(t.fireAt.getMinutes())}`,
+        badge: t.badge,
+        fireAt: t.fireAt,
+      }),
+    ),
+  ]);
 };
