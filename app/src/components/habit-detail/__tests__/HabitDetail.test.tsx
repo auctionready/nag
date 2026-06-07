@@ -131,10 +131,10 @@ describe("HabitDetail", () => {
           ]}
         />,
       );
-      expect(view.getByText("Off-day extra")).toBeTruthy();
-      expect(view.getByLabelText("Log off-day extra")).toBeTruthy();
-      // The primary button's own label flips away from "Check-in" (the
-      // empty-state hint still contains that word, so assert via label).
+      expect(view.getByText("Off-day Check-in")).toBeTruthy();
+      expect(view.getByLabelText("Off-day Check-in")).toBeTruthy();
+      // The plain "Check-in" label flips to the off-day form (the empty-state
+      // hint still contains the word, so assert via the button's label).
       expect(view.queryByLabelText("Check-in")).toBeNull();
       // Skip is meaningless on an off-day → hidden even though showSkip is set.
       expect(view.queryByLabelText("Skip")).toBeNull();
@@ -156,7 +156,7 @@ describe("HabitDetail", () => {
         new Date(2025, 5, 18, 10, 0),
       );
       expect(view.getByLabelText("Check-in")).toBeTruthy();
-      expect(view.queryByText("Off-day extra")).toBeNull();
+      expect(view.queryByText("Off-day Check-in")).toBeNull();
     });
   });
 
@@ -472,8 +472,8 @@ describe("HabitDetail", () => {
       expect(view.getByText("1 entry")).toBeTruthy();
     });
 
-    it("labels an off-day check-in as an off-day extra", async () => {
-      // Mon-Fri schedule, check-in (and "now") on Sunday → off-day extra.
+    it("labels an off-day check-in as an off-day check-in", async () => {
+      // Mon-Fri schedule, check-in (and "now") on Sunday → off-day check-in.
       const weekdays = Day.Mon | Day.Tue | Day.Wed | Day.Thu | Day.Fri;
       const view = await render(
         <HabitDetail
@@ -494,7 +494,7 @@ describe("HabitDetail", () => {
           ]}
         />,
       );
-      expect(view.getByText("off-day extra")).toBeTruthy();
+      expect(view.getByText("off-day check-in")).toBeTruthy();
       expect(view.queryByText("logged")).toBeNull();
     });
 
@@ -522,7 +522,7 @@ describe("HabitDetail", () => {
         new Date(2025, 5, 18, 22, 0),
       );
       expect(view.getByText("logged")).toBeTruthy();
-      expect(view.queryByText("off-day extra")).toBeNull();
+      expect(view.queryByText("off-day check-in")).toBeNull();
     });
 
     it("scopes the list to the selected day", async () => {

@@ -54,10 +54,13 @@ export const CheckInRow = ({
   onEdit,
 }: CheckInRowProps) => {
   const isSkipped = entry.skipped === true;
-  // An off-day check-in is a bonus — the habit wasn't scheduled that day,
-  // so it reads as an extra rather than a plain "logged" entry. Skips keep
-  // their own subline.
-  const subline = isSkipped ? "(skipped)" : offDay ? "off-day extra" : "logged";
+  // A check-in on a day the habit wasn't scheduled reads as an off-day
+  // check-in rather than a plain "logged" entry. Skips keep their own subline.
+  const subline = isSkipped
+    ? "(skipped)"
+    : offDay
+      ? "off-day check-in"
+      : "logged";
   const showRecorded = wasBackFilled(entry);
   const showEdited = wasEdited(entry);
 

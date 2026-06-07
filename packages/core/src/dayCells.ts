@@ -125,20 +125,12 @@ export const isOffDay = (scheduledDaysMask: number, date: Date): boolean =>
 
 export const fullySkippedDaysMask = (
   checkIns: { timestamp: Date; skipped?: boolean | null }[],
-): number => {
-  const seen = Array.from({ length: 7 }, () => false);
-  const done = Array.from({ length: 7 }, () => false);
-  for (const c of checkIns) {
-    const dow = c.timestamp.getDay();
-    seen[dow] = true;
-    if (!c.skipped) done[dow] = true;
-  }
-  let mask = 0;
-  for (let dow = 0; dow < 7; dow++) {
-    if (seen[dow] && !done[dow]) mask |= 1 << dow;
-  }
-  return mask;
-};
+): number =>
+  [0, 1, 2, 3, 4, 5, 6].reduce((mask, dow) => {
+    const onDay = checkIns.filter((c) => c.timestamp.getDay() === dow);
+    const fullySkipped = onDay.length > 0 && onDay.every((c) => c.skipped);
+    return fullySkipped ? mask | (1 << dow) : mask;
+  }, 0);
 
 export interface TimeSlotCompletion {
   /** Days where check-ins meet or exceed that day's scheduled time-slot count. */

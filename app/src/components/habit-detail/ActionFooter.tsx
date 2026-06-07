@@ -9,8 +9,8 @@ interface ActionFooterProps {
   showSkip: boolean;
   /**
    * True when the active day isn't a scheduled day for this habit. The
-   * primary action then reads as a "bonus" off-day extra rather than a
-   * regular check-in, signalling nothing was actually due.
+   * primary action then reads as an "Off-day Check-in" rather than a plain
+   * check-in, signalling nothing was actually due.
    */
   offDay?: boolean;
   /** Tap → log immediately. */
@@ -97,7 +97,7 @@ export const ActionFooter = ({
               pressed && styles.primaryPressed,
             ]}
             accessibilityRole="button"
-            accessibilityLabel={offDay ? "Log off-day extra" : "Check-in"}
+            accessibilityLabel={offDay ? "Off-day Check-in" : "Check-in"}
           >
             <Svg
               width={14}
@@ -112,7 +112,7 @@ export const ActionFooter = ({
               <Path d="M2.5 7L6 10.5L11.5 4" />
             </Svg>
             <Text style={styles.primaryText}>
-              {offDay ? "Off-day extra" : "Check-in"}
+              {offDay ? "Off-day Check-in" : "Check-in"}
             </Text>
           </Pressable>
         </GestureDetector>
