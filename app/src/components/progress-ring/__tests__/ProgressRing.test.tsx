@@ -1,7 +1,9 @@
 import { render } from "@testing-library/react-native";
 import { ProgressRing } from "../ProgressRing";
 
-type ReactTestInstance = ReturnType<typeof render>["root"];
+type ReactTestInstance = NonNullable<
+  Awaited<ReturnType<typeof render>>["root"]
+>;
 
 describe("ProgressRing", () => {
   const size = 36;
@@ -9,15 +11,15 @@ describe("ProgressRing", () => {
   const radius = (size - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
 
-  it("renders without crashing", () => {
-    render(<ProgressRing progress={0.5} />);
+  it("renders without crashing", async () => {
+    await render(<ProgressRing progress={0.5} />);
   });
 
-  it("compensates for round linecaps at 50% progress", () => {
-    const { root } = render(
+  it("compensates for round linecaps at 50% progress", async () => {
+    const { root } = await render(
       <ProgressRing progress={0.5} size={size} strokeWidth={strokeWidth} />,
     );
-    const circles = root.findAll(
+    const circles = root!.queryAll(
       (node: ReactTestInstance) =>
         typeof node.type === "string" &&
         (node.type as string) === "RNSVGCircle",
@@ -29,11 +31,11 @@ describe("ProgressRing", () => {
     );
   });
 
-  it("compensates for round linecaps at 25% progress", () => {
-    const { root } = render(
+  it("compensates for round linecaps at 25% progress", async () => {
+    const { root } = await render(
       <ProgressRing progress={0.25} size={size} strokeWidth={strokeWidth} />,
     );
-    const circles = root.findAll(
+    const circles = root!.queryAll(
       (node: ReactTestInstance) =>
         typeof node.type === "string" &&
         (node.type as string) === "RNSVGCircle",
@@ -44,11 +46,11 @@ describe("ProgressRing", () => {
     );
   });
 
-  it("skips linecap compensation at 0% and 100%", () => {
-    const { root: full } = render(
+  it("skips linecap compensation at 0% and 100%", async () => {
+    const { root: full } = await render(
       <ProgressRing progress={1} size={size} strokeWidth={strokeWidth} />,
     );
-    const fullCircles = full.findAll(
+    const fullCircles = full!.queryAll(
       (node: ReactTestInstance) =>
         typeof node.type === "string" &&
         (node.type as string) === "RNSVGCircle",
@@ -57,10 +59,10 @@ describe("ProgressRing", () => {
     const fullOffset = fullCircles[1].props.strokeDashoffset ?? 0;
     expect(fullOffset).toBeCloseTo(0);
 
-    const { root: empty } = render(
+    const { root: empty } = await render(
       <ProgressRing progress={0} size={size} strokeWidth={strokeWidth} />,
     );
-    const emptyCircles = empty.findAll(
+    const emptyCircles = empty!.queryAll(
       (node: ReactTestInstance) =>
         typeof node.type === "string" &&
         (node.type as string) === "RNSVGCircle",

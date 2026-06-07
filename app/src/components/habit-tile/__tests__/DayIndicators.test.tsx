@@ -13,8 +13,8 @@ afterEach(() => {
 });
 
 describe("DayIndicators", () => {
-  it("renders 7 day letters in Monday-first order", () => {
-    const { getAllByText } = renderWithToday(
+  it("renders 7 day letters in Monday-first order", async () => {
+    const { getAllByText } = await renderWithToday(
       <DayIndicators
         scheduledDaysMask={Day.Mon | Day.Wed | Day.Fri}
         checkedInDaysMask={0}
@@ -29,15 +29,15 @@ describe("DayIndicators", () => {
     expect(getAllByText("S")).toHaveLength(2);
   });
 
-  it("renders without crashing with all days scheduled and checked in", () => {
-    renderWithToday(
+  it("renders without crashing with all days scheduled and checked in", async () => {
+    await renderWithToday(
       <DayIndicators scheduledDaysMask={127} checkedInDaysMask={127} />,
       { now: monday },
     );
   });
 
-  it("renders without crashing with no check-ins", () => {
-    renderWithToday(
+  it("renders without crashing with no check-ins", async () => {
+    await renderWithToday(
       <DayIndicators
         scheduledDaysMask={Day.Mon | Day.Wed}
         checkedInDaysMask={0}
@@ -50,8 +50,8 @@ describe("DayIndicators", () => {
   // and `checkedInDaysMask` (the days the user actually checked in on) with
   // no `todayColor`/`partialColor`/`missedColor`. Should render without
   // crashing; `buildDayCells` tests cover the resulting green fills.
-  it("renders the unscheduled-weekly shape without crashing", () => {
-    renderWithToday(
+  it("renders the unscheduled-weekly shape without crashing", async () => {
+    await renderWithToday(
       <DayIndicators
         scheduledDaysMask={Day.Mon | Day.Wed}
         checkedInDaysMask={Day.Mon | Day.Wed}
