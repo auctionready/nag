@@ -1,6 +1,10 @@
 import type { Regularity } from "@nag/schema";
 import { isSameCalendarDay } from "./days";
-import { checkInDaysMask, classifyScheduledDays } from "./dayCells";
+import {
+  checkInDaysMask,
+  classifyScheduledDays,
+  fullySkippedDaysMask,
+} from "./dayCells";
 import {
   type ComplianceColors,
   type MatchCheckInsToTimeSlotsResult,
@@ -91,9 +95,11 @@ export interface HabitProgressSnapshot {
   /** Days where some — but not all — time-slots have a check-in. */
   partialDaysMask: number;
   /**
-   * Days where the user only logged skip check-ins (no real completions).
-   * Renderers should check this before `completedDaysMask` when picking a
-   * cell glyph, since a fully-skipped day is also in `completedDaysMask`.
+   * Days where the user only logged skip check-ins (no real completions) —
+   * regardless of whether the day is scheduled. Renderers should check this
+   * before `completedDaysMask` / `anyCheckInDaysMask` when picking a cell
+   * glyph, since a fully-skipped day is also in those masks but should read
+   * as "set aside", not "done".
    */
   skippedDaysMask: number;
   /**
@@ -197,11 +203,14 @@ export const habitProgressSnapshot = (
       )
     : undefined;
 
-  const { completedDaysMask, partialDaysMask, skippedDaysMask } =
-    classifyScheduledDays({
-      schedules,
-      checkIns: periodCheckIns,
-    });
+  const { completedDaysMask, partialDaysMask } = classifyScheduledDays({
+    schedules,
+    checkIns: periodCheckIns,
+  });
+  // Schedule-agnostic so an off-day or frequency-only skip is still flagged.
+  // `classifyScheduledDays` only marks *scheduled* days, which let off-day
+  // skips slip through as plain check-ins in the week strips.
+  const skippedDaysMask = fullySkippedDaysMask(periodCheckIns);
   const anyCheckInDaysMask = checkInDaysMask(periodCheckIns);
   const unscheduledWeeklyMask =
     goal?.regularity === "week" && scheduledDaysMask === 0

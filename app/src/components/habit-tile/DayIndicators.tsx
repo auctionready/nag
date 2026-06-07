@@ -78,10 +78,12 @@ const buildCells = ({
     const isToday = day === todayBit;
     const isPast = i < todayIndex;
     let state: CellState;
-    // Skipped is checked before completed: a fully-skipped day is also in
-    // `checkedInDaysMask` (skips cover the schedule) but should read as
-    // intentionally set aside, not as done.
-    if (scheduled && skipped) state = "skipped";
+    // Skipped is checked before completed *and* before the unscheduled
+    // any-check-in fill: a fully-skipped day is also in `checkedInDaysMask`
+    // and `anyCheckInDaysMask` (an off-day skip still counts as a check-in)
+    // but should read as intentionally set aside, not as done.
+    // `skippedDaysMask` is schedule-agnostic so off-days are covered too.
+    if (skipped) state = "skipped";
     else if (scheduled && checkedIn) state = isToday ? "today-done" : "done";
     else if (!scheduled && anyCheckIn) state = "done";
     else if (scheduled && partial)

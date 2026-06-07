@@ -1,6 +1,6 @@
 import { Pressable, StyleSheet, Switch, Text, View } from "react-native";
 import DateTimePicker, {
-  type DateTimePickerEvent,
+  type DateTimePickerChangeEvent,
 } from "@react-native-community/datetimepicker";
 import { useEffect, useMemo } from "react";
 import { useForm, Controller, useWatch } from "react-hook-form";
@@ -63,8 +63,7 @@ export const ScheduleEntryForm = ({
     setValue("days", newDays, { shouldDirty: true, shouldValidate: true });
   };
 
-  const onTimeChange = (_: DateTimePickerEvent, date?: Date) => {
-    if (!date) return;
+  const onTimeChange = (_: DateTimePickerChangeEvent, date: Date) => {
     setValue("hour", String(date.getHours()), { shouldDirty: true });
     setValue("minute", String(date.getMinutes()).padStart(2, "0"), {
       shouldDirty: true,
@@ -87,7 +86,7 @@ export const ScheduleEntryForm = ({
           value={timeValue}
           mode="time"
           display="spinner"
-          onChange={onTimeChange}
+          onValueChange={onTimeChange}
           style={styles.timePicker}
         />
       </View>

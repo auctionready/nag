@@ -3,6 +3,8 @@ import {
   buildDayCells,
   checkInDaysMask,
   classifyScheduledDays,
+  fullySkippedDaysMask,
+  isOffDay,
 } from "../dayCells";
 import { Day } from "../days";
 
@@ -435,5 +437,63 @@ describe("checkInDaysMask", () => {
         { timestamp: new Date(2025, 5, 20, 8, 0) },
       ]),
     ).toBe(Day.Mon | Day.Wed | Day.Fri);
+  });
+});
+
+describe("fullySkippedDaysMask", () => {
+  it("returns 0 for an empty list", () => {
+    expect(fullySkippedDaysMask([])).toBe(0);
+  });
+
+  it("flags a day whose only check-in is a skip", () => {
+    expect(
+      fullySkippedDaysMask([
+        { timestamp: new Date(2025, 5, 16, 8, 0), skipped: true },
+      ]),
+    ).toBe(Day.Mon);
+  });
+
+  it("does not flag a day with a real check-in", () => {
+    expect(
+      fullySkippedDaysMask([{ timestamp: new Date(2025, 5, 16, 8, 0) }]),
+    ).toBe(0);
+  });
+
+  it("does not flag a day with a mix of skip and real check-ins", () => {
+    expect(
+      fullySkippedDaysMask([
+        { timestamp: new Date(2025, 5, 16, 8, 0), skipped: true },
+        { timestamp: new Date(2025, 5, 16, 12, 0) },
+      ]),
+    ).toBe(0);
+  });
+
+  it("flags fully-skipped days regardless of any schedule (off-day skips)", () => {
+    // The defining difference from classifyScheduledDays: this is unaware of
+    // schedules, so a skip on an otherwise unscheduled day still counts.
+    // Sat=Jun 21.
+    expect(
+      fullySkippedDaysMask([
+        { timestamp: new Date(2025, 5, 21, 8, 0), skipped: true },
+      ]),
+    ).toBe(Day.Sat);
+  });
+});
+
+describe("isOffDay", () => {
+  it("is true when the date's weekday isn't in the schedule mask", () => {
+    // Mon-Fri schedule, date is Saturday (Jun 21).
+    const weekdays = Day.Mon | Day.Tue | Day.Wed | Day.Thu | Day.Fri;
+    expect(isOffDay(weekdays, new Date(2025, 5, 21, 9, 0))).toBe(true);
+  });
+
+  it("is false when the date's weekday is in the schedule mask", () => {
+    const weekdays = Day.Mon | Day.Tue | Day.Wed | Day.Thu | Day.Fri;
+    // Monday (Jun 16) is scheduled.
+    expect(isOffDay(weekdays, new Date(2025, 5, 16, 9, 0))).toBe(false);
+  });
+
+  it("is always false for a frequency-only habit (mask 0)", () => {
+    expect(isOffDay(0, new Date(2025, 5, 21, 9, 0))).toBe(false);
   });
 });

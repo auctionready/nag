@@ -1,4 +1,4 @@
-import { mondayFirstDayLetters } from "./days";
+import { mondayFirstDayLetters, weekDayEntries } from "./days";
 import type { ScheduleInfo } from "./trafficLight/types";
 
 export interface DayCell {
@@ -104,6 +104,33 @@ export const buildDayCells = ({
  */
 export const checkInDaysMask = (checkIns: { timestamp: Date }[]): number =>
   checkIns.reduce((mask, c) => mask | (1 << c.timestamp.getDay()), 0);
+
+/**
+ * True when `date` falls on a day the habit isn't scheduled for — the habit
+ * has a day-of-week schedule but this day-of-week isn't in it. A habit with
+ * no day-of-week schedule (frequency-only) has no off-days, so this is
+ * always false there. Used to label off-day check-ins and to suppress the
+ * skip affordance on days nothing was due.
+ */
+export const isOffDay = (scheduledDaysMask: number, date: Date): boolean =>
+  scheduledDaysMask !== 0 && (scheduledDaysMask & (1 << date.getDay())) === 0;
+
+/**
+ * Day-of-week bitmask (Sun=bit0..Sat=bit6) of days that have at least one
+ * check-in and where *every* check-in is a skip — i.e. the day was
+ * intentionally set aside. Unlike `classifyScheduledDays`'s
+ * `skippedDaysMask` (scheduled days only), this also covers off-days and
+ * frequency-only days, so a skip the user logged on an unscheduled day
+ * still reads as "set aside" rather than a plain check-in.
+ */
+export const fullySkippedDaysMask = (
+  checkIns: { timestamp: Date; skipped?: boolean | null }[],
+): number =>
+  weekDayEntries.reduce((mask, { day }) => {
+    const onDay = checkIns.filter((c) => 1 << c.timestamp.getDay() === day);
+    const fullySkipped = onDay.length > 0 && onDay.every((c) => c.skipped);
+    return fullySkipped ? mask | day : mask;
+  }, 0);
 
 export interface TimeSlotCompletion {
   /** Days where check-ins meet or exceed that day's scheduled time-slot count. */

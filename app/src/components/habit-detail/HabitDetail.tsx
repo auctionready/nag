@@ -4,6 +4,7 @@ import { format, startOfDay, endOfDay, startOfMonth } from "date-fns";
 import type { HabitStatus, Regularity } from "@nag/schema";
 import {
   habitProgressSnapshot,
+  isOffDay,
   isSameCalendarDay,
   periodStart,
   periodWindow,
@@ -397,6 +398,15 @@ const DetailView = ({
     });
   };
 
+  // The day the footer logs against — selected day, or today when none.
+  // Off-days (the habit isn't scheduled then) get "bonus" framing.
+  const activeOffDay = isOffDay(snap.scheduledDaysMask, selectedDay ?? now);
+  const editIntent =
+    pickerState?.intent.kind === "edit" ? pickerState.intent : null;
+  const editingCheckIn = editIntent
+    ? checkIns.find((c) => c.id === editIntent.checkInId)
+    : undefined;
+
   return (
     <View style={styles.container}>
       <DetailHeader
@@ -455,6 +465,7 @@ const DetailView = ({
           eyebrow={listEyebrow}
           singleDay={singleDay}
           hasScheduleSlots={slotsForDay.length > 0}
+          scheduledDaysMask={snap.scheduledDaysMask}
           onRemove={onRemoveCheckIn}
           onEditTimestamp={(id, ts) =>
             setPickerState({
@@ -471,7 +482,11 @@ const DetailView = ({
         <ArchivedFooter />
       ) : (
         <ActionFooter
-          showSkip={showSkip}
+          // Skipping is meaningless on an off-day (nothing was due), so the
+          // Skip action is hidden there — matching the edit modal. The
+          // primary action also reframes as an off-day "bonus".
+          showSkip={showSkip && !activeOffDay}
+          offDay={activeOffDay}
           onCheckIn={handleCheckInTap}
           onLongPressCheckIn={handleCheckInLongPress}
           onSkip={handleSkipTap}
@@ -486,16 +501,21 @@ const DetailView = ({
           mode={pickerConfig.mode}
           minimumDate={pickerConfig.minimumDate}
           maximumDate={pickerConfig.maximumDate}
-          showSkipToggle={pickerState.intent.kind === "edit"}
+          // Editing only, and never on an off-day — skipping something that
+          // wasn't scheduled is meaningless, so edit can't create (or keep
+          // toggling) a skip there, mirroring the hidden footer Skip. The
+          // time can still be edited; a stray off-day skip is cleared by
+          // deleting the entry.
+          showSkipToggle={
+            pickerState.intent.kind === "edit" &&
+            !isOffDay(
+              snap.scheduledDaysMask,
+              editingCheckIn?.timestamp ?? pickerState.timestamp,
+            )
+          }
           initialSkipped={
             pickerState.intent.kind === "edit"
-              ? (() => {
-                  const intent = pickerState.intent;
-                  return (
-                    checkIns.find((c) => c.id === intent.checkInId)?.skipped ??
-                    false
-                  );
-                })()
+              ? (editingCheckIn?.skipped ?? false)
               : undefined
           }
           onConfirm={handlePickerConfirm}

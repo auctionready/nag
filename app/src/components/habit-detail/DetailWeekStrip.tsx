@@ -133,10 +133,12 @@ const stateFor = ({
   const isToday = isSameCalendarDay(cellDate, todayStart);
   const isPast = cellDate < todayStart && !isToday;
 
-  // Skipped is checked before completed/partial: a fully-skipped day is
-  // also in `completedDaysMask` (skips cover the schedule) but should
-  // render as `skipped`, not `done`.
-  if (scheduled && skipped) return "skipped";
+  // Skipped is checked before completed/partial *and* before the unscheduled
+  // any-check-in fill: a fully-skipped day is also in `completedDaysMask` and
+  // `anyCheckInDaysMask` (an off-day skip still counts as a check-in) but
+  // should render as `skipped`, not `done`. `skippedDaysMask` is
+  // schedule-agnostic, so this covers off-days and frequency-only days too.
+  if (skipped) return "skipped";
   if (scheduled && checkedIn) return isToday ? "today-done" : "done";
   if (!scheduled && anyCheckIn) return "done";
   if (scheduled && partial) return isToday ? "today-partial" : "partial";
