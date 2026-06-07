@@ -1,4 +1,7 @@
+import { addDays, startOfDay } from "date-fns";
 import type { AnyDb } from "./db";
+import { atTimeOfDay, appliesOnDay } from "./days";
+import { groupBy } from "./groupBy";
 import {
   allHabits,
   checkInsForHabitsOnDay,
@@ -36,29 +39,21 @@ export const loadBadgeInputs = async (
   db: AnyDb,
   now: Date,
 ): Promise<BadgeInputs> => {
-  const schedulesByHabit: SchedulesByHabit = new Map();
-  const checkInsByHabit: CheckInsByHabit = new Map();
-
-  const habits = await allHabits(db);
-  const habitIds = habits.map((h) => h.id);
-  if (habitIds.length === 0) return { schedulesByHabit, checkInsByHabit };
-
-  const schedules = await schedulesForHabits(db, habitIds);
-  const dayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const dayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
-  const checkIns = await checkInsForHabitsOnDay(db, habitIds, dayStart, dayEnd);
-
-  for (const s of schedules) {
-    const list = schedulesByHabit.get(s.habitId) ?? [];
-    list.push(s);
-    schedulesByHabit.set(s.habitId, list);
+  const habitIds = (await allHabits(db)).map((h) => h.id);
+  if (habitIds.length === 0) {
+    return { schedulesByHabit: new Map(), checkInsByHabit: new Map() };
   }
-  for (const c of checkIns) {
-    const list = checkInsByHabit.get(c.habitId) ?? [];
-    list.push({ timestamp: c.timestamp, skipped: c.skipped });
-    checkInsByHabit.set(c.habitId, list);
-  }
-  return { schedulesByHabit, checkInsByHabit };
+
+  const dayStart = startOfDay(now);
+  const [schedules, checkIns] = await Promise.all([
+    schedulesForHabits(db, habitIds),
+    checkInsForHabitsOnDay(db, habitIds, dayStart, addDays(dayStart, 1)),
+  ]);
+
+  return {
+    schedulesByHabit: groupBy(schedules, (s) => s.habitId),
+    checkInsByHabit: groupBy(checkIns, (c) => c.habitId),
+  };
 };
 
 /**
@@ -70,18 +65,14 @@ export const loadBadgeInputs = async (
 export const overdueCountAt = (
   { schedulesByHabit, checkInsByHabit }: BadgeInputs,
   at: Date,
-): number => {
-  let count = 0;
-  for (const [habitId, schedules] of schedulesByHabit) {
-    const { timeSlots } = matchCheckInsToTimeSlots({
+): number =>
+  [...schedulesByHabit].filter(([habitId, schedules]) =>
+    matchCheckInsToTimeSlots({
       schedules,
       checkIns: checkInsByHabit.get(habitId) ?? [],
       now: at,
-    });
-    if (timeSlots.some((s) => s.status === "missed")) count++;
-  }
-  return count;
-};
+    }).timeSlots.some((s) => s.status === "missed"),
+  ).length;
 
 export interface BadgeTransition {
   fireAt: Date;
@@ -107,37 +98,28 @@ export const buildBadgeTransitions = (
   inputs: BadgeInputs,
   now: Date,
 ): BadgeTransition[] => {
-  const { schedulesByHabit } = inputs;
-  const todayBit = 1 << now.getDay();
-
-  const slotMinutes = new Set<number>();
-  for (const schedules of schedulesByHabit.values()) {
-    for (const s of schedules) {
-      if (s.hour === null || s.hour === undefined) continue;
-      const days = s.days ?? 0;
-      if (!(days === 0 || (days & todayBit) !== 0)) continue;
-      slotMinutes.add(s.hour * 60 + (s.minute ?? 0));
-    }
-  }
-
   const nowMinutes = now.getHours() * 60 + now.getMinutes();
-  const futureMinutes = [...slotMinutes]
-    .filter((m) => m > nowMinutes)
-    .sort((a, b) => a - b);
+
+  // Distinct slot times scheduled for today that are still in the future,
+  // as `Date`s on today, ascending.
+  const futureSlots = [
+    ...new Set(
+      [...inputs.schedulesByHabit.values()]
+        .flat()
+        .filter((s) => s.hour != null && appliesOnDay(s.days, now))
+        .map((s) => (s.hour as number) * 60 + (s.minute ?? 0))
+        .filter((m) => m > nowMinutes),
+    ),
+  ]
+    .sort((a, b) => a - b)
+    .map((m) => atTimeOfDay(now, Math.floor(m / 60), m % 60));
 
   const transitions: BadgeTransition[] = [];
   let prev = overdueCountAt(inputs, now);
-  for (const m of futureMinutes) {
-    const fireAt = new Date(
-      now.getFullYear(),
-      now.getMonth(),
-      now.getDate(),
-      Math.floor(m / 60),
-      m % 60,
-      0,
-      0,
-    );
+  for (const fireAt of futureSlots) {
     const badge = overdueCountAt(inputs, fireAt);
+    // Collapse consecutive equal counts: a habit with several missed slots
+    // only steps the badge once.
     if (badge !== prev) {
       transitions.push({ fireAt, badge });
       prev = badge;
@@ -147,18 +129,7 @@ export const buildBadgeTransitions = (
   // Clear today's overdue count at midnight so an app left backgrounded
   // overnight doesn't keep showing yesterday's stale badge.
   if (prev > 0) {
-    transitions.push({
-      fireAt: new Date(
-        now.getFullYear(),
-        now.getMonth(),
-        now.getDate() + 1,
-        0,
-        0,
-        0,
-        0,
-      ),
-      badge: 0,
-    });
+    transitions.push({ fireAt: startOfDay(addDays(now, 1)), badge: 0 });
   }
 
   return transitions;

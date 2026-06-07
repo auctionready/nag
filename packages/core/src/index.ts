@@ -176,7 +176,10 @@ export {
   weekDayEntries,
   mondayFirstDayLetters,
   isSameCalendarDay,
+  atTimeOfDay,
+  appliesOnDay,
 } from "./days";
+export { groupBy } from "./groupBy";
 export { formatTimeSlotTime, formatTimeOfDay } from "./format";
 export {
   setNotificationScheduler,

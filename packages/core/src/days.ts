@@ -1,3 +1,5 @@
+import { set } from "date-fns";
+
 export enum Day {
   Sun = 1 << 0,
   Mon = 1 << 1,
@@ -71,3 +73,23 @@ export const isSameCalendarDay = (a: Date, b: Date): boolean =>
   a.getFullYear() === b.getFullYear() &&
   a.getMonth() === b.getMonth() &&
   a.getDate() === b.getDate();
+
+/**
+ * A `Date` on the same calendar day as `day`, at the given wall-clock time
+ * (seconds/milliseconds zeroed). DST-safe — keeps the intended local hour
+ * across transitions, unlike millisecond arithmetic.
+ */
+export const atTimeOfDay = (day: Date, hour: number, minute: number): Date =>
+  set(day, { hours: hour, minutes: minute, seconds: 0, milliseconds: 0 });
+
+/**
+ * Whether a schedule `days` bitmask applies on the weekday of `date`.
+ * A null/zero mask means "every day" (consistent with `withinDayCompliance`).
+ */
+export const appliesOnDay = (
+  days: number | null | undefined,
+  date: Date,
+): boolean => {
+  const mask = days ?? 0;
+  return mask === 0 || (mask & (1 << date.getDay())) !== 0;
+};

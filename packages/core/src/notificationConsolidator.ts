@@ -1,4 +1,6 @@
+import { addDays, addMonths, startOfDay, startOfMonth } from "date-fns";
 import type { AnyDb } from "./db";
+import { atTimeOfDay } from "./days";
 import { allActiveSchedules, checkInsForHabitsOnDay } from "./queries";
 import { matchCheckInsToTimeSlots } from "./trafficLight";
 import {
@@ -174,6 +176,7 @@ export const nextOccurrences = (
   timeSlot: ConsolidatedTimeSlot,
   now: Date,
 ): Date[] => {
+  const at = (day: Date) => atTimeOfDay(day, timeSlot.hour, timeSlot.minute);
   const out: Date[] = [];
   if (timeSlot.regularity === "day") {
     for (
@@ -181,34 +184,17 @@ export const nextOccurrences = (
       out.length < DAILY_HORIZON_DAYS && i < DAILY_HORIZON_DAYS + 2;
       i++
     ) {
-      const d = new Date(
-        now.getFullYear(),
-        now.getMonth(),
-        now.getDate() + i,
-        timeSlot.hour,
-        timeSlot.minute,
-        0,
-        0,
-      );
+      const d = at(addDays(now, i));
       if (d > now) out.push(d);
     }
   } else if (timeSlot.regularity === "week") {
-    const todayDow = now.getDay();
-    const offsetToFirst = (timeSlot.dow! - todayDow + 7) % 7;
+    const offsetToFirst = (timeSlot.dow! - now.getDay() + 7) % 7;
     for (
       let w = 0;
       out.length < WEEKLY_HORIZON_WEEKS && w < WEEKLY_HORIZON_WEEKS + 2;
       w++
     ) {
-      const d = new Date(
-        now.getFullYear(),
-        now.getMonth(),
-        now.getDate() + offsetToFirst + 7 * w,
-        timeSlot.hour,
-        timeSlot.minute,
-        0,
-        0,
-      );
+      const d = at(addDays(now, offsetToFirst + 7 * w));
       if (d > now) out.push(d);
     }
   } else {
@@ -222,7 +208,7 @@ export const nextOccurrences = (
       const m = now.getMonth() + i;
       const lastDayOfMonth = new Date(y, m + 1, 0).getDate();
       if (dom > lastDayOfMonth) continue;
-      const d = new Date(y, m, dom, timeSlot.hour, timeSlot.minute, 0, 0);
+      const d = at(new Date(y, m, dom));
       if (d > now) out.push(d);
     }
   }
@@ -335,16 +321,8 @@ export const syncAllNotifications = async (
   if (!granted) return;
 
   // Widest possible lookup window across all time-slots: up to ~3 months out.
-  const lookupStart = new Date(
-    now.getFullYear(),
-    now.getMonth(),
-    now.getDate(),
-  );
-  const lookupEnd = new Date(
-    now.getFullYear(),
-    now.getMonth() + MONTHLY_HORIZON_MONTHS + 1,
-    1,
-  );
+  const lookupStart = startOfDay(now);
+  const lookupEnd = startOfMonth(addMonths(now, MONTHLY_HORIZON_MONTHS + 1));
   const allHabitIds = Array.from(new Set(timeSlots.flatMap((s) => s.habitIds)));
   const checkInRows = await checkInsForHabitsOnDay(
     db,
