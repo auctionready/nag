@@ -2,8 +2,8 @@ import { render, fireEvent } from "@testing-library/react-native";
 import { StatusBanner } from "../StatusBanner";
 
 describe("StatusBanner", () => {
-  it("renders nothing for an active habit", () => {
-    const view = render(
+  it("renders nothing for an active habit", async () => {
+    const view = await render(
       <StatusBanner
         status="active"
         onResume={jest.fn()}
@@ -14,9 +14,9 @@ describe("StatusBanner", () => {
     expect(view.queryByText("archived")).toBeNull();
   });
 
-  it("shows the paused state and resumes", () => {
+  it("shows the paused state and resumes", async () => {
     const onResume = jest.fn();
-    const view = render(
+    const view = await render(
       <StatusBanner
         status="paused"
         onResume={onResume}
@@ -24,13 +24,13 @@ describe("StatusBanner", () => {
       />,
     );
     expect(view.getByText("paused")).toBeTruthy();
-    fireEvent.press(view.getByLabelText("Resume"));
+    await fireEvent.press(view.getByLabelText("Resume"));
     expect(onResume).toHaveBeenCalledTimes(1);
   });
 
-  it("shows the archived state and unarchives", () => {
+  it("shows the archived state and unarchives", async () => {
     const onUnarchive = jest.fn();
-    const view = render(
+    const view = await render(
       <StatusBanner
         status="archived"
         onResume={jest.fn()}
@@ -38,7 +38,7 @@ describe("StatusBanner", () => {
       />,
     );
     expect(view.getByText("archived")).toBeTruthy();
-    fireEvent.press(view.getByLabelText("Unarchive"));
+    await fireEvent.press(view.getByLabelText("Unarchive"));
     expect(onUnarchive).toHaveBeenCalledTimes(1);
   });
 });

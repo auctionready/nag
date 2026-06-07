@@ -53,27 +53,29 @@ afterEach(() => {
 
 describe("HabitDetail", () => {
   describe("loading", () => {
-    it("renders loading text", () => {
-      const { getByText } = render(<HabitDetail {...baseProps} loading />);
+    it("renders loading text", async () => {
+      const { getByText } = await render(
+        <HabitDetail {...baseProps} loading />,
+      );
       expect(getByText("Loading...")).toBeTruthy();
     });
   });
 
   describe("hero card", () => {
-    it("renders the title (lower-cased per design)", () => {
-      const view = render(<HabitDetail {...baseProps} />);
+    it("renders the title (lower-cased per design)", async () => {
+      const view = await render(<HabitDetail {...baseProps} />);
       expect(view.getByText("exercise")).toBeTruthy();
     });
 
-    it("renders the description as a quiet note", () => {
-      const view = render(
+    it("renders the description as a quiet note", async () => {
+      const view = await render(
         <HabitDetail {...baseProps} description="Daily workout" />,
       );
       expect(view.getByText("Daily workout")).toBeTruthy();
     });
 
-    it("renders a cadence summary derived from regularity + frequency", () => {
-      const view = render(
+    it("renders a cadence summary derived from regularity + frequency", async () => {
+      const view = await render(
         <HabitDetail {...baseProps} regularity="week" frequency={3} />,
       );
       expect(view.getByText("3× / wk")).toBeTruthy();
@@ -81,20 +83,20 @@ describe("HabitDetail", () => {
   });
 
   describe("action footer", () => {
-    it("hides Skip when showSkip is false", () => {
-      const view = render(<HabitDetail {...baseProps} />);
+    it("hides Skip when showSkip is false", async () => {
+      const view = await render(<HabitDetail {...baseProps} />);
       expect(view.queryByLabelText("Skip")).toBeNull();
     });
 
-    it("shows Skip when showSkip is true", () => {
-      const view = render(<HabitDetail {...baseProps} showSkip />);
+    it("shows Skip when showSkip is true", async () => {
+      const view = await render(<HabitDetail {...baseProps} showSkip />);
       expect(view.getByLabelText("Skip")).toBeTruthy();
     });
 
-    it("Check-in calls onCheckInAt with a fresh Date", () => {
-      const view = render(<HabitDetail {...baseProps} />);
+    it("Check-in calls onCheckInAt with a fresh Date", async () => {
+      const view = await render(<HabitDetail {...baseProps} />);
       const before = Date.now();
-      fireEvent.press(view.getByLabelText("Check-in"));
+      await fireEvent.press(view.getByLabelText("Check-in"));
       const after = Date.now();
       expect(baseProps.onCheckInAt).toHaveBeenCalledTimes(1);
       const [called] = baseProps.onCheckInAt.mock.calls[0];
@@ -103,10 +105,10 @@ describe("HabitDetail", () => {
       expect((called as Date).getTime()).toBeLessThanOrEqual(after);
     });
 
-    it("Skip calls onSkipAt with a fresh Date", () => {
-      const view = render(<HabitDetail {...baseProps} showSkip />);
+    it("Skip calls onSkipAt with a fresh Date", async () => {
+      const view = await render(<HabitDetail {...baseProps} showSkip />);
       const before = Date.now();
-      fireEvent.press(view.getByLabelText("Skip"));
+      await fireEvent.press(view.getByLabelText("Skip"));
       const after = Date.now();
       expect(baseProps.onSkipAt).toHaveBeenCalledTimes(1);
       const [called] = baseProps.onSkipAt.mock.calls[0];
@@ -116,21 +118,21 @@ describe("HabitDetail", () => {
   });
 
   describe("header buttons", () => {
-    it("Edit triggers onEdit", () => {
-      const view = render(<HabitDetail {...baseProps} />);
-      fireEvent.press(view.getByLabelText("Edit"));
+    it("Edit triggers onEdit", async () => {
+      const view = await render(<HabitDetail {...baseProps} />);
+      await fireEvent.press(view.getByLabelText("Edit"));
       expect(baseProps.onEdit).toHaveBeenCalledTimes(1);
     });
 
-    it("Back triggers onBack", () => {
-      const view = render(<HabitDetail {...baseProps} />);
-      fireEvent.press(view.getByLabelText("Back"));
+    it("Back triggers onBack", async () => {
+      const view = await render(<HabitDetail {...baseProps} />);
+      await fireEvent.press(view.getByLabelText("Back"));
       expect(baseProps.onBack).toHaveBeenCalledTimes(1);
     });
 
-    it("History triggers onOpenHistory", () => {
-      const view = render(<HabitDetail {...baseProps} />);
-      fireEvent.press(view.getByLabelText("History"));
+    it("History triggers onOpenHistory", async () => {
+      const view = await render(<HabitDetail {...baseProps} />);
+      await fireEvent.press(view.getByLabelText("History"));
       expect(baseProps.onOpenHistory).toHaveBeenCalledTimes(1);
     });
   });
@@ -142,8 +144,8 @@ describe("HabitDetail", () => {
       { days: null, dayOfMonth: null, hour: 18, minute: 0 },
     ];
 
-    it("renders a pill per scheduled slot", () => {
-      const view = render(
+    it("renders a pill per scheduled slot", async () => {
+      const view = await render(
         <HabitDetail
           {...baseProps}
           regularity="day"
@@ -159,8 +161,8 @@ describe("HabitDetail", () => {
       expect(view.getAllByText("PM").length).toBeGreaterThan(0);
     });
 
-    it("counts done / total in the schedule eyebrow", () => {
-      const view = render(
+    it("counts done / total in the schedule eyebrow", async () => {
+      const view = await render(
         <HabitDetail
           {...baseProps}
           regularity="day"
@@ -180,8 +182,8 @@ describe("HabitDetail", () => {
       expect(view.getByText("1 / 3")).toBeTruthy();
     });
 
-    it("missed pills are interactive (tap → opens actions popover)", () => {
-      const view = render(
+    it("missed pills are interactive (tap → opens actions popover)", async () => {
+      const view = await render(
         <HabitDetail
           {...baseProps}
           regularity="day"
@@ -196,9 +198,9 @@ describe("HabitDetail", () => {
       expect(view.queryByLabelText("Open actions for 8:00 AM")).not.toBeNull();
     });
 
-    it("done pills open the delete-mode popover (no log actions)", () => {
+    it("done pills open the delete-mode popover (no log actions)", async () => {
       const checkInTs = sundayAt(8, 30);
-      const view = render(
+      const view = await render(
         <HabitDetail
           {...baseProps}
           regularity="day"
@@ -216,17 +218,17 @@ describe("HabitDetail", () => {
         />,
         sundayAt(14),
       );
-      fireEvent.press(view.getByLabelText("Open actions for 8:00 AM"));
+      await fireEvent.press(view.getByLabelText("Open actions for 8:00 AM"));
       // Undo is the only action in undo mode — check-in/skip absent.
       expect(view.queryByLabelText("check in")).toBeNull();
       expect(view.queryByLabelText("skip")).toBeNull();
-      fireEvent.press(view.getByLabelText("undo check-in"));
+      await fireEvent.press(view.getByLabelText("undo check-in"));
       expect(baseProps.onRemoveCheckIn).toHaveBeenCalledWith("ci-1");
     });
 
-    it("skipped pills open undo-skip popover", () => {
+    it("skipped pills open undo-skip popover", async () => {
       const skipTs = sundayAt(8, 30);
-      const view = render(
+      const view = await render(
         <HabitDetail
           {...baseProps}
           regularity="day"
@@ -244,15 +246,15 @@ describe("HabitDetail", () => {
         />,
         sundayAt(14),
       );
-      fireEvent.press(view.getByLabelText("Open actions for 8:00 AM"));
-      fireEvent.press(view.getByLabelText("undo skip"));
+      await fireEvent.press(view.getByLabelText("Open actions for 8:00 AM"));
+      await fireEvent.press(view.getByLabelText("undo skip"));
       expect(baseProps.onRemoveCheckIn).toHaveBeenCalledWith("ci-skip-1");
     });
 
-    it("future upcoming pills (beyond next-up) stay inert", () => {
+    it("future upcoming pills (beyond next-up) stay inert", async () => {
       // 6:00 — well before any of 8/12/18, so 8AM is the next-up upcoming
       // and 12PM/6PM are still inert future slots.
-      const view = render(
+      const view = await render(
         <HabitDetail
           {...baseProps}
           regularity="day"
@@ -265,8 +267,8 @@ describe("HabitDetail", () => {
       expect(view.queryByLabelText("Open actions for 12:00 PM")).toBeNull();
     });
 
-    it("tapping an owed pill → popover → check-in records at slot's time", () => {
-      const view = render(
+    it("tapping an owed pill → popover → check-in records at slot's time", async () => {
+      const view = await render(
         <HabitDetail
           {...baseProps}
           regularity="day"
@@ -275,18 +277,18 @@ describe("HabitDetail", () => {
         />,
         sundayAt(14),
       );
-      fireEvent.press(view.getByLabelText("Open actions for 8:00 AM"));
+      await fireEvent.press(view.getByLabelText("Open actions for 8:00 AM"));
       // Popover renders inside a Modal — the "check in" button has an
       // explicit accessibility label.
-      fireEvent.press(view.getByLabelText("check in"));
+      await fireEvent.press(view.getByLabelText("check in"));
       expect(baseProps.onCheckInAt).toHaveBeenCalledTimes(1);
       const [called] = baseProps.onCheckInAt.mock.calls[0];
       expect((called as Date).getHours()).toBe(8);
       expect((called as Date).getMinutes()).toBe(0);
     });
 
-    it("tapping an owed pill → popover → skip records at slot's time", () => {
-      const view = render(
+    it("tapping an owed pill → popover → skip records at slot's time", async () => {
+      const view = await render(
         <HabitDetail
           {...baseProps}
           regularity="day"
@@ -295,8 +297,8 @@ describe("HabitDetail", () => {
         />,
         sundayAt(14),
       );
-      fireEvent.press(view.getByLabelText("Open actions for 12:00 PM"));
-      fireEvent.press(view.getByLabelText("skip"));
+      await fireEvent.press(view.getByLabelText("Open actions for 12:00 PM"));
+      await fireEvent.press(view.getByLabelText("skip"));
       expect(baseProps.onSkipAt).toHaveBeenCalledTimes(1);
       const [called] = baseProps.onSkipAt.mock.calls[0];
       expect((called as Date).getHours()).toBe(12);
@@ -314,8 +316,8 @@ describe("HabitDetail", () => {
       },
     ];
 
-    it("renders for weekly habits with a day-of-week mask", () => {
-      const view = render(
+    it("renders for weekly habits with a day-of-week mask", async () => {
+      const view = await render(
         <HabitDetail
           {...baseProps}
           regularity="week"
@@ -328,8 +330,8 @@ describe("HabitDetail", () => {
       expect(view.getByText("this week")).toBeTruthy();
     });
 
-    it("tap on a day cell calls onSelectDay with the cell's Date", () => {
-      const view = render(
+    it("tap on a day cell calls onSelectDay with the cell's Date", async () => {
+      const view = await render(
         <HabitDetail
           {...baseProps}
           regularity="week"
@@ -338,15 +340,15 @@ describe("HabitDetail", () => {
         />,
       );
       // Mon Jun 9 + 2 = Wed Jun 11.
-      fireEvent.press(view.getByLabelText("Select Wednesday"));
+      await fireEvent.press(view.getByLabelText("Select Wednesday"));
       expect(baseProps.onSelectDay).toHaveBeenCalledTimes(1);
       const [called] = baseProps.onSelectDay.mock.calls[0];
       expect((called as Date).getDate()).toBe(11);
     });
 
-    it("re-tap on the selected day passes null to clear the selection", () => {
+    it("re-tap on the selected day passes null to clear the selection", async () => {
       const wed = new Date(2025, 5, 11);
-      const view = render(
+      const view = await render(
         <HabitDetail
           {...baseProps}
           regularity="week"
@@ -355,13 +357,13 @@ describe("HabitDetail", () => {
           selectedDay={wed}
         />,
       );
-      fireEvent.press(view.getByLabelText("Select Wednesday"));
+      await fireEvent.press(view.getByLabelText("Select Wednesday"));
       expect(baseProps.onSelectDay).toHaveBeenCalledWith(null);
     });
 
-    it("future day cells are disabled and don't fire onSelectDay", () => {
+    it("future day cells are disabled and don't fire onSelectDay", async () => {
       const wedNow = new Date(2025, 5, 11, 10);
-      const view = render(
+      const view = await render(
         <HabitDetail
           {...baseProps}
           regularity="week"
@@ -370,7 +372,7 @@ describe("HabitDetail", () => {
         />,
         wedNow,
       );
-      fireEvent.press(view.getByLabelText("Select Friday"));
+      await fireEvent.press(view.getByLabelText("Select Friday"));
       expect(baseProps.onSelectDay).not.toHaveBeenCalled();
       const friday = view.getByLabelText("Select Friday");
       expect(friday.props.accessibilityState).toEqual(
@@ -380,8 +382,8 @@ describe("HabitDetail", () => {
   });
 
   describe("check-ins panel", () => {
-    it("shows entry count + 'entries' for multiple check-ins", () => {
-      const view = render(
+    it("shows entry count + 'entries' for multiple check-ins", async () => {
+      const view = await render(
         <HabitDetail
           {...baseProps}
           regularity="day"
@@ -407,8 +409,8 @@ describe("HabitDetail", () => {
       expect(view.getByText("2 entries")).toBeTruthy();
     });
 
-    it("shows '1 entry' when only one check-in is in the window", () => {
-      const view = render(
+    it("shows '1 entry' when only one check-in is in the window", async () => {
+      const view = await render(
         <HabitDetail
           {...baseProps}
           regularity="day"
@@ -427,9 +429,9 @@ describe("HabitDetail", () => {
       expect(view.getByText("1 entry")).toBeTruthy();
     });
 
-    it("scopes the list to the selected day", () => {
+    it("scopes the list to the selected day", async () => {
       const wed = new Date(2025, 5, 11);
-      const view = render(
+      const view = await render(
         <HabitDetail
           {...baseProps}
           regularity="week"
@@ -458,8 +460,8 @@ describe("HabitDetail", () => {
       expect(view.getByText("10:00 AM")).toBeTruthy();
     });
 
-    it("renders a friendly empty state with a back-fill hint", () => {
-      const view = render(<HabitDetail {...baseProps} />);
+    it("renders a friendly empty state with a back-fill hint", async () => {
+      const view = await render(<HabitDetail {...baseProps} />);
       expect(view.getByText("nothing logged this day.")).toBeTruthy();
     });
   });

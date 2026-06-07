@@ -39,11 +39,11 @@ describe("TodayProvider / useStartOfToday", () => {
     return <Text testID="today">{todayStart.toISOString()}</Text>;
   };
 
-  it("returns startOfDay of current local time on mount", () => {
+  it("returns startOfDay of current local time on mount", async () => {
     jest.useFakeTimers();
     jest.setSystemTime(new Date(2026, 4, 7, 14, 30));
 
-    const view = render(
+    const view = await render(
       <TodayProvider>
         <Probe />
       </TodayProvider>,
@@ -54,11 +54,11 @@ describe("TodayProvider / useStartOfToday", () => {
     );
   });
 
-  it("flips to the new day when the midnight timer fires", () => {
+  it("flips to the new day when the midnight timer fires", async () => {
     jest.useFakeTimers();
     jest.setSystemTime(new Date(2026, 4, 7, 23, 59, 30));
 
-    const view = render(
+    const view = await render(
       <TodayProvider>
         <Probe />
       </TodayProvider>,
@@ -68,7 +68,7 @@ describe("TodayProvider / useStartOfToday", () => {
       new Date(2026, 4, 7).toISOString(),
     );
 
-    act(() => {
+    await act(async () => {
       jest.advanceTimersByTime(60_000);
     });
 
@@ -77,11 +77,11 @@ describe("TodayProvider / useStartOfToday", () => {
     );
   });
 
-  it("flips when AppState becomes active after the system clock crossed midnight", () => {
+  it("flips when AppState becomes active after the system clock crossed midnight", async () => {
     jest.useFakeTimers();
     jest.setSystemTime(new Date(2026, 4, 7, 22, 0));
 
-    const view = render(
+    const view = await render(
       <TodayProvider>
         <Probe />
       </TodayProvider>,
@@ -94,7 +94,7 @@ describe("TodayProvider / useStartOfToday", () => {
     // Simulate the app being backgrounded across midnight: jump the clock
     // forward without firing the JS timer (mirrors the OS suspending JS).
     jest.setSystemTime(new Date(2026, 4, 8, 8, 15));
-    act(() => {
+    await act(async () => {
       captured.listener?.("active");
     });
 
@@ -103,7 +103,7 @@ describe("TodayProvider / useStartOfToday", () => {
     );
   });
 
-  it("does not re-render on AppState active when the day is unchanged", () => {
+  it("does not re-render on AppState active when the day is unchanged", async () => {
     jest.useFakeTimers();
     jest.setSystemTime(new Date(2026, 4, 7, 9, 0));
 
@@ -116,7 +116,7 @@ describe("TodayProvider / useStartOfToday", () => {
       return null;
     };
 
-    render(
+    await render(
       <TodayProvider>
         <Counter />
       </TodayProvider>,
@@ -125,20 +125,20 @@ describe("TodayProvider / useStartOfToday", () => {
     const baseline = onRender.mock.calls.length;
 
     jest.setSystemTime(new Date(2026, 4, 7, 17, 0));
-    act(() => {
+    await act(async () => {
       captured.listener?.("active");
     });
 
     expect(onRender.mock.calls.length).toBe(baseline);
   });
 
-  it("throws when used outside the provider", () => {
+  it("throws when used outside the provider", async () => {
     const Throws = () => {
       useStartOfToday();
       return null;
     };
     const spy = jest.spyOn(console, "error").mockImplementation(() => {});
-    expect(() => render(<Throws />)).toThrow(
+    await expect(render(<Throws />)).rejects.toThrow(
       "useStartOfToday must be used within a TodayProvider",
     );
     spy.mockRestore();
@@ -150,12 +150,12 @@ describe("TodayProvider / useStartOfToday", () => {
       return <Text testID="minute">{String(epochMinute)}</Text>;
     };
 
-    it("returns Math.floor(Date.now() / 60_000)", () => {
+    it("returns Math.floor(Date.now() / 60_000)", async () => {
       jest.useFakeTimers();
       const t = new Date(2026, 4, 7, 14, 30, 45);
       jest.setSystemTime(t);
 
-      const view = render(
+      const view = await render(
         <TodayProvider>
           <MinuteProbe />
         </TodayProvider>,

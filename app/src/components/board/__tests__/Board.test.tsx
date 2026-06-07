@@ -18,11 +18,11 @@ const mockHabits = [
 describe("Board", () => {
   describe("when habits list is empty", () => {
     const onAddHabit = jest.fn();
-    let view: ReturnType<typeof render>;
+    let view: Awaited<ReturnType<typeof render>>;
 
-    beforeEach(() => {
+    beforeEach(async () => {
       onAddHabit.mockClear();
-      view = render(
+      view = await render(
         <Board habits={[]} onAddHabit={onAddHabit} renderTile={() => null} />,
       );
     });
@@ -35,8 +35,8 @@ describe("Board", () => {
       expect(view.getByText("Create Habit")).toBeTruthy();
     });
 
-    it("calls onAddHabit when Create Habit is pressed", () => {
-      fireEvent.press(view.getByText("Create Habit"));
+    it("calls onAddHabit when Create Habit is pressed", async () => {
+      await fireEvent.press(view.getByText("Create Habit"));
       expect(onAddHabit).toHaveBeenCalledTimes(1);
     });
   });
@@ -44,12 +44,12 @@ describe("Board", () => {
   describe("when habits exist", () => {
     const onAddHabit = jest.fn();
     const mockRenderTile = jest.fn(() => null);
-    let view: ReturnType<typeof render>;
+    let view: Awaited<ReturnType<typeof render>>;
 
-    beforeEach(() => {
+    beforeEach(async () => {
       onAddHabit.mockClear();
       mockRenderTile.mockClear();
-      view = render(
+      view = await render(
         <Board
           habits={mockHabits}
           onAddHabit={onAddHabit}
@@ -62,8 +62,8 @@ describe("Board", () => {
       expect(view.getByText("add habit")).toBeTruthy();
     });
 
-    it("calls onAddHabit when the add tile is pressed", () => {
-      fireEvent.press(view.getByText("add habit"));
+    it("calls onAddHabit when the add tile is pressed", async () => {
+      await fireEvent.press(view.getByText("add habit"));
       expect(onAddHabit).toHaveBeenCalledTimes(1);
     });
 
