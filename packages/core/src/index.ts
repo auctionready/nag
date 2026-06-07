@@ -197,7 +197,7 @@ export {
 } from "./notificationConsolidator";
 export { overdueHabitsCount } from "./overdueHabits";
 export {
-  loadBadgeInputs,
+  getBadgeInputs,
   overdueCountAt,
   buildBadgeTransitions,
   type BadgeInputs,

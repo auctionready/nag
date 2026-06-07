@@ -1,5 +1,5 @@
 import type { AnyDb } from "./db";
-import { loadBadgeInputs, overdueCountAt } from "./badgeSchedule";
+import { getBadgeInputs, overdueCountAt } from "./badgeSchedule";
 
 /**
  * Number of habits with at least one timed time-slot today whose scheduled
@@ -18,6 +18,6 @@ export const overdueHabitsCount = async (
   opts: { now?: Date } = {},
 ): Promise<number> => {
   const now = opts.now ?? new Date();
-  const inputs = await loadBadgeInputs(db, now);
+  const inputs = await getBadgeInputs(db, now);
   return overdueCountAt(inputs, now);
 };

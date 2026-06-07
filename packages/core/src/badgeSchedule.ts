@@ -25,17 +25,17 @@ export interface BadgeInputs {
 }
 
 /**
- * Load the per-habit schedules and *today's* check-ins needed to evaluate the
+ * Query the per-habit schedules and *today's* check-ins needed to evaluate the
  * overdue-habits badge at any instant. Bell-agnostic (uses
  * `schedulesForHabits`, not `allActiveSchedules`): silencing a reminder must
  * not silence the quieter visual badge — mirrors `overdueHabits`.
  *
- * Only today's check-ins are loaded: a future occurrence legitimately has no
+ * Only today's check-ins are queried: a future occurrence legitimately has no
  * check-ins yet, so `overdueCountAt` treats every elapsed slot that day as
  * still pending, consistent with how `syncAllNotifications` pre-computes
  * future reminder occurrences from the current check-in state.
  */
-export const loadBadgeInputs = async (
+export const getBadgeInputs = async (
   db: AnyDb,
   now: Date,
 ): Promise<BadgeInputs> => {

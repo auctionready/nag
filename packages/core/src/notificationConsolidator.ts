@@ -5,7 +5,7 @@ import { allActiveSchedules, checkInsForHabitsOnDay } from "./queries";
 import { matchCheckInsToTimeSlots } from "./trafficLight";
 import {
   buildBadgeTransitions,
-  loadBadgeInputs,
+  getBadgeInputs,
   overdueCountAt,
 } from "./badgeSchedule";
 
@@ -375,7 +375,7 @@ export const syncAllNotifications = async (
   // reminder occurrence carries the count as of its fire time; today's
   // transitions with no reminder (silenced habits) get a badge-only
   // notification, plus a midnight reset.
-  const badgeInputs = await loadBadgeInputs(db, now);
+  const badgeInputs = await getBadgeInputs(db, now);
   const badgeTransitions = buildBadgeTransitions(badgeInputs, now);
 
   // Reserve room for badge-only notifications under the pending cap, then let
