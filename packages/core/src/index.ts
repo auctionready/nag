@@ -194,6 +194,16 @@ export {
 } from "./notificationConsolidator";
 export { overdueHabitsCount } from "./overdueHabits";
 export {
+  loadBadgeInputs,
+  overdueCountAt,
+  buildBadgeTransitions,
+  type BadgeInputs,
+  type BadgeTransition,
+  type BadgeCheckIn,
+  type SchedulesByHabit,
+  type CheckInsByHabit,
+} from "./badgeSchedule";
+export {
   stepCalendarDay,
   clampDayToToday,
   canStepForward,

@@ -417,6 +417,7 @@ export const seedSampleData = async () => {
     requestPermissions: async () => true,
     cancelAllTimeSlotNotifications: async () => {},
     scheduleTimeSlotNotification: async () => {},
+    scheduleBadgeNotification: async () => {},
   };
   const noopNotification = {
     cancelNotifications: async () => {},

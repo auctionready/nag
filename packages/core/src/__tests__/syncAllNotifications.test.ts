@@ -16,6 +16,9 @@ const cancelAll = vi.fn<
 const scheduleOne = vi.fn<
   ConsolidatedNotificationScheduler["scheduleTimeSlotNotification"]
 >(async () => {});
+const scheduleBadge = vi.fn<
+  ConsolidatedNotificationScheduler["scheduleBadgeNotification"]
+>(async () => {});
 const requestPermissions = vi.fn<
   ConsolidatedNotificationScheduler["requestPermissions"]
 >(async () => true);
@@ -27,6 +30,7 @@ beforeEach(() => {
     requestPermissions,
     cancelAllTimeSlotNotifications: cancelAll,
     scheduleTimeSlotNotification: scheduleOne,
+    scheduleBadgeNotification: scheduleBadge,
   });
 });
 
@@ -290,6 +294,58 @@ describe("syncAllNotifications", () => {
       const ids = scheduleOne.mock.calls.map((c) => c[0].identifier);
       expect(ids[0]).toBe("timeSlot-daily-08-30-20260415-0830");
       expect(new Set(ids).size).toBe(ids.length);
+    });
+  });
+
+  describe("badge", () => {
+    it("stamps each reminder with the overdue count as of its fire time", async () => {
+      // Wed 2026-04-15 06:00 — 08:00 still upcoming. One overdue habit at 08:00.
+      const now = new Date(2026, 3, 15, 6, 0);
+      await seedDailyHabit("Read", 8, 0);
+
+      await syncAllNotifications(getDb(), { now });
+
+      const todayCall = scheduleOne.mock.calls.find(
+        (c) =>
+          (c[0].fireAt as Date).getTime() ===
+          new Date(2026, 3, 15, 8, 0).getTime(),
+      );
+      // At 08:00 the slot has elapsed unsatisfied → badge 1.
+      expect(todayCall![0].badge).toBe(1);
+    });
+
+    it("schedules a badge-only notification for a silenced (reminder=false) habit's transition", async () => {
+      const now = new Date(2026, 3, 15, 6, 0);
+      // Bell-on habit so there is at least one timeSlot (sync proceeds).
+      await seedDailyHabit("Read", 8, 0, true);
+      // Bell-off habit at a *different* time → its transition has no reminder.
+      await seedDailyHabit("Stretch", 9, 0, false);
+
+      await syncAllNotifications(getDb(), { now });
+
+      const badgeAt9 = scheduleBadge.mock.calls.find(
+        (c) =>
+          (c[0].fireAt as Date).getTime() ===
+          new Date(2026, 3, 15, 9, 0).getTime(),
+      );
+      expect(badgeAt9).toBeDefined();
+      // 08:00 (Read) + 09:00 (Stretch) both elapsed by 09:00 → badge 2.
+      expect(badgeAt9![0].badge).toBe(2);
+    });
+
+    it("schedules a midnight reset to 0 when something is overdue today", async () => {
+      const now = new Date(2026, 3, 15, 6, 0);
+      await seedDailyHabit("Read", 8, 0);
+
+      await syncAllNotifications(getDb(), { now });
+
+      const midnight = scheduleBadge.mock.calls.find(
+        (c) =>
+          (c[0].fireAt as Date).getTime() ===
+          new Date(2026, 3, 16, 0, 0).getTime(),
+      );
+      expect(midnight).toBeDefined();
+      expect(midnight![0].badge).toBe(0);
     });
   });
 

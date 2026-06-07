@@ -27,7 +27,25 @@ export const expoConsolidatedScheduler: ConsolidatedNotificationScheduler = {
         title: params.title,
         body: params.body,
         data: params.data,
+        ...(params.badge !== undefined ? { badge: params.badge } : {}),
       },
+      trigger: {
+        type: SchedulableTriggerInputTypes.DATE,
+        date: params.fireAt,
+      },
+    });
+  },
+
+  // Badge-only: no title/body/sound, just the icon badge. iOS applies
+  // `content.badge` on delivery without (intended) presenting a banner.
+  scheduleBadgeNotification: async (params): Promise<void> => {
+    if (!permissionGranted) return;
+
+    const { SchedulableTriggerInputTypes } = Notifications;
+
+    await Notifications.scheduleNotificationAsync({
+      identifier: params.identifier,
+      content: { badge: params.badge },
       trigger: {
         type: SchedulableTriggerInputTypes.DATE,
         date: params.fireAt,

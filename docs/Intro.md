@@ -96,6 +96,33 @@ and background transition. See
 [`overdueHabits.ts`](../packages/core/src/overdueHabits.ts) and
 [`app/src/infrastructure/badgeSync.ts`](../app/src/infrastructure/badgeSync.ts).
 
+### Keeping the badge fresh while backgrounded
+
+The overdue count is a step function of wall-clock time: it rises at each
+slot time today as unsatisfied slots elapse, with no DB write. So while the
+app is backgrounded the live count above goes stale. To keep the icon
+correct without waking the app (no background CPU, no battery cost), the
+count is **pre-scheduled** as part of the same notification sync
+([`buildBadgeTransitions` in `badgeSchedule.ts`](../packages/core/src/badgeSchedule.ts)):
+
+- Each consolidated reminder occurrence carries the badge count as of its
+  fire time (`content.badge`), which iOS applies on delivery. This covers
+  every habit with reminders enabled, for free.
+- For silenced (reminder-off) habits — which still count toward the badge —
+  a **badge-only** notification (no alert/sound) is scheduled at each of
+  today's transition times that no reminder already covers.
+- A **midnight reset** badge-only notification clears the count for the new
+  day, so an app left backgrounded overnight doesn't show yesterday's total.
+
+Limits: iOS applies a local notification's `content.badge` on delivery only
+when the app is backgrounded/terminated (in the foreground the count is set
+live instead), and caps pending local notifications at 64 — so reminders
+plus badge-only notifications share a conservative combined budget
+(`PENDING_NOTIFICATION_CAP`). Badge-only notifications (no alert content)
+were confirmed on a device build to update the icon badge **without**
+presenting any visible notification. Coverage beyond today, for silenced
+habits, relies on the next foreground/sync rather than being pre-scheduled.
+
 ## Check-ins and skips
 
 Every habit offers two actions:

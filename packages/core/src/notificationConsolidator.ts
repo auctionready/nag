@@ -1,6 +1,11 @@
 import type { AnyDb } from "./db";
 import { allActiveSchedules, checkInsForHabitsOnDay } from "./queries";
 import { matchCheckInsToTimeSlots } from "./trafficLight";
+import {
+  buildBadgeTransitions,
+  loadBadgeInputs,
+  overdueCountAt,
+} from "./badgeSchedule";
 
 export interface ConsolidatedNotificationScheduler {
   /**
@@ -18,6 +23,18 @@ export interface ConsolidatedNotificationScheduler {
     title: string;
     body: string;
     data: Record<string, unknown>;
+    fireAt: Date;
+    /** App-icon badge to apply when this reminder is delivered. */
+    badge?: number;
+  }): Promise<void>;
+  /**
+   * Schedule a badge-only notification (no alert/sound) that sets the app-icon
+   * badge at `fireAt`. Used to advance the overdue badge for slots with no
+   * reminder (silenced) and to reset it at midnight, while backgrounded.
+   */
+  scheduleBadgeNotification(params: {
+    identifier: string;
+    badge: number;
     fireAt: Date;
   }): Promise<void>;
 }
@@ -136,7 +153,15 @@ export const consolidateSchedules = (
 export const DAILY_HORIZON_DAYS = 7;
 export const WEEKLY_HORIZON_WEEKS = 4;
 export const MONTHLY_HORIZON_MONTHS = 3;
-const TOTAL_OCCURRENCE_CAP = 60;
+
+/**
+ * Combined ceiling on pending local notifications (reminders + badge-only),
+ * kept under iOS's hard cap of 64 with headroom. Badge-only notifications are
+ * reserved first (nearest-term, today) and reminders fill the rest.
+ */
+const PENDING_NOTIFICATION_CAP = 60;
+/** Max badge-only notifications reserved within the pending cap. */
+const BADGE_NOTIFICATION_CAP = 16;
 
 /**
  * Compute the next N concrete occurrence `Date`s for a time-slot, strictly
@@ -244,6 +269,7 @@ const noop: ConsolidatedNotificationScheduler = {
   requestPermissions: async () => true,
   cancelAllTimeSlotNotifications: async () => {},
   scheduleTimeSlotNotification: async () => {},
+  scheduleBadgeNotification: async () => {},
 };
 
 let scheduler: ConsolidatedNotificationScheduler = noop;
@@ -365,10 +391,30 @@ export const syncAllNotifications = async (
   }
 
   candidates.sort((a, b) => a.fireAt.getTime() - b.fireAt.getTime());
-  const picked = candidates.slice(0, TOTAL_OCCURRENCE_CAP);
 
-  await Promise.all(
-    picked.map(({ timeSlot, fireAt, pendingIdxs }) => {
+  // Badge: pre-schedule the app-icon overdue count so it stays fresh while
+  // backgrounded. Bell-agnostic (silenced reminders still count). Each
+  // reminder occurrence carries the count as of its fire time; today's
+  // transitions with no reminder (silenced habits) get a badge-only
+  // notification, plus a midnight reset.
+  const badgeInputs = await loadBadgeInputs(db, now);
+  const badgeTransitions = buildBadgeTransitions(badgeInputs, now);
+
+  // Reserve room for badge-only notifications under the pending cap, then let
+  // reminders fill the rest.
+  const reservedBadge = Math.min(
+    BADGE_NOTIFICATION_CAP,
+    badgeTransitions.length,
+  );
+  const picked = candidates.slice(0, PENDING_NOTIFICATION_CAP - reservedBadge);
+
+  const reminderFireAtMs = new Set(picked.map((p) => p.fireAt.getTime()));
+  const badgeOnly = badgeTransitions
+    .filter((t) => !reminderFireAtMs.has(t.fireAt.getTime()))
+    .slice(0, BADGE_NOTIFICATION_CAP);
+
+  await Promise.all([
+    ...picked.map(({ timeSlot, fireAt, pendingIdxs }) => {
       const pendingTitles = pendingIdxs.map((i) => timeSlot.titles[i]);
       const { title, body } = timeSlotContent(timeSlot, pendingTitles);
       return scheduler.scheduleTimeSlotNotification({
@@ -381,7 +427,15 @@ export const syncAllNotifications = async (
           timeSlotMinute: timeSlot.minute,
         },
         fireAt,
+        badge: overdueCountAt(badgeInputs, fireAt),
       });
     }),
-  );
+    ...badgeOnly.map((t) =>
+      scheduler.scheduleBadgeNotification({
+        identifier: `badge-${ymd(t.fireAt)}-${pad(t.fireAt.getHours())}${pad(t.fireAt.getMinutes())}`,
+        badge: t.badge,
+        fireAt: t.fireAt,
+      }),
+    ),
+  ]);
 };
