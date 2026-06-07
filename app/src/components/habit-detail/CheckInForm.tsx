@@ -60,9 +60,7 @@ export const CheckInForm = ({
             value={value}
             mode={mode}
             display="spinner"
-            onChange={(_, date) => {
-              if (date) onChange(date);
-            }}
+            onValueChange={(_, date) => onChange(date)}
             minimumDate={minimumDate}
             maximumDate={maximumDate}
             style={styles.picker}
