@@ -482,7 +482,10 @@ const DetailView = ({
         <ArchivedFooter />
       ) : (
         <ActionFooter
-          showSkip={showSkip}
+          // Skipping is meaningless on an off-day (nothing was due), so the
+          // Skip action is hidden there — matching the edit modal. The
+          // primary action also reframes as an off-day "bonus".
+          showSkip={showSkip && !activeOffDay}
           offDay={activeOffDay}
           onCheckIn={handleCheckInTap}
           onLongPressCheckIn={handleCheckInLongPress}
@@ -498,16 +501,17 @@ const DetailView = ({
           mode={pickerConfig.mode}
           minimumDate={pickerConfig.minimumDate}
           maximumDate={pickerConfig.maximumDate}
-          // Editing only. Suppressed on off-days — skipping something that
-          // wasn't scheduled is meaningless — unless the check-in is already
-          // a skip, so a legacy off-day skip can still be turned back.
+          // Editing only, and never on an off-day — skipping something that
+          // wasn't scheduled is meaningless, so edit can't create (or keep
+          // toggling) a skip there, mirroring the hidden footer Skip. The
+          // time can still be edited; a stray off-day skip is cleared by
+          // deleting the entry.
           showSkipToggle={
             pickerState.intent.kind === "edit" &&
-            (editingCheckIn?.skipped === true ||
-              !isOffDay(
-                snap.scheduledDaysMask,
-                editingCheckIn?.timestamp ?? pickerState.timestamp,
-              ))
+            !isOffDay(
+              snap.scheduledDaysMask,
+              editingCheckIn?.timestamp ?? pickerState.timestamp,
+            )
           }
           initialSkipped={
             pickerState.intent.kind === "edit"
