@@ -38,7 +38,7 @@ catalogs:
       version: 4.4.3
 
 overrides:
-  zod-validation-error: ^4.0.0
+  zod-validation-error: ^4.0.2
 
 importers:
 
