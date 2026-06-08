@@ -56,7 +56,7 @@ jobs:
           role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
           aws-region: ap-southeast-2
 
-      - uses: actions/cache@v4
+      - uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5
         with:
           path: ~/.pulumi/plugins
           key: pulumi-plugins-${{ runner.os }}-${{ hashFiles('infra/package-lock.json') }}
