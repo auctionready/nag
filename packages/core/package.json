@@ -26,7 +26,7 @@
     "vitest": "catalog:"
   },
   "peerDependencies": {
-    "date-fns": "^4.0.0",
+    "date-fns": "^4.4.0",
     "drizzle-orm": "catalog:"
   }
 }
