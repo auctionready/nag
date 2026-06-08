@@ -10,6 +10,7 @@ export {
   type BoardProgressHabit,
   type BoardProgressResult,
 } from "./boardProgress";
+export { scheduleAlarmStatus, ScheduleAlarmStatus } from "./scheduleAlarm";
 export {
   buildDayCells,
   checkInDaysMask,

@@ -2,8 +2,9 @@ import { useCallback, useMemo, useRef, useState } from "react";
 import { Animated, Pressable, StyleSheet, Text, View } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import { formatDistanceToNowStrict } from "date-fns";
-import type { ScheduleInfo } from "@nag/core";
+import { ScheduleAlarmStatus, type ScheduleInfo } from "@nag/core";
 import type { HabitGoalSummary } from "./useHabitGoalSummary";
+import { AlarmBell } from "./AlarmBell";
 import {
   PeriodIndicators,
   type PeriodIndicatorsProps,
@@ -26,6 +27,8 @@ export interface HabitTileViewProps {
   /** All schedule rows for the habit. */
   schedules: ScheduleInfo[];
   isOffDay?: boolean;
+  /** Alarm-bell badge status for a timed nag scheduled today. */
+  alarm?: ScheduleAlarmStatus;
   periodIndicators?: PeriodIndicatorsProps;
   /**
    * Per-time-slot dot states for today, only when the habit has more than one
@@ -46,6 +49,7 @@ export const HabitTileView = ({
   recentCheckIns: recent,
   multiTimeSlotPerDay,
   schedules,
+  alarm,
   periodIndicators,
   todayTimeSlots,
   onPress,
@@ -122,6 +126,9 @@ export const HabitTileView = ({
                 size={18}
                 color={tokens.ink}
               />
+              {!paused && alarm && alarm !== ScheduleAlarmStatus.None && (
+                <AlarmBell status={alarm} />
+              )}
             </View>
             {chipState && <TileProgressChip state={chipState} />}
           </View>
