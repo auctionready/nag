@@ -30,5 +30,7 @@ jobs:
       - name: expo install --check
         run: pnpm --filter @nag/app exec expo install --check
 
+      # expo-doctor isn't a project dependency; fetch it on demand. `pnpm exec`
+      # sets the cwd to the @nag/app package so the check runs against it.
       - name: expo-doctor
-        run: pnpm --filter @nag/app exec expo-doctor
+        run: pnpm --filter @nag/app exec npx --yes expo-doctor
