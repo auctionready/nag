@@ -24,7 +24,18 @@ cd "$BACKEND_DIR"
 # Custom Swashbuckle filters (CommandSchemasFilter, EnumSchemaFilter) are
 # wrapped in `#if DEBUG`, so generation only works against a Debug build.
 dotnet tool restore
-dotnet build Nag.Api/Nag.Api.csproj -c Debug --nologo -v quiet
+
+# Build into an isolated artifacts path rather than the default Nag.Api/obj +
+# Nag.Api/bin. Swashbuckle is a Debug-only PackageReference and OpenApi/*.cs is
+# Compile-Removed outside Debug (see Nag.Api.csproj), so the restored
+# project.assets.json differs by configuration. When turbo runs //#check:openapi
+# (this script, Debug) concurrently with @nag/backend#build (Release), both
+# dotnet invocations share Nag.Api/obj/project.assets.json — and if the Release
+# restore wins, this Debug compile sees no Swashbuckle reference and fails with
+# CS0246. A dedicated --artifacts-path makes this build hermetic.
+BUILD_DIR="$(mktemp -d)"
+trap 'rm -rf "$BUILD_DIR"' EXIT
+dotnet build Nag.Api/Nag.Api.csproj -c Debug --artifacts-path "$BUILD_DIR" --nologo -v quiet
 
 # Throwaway config so Program.Main can construct the host. Marten validates
 # the DSN format but doesn't open a connection during host build, and the
@@ -41,7 +52,7 @@ mkdir -p "$(dirname "$OUTPUT")"
 
 dotnet swagger tofile \
   --output "$OUTPUT" \
-  Nag.Api/bin/Debug/net10.0/Nag.Api.dll \
+  "$BUILD_DIR/bin/Nag.Api/debug/Nag.Api.dll" \
   v1
 
 echo "Wrote $OUTPUT"
