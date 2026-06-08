@@ -10,6 +10,16 @@
   "internalChecksFilter": "strict",
   "packageRules": [
     {
+      "description": "Ignore Pulumi infra projects (managed separately, isolated from the workspace)",
+      "matchFileNames": ["infra/**", "infra-bootstrap/**"],
+      "enabled": false
+    },
+    {
+      "description": "Don't propose Node.js runtime version bumps (pinned via mise + engines)",
+      "matchDepNames": ["node"],
+      "enabled": false
+    },
+    {
       "description": "Group all non-major devDependencies",
       "matchDepTypes": ["devDependencies"],
       "matchUpdateTypes": ["minor", "patch"],
