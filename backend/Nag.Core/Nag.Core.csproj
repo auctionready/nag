@@ -21,7 +21,7 @@
     <PackageReference Include="WolverineFx.Marten" Version="6.2.2" />
     <PackageReference
       Include="JasperFx.Events.SourceGenerator"
-      Version="2.2.7"
+      Version="2.8.2"
       PrivateAssets="all"
     />
   </ItemGroup>
