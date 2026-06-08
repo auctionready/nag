@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { ScheduleAlarmStatus, scheduleAlarmStatus } from "../scheduleAlarm";
-import type {
-  MatchCheckInsToTimeSlotsResult,
-  TimeSlotState,
+import { Day } from "../days";
+import {
+  matchCheckInsToTimeSlots,
+  type MatchCheckInsToTimeSlotsResult,
+  type TimeSlotState,
 } from "../trafficLight";
 
 const result = (slots: TimeSlotState[]): MatchCheckInsToTimeSlotsResult => ({
@@ -46,5 +48,18 @@ describe("scheduleAlarmStatus", () => {
     expect(scheduleAlarmStatus(result([slot("done"), slot("missed")]))).toBe(
       ScheduleAlarmStatus.Overdue,
     );
+  });
+
+  it("is None on an off day — a timed slot scheduled for another weekday", () => {
+    // Schedule fires Monday 08:00; "now" is a Wednesday, so the slot doesn't
+    // apply today and no bell should show despite the past time of day.
+    const wednesday = new Date(2026, 5, 10, 9, 0); // 2026-06-10 is a Wednesday
+    const timeSlots = matchCheckInsToTimeSlots({
+      schedules: [{ days: Day.Mon, dayOfMonth: null, hour: 8, minute: 0 }],
+      checkIns: [],
+      now: wednesday,
+    });
+    expect(timeSlots.total).toBe(0);
+    expect(scheduleAlarmStatus(timeSlots)).toBe(ScheduleAlarmStatus.None);
   });
 });
