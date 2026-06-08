@@ -1,5 +1,11 @@
 import { useEffect, useState } from "react";
-import { AccessibilityInfo, Animated, StyleSheet } from "react-native";
+import {
+  AccessibilityInfo,
+  Animated,
+  Easing,
+  StyleSheet,
+  View,
+} from "react-native";
 import Svg, { Path } from "react-native-svg";
 import type { ScheduleAlarmState } from "@nag/core";
 import { tokens } from "../../components/theme";
@@ -36,21 +42,24 @@ interface AlarmBellProps {
 /**
  * Corner badge on the habit icon, signalling this habit has a *timed* nag today.
  *
- *   - "armed"   — neutral outline bell. A reminder is set for today, upcoming.
- *   - "overdue" — orange filled bell, ringing (shake + expanding halo). The
- *                 scheduled time passed with no check-in.
+ *   - "armed"   — neutral outline bell on a white badge. A reminder is set for
+ *                 today, still upcoming.
+ *   - "overdue" — orange filled bell, ringing: it shakes (swinging from its
+ *                 crown) inside a pulsing orange halo. The scheduled time passed
+ *                 with no check-in.
  *   - "none"    — renders nothing.
  *
  * Distinct from the week strip's "scheduled today" cell: the bell means a
- * clock-time nag, not just "due sometime today". Animations are suppressed when
- * the user has reduce-motion enabled (the static orange bell still reads as
- * overdue).
+ * clock-time nag, not just "due sometime today". The shake + halo are
+ * suppressed when the user has reduce-motion enabled (the static orange bell
+ * still reads as overdue).
  */
 export const AlarmBell = ({ state, size = 18 }: AlarmBellProps) => {
   const overdue = state === "overdue";
   const [reduceMotion, setReduceMotion] = useState(false);
-  const [shake] = useState(() => new Animated.Value(0));
-  const [halo] = useState(() => new Animated.Value(0));
+  // One looped clock (2.4s) drives both the shake and the halo, mirroring the
+  // shared period of the design's `nagBellRing` / `nagBellHalo` keyframes.
+  const [clock] = useState(() => new Animated.Value(0));
 
   useEffect(() => {
     let mounted = true;
@@ -70,96 +79,99 @@ export const AlarmBell = ({ state, size = 18 }: AlarmBellProps) => {
   const animate = overdue && !reduceMotion;
   useEffect(() => {
     if (!animate) {
-      shake.setValue(0);
-      halo.setValue(0);
+      clock.setValue(0);
       return;
     }
-    // Brief shake then rest, on the same 2.4s cadence as the design CSS.
-    const ring = Animated.loop(
-      Animated.sequence([
-        Animated.timing(shake, {
-          toValue: 1,
-          duration: 600,
-          useNativeDriver: true,
-        }),
-        Animated.timing(shake, {
-          toValue: 0,
-          duration: 1800,
-          useNativeDriver: true,
-        }),
-      ]),
-    );
-    const pulse = Animated.loop(
-      Animated.timing(halo, {
+    const loop = Animated.loop(
+      Animated.timing(clock, {
         toValue: 1,
         duration: 2400,
+        easing: Easing.linear,
         useNativeDriver: true,
       }),
     );
-    ring.start();
-    pulse.start();
-    return () => {
-      ring.stop();
-      pulse.stop();
-    };
-  }, [animate, shake, halo]);
+    loop.start();
+    return () => loop.stop();
+  }, [animate, clock]);
 
   if (state !== "armed" && state !== "overdue") return null;
 
-  const rotate = shake.interpolate({
-    inputRange: [0, 0.15, 0.3, 0.45, 0.6, 1],
-    outputRange: ["0deg", "12deg", "-12deg", "12deg", "-12deg", "0deg"],
+  // Armed: neutral outline bell on a white badge, lifted off the icon box by a
+  // 2px ring of the tile surface colour (the design's `0 0 0 2px tileBg`).
+  if (!overdue) {
+    return (
+      <View style={[styles.ring, { borderRadius: (size + 4) / 2 }]}>
+        <View
+          style={[
+            styles.armedBadge,
+            { width: size, height: size, borderRadius: size / 2 },
+          ]}
+        >
+          <BellGlyph size={size * 0.62} filled={false} color={tokens.mute} />
+        </View>
+      </View>
+    );
+  }
+
+  // Overdue: orange filled bell on a transparent badge inside a pulsing halo.
+  // The bell swings from its crown (transform-origin ≈ 50% 16% in the design),
+  // emulated here by rotating about a pivot above centre.
+  const bellSize = size * 0.66;
+  const pivot = bellSize * 0.34;
+  const rotate = clock.interpolate({
+    inputRange: [0, 0.08, 0.16, 0.24, 0.32, 0.4, 0.48, 0.64, 1],
+    outputRange: [
+      "0deg",
+      "12deg",
+      "-12deg",
+      "12deg",
+      "-12deg",
+      "12deg",
+      "-12deg",
+      "0deg",
+      "0deg",
+    ],
   });
-  const haloScale = halo.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0.7, 1.85],
+  const haloScale = clock.interpolate({
+    inputRange: [0, 0.7, 1],
+    outputRange: [0.7, 1.85, 1.85],
   });
-  const haloOpacity = halo.interpolate({
+  const haloOpacity = clock.interpolate({
     inputRange: [0, 0.7, 1],
     outputRange: [0.55, 0, 0],
   });
 
-  // The badge sits inside a 2px ring of the tile surface colour so it reads as
-  // lifted off the icon box (the design's `0 0 0 2px tileBg` box-shadow).
   return (
-    <Animated.View style={[styles.ring, { borderRadius: (size + 4) / 2 }]}>
-      <Animated.View
-        style={[
-          styles.badge,
-          {
-            width: size,
-            height: size,
-            borderRadius: size / 2,
-            backgroundColor: overdue ? tokens.orange : tokens.surface,
-            borderWidth: overdue ? 0 : 1,
-            borderColor: "rgba(26,20,16,0.22)",
-          },
-        ]}
-      >
-        {animate && (
-          <Animated.View
-            pointerEvents="none"
-            style={[
-              styles.halo,
-              {
-                borderRadius: size / 2,
-                opacity: haloOpacity,
-                transform: [{ scale: haloScale }],
-              },
-            ]}
-          />
-        )}
+    <View style={[styles.overdueBadge, { width: size, height: size }]}>
+      {animate && (
         <Animated.View
-          style={animate ? { transform: [{ rotate }] } : undefined}
-        >
-          <BellGlyph
-            size={size * 0.62}
-            filled={overdue}
-            color={overdue ? tokens.cream : tokens.mute}
-          />
-        </Animated.View>
+          pointerEvents="none"
+          style={[
+            styles.halo,
+            {
+              borderRadius: (size - 2) / 2,
+              opacity: haloOpacity,
+              transform: [{ scale: haloScale }],
+            },
+          ]}
+        />
+      )}
+      <Animated.View
+        style={
+          animate
+            ? {
+                transform: [
+                  { translateY: -pivot },
+                  { rotate },
+                  { translateY: pivot },
+                ],
+              }
+            : undefined
+        }
+      >
+        <BellGlyph size={bellSize} filled color={tokens.orange} />
       </Animated.View>
-    </Animated.View>
+    </View>
   );
 };
 
@@ -171,16 +183,26 @@ const styles = StyleSheet.create({
     padding: 2,
     backgroundColor: tokens.surface,
   },
-  badge: {
+  armedBadge: {
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: tokens.surface,
+    borderWidth: 1,
+    borderColor: "rgba(26,20,16,0.22)",
+  },
+  overdueBadge: {
+    position: "absolute",
+    top: -6,
+    right: -6,
     alignItems: "center",
     justifyContent: "center",
   },
   halo: {
     position: "absolute",
-    top: -1,
-    left: -1,
-    right: -1,
-    bottom: -1,
+    top: 1,
+    left: 1,
+    right: 1,
+    bottom: 1,
     borderWidth: 1.5,
     borderColor: tokens.orange,
   },
