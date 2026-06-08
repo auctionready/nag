@@ -1,4 +1,20 @@
+import { execFileSync } from "node:child_process";
+import { join } from "node:path";
 import { ConfigContext, ExpoConfig } from "expo/config";
+
+// Expo's config loader is synchronous (it rejects a Promise-returning config),
+// so we shell out to the fingerprint script and read the runtime version off
+// stdout rather than awaiting it inline.
+const computeRuntimeVersion = (): string =>
+  execFileSync(
+    process.execPath,
+    [join(__dirname, "scripts/runtime-version.cjs")],
+    {
+      cwd: __dirname,
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "inherit"],
+    },
+  ).trim();
 
 const IS_DEV = process.env.APP_VARIANT === "development";
 const IS_PREVIEW = process.env.APP_VARIANT === "preview";
@@ -26,7 +42,10 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   icon: "./assets/icon.png",
   userInterfaceStyle: "light",
   scheme: "nag",
-  runtimeVersion: { policy: "fingerprint" },
+  // Derived from Expo's fingerprint with pnpm virtual-store hashes stripped, so
+  // a lockfile re-resolve doesn't churn the runtime version and silently break
+  // OTA delivery. See scripts/runtime-version.cjs.
+  runtimeVersion: computeRuntimeVersion(),
   updates: {
     url: `https://u.expo.dev/${PROJECT_ID}`,
     fallbackToCacheTimeout: 0,
