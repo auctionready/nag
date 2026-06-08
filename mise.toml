@@ -1,5 +1,5 @@
 [tools]
-node = "24"
+node = "24.16.0"
 "npm:eas-cli" = "latest"
 
 [settings.node]
