@@ -60,6 +60,49 @@
       "groupName": "drizzle"
     },
     {
+      "description": "Backend: group Wolverine + Marten (tightly coupled)",
+      "matchManagers": ["nuget"],
+      "matchPackageNames": ["/^WolverineFx/", "Marten"],
+      "groupName": "wolverine + marten"
+    },
+    {
+      "description": "Backend: group .NET test toolchain",
+      "matchManagers": ["nuget"],
+      "matchPackageNames": [
+        "/^xunit/",
+        "Microsoft.NET.Test.Sdk",
+        "coverlet.collector",
+        "Shouldly",
+        "Alba",
+        "Testcontainers.PostgreSql"
+      ],
+      "groupName": "dotnet test toolchain"
+    },
+    {
+      "description": "Backend: group FluentValidation",
+      "matchManagers": ["nuget"],
+      "matchPackageNames": ["/^FluentValidation/"],
+      "groupName": "fluentvalidation"
+    },
+    {
+      "description": "Backend: group Sentry (.NET)",
+      "matchManagers": ["nuget"],
+      "matchPackageNames": ["/^Sentry/"],
+      "groupName": "sentry (.net)"
+    },
+    {
+      "description": "Backend: group Serilog",
+      "matchManagers": ["nuget"],
+      "matchPackageNames": ["/^Serilog/"],
+      "groupName": "serilog"
+    },
+    {
+      "description": "Backend: group Microsoft.IdentityModel",
+      "matchManagers": ["nuget"],
+      "matchPackageNames": ["/^Microsoft\\.IdentityModel/"],
+      "groupName": "microsoft identitymodel"
+    },
+    {
       "description": "Pin GitHub Actions to digests",
       "matchManagers": ["github-actions"],
       "pinDigests": true
