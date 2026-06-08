@@ -7,7 +7,7 @@ dedupePeerDependents: true
 # `zod-validation-error/v4`, a subpath only present in v4.0.0+. pnpm otherwise
 # resolves the v3 line (3.5.4) which dropped that subpath, breaking plugin load.
 overrides:
-  zod-validation-error: "^4.0.2"
+  zod-validation-error: "^5.0.0"
 allowBuilds:
   "@clerk/shared": false
   "@pulumi/neon": true
