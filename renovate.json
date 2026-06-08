@@ -11,7 +11,7 @@
   "packageRules": [
     {
       "description": "Ignore Pulumi infra projects (managed separately, isolated from the workspace)",
-      "matchFileNames": ["infra/**", "infra-bootstrap/**"],
+      "matchFileNames": ["infra/**", "infra-bootstrap/**", "blog/infra/**"],
       "enabled": false
     },
     {
