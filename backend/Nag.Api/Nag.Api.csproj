@@ -52,7 +52,7 @@
 
   <ItemGroup Condition="'$(Configuration)' == 'Debug'">
     <PackageReference Include="dotenv.net" Version="4.0.2" />
-    <PackageReference Include="Swashbuckle.AspNetCore" Version="10.2.0" />
+    <PackageReference Include="Swashbuckle.AspNetCore" Version="10.2.1" />
   </ItemGroup>
 
   <ItemGroup Condition="'$(Configuration)' != 'Debug'">
