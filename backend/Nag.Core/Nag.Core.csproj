@@ -17,8 +17,8 @@
 
   <ItemGroup>
     <PackageReference Include="FluentValidation" Version="12.1.1" />
-    <PackageReference Include="Marten" Version="9.3.4" />
-    <PackageReference Include="WolverineFx.Marten" Version="6.2.2" />
+    <PackageReference Include="Marten" Version="9.6.0" />
+    <PackageReference Include="WolverineFx.Marten" Version="6.5.1" />
     <PackageReference
       Include="JasperFx.Events.SourceGenerator"
       Version="2.8.2"
