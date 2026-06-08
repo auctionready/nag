@@ -1,0 +1,88 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:recommended",
+    ":dependencyDashboard",
+    ":semanticCommits"
+  ],
+  "timezone": "Pacific/Auckland",
+  "schedule": ["after 9am and before 5pm on monday"],
+  "prConcurrentLimit": 5,
+  "prHourlyLimit": 2,
+  "rangeStrategy": "bump",
+  "packageRules": [
+    {
+      "description": "Group all non-major devDependencies",
+      "matchDepTypes": ["devDependencies"],
+      "matchUpdateTypes": ["minor", "patch"],
+      "groupName": "devDependencies (non-major)"
+    },
+    {
+      "description": "Expo SDK core + all native modules: pin to SDK, group, manual approval. These must match the installed SDK, not latest — upgrade via `expo install` only.",
+      "matchPackageNames": [
+        "expo",
+        "react-native",
+        "react",
+        "react-dom",
+        "/^expo-/",
+        "/^@expo\\//",
+        "/^react-native-/",
+        "/^@react-native\\//",
+        "/^@react-native-community\\//"
+      ],
+      "groupName": "expo sdk + native modules",
+      "rangeStrategy": "replace",
+      "dependencyDashboardApproval": true,
+      "schedule": ["at any time"],
+      "automerge": false
+    },
+    {
+      "description": "Group lint + types toolchain (JS-only, safe to bump)",
+      "matchPackageNames": [
+        "typescript",
+        "oxlint",
+        "eslint",
+        "/^@typescript-eslint\\//",
+        "/^eslint-/"
+      ],
+      "groupName": "lint + types toolchain"
+    },
+    {
+      "description": "tsgo / TS native preview — pre-release, gate behind dashboard approval",
+      "matchPackageNames": ["@typescript/native-preview"],
+      "groupName": "tsgo (ts native preview)",
+      "dependencyDashboardApproval": true,
+      "automerge": false
+    },
+    {
+      "description": "Group Drizzle ecosystem",
+      "matchPackageNames": ["/^drizzle/"],
+      "groupName": "drizzle"
+    },
+    {
+      "description": "Pin GitHub Actions to digests",
+      "matchManagers": ["github-actions"],
+      "pinDigests": true
+    },
+    {
+      "description": "Auto-merge non-major dev deps that pass CI",
+      "matchDepTypes": ["devDependencies"],
+      "matchUpdateTypes": ["minor", "patch"],
+      "automerge": true,
+      "automergeType": "branch"
+    },
+    {
+      "description": "Require manual review for major bumps",
+      "matchUpdateTypes": ["major"],
+      "dependencyDashboardApproval": true
+    }
+  ],
+  "lockFileMaintenance": {
+    "enabled": true,
+    "schedule": ["before 5am on monday"]
+  },
+  "vulnerabilityAlerts": {
+    "labels": ["security"],
+    "automerge": false
+  }
+}
