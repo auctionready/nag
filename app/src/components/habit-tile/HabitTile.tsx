@@ -1,6 +1,6 @@
 import { useCallback } from "react";
 import { useRouter } from "expo-router";
-import { habitProgressSnapshot, scheduleAlarmState } from "@nag/core";
+import { habitProgressSnapshot, scheduleAlarmStatus } from "@nag/core";
 import { seqUuid } from "@nag/schema";
 import { dispatch } from "../../infrastructure/dispatch";
 import {
@@ -128,7 +128,7 @@ export const HabitTile = ({ id, title, icon, paused }: HabitTileProps) => {
       recentCheckIns={recentCheckIns}
       multiTimeSlotPerDay={hasMultipleTimeSlotsPerDay(schedules)}
       schedules={schedules}
-      alarm={scheduleAlarmState(snap.timeSlots)}
+      alarm={scheduleAlarmStatus(snap.timeSlots)}
       isOffDay={snap.isAnchorOffDay}
       periodIndicators={periodIndicators}
       todayTimeSlots={todayTimeSlots}

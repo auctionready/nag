@@ -7,7 +7,7 @@ import {
   View,
 } from "react-native";
 import Svg, { Path } from "react-native-svg";
-import type { ScheduleAlarmState } from "@nag/core";
+import { ScheduleAlarmStatus } from "@nag/core";
 import { tokens } from "../../components/theme";
 
 interface BellGlyphProps {
@@ -34,7 +34,7 @@ const BellGlyph = ({ size, color, filled }: BellGlyphProps) => (
 );
 
 interface AlarmBellProps {
-  state: ScheduleAlarmState;
+  status: ScheduleAlarmStatus;
   /** Diameter of the circular badge. */
   size?: number;
 }
@@ -54,8 +54,8 @@ interface AlarmBellProps {
  * suppressed when the user has reduce-motion enabled (the static orange bell
  * still reads as overdue).
  */
-export const AlarmBell = ({ state, size = 18 }: AlarmBellProps) => {
-  const overdue = state === "overdue";
+export const AlarmBell = ({ status, size = 18 }: AlarmBellProps) => {
+  const overdue = status === ScheduleAlarmStatus.Overdue;
   const [reduceMotion, setReduceMotion] = useState(false);
   // One looped clock (2.4s) drives both the shake and the halo, mirroring the
   // shared period of the design's `nagBellRing` / `nagBellHalo` keyframes.
@@ -94,7 +94,7 @@ export const AlarmBell = ({ state, size = 18 }: AlarmBellProps) => {
     return () => loop.stop();
   }, [animate, clock]);
 
-  if (state !== "armed" && state !== "overdue") return null;
+  if (status === ScheduleAlarmStatus.None) return null;
 
   // Armed: neutral outline bell on a white badge, lifted off the icon box by a
   // 2px ring of the tile surface colour (the design's `0 0 0 2px tileBg`).

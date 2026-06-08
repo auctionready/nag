@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { scheduleAlarmState } from "../scheduleAlarm";
+import { ScheduleAlarmStatus, scheduleAlarmStatus } from "../scheduleAlarm";
 import type {
   MatchCheckInsToTimeSlotsResult,
   TimeSlotState,
@@ -18,25 +18,33 @@ const slot = (status: TimeSlotState["status"]): TimeSlotState => ({
   status,
 });
 
-describe("scheduleAlarmState", () => {
-  it("is 'none' when there are no timed slots today", () => {
-    expect(scheduleAlarmState(null)).toBe("none");
-    expect(scheduleAlarmState(result([]))).toBe("none");
+describe("scheduleAlarmStatus", () => {
+  it("is None when there are no timed slots today", () => {
+    expect(scheduleAlarmStatus(null)).toBe(ScheduleAlarmStatus.None);
+    expect(scheduleAlarmStatus(result([]))).toBe(ScheduleAlarmStatus.None);
   });
 
-  it("is 'armed' when slots are upcoming or done but none missed", () => {
-    expect(scheduleAlarmState(result([slot("upcoming")]))).toBe("armed");
-    expect(scheduleAlarmState(result([slot("done")]))).toBe("armed");
-    expect(scheduleAlarmState(result([slot("skipped")]))).toBe("armed");
-    expect(scheduleAlarmState(result([slot("done"), slot("upcoming")]))).toBe(
-      "armed",
+  it("is Armed when slots are upcoming or done but none missed", () => {
+    expect(scheduleAlarmStatus(result([slot("upcoming")]))).toBe(
+      ScheduleAlarmStatus.Armed,
+    );
+    expect(scheduleAlarmStatus(result([slot("done")]))).toBe(
+      ScheduleAlarmStatus.Armed,
+    );
+    expect(scheduleAlarmStatus(result([slot("skipped")]))).toBe(
+      ScheduleAlarmStatus.Armed,
+    );
+    expect(scheduleAlarmStatus(result([slot("done"), slot("upcoming")]))).toBe(
+      ScheduleAlarmStatus.Armed,
     );
   });
 
-  it("is 'overdue' when any slot's time has passed unlogged", () => {
-    expect(scheduleAlarmState(result([slot("missed")]))).toBe("overdue");
-    expect(scheduleAlarmState(result([slot("done"), slot("missed")]))).toBe(
-      "overdue",
+  it("is Overdue when any slot's time has passed unlogged", () => {
+    expect(scheduleAlarmStatus(result([slot("missed")]))).toBe(
+      ScheduleAlarmStatus.Overdue,
+    );
+    expect(scheduleAlarmStatus(result([slot("done"), slot("missed")]))).toBe(
+      ScheduleAlarmStatus.Overdue,
     );
   });
 });
