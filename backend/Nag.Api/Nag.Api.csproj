@@ -46,8 +46,8 @@
     <PackageReference Include="Sentry.AspNetCore" Version="6.6.0" />
     <PackageReference Include="Sentry.Serilog" Version="6.6.0" />
     <PackageReference Include="Serilog.AspNetCore" Version="10.0.0" />
-    <PackageReference Include="WolverineFx.Http.Marten" Version="6.2.2" />
-    <PackageReference Include="WolverineFx.RuntimeCompilation" Version="6.2.2" />
+    <PackageReference Include="WolverineFx.Http.Marten" Version="6.5.1" />
+    <PackageReference Include="WolverineFx.RuntimeCompilation" Version="6.5.1" />
   </ItemGroup>
 
   <ItemGroup Condition="'$(Configuration)' == 'Debug'">
