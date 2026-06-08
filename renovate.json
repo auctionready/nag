@@ -10,6 +10,8 @@
   "prConcurrentLimit": 5,
   "prHourlyLimit": 2,
   "rangeStrategy": "bump",
+  "minimumReleaseAge": "1 day",
+  "internalChecksFilter": "strict",
   "packageRules": [
     {
       "description": "Group all non-major devDependencies",
@@ -126,6 +128,7 @@
   },
   "vulnerabilityAlerts": {
     "labels": ["security"],
-    "automerge": false
+    "automerge": false,
+    "minimumReleaseAge": "0"
   }
 }
