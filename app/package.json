@@ -11,7 +11,7 @@
     "test:ui": "maestro test .maestro/",
     "typecheck": "tsgo --noEmit",
     "check:circular": "dpdm --no-warning --no-tree --exit-code circular:1 'src/**/*.{ts,tsx}'",
-    "fingerprint": "node scripts/generate-runtime-version.mjs",
+    "runtime-version": "node scripts/generate-runtime-version.mjs",
     "eas-build-post-install": "node scripts/generate-runtime-version.mjs"
   },
   "dependencies": {

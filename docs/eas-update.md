@@ -49,7 +49,7 @@ runtimeVersion:
   build's profile:
 
   ```bash
-  APP_VARIANT=preview pnpm --filter @nag/app fingerprint
+  APP_VARIANT=preview pnpm --filter @nag/app runtime-version
   ```
 
   Inspect `app/fingerprint.generated.json` to see the runtimeVersion a publish
@@ -85,8 +85,8 @@ OTA can't be retrofitted onto an existing binary — a build must already contai
 ```bash
 # from app/, or dispatch .github/workflows/eas-build.yml (which pins it for you).
 # Pin the fingerprint first so the build is recorded with the real runtimeVersion.
-APP_VARIANT=preview    pnpm fingerprint && eas build --platform ios --profile preview
-APP_VARIANT=production pnpm fingerprint && eas build --platform ios --profile production
+APP_VARIANT=preview    pnpm runtime-version && eas build --platform ios --profile preview
+APP_VARIANT=production pnpm runtime-version && eas build --platform ios --profile production
 ```
 
 From then on, JS/asset changes ship via `eas update` until a native change bumps
@@ -102,7 +102,7 @@ target's `APP_VARIANT`, otherwise `app.config.ts` falls back to
 
 ```bash
 # from app/
-APP_VARIANT=preview pnpm fingerprint
+APP_VARIANT=preview pnpm runtime-version
 APP_VARIANT=preview eas update --branch preview --message "fix check-in copy"
 ```
 
@@ -114,7 +114,7 @@ APP_VARIANT=preview eas update --branch preview --message "fix check-in copy"
 > the same values (e.g. `APP_VARIANT=preview`) before both commands above.
 
 > **No local guard.** The workflow blocks an update with no matching build; a
-> local `eas update` does not. After `pnpm fingerprint`, check the runtimeVersion
+> local `eas update` does not. After `pnpm runtime-version`, check the runtimeVersion
 > in `app/fingerprint.generated.json` against your latest build before publishing.
 
 ## When you must rebuild instead of updating
