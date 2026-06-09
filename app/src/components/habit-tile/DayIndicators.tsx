@@ -57,7 +57,7 @@ interface Cell {
   isPast: boolean;
 }
 
-const buildCells = ({
+export const buildCells = ({
   scheduledDaysMask,
   checkedInDaysMask,
   partialDaysMask = 0,
@@ -83,7 +83,10 @@ const buildCells = ({
     // and `anyCheckInDaysMask` (an off-day skip still counts as a check-in)
     // but should read as intentionally set aside, not as done.
     // `skippedDaysMask` is schedule-agnostic so off-days are covered too.
-    if (skipped) state = "skipped";
+    // A *partially* attended scheduled day is excluded: skipping one of
+    // several time-slots leaves the others open, so it part-fills (same as
+    // checking one slot in) rather than rendering a full skip.
+    if (skipped && !(scheduled && partial)) state = "skipped";
     else if (scheduled && checkedIn) state = isToday ? "today-done" : "done";
     else if (!scheduled && anyCheckIn) state = "done";
     else if (scheduled && partial)

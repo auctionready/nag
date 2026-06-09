@@ -1,8 +1,11 @@
 import { Day } from "@nag/core";
-import { DayIndicators } from "../DayIndicators";
+import { DayIndicators, buildCells } from "../DayIndicators";
 import { renderWithToday } from "../../../test-utils/renderWithToday";
 
 const monday = new Date(2025, 5, 16); // 2025-06-16 is a Monday
+
+// Monday-first order, so index 2 is Wednesday (not "today" given `monday`).
+const WED_INDEX = 2;
 
 beforeEach(() => {
   jest.useFakeTimers();
@@ -58,5 +61,34 @@ describe("DayIndicators", () => {
       />,
       { now: monday },
     );
+  });
+
+  describe("buildCells skip vs partial precedence", () => {
+    // A multi-slot day where one of the slots is a skip and the rest are still
+    // open lands in *both* partialDaysMask and skippedDaysMask. It should
+    // part-fill (same as checking one slot in), not render a full skip.
+    it("renders a partially-attended day with a skip as partial", () => {
+      const cells = buildCells({
+        scheduledDaysMask: Day.Wed,
+        checkedInDaysMask: 0,
+        partialDaysMask: Day.Wed,
+        skippedDaysMask: Day.Wed,
+        now: monday,
+      });
+      expect(cells[WED_INDEX].state).toBe("partial");
+    });
+
+    // A day where every scheduled slot is accounted for by skips (no open
+    // slots, so not partial) is genuinely set aside and stays a full skip.
+    it("renders a fully-skipped day as skipped", () => {
+      const cells = buildCells({
+        scheduledDaysMask: Day.Wed,
+        checkedInDaysMask: Day.Wed,
+        partialDaysMask: 0,
+        skippedDaysMask: Day.Wed,
+        now: monday,
+      });
+      expect(cells[WED_INDEX].state).toBe("skipped");
+    });
   });
 });
