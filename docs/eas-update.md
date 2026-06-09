@@ -108,10 +108,21 @@ APP_VARIANT=preview eas update --branch preview --message "fix check-in copy"
 
 > **Env footgun.** `eas update` does **not** read a build profile's `eas.json`
 > `env` block. The published bundle must be built with the same `APP_VARIANT` /
-> `EXPO_PUBLIC_*` / `NAG_API_BASE_URL` the target build used, or it will mismatch
-> (wrong config and a different fingerprint). The CI workflow sets these per
-> branch — keep them in sync with `app/eas.json`. When running locally, export
-> the same values (e.g. `APP_VARIANT=preview`) before both commands above.
+> `EXPO_PUBLIC_*` / `NAG_API_BASE_URL` the target build used, or it ships the
+> wrong runtime config (e.g. a bundle pointed at the wrong API). The CI workflow
+> sets these per branch — keep them in sync with `app/eas.json`. When running
+> locally, export the same values (e.g. `APP_VARIANT=preview`) before both
+> commands above.
+>
+> Only `APP_VARIANT` affects the **fingerprint** (it changes the native bundle
+> id / app name). `NAG_API_BASE_URL` and `EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY`
+> flow into the config's `extra` section, which is deliberately excluded from the
+> fingerprint (`ExpoConfigExtraSection` in `app/fingerprint.config.cjs`) — they
+> are JS-runtime config, not a native-compatibility input. Hashing them used to
+> make the runtimeVersion drift between where it was computed (the runner, with
+> those vars unset) and where EAS recomputed it server-side (with the profile's
+> hosted env applied), producing a "runtime version calculated on local machine
+> not equal to runtime version calculated during build" mismatch.
 
 > **No local guard.** The workflow blocks an update with no matching build; a
 > local `eas update` does not. After `pnpm runtime-version`, check the runtimeVersion
