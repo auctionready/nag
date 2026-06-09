@@ -41,6 +41,25 @@ jobs:
             echo "value=preview" >> "$GITHUB_OUTPUT"
           fi
 
+      # Resolve runtimeVersion on the runner BEFORE `eas build`. eas-cli reads
+      # app.config.ts here to record the build's runtimeVersion, and that record
+      # is what eas-update.yml's guard queries (build:list --runtime-version).
+      # fingerprint.generated.json is gitignored (not committed, not uploaded), so
+      # without this step app.config falls back to the sentinel and the record
+      # would never match a real update. The EAS server independently regenerates
+      # the same file via the eas-build-post-install hook (app/package.json) for
+      # the value embedded in the binary — both compute the identical hash from
+      # the same lockfile. APP_VARIANT comes from the profile's eas.json env (the
+      # single source of truth) because EAS applies that block server-side, not on
+      # the runner.
+      - name: Generate runtime version fingerprint
+        working-directory: app
+        run: |
+          PROFILE="${{ steps.profile.outputs.value }}"
+          APP_VARIANT=$(jq -re --arg p "$PROFILE" '.build[$p].env.APP_VARIANT' eas.json)
+          echo "Profile $PROFILE -> APP_VARIANT=$APP_VARIANT"
+          APP_VARIANT="$APP_VARIANT" node scripts/generate-runtime-version.mjs
+
       # All builds run async (--no-wait). For production+submit, use EAS's
       # --auto-submit so the App Store Connect upload fires server-side once
       # the build finishes, with no long-running CI job to babysit.
