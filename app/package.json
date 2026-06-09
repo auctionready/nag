@@ -10,7 +10,9 @@
     "test": "jest --passWithNoTests --reporters=default --reporters=jest-junit",
     "test:ui": "maestro test .maestro/",
     "typecheck": "tsgo --noEmit",
-    "check:circular": "dpdm --no-warning --no-tree --exit-code circular:1 'src/**/*.{ts,tsx}'"
+    "check:circular": "dpdm --no-warning --no-tree --exit-code circular:1 'src/**/*.{ts,tsx}'",
+    "fingerprint": "node scripts/generate-runtime-version.mjs",
+    "eas-build-post-install": "node scripts/generate-runtime-version.mjs"
   },
   "dependencies": {
     "@clerk/clerk-expo": "^2.19.31",
@@ -48,9 +50,11 @@
     "react-native-svg": "^15.15.4"
   },
   "devDependencies": {
+    "@expo/fingerprint": "0.19.4",
     "@sentry/cli": "3.5.0",
     "@testing-library/react-native": "^14.0.0",
     "@types/jest": "29.5.14",
+    "@types/node": "catalog:",
     "@types/react": "~19.2.17",
     "@typescript/native-preview": "catalog:",
     "babel-plugin-inline-import": "^3.0.0",

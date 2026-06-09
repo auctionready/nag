@@ -1,9 +1,30 @@
 import { ConfigContext, ExpoConfig } from "expo/config";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 
 const IS_DEV = process.env.APP_VARIANT === "development";
 const IS_PREVIEW = process.env.APP_VARIANT === "preview";
 
 const PROJECT_ID = "bc1ee86a-bc83-4f06-aa4f-d4f757d18e55";
+
+// runtimeVersion is pinned from fingerprint.generated.json, produced by
+// `scripts/generate-runtime-version.mjs` before `eas build` / `eas update`.
+// Always a STRING so @expo/fingerprint's ExpoConfigRuntimeVersionIfString skip
+// (fingerprint.config.cjs) strips it from its own hash — the value can never
+// feed back into the fingerprint that produced it.
+const runtimeVersion = (): string => {
+  try {
+    const file = join(process.cwd(), "fingerprint.generated.json");
+    const parsed = JSON.parse(readFileSync(file, "utf8")) as {
+      runtimeVersion?: string;
+    };
+    if (parsed.runtimeVersion) return parsed.runtimeVersion;
+  } catch {
+    // Not generated yet (e.g. local `expo start`). eas build/update must run the
+    // generate script first — CI does; locally: `pnpm --filter @nag/app fingerprint`.
+  }
+  return "0.0.0-uncommitted";
+};
 
 const bundleId = () => {
   if (IS_DEV) return "com.auctionready.nag.app.dev";
@@ -26,7 +47,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   icon: "./assets/icon.png",
   userInterfaceStyle: "light",
   scheme: "nag",
-  runtimeVersion: { policy: "fingerprint" },
+  runtimeVersion: runtimeVersion(),
   updates: {
     url: `https://u.expo.dev/${PROJECT_ID}`,
     fallbackToCacheTimeout: 0,
