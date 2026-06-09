@@ -17,10 +17,59 @@ Three concepts do the work:
   maps a channel to a branch (defaults to the same name), so publishing to branch
   `preview` reaches every build on channel `preview`.
 - **runtimeVersion** — the compatibility gate. An update only installs on a build
-  whose runtimeVersion matches the update's. We use the **`fingerprint`** policy
-  (`app/app.config.ts`): EAS hashes the native layer, so any native change moves
-  the fingerprint automatically and an incompatible JS bundle simply won't land
-  OTA — EAS reports "no compatible builds" instead, which is your signal to rebuild.
+  whose runtimeVersion matches the update's. We pin it from a **pre-computed
+  fingerprint** (see below): any native change moves the fingerprint and an
+  incompatible JS bundle simply won't land OTA — EAS reports "no compatible
+  builds" instead, which is your signal to rebuild.
+
+## runtimeVersion fingerprint (pre-computed, not inline policy)
+
+Rather than the inline `runtimeVersion: { policy: "fingerprint" }` (which EAS
+recomputes on its own servers at build time and again locally at update time —
+two computations that can drift), we compute the fingerprint **once** in a
+separate step and pin it:
+
+- `app/scripts/generate-runtime-version.mjs` runs `@expo/fingerprint` and writes
+  the hash to `app/fingerprint.generated.json` (gitignored).
+- `app/app.config.ts` reads that file and pins `runtimeVersion` to the hash. If
+  the file is absent it falls back to `0.0.0-uncommitted` (fine for
+  `expo start`; **not** valid for publishing — see below).
+- `app/fingerprint.config.cjs` is the tuning surface: add `ignorePaths` /
+  `sourceSkips` to stop incidental churn from moving the runtime version. The
+  `ExpoConfigRuntimeVersionIfString` skip there is load-bearing — it strips the
+  pinned string from the hash so the value can't feed into its own fingerprint.
+
+**The script must run before `eas build` and `eas update`** so both tag the same
+runtimeVersion:
+
+- **Builds** — `app/package.json`'s `eas-build-post-install` hook runs it on EAS
+  Build infra automatically (after install, before config eval).
+- **Updates** — the `eas-update.yml` workflow runs it before `eas update`.
+- **Locally** — run it yourself first, with the same `APP_VARIANT` as the target
+  build's profile:
+
+  ```bash
+  APP_VARIANT=preview pnpm --filter @nag/app fingerprint
+  ```
+
+  Inspect `app/fingerprint.generated.json` to see the runtimeVersion a publish
+  would use; if it differs from your latest build's, you need a new build, not an
+  update.
+
+### Guard: the workflow refuses to publish into the void
+
+Before publishing, `eas-update.yml` checks that at least one **finished** iOS
+build exists on the target channel with the computed runtimeVersion:
+
+```bash
+eas build:list --platform ios --channel "$BRANCH" --runtime-version "$HASH" --status finished --limit 1 --json
+```
+
+If none matches, the native layer changed since the last build and the update
+would reach **0 devices** — the workflow fails with instructions to build first.
+Dispatch with **`force = true`** to bypass the guard (e.g. when a matching build
+is still in flight). Running `eas update` locally skips this guard, so check the
+fingerprint against your last build yourself.
 
 The `updates.url` in `app/app.config.ts` points at this project's EAS endpoint
 (`https://u.expo.dev/<projectId>`). The dev/preview/prod variants share one
