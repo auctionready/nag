@@ -6,6 +6,7 @@ name: expo-check
 # `expo install --check` will fail this job and won't merge.
 
 on:
+  workflow_dispatch:
   pull_request:
     paths:
       - "**/package.json"
