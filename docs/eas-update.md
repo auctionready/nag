@@ -83,9 +83,10 @@ OTA can't be retrofitted onto an existing binary — a build must already contai
 **once** per channel the normal way and distribute that binary:
 
 ```bash
-# from app/, or dispatch .github/workflows/eas-build.yml
-eas build --platform ios --profile preview
-eas build --platform ios --profile production
+# from app/, or dispatch .github/workflows/eas-build.yml (which pins it for you).
+# Pin the fingerprint first so the build is recorded with the real runtimeVersion.
+APP_VARIANT=preview    pnpm fingerprint && eas build --platform ios --profile preview
+APP_VARIANT=production pnpm fingerprint && eas build --platform ios --profile production
 ```
 
 From then on, JS/asset changes ship via `eas update` until a native change bumps
@@ -95,10 +96,14 @@ the fingerprint.
 
 Either dispatch the **EAS update** GitHub Actions workflow
 (`.github/workflows/eas-update.yml`, choose `branch` = `preview` or `production`),
-or run locally from `app/`:
+or run locally from `app/`. Locally you must pin the fingerprint first with the
+target's `APP_VARIANT`, otherwise `app.config.ts` falls back to
+`0.0.0-uncommitted` and the update reaches no real build:
 
 ```bash
-eas update --branch preview --message "fix check-in copy"
+# from app/
+APP_VARIANT=preview pnpm fingerprint
+APP_VARIANT=preview eas update --branch preview --message "fix check-in copy"
 ```
 
 > **Env footgun.** `eas update` does **not** read a build profile's `eas.json`
@@ -106,7 +111,11 @@ eas update --branch preview --message "fix check-in copy"
 > `EXPO_PUBLIC_*` / `NAG_API_BASE_URL` the target build used, or it will mismatch
 > (wrong config and a different fingerprint). The CI workflow sets these per
 > branch — keep them in sync with `app/eas.json`. When running locally, export
-> the same values (e.g. `APP_VARIANT=preview`) before `eas update`.
+> the same values (e.g. `APP_VARIANT=preview`) before both commands above.
+
+> **No local guard.** The workflow blocks an update with no matching build; a
+> local `eas update` does not. After `pnpm fingerprint`, check the runtimeVersion
+> in `app/fingerprint.generated.json` against your latest build before publishing.
 
 ## When you must rebuild instead of updating
 
