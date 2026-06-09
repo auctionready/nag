@@ -115,7 +115,7 @@ interface StateForArgs {
   anyCheckInDaysMask: number;
 }
 
-const stateFor = ({
+export const stateFor = ({
   day,
   cellDate,
   todayStart,
@@ -133,12 +133,15 @@ const stateFor = ({
   const isToday = isSameCalendarDay(cellDate, todayStart);
   const isPast = cellDate < todayStart && !isToday;
 
-  // Skipped is checked before completed/partial *and* before the unscheduled
+  // Skipped is checked before completed *and* before the unscheduled
   // any-check-in fill: a fully-skipped day is also in `completedDaysMask` and
   // `anyCheckInDaysMask` (an off-day skip still counts as a check-in) but
   // should render as `skipped`, not `done`. `skippedDaysMask` is
   // schedule-agnostic, so this covers off-days and frequency-only days too.
-  if (skipped) return "skipped";
+  // A *partially* attended scheduled day is excluded: skipping one of several
+  // time-slots leaves the others open, so it reads as `partial` (same as
+  // checking one slot in) rather than a full skip.
+  if (skipped && !(scheduled && partial)) return "skipped";
   if (scheduled && checkedIn) return isToday ? "today-done" : "done";
   if (!scheduled && anyCheckIn) return "done";
   if (scheduled && partial) return isToday ? "today-partial" : "partial";
