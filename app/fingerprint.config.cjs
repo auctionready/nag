@@ -14,10 +14,24 @@ module.exports = {
   // compatibility contract should move the runtimeVersion. Things that don't are
   // skipped below so they can't force a spurious rebuild:
   //   - GitIgnore: .gitignore never affects native code.
+  //   - ExpoConfigExtraSection: app.config.ts feeds env vars into `extra`
+  //     (apiBaseUrl from NAG_API_BASE_URL, clerkPublishableKey from
+  //     EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY). Those are JS-runtime config, not a
+  //     native-compatibility input, AND they're not present when the fingerprint
+  //     is computed on the runner / local machine (the generate step only sets
+  //     APP_VARIANT) but ARE present when EAS recomputes it server-side after
+  //     applying the profile's hosted env. Hashing `extra` therefore made the
+  //     same build produce two different runtimeVersions ("Runtime version
+  //     calculated on local machine not equal to runtime version calculated
+  //     during build"). Skipping the section drops that env-dependent input so
+  //     the hash is identical regardless of which env happens to be set. The
+  //     only other thing in `extra` is the constant `eas.projectId`, which never
+  //     varies, so excluding the whole section costs no real signal.
   sourceSkips: [
     "PackageJsonAndroidAndIosScriptsIfNotContainRun",
     "ExpoConfigRuntimeVersionIfString",
     "GitIgnore",
+    "ExpoConfigExtraSection",
   ],
   ignorePaths: [
     // The generated file is an OUTPUT of fingerprinting, never an input.
