@@ -90,7 +90,7 @@ the fingerprint.
 ## Day-to-day: publishing an update
 
 Either dispatch the **EAS update** GitHub Actions workflow
-(`.github/workflows/eas-update.yml`, choose `branch` = `preview` or `production`),
+(`.github/workflows/eas-update.yml`, choose `environment` = `preview` or `production`),
 or run locally from `app/`. Pass `--environment` so the bundle is built with the
 same hosted env the target build used:
 

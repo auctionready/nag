@@ -3,8 +3,8 @@ name: EAS update
 on:
   workflow_dispatch:
     inputs:
-      branch:
-        description: EAS Update branch (maps to the build's channel)
+      environment:
+        description: Target EAS environment (its channel/branch share this name)
         required: true
         type: choice
         default: preview
@@ -23,7 +23,7 @@ on:
         default: false
 
 concurrency:
-  group: eas-update-${{ github.ref }}-${{ inputs.branch }}
+  group: eas-update-${{ github.ref }}-${{ inputs.environment }}
   cancel-in-progress: false
 
 jobs:
@@ -36,16 +36,16 @@ jobs:
 
       # `eas update` does NOT read a build profile's eas.json `env` block, so the
       # published JS bundle must be built with the same env the target build used
-      # or it will mismatch (config + fingerprint runtimeVersion). The branch name
-      # matches the build profile name, so mirror that profile's `env` here from
-      # the single source of truth (eas.json) rather than duplicating values.
+      # or it will mismatch (config + fingerprint runtimeVersion). The environment
+      # name matches the build profile name, so mirror that profile's `env` here
+      # from the single source of truth (eas.json) rather than duplicating values.
       - name: Resolve update env from eas.json
         id: env
         working-directory: app
         env:
-          BRANCH: ${{ inputs.branch }}
+          ENVIRONMENT: ${{ inputs.environment }}
         run: |
-          PROFILE_ENV=$(jq -e --arg b "$BRANCH" '.build[$b].env' eas.json)
+          PROFILE_ENV=$(jq -e --arg p "$ENVIRONMENT" '.build[$p].env' eas.json)
           echo "app_variant=$(echo "$PROFILE_ENV" | jq -re '.APP_VARIANT')" >> "$GITHUB_OUTPUT"
           echo "signin_providers=$(echo "$PROFILE_ENV" | jq -re '.EXPO_PUBLIC_SIGNIN_PROVIDERS')" >> "$GITHUB_OUTPUT"
 
@@ -56,7 +56,7 @@ jobs:
       # runtimeVersion — otherwise the publish would reach zero devices ("no
       # compatible builds"). Bypass with the `force` input when a matching build
       # is in flight. APP_VARIANT is the only env input that moves the fingerprint
-      # (it sets the native bundle id); pass the branch's value resolved from
+      # (it sets the native bundle id); pass the environment's value resolved from
       # eas.json above — the hosted env feeds `extra`, which is skipped.
       - name: Guard — require a build matching the fingerprint
         if: ${{ !inputs.force }}
@@ -65,39 +65,39 @@ jobs:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
           APP_VARIANT: ${{ steps.env.outputs.app_variant }}
         run: |
-          BRANCH="${{ inputs.branch }}"
+          ENVIRONMENT="${{ inputs.environment }}"
           HASH=$(eas fingerprint:generate --platform ios \
             --json --non-interactive | jq -re '.hash')
-          echo "Target channel=$BRANCH runtimeVersion=$HASH"
+          echo "Target channel=$ENVIRONMENT runtimeVersion=$HASH"
           MATCHES=$(eas build:list \
             --platform ios \
-            --channel "$BRANCH" \
+            --channel "$ENVIRONMENT" \
             --runtime-version "$HASH" \
             --status finished \
             --limit 1 \
             --json --non-interactive | jq 'length')
           if [ "$MATCHES" -eq 0 ]; then
-            echo "::error::No finished iOS build on channel '$BRANCH' has runtimeVersion $HASH."
+            echo "::error::No finished iOS build on channel '$ENVIRONMENT' has runtimeVersion $HASH."
             echo "The native layer changed since the last build — publishing now would reach 0 devices."
-            echo "Run an EAS build on the '$BRANCH' channel first, or re-run with force=true if a matching build is in flight."
+            echo "Run an EAS build on the '$ENVIRONMENT' channel first, or re-run with force=true if a matching build is in flight."
             exit 1
           fi
           echo "Found a matching build — safe to publish."
 
       # `--environment` loads the hosted env vars (NAG_API_BASE_URL,
-      # EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY, ...) from the same EAS environment the
-      # build profile uses, so they match the build exactly. The branch name
-      # equals the environment name (preview / production).
-      - name: EAS update (${{ inputs.branch }})
+      # EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY, ...) so they match the build exactly.
+      # `--branch` is the EAS Update branch, which shares the environment's name
+      # (preview / production) and is what the same-named channel points at.
+      - name: EAS update (${{ inputs.environment }})
         working-directory: app
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
           APP_VARIANT: ${{ steps.env.outputs.app_variant }}
           EXPO_PUBLIC_SIGNIN_PROVIDERS: ${{ steps.env.outputs.signin_providers }}
         run: |
-          BRANCH="${{ inputs.branch }}"
+          ENVIRONMENT="${{ inputs.environment }}"
           MESSAGE="${{ inputs.message }}"
           if [ -z "$MESSAGE" ]; then
             MESSAGE="CI update ${{ github.sha }}"
           fi
-          eas update --branch "$BRANCH" --environment "$BRANCH" --message "$MESSAGE" --non-interactive
+          eas update --branch "$ENVIRONMENT" --environment "$ENVIRONMENT" --message "$MESSAGE" --non-interactive
