@@ -47,7 +47,7 @@ working until something native actually changes.
 - To see the runtimeVersion a build/update would use:
 
   ```bash
-  cd app && eas fingerprint:generate --platform ios --build-profile preview
+  cd app && APP_VARIANT=preview eas fingerprint:generate --platform ios
   ```
 
 ### Guard: the workflow refuses to publish into the void
@@ -57,7 +57,7 @@ Before publishing, `eas-update.yml` computes the runtimeVersion with
 exists on the target channel with it:
 
 ```bash
-HASH=$(eas fingerprint:generate --platform ios --build-profile "$BRANCH" --json | jq -re '.hash')
+HASH=$(APP_VARIANT="$BRANCH" eas fingerprint:generate --platform ios --json | jq -re '.hash')
 eas build:list --platform ios --channel "$BRANCH" --runtime-version "$HASH" --status finished --limit 1 --json
 ```
 
@@ -117,7 +117,7 @@ eas update --branch preview --environment preview --message "fix check-in copy"
 
 > **No local guard.** The workflow blocks an update with no matching build; a
 > local `eas update` does not. Check with
-> `eas fingerprint:generate --platform ios --build-profile preview` and compare
+> `APP_VARIANT=preview eas fingerprint:generate --platform ios` and compare
 > against your latest build's runtimeVersion before publishing.
 
 ## When you must rebuild instead of updating

@@ -51,19 +51,22 @@ jobs:
 
       # Guard: an update only installs on a build whose runtimeVersion matches.
       # runtimeVersion uses the fingerprint policy, so compute the same hash EAS
-      # does (`eas fingerprint:generate` reads app/fingerprint.config.cjs and the
-      # profile's env) and require at least one finished build on this channel
-      # with that exact runtimeVersion — otherwise the publish would reach zero
-      # devices ("no compatible builds"). Bypass with the `force` input when you
-      # know a matching build is in flight.
+      # does (`eas fingerprint:generate` reads app/fingerprint.config.cjs) and
+      # require at least one finished build on this channel with that exact
+      # runtimeVersion — otherwise the publish would reach zero devices ("no
+      # compatible builds"). Bypass with the `force` input when a matching build
+      # is in flight. APP_VARIANT is the only env input that moves the fingerprint
+      # (it sets the native bundle id); pass the branch's value resolved from
+      # eas.json above — the hosted env feeds `extra`, which is skipped.
       - name: Guard — require a build matching the fingerprint
         if: ${{ !inputs.force }}
         working-directory: app
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+          APP_VARIANT: ${{ steps.env.outputs.app_variant }}
         run: |
           BRANCH="${{ inputs.branch }}"
-          HASH=$(eas fingerprint:generate --platform ios --build-profile "$BRANCH" \
+          HASH=$(eas fingerprint:generate --platform ios \
             --json --non-interactive | jq -re '.hash')
           echo "Target channel=$BRANCH runtimeVersion=$HASH"
           MATCHES=$(eas build:list \
@@ -76,7 +79,7 @@ jobs:
           if [ "$MATCHES" -eq 0 ]; then
             echo "::error::No finished iOS build on channel '$BRANCH' has runtimeVersion $HASH."
             echo "The native layer changed since the last build — publishing now would reach 0 devices."
-            echo "Run an EAS build for the '$BRANCH' profile first, or re-run with force=true if a matching build is in flight."
+            echo "Run an EAS build on the '$BRANCH' channel first, or re-run with force=true if a matching build is in flight."
             exit 1
           fi
           echo "Found a matching build — safe to publish."
