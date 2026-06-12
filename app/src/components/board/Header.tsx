@@ -35,6 +35,7 @@ const styles = StyleSheet.create({
   eyebrowRow: {
     flexDirection: "row",
     alignItems: "center",
+    justifyContent: "space-between",
     gap: 8,
     marginBottom: 2,
   },
