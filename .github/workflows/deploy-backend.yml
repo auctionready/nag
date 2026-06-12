@@ -28,9 +28,9 @@ jobs:
       id-token: write
       contents: read
     steps:
-      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+      - uses: actions/checkout@v6
 
-      - uses: actions/setup-dotnet@9a946fdbd5fb07b82b2f5a4466058b876ab72bb2 # v5
+      - uses: actions/setup-dotnet@v5
         with:
           global-json-file: backend/global.json
 
@@ -43,7 +43,7 @@ jobs:
       - name: Package Lambda
         run: backend/scripts/package-lambda.sh
 
-      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
+      - uses: actions/setup-node@v6
         with:
           node-version: "24"
 
@@ -51,18 +51,18 @@ jobs:
         working-directory: infra
         run: npm ci
 
-      - uses: aws-actions/configure-aws-credentials@e7f100cf4c008499ea8adda475de1042d6975c7b # v6
+      - uses: aws-actions/configure-aws-credentials@v6
         with:
           role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
           aws-region: ap-southeast-2
 
-      - uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5
+      - uses: actions/cache@v5
         with:
           path: ~/.pulumi/plugins
           key: pulumi-plugins-${{ runner.os }}-${{ hashFiles('infra/package-lock.json') }}
           restore-keys: pulumi-plugins-${{ runner.os }}-
 
-      - uses: pulumi/actions@8e5e406f4007fca908480587cb9893c07090f58d # v7
+      - uses: pulumi/actions@v7
         with:
           command: up
           stack-name: ${{ inputs.stack }}
