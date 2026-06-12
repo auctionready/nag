@@ -15,6 +15,7 @@ import {
 } from "../components/shell";
 import { getClerkPublishableKey, tokenCache } from "../infrastructure/clerk";
 import { bootstrapDevOverrides } from "../infrastructure/devOverrides";
+import { bootstrapPreferences } from "../infrastructure/preferences";
 import { wipeSecureStoreIfFreshInstall } from "../infrastructure/freshInstall";
 import { ClerkProvider } from "@clerk/clerk-expo";
 import React from "react";
@@ -55,12 +56,10 @@ const InnerLayout = () => {
           name="(tabs)"
           options={{ title: "Nag HQ", headerShown: false }}
         />
-        <Stack.Screen name="account" options={{ title: "Account" }} />
         <Stack.Screen
           name="archived-habits"
           options={{ title: "Archived Habits" }}
         />
-        <Stack.Screen name="calendar" options={{ title: "Calendar" }} />
         <Stack.Screen name="admin" options={{ title: "Admin" }} />
         <Stack.Screen name="add-habit" options={{ title: "Add Habit" }} />
         <Stack.Screen
@@ -126,7 +125,12 @@ const RootLayout = () => {
   }, [ref]);
 
   React.useEffect(() => {
-    Promise.all([bootstrapDevOverrides(), wipeSecureStoreIfFreshInstall()])
+    // Preferences load after the fresh-install wipe so a reinstall can't
+    // race the read and resurrect the previous install's values.
+    Promise.all([
+      bootstrapDevOverrides(),
+      wipeSecureStoreIfFreshInstall().then(bootstrapPreferences),
+    ])
       .then(() => {
         if (__DEV__) {
           (

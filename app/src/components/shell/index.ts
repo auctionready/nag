@@ -1,3 +1,3 @@
 export { AnimatedSplash, SPLASH_DURATION_MS } from "./AnimatedSplash";
-export { AppHeader } from "./AppHeader";
-export { SharedTopBar } from "./SharedTopBar";
+export { AppHeader, AppHeaderShell } from "./AppHeader";
+export { BottomTabBar } from "./BottomTabBar";

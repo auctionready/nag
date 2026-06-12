@@ -17,6 +17,10 @@ const DEVICE_TOKEN_KEY = "nag.deviceToken";
 // (both drop the migrations table); the cheaper "Clear database"
 // option keeps the schema so the override survives, as intended.
 const BACKEND_OVERRIDE_KEY = "nag.devOverride.backend";
+// Mirrors `DEFAULT_VIEW_KEY` in preferences.ts — a reinstall should
+// start from default preferences, not whatever the previous install
+// left in the Keychain.
+const DEFAULT_VIEW_KEY = "nag.preference.defaultView";
 
 /**
  * On iOS the Keychain (and so `expo-secure-store`) survives app
@@ -31,7 +35,12 @@ export const wipeSecureStoreIfFreshInstall = async (): Promise<void> => {
   if (!isLocalDatabaseEmpty()) return;
   logger.info("fresh install detected — wiping persisted auth tokens");
   await Promise.all(
-    [DEVICE_TOKEN_KEY, CLERK_JWT_KEY, BACKEND_OVERRIDE_KEY].map((key) =>
+    [
+      DEVICE_TOKEN_KEY,
+      CLERK_JWT_KEY,
+      BACKEND_OVERRIDE_KEY,
+      DEFAULT_VIEW_KEY,
+    ].map((key) =>
       SecureStore.deleteItemAsync(key).catch((err) => {
         logger.warn(`SecureStore.deleteItemAsync failed for ${key}`, err);
       }),

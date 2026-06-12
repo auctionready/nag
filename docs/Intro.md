@@ -172,6 +172,23 @@ This means compliance counters and the per-day check-in lists key off
 Monday, not as the time you actually tapped the chip. See
 [`Model.md` § check_in](./Model.md#check_in) for the schema details.
 
+## App shell: bottom tabs and default view
+
+The app's three top-level destinations — the home board ("today"), the
+calendar, and account ("me") — live in a bottom tab bar
+(`app/src/app/(tabs)/`). Deeper screens (habit detail, add/edit habit,
+archived habits, about) remain stack screens pushed above the tabs, so
+they get a standard back button and hide the tab bar. Route paths are
+unchanged by the tab grouping: notification deep links still target
+`/calendar?view=day&day=YYYY-MM-DD`.
+
+The board is the default tab. An **"Open on day view"** toggle under
+Account → App settings switches the launch screen to the calendar's day
+view anchored on today instead. The preference is stored in SecureStore
+(`app/src/infrastructure/preferences.ts`), loaded before the first
+router render, and consulted as the tab navigator's initial route — so
+it applies from the next cold start, and a fresh install resets it.
+
 ## Habit detail: day selection and period-scoped lists
 
 The habit detail screen anchors its day-summary card and check-in list to

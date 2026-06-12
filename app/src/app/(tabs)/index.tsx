@@ -1,14 +1,16 @@
 import { View, StyleSheet } from "react-native";
-import { SharedTopBar } from "../../components/shell";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { BoardScreen } from "../../screens/BoardScreen";
 import { tokens } from "../../components/theme";
 
-const BoardRoute = () => (
-  <View style={styles.container}>
-    <SharedTopBar />
-    <BoardScreen />
-  </View>
-);
+const BoardRoute = () => {
+  const insets = useSafeAreaInsets();
+  return (
+    <View style={[styles.container, { paddingTop: insets.top }]}>
+      <BoardScreen />
+    </View>
+  );
+};
 
 export default BoardRoute;
 

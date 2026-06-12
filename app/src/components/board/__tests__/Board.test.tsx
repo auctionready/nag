@@ -7,7 +7,14 @@ jest.mock("../useBoardProgress", () => ({
     totalCount: 0,
     percent: 0,
     line: "",
+    dateLabel: "sat · 2 may",
   }),
+}));
+
+// The header's SyncDot pulls in the sync-status context and api client
+// (which opens SQLite at import time) — stub the whole module out.
+jest.mock("../../sync", () => ({
+  SyncDot: () => null,
 }));
 
 const mockHabits = [
