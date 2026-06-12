@@ -1,4 +1,5 @@
 [tools]
+dotnet = "10.0.301"
 node = "24"
 "npm:eas-cli" = "latest"
 
