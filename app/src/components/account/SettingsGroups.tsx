@@ -2,8 +2,18 @@ import { router } from "expo-router";
 import { useLiveQuery } from "drizzle-orm/expo-sqlite";
 import { archivedHabits } from "@nag/core";
 import { db } from "../../db";
+import {
+  setDefaultView,
+  useDefaultView,
+} from "../../infrastructure/preferences";
 import { Group, Row } from "./AccountUI";
-import { iconAbout, iconAppearance, iconArchive, iconSkip } from "./icons";
+import {
+  iconAbout,
+  iconAppearance,
+  iconArchive,
+  iconDayView,
+  iconSkip,
+} from "./icons";
 
 // Shared settings groups — visible whether or not the user is linked, since
 // the rows are local-only features (appearance, etc.) that don't require
@@ -11,9 +21,17 @@ import { iconAbout, iconAppearance, iconArchive, iconSkip } from "./icons";
 export const SettingsGroups = () => {
   const { data: archived } = useLiveQuery(archivedHabits(db));
   const archivedCount = archived?.length ?? 0;
+  const defaultView = useDefaultView();
 
   return (
     <Group title="App settings">
+      <Row
+        icon={iconDayView()}
+        label="Open on day view"
+        toggle
+        toggleOn={defaultView === "day"}
+        onPress={() => setDefaultView(defaultView === "day" ? "board" : "day")}
+      />
       <Row icon={iconAppearance()} label="Appearance" disabled />
       <Row icon={iconSkip()} label="Enable skipping" toggle disabled />
       <Row

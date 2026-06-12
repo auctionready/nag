@@ -111,11 +111,6 @@
       "groupName": "microsoft identitymodel"
     },
     {
-      "description": "Pin GitHub Actions to digests",
-      "matchManagers": ["github-actions"],
-      "pinDigests": true
-    },
-    {
       "description": "Auto-merge non-major dev deps that pass CI",
       "matchDepTypes": ["devDependencies"],
       "matchUpdateTypes": ["minor", "patch"],

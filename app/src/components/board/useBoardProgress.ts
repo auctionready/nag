@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { useLiveQuery } from "drizzle-orm/expo-sqlite";
-import { endOfDay } from "date-fns";
+import { endOfDay, format } from "date-fns";
 import {
   boardProgress,
   checkInsForHabitsOnDay,
@@ -24,6 +24,8 @@ interface BoardProgress extends BoardProgressResult {
   suffix: string;
   /** Total habits on the board (including those with no goal). */
   totalCount: number;
+  /** Header eyebrow date, e.g. "sat · 2 may". */
+  dateLabel: string;
 }
 
 /**
@@ -84,7 +86,8 @@ export const useBoardProgress = (habitIds: string[]): BoardProgress => {
     return {
       ...result,
       totalCount: habitIds.length,
+      dateLabel: format(dayStart, "EEE · d MMM").toLowerCase(),
       ...boardHeaderText(result, habitIds.length),
     };
-  }, [habitIds, epochMinute, goals, schedules, checkIns]);
+  }, [habitIds, epochMinute, goals, schedules, checkIns, dayStart]);
 };

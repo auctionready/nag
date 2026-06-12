@@ -48,6 +48,22 @@ export const iconArchive = () => (
     <Path d="M5.8 8h2.4" />
   </Svg>
 );
+export const iconDayView = () => (
+  <Svg
+    width={14}
+    height={14}
+    viewBox="0 0 14 14"
+    fill="none"
+    stroke={tokens.ink}
+    strokeWidth={1.5}
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <Rect x={1.5} y={2.5} width={11} height={10} rx={1.5} />
+    <Path d="M1.5 5.5h11M4.5 1.5v2M9.5 1.5v2" />
+    <Path d="M4.5 8.5h5" />
+  </Svg>
+);
 export const iconAbout = () => (
   <Svg
     width={14}

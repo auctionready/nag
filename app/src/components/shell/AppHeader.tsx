@@ -20,7 +20,11 @@ interface AppHeaderShellProps {
  * needs to render its own header (e.g. tab routes whose parent navigator
  * doesn't provide a Stack header). For Stack screens use `AppHeader`.
  */
-const AppHeaderShell = ({ title, onBack, right }: AppHeaderShellProps) => {
+export const AppHeaderShell = ({
+  title,
+  onBack,
+  right,
+}: AppHeaderShellProps) => {
   const insets = useSafeAreaInsets();
   return (
     <View style={[styles.wrap, { paddingTop: insets.top }]}>

@@ -28,7 +28,7 @@ const styles = StyleSheet.create({
     opacity: 0.7,
   },
   addTile: {
-    minHeight: 156,
+    minHeight: 132,
     borderRadius: 18,
     borderWidth: 1.5,
     borderStyle: "dashed",

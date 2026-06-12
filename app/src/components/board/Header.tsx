@@ -1,14 +1,23 @@
 import { StyleSheet, Text, View } from "react-native";
 import { tokens } from "../../components/theme";
+import { SyncDot } from "../sync";
 
 export interface HeaderProps {
   percent: number;
   line: string;
   suffix: string;
+  /** Eyebrow date, e.g. "sat · 2 may". Omitted → no eyebrow row. */
+  dateLabel?: string;
 }
 
-export const Header = ({ percent, line, suffix }: HeaderProps) => (
+export const Header = ({ percent, line, suffix, dateLabel }: HeaderProps) => (
   <View style={styles.header}>
+    {dateLabel && (
+      <View style={styles.eyebrowRow}>
+        <Text style={styles.eyebrow}>{dateLabel}</Text>
+        <SyncDot />
+      </View>
+    )}
     <View style={styles.headerRow}>
       <Text style={styles.percent}>{percent}</Text>
       <Text style={styles.percentSuffix}>% {suffix}</Text>
@@ -20,8 +29,21 @@ export const Header = ({ percent, line, suffix }: HeaderProps) => (
 const styles = StyleSheet.create({
   header: {
     paddingHorizontal: 4,
-    paddingTop: 6,
-    paddingBottom: 18,
+    paddingTop: 8,
+    paddingBottom: 14,
+  },
+  eyebrowRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginBottom: 2,
+  },
+  eyebrow: {
+    fontFamily: "JetBrainsMono",
+    fontSize: 10.5,
+    color: tokens.mute,
+    letterSpacing: 1.5,
+    textTransform: "uppercase",
   },
   headerRow: {
     flexDirection: "row",
