@@ -1,14 +1,18 @@
 ---
 import Base from "../layouts/Base.astro";
+import BrandMark from "../components/BrandMark.astro";
+import HabitIcon from "../components/HabitIcon.astro";
+import MockTile from "../components/MockTile.astro";
+import WeekStrip from "../components/WeekStrip.astro";
 ---
 
 <Base
   title="How it works — nag."
-  description="The four-step nag loop: add, cadence, do, see. Plus cadence types and FAQs."
+  description="The four-step nag loop: add, set cadence, do it, see the dots. Plus cadence types, skip vs miss, and FAQs."
   current="how-it-works"
 >
   <!-- ──────── Page header ──────── -->
-  <section class="section-sm" style="padding-top: 80px;">
+  <section class="section-sm section-pt-lg">
     <div class="wrap">
       <div class="kicker">How it works</div>
       <h1 class="h-display" style="margin-top: 18px;">
@@ -16,25 +20,35 @@ import Base from "../layouts/Base.astro";
         do it. see the dots<span class="dot">.</span>
       </h1>
       <p class="lede" style="margin-top: 28px;">
-        Four moves. No onboarding wizard, no setup quiz, no "let's get to know you."
-        You know yourself fine.
+        Four moves. No onboarding wizard, no setup quiz, no "let's get to know
+        you." You know yourself fine.
       </p>
     </div>
   </section>
 
   <!-- ──────── Four steps ──────── -->
-  <section style="padding-top: 0;">
+  <section class="section-pt-0">
     <div class="wrap">
       <div class="steps">
-
         <div class="step">
           <div class="step-num">01</div>
-          <div class="step-fig" style="background: var(--nag-orange); color: var(--nag-cream); border: 0;">
-            <div style="font-family: var(--mono); font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; opacity: 0.8;">new habit</div>
-            <div>
-              <div style="font-family: var(--display); font-weight: 600; font-size: 26px; letter-spacing: -0.02em;">read 20&nbsp;min</div>
-              <div style="font-family: var(--mono); font-size: 11px; opacity: 0.85; margin-top: 4px;">| typing<span style="opacity:.6">_</span></div>
-            </div>
+          <div class="step-fig step-tile-wrap">
+            <MockTile tileClass="step-tile" name="read 20 min" last="2h ago">
+              <HabitIcon slot="icon" name="book" />
+              <div slot="cadence" class="t-cad">daily</div>
+              <WeekStrip
+                slot="strip"
+                days={[
+                  "done",
+                  "done",
+                  "missed",
+                  "today-done",
+                  "future",
+                  "future",
+                  "future",
+                ]}
+              />
+            </MockTile>
           </div>
           <h3>Add the habit</h3>
           <p>Plain text. A verb and a thing. Skip the categories.</p>
@@ -42,19 +56,23 @@ import Base from "../layouts/Base.astro";
 
         <div class="step">
           <div class="step-num">02</div>
-          <div class="step-fig">
-            <div style="font-family: var(--mono); font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--nag-mute);">cadence</div>
-            <div style="display: flex; flex-direction: column; gap: 10px;">
-              <div style="display: flex; gap: 6px; flex-wrap: wrap;">
-                <span style="padding: 5px 10px; border-radius: 999px; background: var(--nag-ink); color: var(--nag-cream); font-size: 12px; font-family: var(--mono);">daily</span>
-                <span style="padding: 5px 10px; border-radius: 999px; border: 1px solid var(--hairline); font-size: 12px; font-family: var(--mono); color: var(--nag-ink-soft);">3×/wk</span>
-                <span style="padding: 5px 10px; border-radius: 999px; border: 1px solid var(--hairline); font-size: 12px; font-family: var(--mono); color: var(--nag-ink-soft);">m/w/f</span>
-              </div>
-              <div class="cadence-row">
-                <div class="cad-dot"></div><div class="cad-dot"></div><div class="cad-dot"></div>
-                <div class="cad-dot"></div><div class="cad-dot"></div><div class="cad-dot"></div><div class="cad-dot"></div>
-              </div>
-            </div>
+          <div class="step-fig step-tile-wrap">
+            <MockTile tileClass="step-tile" name="gym" last="yesterday">
+              <HabitIcon slot="icon" name="gym" />
+              <div slot="cadence" class="t-cad">m·w·f</div>
+              <WeekStrip
+                slot="strip"
+                days={[
+                  "done",
+                  "skip",
+                  "done",
+                  "skip",
+                  "future",
+                  "skip",
+                  "skip",
+                ]}
+              />
+            </MockTile>
           </div>
           <h3>Set the cadence</h3>
           <p>How often, which days, how many times. Nag does the math.</p>
@@ -62,121 +80,333 @@ import Base from "../layouts/Base.astro";
 
         <div class="step">
           <div class="step-num">03</div>
-          <div class="step-fig" style="background: var(--nag-ink); color: var(--nag-cream); border: 0;">
-            <div style="font-family: var(--mono); font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; opacity: 0.6;">9:00 pm</div>
-            <div>
-              <div style="font-family: var(--display); font-weight: 600; font-size: 18px; letter-spacing: -0.01em; line-height: 1.25;">
-                still waiting<span class="dot">.</span>
+          <div class="step-fig step-notif">
+            <div class="notif-card">
+              <BrandMark class="notif-app-icon" />
+              <div class="notif-body">
+                <div class="notif-head">
+                  <span class="notif-title">nag · 2 due now</span>
+                  <span class="notif-time">9:00 AM</span>
+                </div>
+                <div class="notif-msg">
+                  still waiting<span class="dot">.</span>
+                </div>
+                <div class="notif-sub">vitamins · read 20 min</div>
               </div>
-              <div style="font-family: var(--mono); font-size: 11px; opacity: 0.55; margin-top: 6px;">read 20 min · today</div>
             </div>
           </div>
           <h3>Get nagged</h3>
-          <p>Local notifications, scheduled around your day. Tap to check in or skip.</p>
+          <p>
+            Scheduled habits trigger a notification at their time. Multiple
+            habits in the same slot? One consolidated nag. Already checked in or
+            skipped? Silence.
+          </p>
         </div>
 
         <div class="step">
           <div class="step-num">04</div>
           <div class="step-fig">
-            <div style="font-family: var(--mono); font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--nag-mute);">last 4 weeks</div>
+            <div class="kicker">last 4 weeks</div>
             <div>
-              <div style="display: grid; grid-template-columns: repeat(7, 1fr); gap: 3px;">
-                <div class="cell" style="aspect-ratio: 1; background: var(--nag-ink); border-radius: 3px;"></div>
-                <div class="cell" style="aspect-ratio: 1; background: var(--nag-ink); border-radius: 3px;"></div>
-                <div class="cell" style="aspect-ratio: 1; background: rgba(26,20,16,0.08); border-radius: 3px;"></div>
-                <div class="cell" style="aspect-ratio: 1; background: var(--nag-ink); border-radius: 3px;"></div>
-                <div class="cell" style="aspect-ratio: 1; background: var(--nag-ink); border-radius: 3px;"></div>
-                <div class="cell" style="aspect-ratio: 1; background: var(--nag-ink); border-radius: 3px;"></div>
-                <div class="cell" style="aspect-ratio: 1; background: var(--nag-ink); border-radius: 3px;"></div>
-                <div class="cell" style="aspect-ratio: 1; background: var(--nag-ink); border-radius: 3px;"></div>
-                <div class="cell" style="aspect-ratio: 1; background: rgba(26,20,16,0.08); border-radius: 3px;"></div>
-                <div class="cell" style="aspect-ratio: 1; background: var(--nag-ink); border-radius: 3px;"></div>
-                <div class="cell" style="aspect-ratio: 1; background: var(--nag-ink); border-radius: 3px;"></div>
-                <div class="cell" style="aspect-ratio: 1; background: var(--nag-ink); border-radius: 3px;"></div>
-                <div class="cell" style="aspect-ratio: 1; background: var(--nag-ink); border-radius: 3px;"></div>
-                <div class="cell" style="aspect-ratio: 1; background: var(--nag-ink); border-radius: 3px;"></div>
-                <div class="cell" style="aspect-ratio: 1; background: var(--nag-ink); border-radius: 3px;"></div>
-                <div class="cell" style="aspect-ratio: 1; background: var(--nag-ink); border-radius: 3px;"></div>
-                <div class="cell" style="aspect-ratio: 1; background: var(--nag-ink); border-radius: 3px;"></div>
-                <div class="cell" style="aspect-ratio: 1; background: rgba(26,20,16,0.08); border-radius: 3px;"></div>
-                <div class="cell" style="aspect-ratio: 1; background: var(--nag-ink); border-radius: 3px;"></div>
-                <div class="cell" style="aspect-ratio: 1; background: var(--nag-ink); border-radius: 3px;"></div>
-                <div class="cell" style="aspect-ratio: 1; background: var(--nag-ink); border-radius: 3px;"></div>
-                <div class="cell" style="aspect-ratio: 1; background: var(--nag-ink); border-radius: 3px;"></div>
-                <div class="cell" style="aspect-ratio: 1; background: var(--nag-ink); border-radius: 3px;"></div>
-                <div class="cell" style="aspect-ratio: 1; background: var(--nag-ink); border-radius: 3px;"></div>
-                <div class="cell" style="aspect-ratio: 1; border: 1.5px solid var(--nag-orange); border-radius: 3px;"></div>
-                <div class="cell" style="aspect-ratio: 1; background: transparent; border: 1px solid var(--hairline); border-radius: 3px;"></div>
-                <div class="cell" style="aspect-ratio: 1; background: transparent; border: 1px solid var(--hairline); border-radius: 3px;"></div>
-                <div class="cell" style="aspect-ratio: 1; background: transparent; border: 1px solid var(--hairline); border-radius: 3px;"></div>
+              <div class="heat">
+                <!-- 28 cells, 4 weeks × 7 days. Last cell of row 4 is today. -->
+                <div class="heat-cell done"></div>
+                <div class="heat-cell done"></div>
+                <div class="heat-cell"></div>
+                <div class="heat-cell done"></div>
+                <div class="heat-cell done"></div>
+                <div class="heat-cell done"></div>
+                <div class="heat-cell done"></div>
+                <div class="heat-cell done"></div>
+                <div class="heat-cell"></div>
+                <div class="heat-cell done"></div>
+                <div class="heat-cell done"></div>
+                <div class="heat-cell done"></div>
+                <div class="heat-cell done"></div>
+                <div class="heat-cell done"></div>
+                <div class="heat-cell done"></div>
+                <div class="heat-cell done"></div>
+                <div class="heat-cell done"></div>
+                <div class="heat-cell"></div>
+                <div class="heat-cell done"></div>
+                <div class="heat-cell done"></div>
+                <div class="heat-cell done"></div>
+                <div class="heat-cell done"></div>
+                <div class="heat-cell done"></div>
+                <div class="heat-cell done"></div>
+                <div class="heat-cell today"></div>
+                <div class="heat-cell future"></div>
+                <div class="heat-cell future"></div>
+                <div class="heat-cell future"></div>
               </div>
-              <div style="font-family: var(--mono); font-size: 11px; color: var(--nag-mute); margin-top: 8px;">compliance · 86%</div>
+              <div
+                style="font-family: var(--mono); font-size: 11px; color: var(--nag-mute); margin-top: 8px;"
+              >
+                compliance · 86%
+              </div>
             </div>
           </div>
           <h3>See the truth</h3>
           <p>Dots show what you actually did. Not what you meant to.</p>
         </div>
-
       </div>
     </div>
   </section>
 
-  <!-- ──────── Anatomy of a tile ──────── -->
+  <!-- ──────── Long-press shortcut ──────── -->
+  <section
+    style="padding-top: clamp(48px, 6vw, 96px); padding-bottom: clamp(48px, 6vw, 96px);"
+  >
+    <div class="wrap">
+      <div class="longpress">
+        <div class="longpress-body">
+          <span class="kicker" style="color: var(--nag-orange);">Fast path</span
+          >
+          <h2
+            class="h-1"
+            style="font-size: clamp(32px, 4.6vw, 56px); margin-top: 8px;"
+          >
+            Long-press to check in<span class="dot">.</span>
+          </h2>
+          <p class="lede" style="max-width: 50ch;">
+            Don't open the habit. Don't tap through.
+            <strong>Press and hold any tile</strong>
+            to log a check-in right there on the home board. Haptic tick, dot flips,
+            you're done. Two seconds, total.
+          </p>
+          <ul class="longpress-list">
+            <li>
+              <span class="lp-bullet"></span>Long-press for an instant check-in
+            </li>
+            <li><span class="lp-bullet"></span>Long-press again to undo it</li>
+            <li>
+              <span class="lp-bullet"></span>Tap once to drill in &amp; see
+              detail / skip
+            </li>
+          </ul>
+        </div>
+
+        <div class="longpress-fig">
+          <div class="longpress-stage">
+            <div class="longpress-ripple"></div>
+            <MockTile
+              extraClass="longpress-tile"
+              name="read 20 min"
+              last="checking in…"
+            >
+              <HabitIcon slot="icon" name="book" />
+              <div slot="cadence" class="t-cad">daily</div>
+              <WeekStrip
+                slot="strip"
+                days={[
+                  "done",
+                  "done",
+                  "done",
+                  "today-done",
+                  "future",
+                  "future",
+                  "future",
+                ]}
+              />
+            </MockTile>
+            <div class="longpress-finger" aria-hidden="true"></div>
+          </div>
+          <div class="longpress-caption">
+            <span
+              class="mono"
+              style="font-size: 11px; color: var(--nag-mute); letter-spacing: 0.08em; text-transform: uppercase;"
+              >hold</span
+            >
+            <span
+              class="mono"
+              style="font-size: 11px; color: var(--nag-orange); letter-spacing: 0.08em; text-transform: uppercase;"
+              >→ checked in</span
+            >
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ──────── Anatomy ──────── -->
   <section style="background: var(--nag-cream-2);">
     <div class="wrap">
       <div class="section-head">
         <span class="kicker">Anatomy</span>
         <h2 class="h-1">A tile, decoded<span class="dot">.</span></h2>
-        <p class="lede">Every habit on the home board is a tile. Glance at one and you know the cadence, today's status, the week so far, and your streak — without opening anything.</p>
+        <p class="lede">
+          Every habit on the home board is a tile. The structure is always the
+          same — icon, cadence, name, last check-in, week strip — but what's in
+          each slot changes with the habit. Five examples:
+        </p>
       </div>
 
-      <div style="display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr); gap: clamp(32px, 6vw, 80px); align-items: center;">
-        <div style="position: relative; padding: 60px;">
-          <div class="mock-tile" style="aspect-ratio: 1; min-height: 0;">
-            <div>
-              <div class="t-meta">daily · streak ×12</div>
-              <div class="t-name" style="margin-top: 8px; font-size: 18px;">read 20 min</div>
-            </div>
-            <div class="t-foot">
-              <div class="mock-week" aria-hidden="true">
-                <div class="cell done"></div><div class="cell done"></div><div class="cell done"></div>
-                <div class="cell today"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div>
-              </div>
-              <div class="tile-streak">12<span style="font-size: 14px; opacity:.7">d</span></div>
-            </div>
+      <div class="tile-examples">
+        <!-- 01 · Daily, simple text cadence -->
+        <div class="tile-example">
+          <div class="tile-example-stage">
+            <MockTile name="read 20 min" last="2h ago">
+              <HabitIcon slot="icon" name="book" />
+              <div slot="cadence" class="t-cad">daily</div>
+              <WeekStrip
+                slot="strip"
+                days={[
+                  "done",
+                  "done",
+                  "done",
+                  "today-done",
+                  "future",
+                  "future",
+                  "future",
+                ]}
+              />
+            </MockTile>
           </div>
+          <div class="kicker">01 · Daily</div>
+          <h3 class="h-3">Simple text cadence</h3>
+          <p class="body">
+            A daily habit with no schedule. Cadence label is just the word; you
+            check in when you do it.
+          </p>
         </div>
 
-        <ol style="list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 18px;">
-          <li style="display: grid; grid-template-columns: 36px 1fr; gap: 16px; align-items: baseline;">
-            <span class="kicker" style="color: var(--nag-orange);">01</span>
-            <div>
-              <h3 class="h-3">Cadence label</h3>
-              <p class="body">"daily · streak ×12" — read as a sentence. Cadence first, current streak second.</p>
-            </div>
-          </li>
-          <li style="display: grid; grid-template-columns: 36px 1fr; gap: 16px; align-items: baseline;">
-            <span class="kicker" style="color: var(--nag-orange);">02</span>
-            <div>
-              <h3 class="h-3">Habit name</h3>
-              <p class="body">Whatever you typed. No icon. No category. Tap to drill in.</p>
-            </div>
-          </li>
-          <li style="display: grid; grid-template-columns: 36px 1fr; gap: 16px; align-items: baseline;">
-            <span class="kicker" style="color: var(--nag-orange);">03</span>
-            <div>
-              <h3 class="h-3">Week strip</h3>
-              <p class="body">M&ndash;S. Filled = done. Outlined orange = today, still pending. Dashed = missed.</p>
-            </div>
-          </li>
-          <li style="display: grid; grid-template-columns: 36px 1fr; gap: 16px; align-items: baseline;">
-            <span class="kicker" style="color: var(--nag-orange);">04</span>
-            <div>
-              <h3 class="h-3">Status numeral</h3>
-              <p class="body">Streak count for daily, ratio (2/3) for weekly, ↻ for "scheduled today."</p>
-            </div>
-          </li>
-        </ol>
+        <!-- 02 · Multi-per-day -->
+        <div class="tile-example">
+          <div class="tile-example-stage">
+            <MockTile name="drink water" last="3h ago">
+              <HabitIcon slot="icon" name="water" />
+              <div slot="cadence" class="t-cad-dots">
+                <span class="today-pre">TODAY</span>
+                <span class="sd done"></span>
+                <span class="sd done"></span>
+                <span class="sd pending"></span>
+              </div>
+              <WeekStrip
+                slot="strip"
+                days={[
+                  "done",
+                  "done",
+                  "done",
+                  "today",
+                  "future",
+                  "future",
+                  "future",
+                ]}
+              />
+            </MockTile>
+          </div>
+          <div class="kicker">02 · Multi-per-day</div>
+          <h3 class="h-3">Today's slots, as dots</h3>
+          <p class="body">
+            3× a day, two done. The dot row top-right is today's progress; the
+            week strip is the long view.
+          </p>
+        </div>
+
+        <!-- 03 · Scheduled -->
+        <div class="tile-example">
+          <div class="tile-example-stage">
+            <MockTile name="vitamins" last="due in 12 min">
+              <HabitIcon slot="icon" name="clock" />
+              <div
+                slot="cadence"
+                class="t-cad"
+                style="color: var(--nag-orange);"
+              >
+                ⏰ 9:00 am
+              </div>
+              <WeekStrip
+                slot="strip"
+                days={[
+                  "done",
+                  "done",
+                  "done",
+                  "today",
+                  "future",
+                  "future",
+                  "future",
+                ]}
+              />
+            </MockTile>
+          </div>
+          <div class="kicker">03 · Scheduled</div>
+          <h3 class="h-3">Time-attached, will notify</h3>
+          <p class="body">
+            A clock + time means a notification fires at that moment. The orange
+            cadence label is the tell.
+          </p>
+        </div>
+
+        <!-- 04 · M·W·F -->
+        <div class="tile-example">
+          <div class="tile-example-stage">
+            <MockTile name="gym" last="monday">
+              <HabitIcon slot="icon" name="gym" />
+              <div slot="cadence" class="t-cad">m·w·f</div>
+              <WeekStrip
+                slot="strip"
+                days={[
+                  "done",
+                  "skip",
+                  "missed",
+                  "skip",
+                  "future",
+                  "skip",
+                  "skip",
+                ]}
+              />
+            </MockTile>
+          </div>
+          <div class="kicker">04 · The week, in detail</div>
+          <h3 class="h-3">Every day-state, visible</h3>
+          <p class="body">
+            Filled = done. Slash = missed. Tiny dot = off-day. Orange ring =
+            today. No streaks; just the record.
+          </p>
+        </div>
+
+        <!-- 05 · Monthly -->
+        <div class="tile-example">
+          <div class="tile-example-stage">
+            <MockTile name="call mum" last="2 weeks ago">
+              <HabitIcon slot="icon" name="calendar" />
+              <div slot="cadence" class="t-cad-monthly">
+                <span>3× / mo</span>
+                <span class="dots">
+                  <span class="sd done"></span>
+                  <span class="sd done"></span>
+                  <span class="sd pending"></span>
+                </span>
+              </div>
+              <div slot="strip" class="mock-month">
+                <span class="mcell"></span><span class="mcell"></span><span
+                  class="mcell d"></span><span class="mcell"></span><span
+                  class="mcell"></span>
+                <span class="mcell"></span><span class="mcell"></span><span
+                  class="mcell"></span><span class="mcell"></span><span
+                  class="mcell d"></span>
+                <span class="mcell"></span><span class="mcell"></span><span
+                  class="mcell"></span><span class="mcell"></span><span
+                  class="mcell"></span>
+                <span class="mcell"></span><span class="mcell"></span><span
+                  class="mcell"></span><span class="mcell t"></span><span
+                  class="mcell f"></span>
+                <span class="mcell f"></span><span class="mcell f"></span><span
+                  class="mcell f"></span><span class="mcell f"></span><span
+                  class="mcell f"></span>
+                <span class="mcell f"></span><span class="mcell f"></span><span
+                  class="mcell f"></span><span class="mcell f"></span><span
+                  class="mcell f"></span>
+              </div>
+            </MockTile>
+          </div>
+          <div class="kicker">05 · Monthly</div>
+          <h3 class="h-3">A whole month, in one strip</h3>
+          <p class="body">
+            3× this month. Dots top-right track the goal; the long strip below
+            shows every day's check-ins at a glance.
+          </p>
+        </div>
       </div>
     </div>
   </section>
@@ -186,49 +416,195 @@ import Base from "../layouts/Base.astro";
     <div class="wrap">
       <div class="section-head">
         <span class="kicker">Cadence types</span>
-        <h2 class="h-1">Five ways to schedule a habit<span class="dot">.</span></h2>
+        <h2 class="h-1">
+          Six ways to schedule a habit<span class="dot">.</span>
+        </h2>
+        <p class="lede">
+          Pick a rhythm, then optionally attach a time of day. Only
+          time-attached habits get a notification — everything else just sits on
+          the home board waiting for you to check in.
+        </p>
       </div>
 
-      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1px; background: var(--hairline); border: 1px solid var(--hairline);">
-        <div style="background: var(--nag-cream); padding: 28px;">
-          <div class="kicker">Daily</div>
-          <h3 class="h-3" style="margin: 10px 0 8px;">Every day</h3>
-          <p class="body">For the non-negotiables.</p>
-          <div class="cadence-row" style="margin-top: 14px;">
-            <div class="cad-dot"></div><div class="cad-dot"></div><div class="cad-dot"></div><div class="cad-dot"></div><div class="cad-dot"></div><div class="cad-dot"></div><div class="cad-dot"></div>
+      <div
+        style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1px; background: var(--hairline); border: 1px solid var(--hairline);"
+      >
+        <div class="cad-card featured">
+          <div class="kicker">Scheduled · the big one</div>
+          <h3 class="h-3">At a specific time</h3>
+          <p class="body">
+            9:00 AM. 8:30 PM. Whenever. This is the one that nags — a
+            notification at the time, a follow-up if you don't check in, and a
+            badge on the app icon until it's logged or skipped.
+          </p>
+          <div
+            class="mono"
+            style="font-size: 12px; color: var(--nag-orange); margin-top: 14px; letter-spacing: 0.04em;"
+          >
+            ⏰ 9:00 am · daily
           </div>
         </div>
-        <div style="background: var(--nag-cream); padding: 28px;">
+        <div class="cad-card">
+          <div class="kicker">Daily</div>
+          <h3 class="h-3">Every day</h3>
+          <p class="body">
+            For the non-negotiables. Add a time to make it scheduled, or leave
+            it open and just check in when you do it.
+          </p>
+          <div class="cadence-row" style="margin-top: 14px;">
+            <div class="cad-dot"></div>
+            <div class="cad-dot"></div>
+            <div class="cad-dot"></div>
+            <div class="cad-dot"></div>
+            <div class="cad-dot"></div>
+            <div class="cad-dot"></div>
+            <div class="cad-dot"></div>
+          </div>
+        </div>
+        <div class="cad-card">
+          <div class="kicker">Multi-per-day</div>
+          <h3 class="h-3">Several times a day</h3>
+          <p class="body">
+            Drink water 3×. Stretch every 4 hours. Each slot has its own
+            check-in; today's tile shows a dot per slot, top-right.
+          </p>
+          <div style="display: inline-flex; gap: 4px; margin-top: 14px;">
+            <span
+              style="width: 9px; height: 9px; border-radius: 50%; background: var(--nag-ink);"
+            ></span>
+            <span
+              style="width: 9px; height: 9px; border-radius: 50%; background: var(--nag-ink);"
+            ></span>
+            <span
+              style="width: 9px; height: 9px; border-radius: 50%; background: transparent; box-shadow: inset 0 0 0 1.5px rgba(26,20,16,0.25);"
+            ></span>
+          </div>
+        </div>
+        <div class="cad-card">
           <div class="kicker">Weekly</div>
-          <h3 class="h-3" style="margin: 10px 0 8px;">X times per week</h3>
+          <h3 class="h-3">X times per week</h3>
           <p class="body">Flexible — pick any day, just hit the count.</p>
           <div class="cadence-row" style="margin-top: 14px;">
-            <div class="cad-dot"></div><div class="cad-dot future"></div><div class="cad-dot"></div><div class="cad-dot future"></div><div class="cad-dot"></div><div class="cad-dot future"></div><div class="cad-dot future"></div>
+            <div class="cad-dot"></div>
+            <div class="cad-dot future"></div>
+            <div class="cad-dot"></div>
+            <div class="cad-dot future"></div>
+            <div class="cad-dot"></div>
+            <div class="cad-dot future"></div>
+            <div class="cad-dot future"></div>
           </div>
         </div>
-        <div style="background: var(--nag-cream); padding: 28px;">
-          <div class="kicker">Weekdays</div>
-          <h3 class="h-3" style="margin: 10px 0 8px;">Specific days</h3>
-          <p class="body">M/W/F. Or just Sundays. Whatever fits.</p>
+        <div class="cad-card">
+          <div class="kicker">Specific weekdays</div>
+          <h3 class="h-3">M·W·F (or whatever)</h3>
+          <p class="body">
+            Lock it to certain days. Other days are off — not misses.
+          </p>
           <div class="cadence-row" style="margin-top: 14px;">
-            <div class="cad-dot"></div><div class="cad-dot future"></div><div class="cad-dot"></div><div class="cad-dot future"></div><div class="cad-dot"></div><div class="cad-dot future"></div><div class="cad-dot future"></div>
+            <div class="cad-dot"></div>
+            <div class="cad-dot future"></div>
+            <div class="cad-dot"></div>
+            <div class="cad-dot future"></div>
+            <div class="cad-dot"></div>
+            <div class="cad-dot future"></div>
+            <div class="cad-dot future"></div>
           </div>
         </div>
-        <div style="background: var(--nag-cream); padding: 28px;">
+        <div class="cad-card">
           <div class="kicker">Monthly</div>
-          <h3 class="h-3" style="margin: 10px 0 8px;">Once a month</h3>
-          <p class="body">Bills. Backups. Calling people you love.</p>
-          <div class="cadence-row" style="margin-top: 14px;">
-            <div class="cad-dot"></div><div class="cad-dot future"></div><div class="cad-dot future"></div><div class="cad-dot future"></div>
+          <h3 class="h-3">N times a month</h3>
+          <p class="body">
+            Bills, backups, calling people you love. No specific day or time —
+            the tile shows a long strip with every check-in this month, and dots
+            top-right track your goal count.
+          </p>
+          <div class="mock-month" style="margin-top: 14px;">
+            <span class="mcell d"></span><span class="mcell"></span><span
+              class="mcell"></span><span class="mcell"></span>
+            <span class="mcell d"></span><span class="mcell"></span><span
+              class="mcell"></span><span class="mcell"></span>
+            <span class="mcell"></span><span class="mcell d"></span><span
+              class="mcell"></span><span class="mcell"></span>
+            <span class="mcell"></span><span class="mcell"></span><span
+              class="mcell"></span><span class="mcell t"></span>
+            <span class="mcell f"></span><span class="mcell f"></span><span
+              class="mcell f"></span><span class="mcell f"></span>
+            <span class="mcell f"></span><span class="mcell f"></span><span
+              class="mcell f"></span><span class="mcell f"></span>
+            <span class="mcell f"></span><span class="mcell f"></span><span
+              class="mcell f"></span><span class="mcell f"></span>
+            <span class="mcell f"></span><span class="mcell f"></span>
           </div>
         </div>
-        <div style="background: var(--nag-cream); padding: 28px;">
-          <div class="kicker">One-off</div>
-          <h3 class="h-3" style="margin: 10px 0 8px;">Just once</h3>
-          <p class="body">A nag for a single thing on a single day.</p>
-          <div class="cadence-row" style="margin-top: 14px;">
-            <div class="cad-dot today"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ──────── Skip vs miss ──────── -->
+  <section
+    style="background: var(--nag-cream-2); padding-top: clamp(48px, 6vw, 96px); padding-bottom: clamp(48px, 6vw, 96px);"
+  >
+    <div class="wrap">
+      <div
+        style="display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: clamp(24px, 4vw, 64px); align-items: stretch;"
+      >
+        <div
+          style="background: var(--nag-cream); border-radius: 16px; padding: 36px 32px; display: flex; flex-direction: column; gap: 14px;"
+        >
+          <div style="display: inline-flex; align-items: center; gap: 10px;">
+            <span
+              style="width: 18px; height: 18px; border-radius: 4px; border: 1px solid var(--hairline); display: inline-flex; align-items: center; justify-content: center;"
+            >
+              <svg width="9" height="9" viewBox="0 0 22 22" fill="none"
+                ><line
+                  x1="6"
+                  y1="16"
+                  x2="16"
+                  y2="6"
+                  stroke="var(--nag-mute)"
+                  stroke-width="1.6"
+                  stroke-linecap="round"></line></svg
+              >
+            </span>
+            <span class="kicker" style="color: var(--nag-mute);">Missed</span>
           </div>
+          <h3 class="h-2" style="font-size: clamp(24px, 2.4vw, 32px);">
+            Forgot. Didn't get to it.
+          </h3>
+          <p class="body">
+            A scheduled slot the time passed without a check-in. Nag counts it
+            against your compliance and the day shows the quiet slash.
+          </p>
+        </div>
+
+        <div
+          style="background: var(--nag-cream); border-radius: 16px; padding: 36px 32px; display: flex; flex-direction: column; gap: 14px; border: 2px solid var(--nag-orange);"
+        >
+          <div style="display: inline-flex; align-items: center; gap: 10px;">
+            <span
+              style="width: 18px; height: 18px; border-radius: 4px; background: rgba(26,20,16,0.32); display: inline-flex; align-items: center; justify-content: center;"
+            >
+              <svg width="9" height="9" viewBox="0 0 9 9" fill="none"
+                ><line
+                  x1="2"
+                  y1="4.5"
+                  x2="7"
+                  y2="4.5"
+                  stroke="#FFF8F0"
+                  stroke-width="1.6"
+                  stroke-linecap="round"></line></svg
+              >
+            </span>
+            <span class="kicker">Skipped — on purpose</span>
+          </div>
+          <h3 class="h-2" style="font-size: clamp(24px, 2.4vw, 32px);">
+            Travelling. Sick. Resting.
+          </h3>
+          <p class="body">
+            Tap skip and (optionally) jot a reason. Notifications for that slot
+            stop. Skips are tracked separately from misses — your compliance
+            doesn't punish a planned rest day.
+          </p>
         </div>
       </div>
     </div>
@@ -237,37 +613,105 @@ import Base from "../layouts/Base.astro";
   <!-- ──────── FAQ ──────── -->
   <section>
     <div class="wrap">
-      <div style="display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 2fr); gap: clamp(32px, 6vw, 96px);">
+      <div
+        style="display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 2fr); gap: clamp(32px, 6vw, 96px);"
+      >
         <div>
           <span class="kicker">FAQ</span>
-          <h2 class="h-1" style="margin-top: 12px;">Reasonable questions<span class="dot">.</span></h2>
-          <p class="body" style="margin-top: 22px;">Not seeing yours? <a href="#" style="color: var(--nag-orange);">Email me</a>.</p>
+          <h2 class="h-1" style="margin-top: 12px;">
+            Reasonable questions<span class="dot">.</span>
+          </h2>
+          <p class="body" style="margin-top: 22px;">
+            Not seeing yours? <a href="#" style="color: var(--nag-orange);"
+              >Email me</a
+            >.
+          </p>
         </div>
 
         <div class="faq">
           <details open>
+            <summary>Why didn't I get a notification?</summary>
+            <p>
+              Notifications fire only for habits scheduled at a specific time of
+              day. A "daily" habit with no time attached is yours to check in on
+              whenever — nag won't interrupt you. Add a time to turn it into a
+              scheduled habit and the reminders kick in.
+            </p>
+          </details>
+          <details>
+            <summary
+              >What if I have several things due at the same time?</summary
+            >
+            <p>
+              You get one notification, not five. Nag consolidates anything
+              scheduled for the same time slot into a single nudge, listing the
+              habits in it. Tap to triage; check in or skip each one inline.
+            </p>
+          </details>
+          <details>
+            <summary>What's the difference between skipped and missed?</summary>
+            <p>
+              A <strong>miss</strong> is a scheduled slot that went past without a
+              check-in — you forgot, or didn't get to it. A
+              <strong>skip</strong> is deliberate: you tapped skip, optionally jotted
+              a reason ("travelling", "rest day"). Skips silence the rest of that
+              slot's notifications and are tracked separately from misses, so your
+              compliance reflects what you actually intended.
+            </p>
+          </details>
+          <details>
+            <summary>Does the app icon show a badge?</summary>
+            <p>
+              Yes — on your home-screen app icon. The number is how many
+              scheduled slots are currently due and unaddressed. Check in or
+              skip them (long-press the tile, or open the app) and the badge
+              clears. Notifications themselves don't carry the badge — that's a
+              home-screen-only indicator.
+            </p>
+          </details>
+          <details>
+            <summary>Where's the streak counter?</summary>
+            <p>
+              There isn't one. Streaks reward perfect runs and quietly punish
+              the rest, which makes you quit the day after you slip. Nag tracks
+              compliance over weeks and months instead — the real signal that a
+              habit is sticking.
+            </p>
+          </details>
+          <details>
             <summary>Do I need an account?</summary>
-            <p>No. Nag stores everything locally on your device. There's an optional iCloud / Google Drive backup. That's it. No login screen exists.</p>
+            <p>
+              No. Nag stores everything locally on your device. There's an
+              optional iCloud backup. That's it. No login screen exists.
+            </p>
           </details>
           <details>
-            <summary>Is there a streak feature?</summary>
-            <p>There's a count of consecutive successful days, but it's deliberately small in the UI. Nag tracks long-run compliance — not your ability to be perfect.</p>
+            <summary>Can I sync between devices?</summary>
+            <p>
+              Yes — via iCloud, out of the box. Sign in on your iPad and your
+              habits are there.
+            </p>
           </details>
           <details>
-            <summary>How are notifications scheduled?</summary>
-            <p>By default, a single reminder at your set time, then one follow-up two hours later if you haven't checked in. You can adjust per-habit, or turn the follow-up off.</p>
-          </details>
-          <details>
-            <summary>Can I sync between phones?</summary>
-            <p>Yes, via your platform's cloud (iCloud on iOS, Google Drive on Android). Cross-platform sync isn't planned for v1.</p>
+            <summary>Is there an Android version?</summary>
+            <p>
+              Not currently, and no immediate plans. Nag is a one-person
+              project; iOS is what I can do well right now.
+            </p>
           </details>
           <details>
             <summary>How much does it cost?</summary>
-            <p>Nothing. Maybe a one-time "pay me if you want" tip in a later release. No subscriptions ever.</p>
+            <p>
+              Nothing. Maybe a one-time "pay me if you want" tip in a later
+              release. No subscriptions ever.
+            </p>
           </details>
           <details>
             <summary>Is it open source?</summary>
-            <p>Not currently — but the data format is documented and you can export everything as JSON or CSV any time.</p>
+            <p>
+              Not currently — but the data format is documented and you can
+              export everything as JSON or CSV any time.
+            </p>
           </details>
         </div>
       </div>
@@ -275,15 +719,16 @@ import Base from "../layouts/Base.astro";
   </section>
 
   <!-- ──────── CTA band ──────── -->
-  <section style="padding-top: 0;">
+  <section class="section-pt-0">
     <div class="wrap">
       <div class="cta-band">
-        <h2>enough reading<span class="dot" style="color: var(--nag-ink)">.</span></h2>
+        <h2>
+          enough reading<span class="dot" style="color: var(--nag-ink)">.</span>
+        </h2>
         <div class="right">
-          <p>Free · iOS &amp; Android</p>
+          <p>Free · iOS</p>
           <div class="cta-row">
             <a href="#" class="btn btn-ink">↓ App Store</a>
-            <a href="#" class="btn btn-ink">↓ Google Play</a>
           </div>
         </div>
       </div>

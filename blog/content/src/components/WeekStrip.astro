@@ -1,0 +1,28 @@
+---
+// The 7-day strip at the bottom of every mock tile. M T W T F S S.
+//
+// `days` must have exactly 7 entries, one per day Mon–Sun.
+// `todayIndex` defaults to 3 (Thursday) — the position used throughout the
+// design canvas — and adds the orange `.is-today` label to that column.
+type DayState = "done" | "today" | "today-done" | "missed" | "skip" | "future";
+
+interface Props {
+  days: DayState[];
+  todayIndex?: number;
+}
+const { days, todayIndex = 3 } = Astro.props;
+const labels = ["M", "T", "W", "T", "F", "S", "S"];
+---
+
+<div class="mock-week">
+  {
+    days.map((state, i) => (
+      <div class="col">
+        <span class={`lbl${i === todayIndex ? " is-today" : ""}`}>
+          {labels[i]}
+        </span>
+        <div class={`cell ${state}`} />
+      </div>
+    ))
+  }
+</div>
