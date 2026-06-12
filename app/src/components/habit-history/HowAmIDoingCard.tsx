@@ -60,7 +60,15 @@ export const HowAmIDoingCard = ({ habitExternalId }: HowAmIDoingCardProps) => {
 
   if (!isLoaded) return null;
 
-  if (!isSignedIn) return null;
+  if (!isSignedIn) {
+    return (
+      <Card>
+        <Text style={styles.noticeText}>
+          You must be signed in to see your history graph.
+        </Text>
+      </Card>
+    );
+  }
 
   if (state.kind === "loading" || state.kind === "idle") {
     return (
@@ -73,8 +81,19 @@ export const HowAmIDoingCard = ({ habitExternalId }: HowAmIDoingCardProps) => {
   if (state.kind === "error") {
     return (
       <Card>
-        <Text style={styles.errorText}>
+        <Text style={styles.noticeText}>
           Couldn’t load your history (offline right now).
+        </Text>
+      </Card>
+    );
+  }
+
+  if ((state.data.days ?? []).length === 0) {
+    return (
+      <Card>
+        <Text style={styles.noticeText}>
+          No history yet — once you start checking in, your graph will show up
+          here.
         </Text>
       </Card>
     );
@@ -448,7 +467,7 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.veryFaint,
     borderRadius: 8,
   },
-  errorText: {
+  noticeText: {
     fontSize: 14,
     color: tokens.inkSoft,
   },
