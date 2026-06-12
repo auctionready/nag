@@ -64,11 +64,16 @@ const report = (
     message,
     data,
   });
-  Sentry.captureMessage(message, {
-    level,
-    contexts: data ? { sync: data } : undefined,
-    tags: { area: "sync" },
-  });
+  // Only material state transitions (warning/error) are promoted to searchable
+  // events. info-level diagnostics stay as breadcrumbs so they reconstruct an
+  // offline-flap end-to-end without spamming the issue stream (see REACT-NATIVE-B/D/G).
+  if (level !== "info") {
+    Sentry.captureMessage(message, {
+      level,
+      contexts: data ? { sync: data } : undefined,
+      tags: { area: "sync" },
+    });
+  }
 };
 
 export type SyncUiStatus =
