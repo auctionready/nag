@@ -22,46 +22,42 @@ Three concepts do the work:
   incompatible JS bundle simply won't land OTA — EAS reports "no compatible
   builds" instead, which is your signal to rebuild.
 
-## runtimeVersion fingerprint (pre-computed, not inline policy)
+## runtimeVersion fingerprint (native policy)
 
-Rather than the inline `runtimeVersion: { policy: "fingerprint" }` (which EAS
-recomputes on its own servers at build time and again locally at update time —
-two computations that can drift), we compute the fingerprint **once** in a
-separate step and pin it:
+`runtimeVersion` uses Expo's fingerprint policy:
 
-- `app/scripts/generate-runtime-version.mjs` runs `@expo/fingerprint` and writes
-  the hash to `app/fingerprint.generated.json` (gitignored).
-- `app/app.config.ts` reads that file and pins `runtimeVersion` to the hash. If
-  the file is absent it falls back to `0.0.0-uncommitted` (fine for
-  `expo start`; **not** valid for publishing — see below).
-- `app/fingerprint.config.cjs` is the tuning surface: add `ignorePaths` /
-  `sourceSkips` to stop incidental churn from moving the runtime version. The
-  `ExpoConfigRuntimeVersionIfString` skip there is load-bearing — it strips the
-  pinned string from the hash so the value can't feed into its own fingerprint.
+```ts
+// app/app.config.ts
+runtimeVersion: { policy: "fingerprint" },
+```
 
-**The script must run before `eas build` and `eas update`** so both tag the same
-runtimeVersion:
+EAS computes the fingerprint with [`@expo/fingerprint`](https://github.com/expo/expo/tree/main/packages/@expo/fingerprint)
+and **embeds it server-side** into the binary at build time; the CLI computes the
+same hash when you run `eas update`. Both read `app/fingerprint.config.cjs`, so
+they agree — no pre-computation, no generated file, no app-config indirection.
 
-- **Builds** — `app/package.json`'s `eas-build-post-install` hook runs it on EAS
-  Build infra automatically (after install, before config eval).
-- **Updates** — the `eas-update.yml` workflow runs it before `eas update`.
-- **Locally** — run it yourself first, with the same `APP_VARIANT` as the target
-  build's profile:
+Only inputs that change the JS↔native contract move the hash: autolinked native
+modules, native config in `app.config.ts`, the Expo SDK / React Native version,
+and `package.json` scripts. Pure-JS/TS deps and source don't, so OTA keeps
+working until something native actually changes.
+
+- `app/fingerprint.config.cjs` is the tuning surface — `sourceSkips` /
+  `ignorePaths` keep incidental churn (`.gitignore`, `eas.json`, the env-derived
+  `extra` section) out of the hash. See the comments there for the rationale.
+- To see the runtimeVersion a build/update would use:
 
   ```bash
-  APP_VARIANT=preview pnpm --filter @nag/app runtime-version
+  cd app && APP_VARIANT=preview eas fingerprint:generate --platform ios
   ```
-
-  Inspect `app/fingerprint.generated.json` to see the runtimeVersion a publish
-  would use; if it differs from your latest build's, you need a new build, not an
-  update.
 
 ### Guard: the workflow refuses to publish into the void
 
-Before publishing, `eas-update.yml` checks that at least one **finished** iOS
-build exists on the target channel with the computed runtimeVersion:
+Before publishing, `eas-update.yml` computes the runtimeVersion with
+`eas fingerprint:generate` and checks that at least one **finished** iOS build
+exists on the target channel with it:
 
 ```bash
+HASH=$(APP_VARIANT="$BRANCH" eas fingerprint:generate --platform ios --json | jq -re '.hash')
 eas build:list --platform ios --channel "$BRANCH" --runtime-version "$HASH" --status finished --limit 1 --json
 ```
 
@@ -83,10 +79,9 @@ OTA can't be retrofitted onto an existing binary — a build must already contai
 **once** per channel the normal way and distribute that binary:
 
 ```bash
-# from app/, or dispatch .github/workflows/eas-build.yml (which pins it for you).
-# Pin the fingerprint first so the build is recorded with the real runtimeVersion.
-APP_VARIANT=preview    pnpm runtime-version && eas build --platform ios --profile preview
-APP_VARIANT=production pnpm runtime-version && eas build --platform ios --profile production
+# from app/, or dispatch .github/workflows/eas-build.yml.
+eas build --platform ios --profile preview
+eas build --platform ios --profile production
 ```
 
 From then on, JS/asset changes ship via `eas update` until a native change bumps
@@ -95,38 +90,35 @@ the fingerprint.
 ## Day-to-day: publishing an update
 
 Either dispatch the **EAS update** GitHub Actions workflow
-(`.github/workflows/eas-update.yml`, choose `branch` = `preview` or `production`),
-or run locally from `app/`. Locally you must pin the fingerprint first with the
-target's `APP_VARIANT`, otherwise `app.config.ts` falls back to
-`0.0.0-uncommitted` and the update reaches no real build:
+(`.github/workflows/eas-update.yml`, choose `environment` = `preview` or `production`),
+or run locally from `app/`. Pass `--environment` so the bundle is built with the
+same hosted env the target build used:
 
 ```bash
 # from app/
-APP_VARIANT=preview pnpm runtime-version
-APP_VARIANT=preview eas update --branch preview --message "fix check-in copy"
+eas update --branch preview --environment preview --message "fix check-in copy"
 ```
 
 > **Env footgun.** `eas update` does **not** read a build profile's `eas.json`
-> `env` block. The published bundle must be built with the same `APP_VARIANT` /
-> `EXPO_PUBLIC_*` / `NAG_API_BASE_URL` the target build used, or it ships the
-> wrong runtime config (e.g. a bundle pointed at the wrong API). The CI workflow
-> sets these per branch — keep them in sync with `app/eas.json`. When running
-> locally, export the same values (e.g. `APP_VARIANT=preview`) before both
-> commands above.
+> `env` block. `--environment <branch>` loads the hosted env (`NAG_API_BASE_URL`,
+> `EXPO_PUBLIC_*`, ...) so the bundle matches the target build; you still need
+> `APP_VARIANT` to match (export it, or it's set by the CI workflow per branch).
+> Without the right config the bundle ships pointed at the wrong API.
 >
 > Only `APP_VARIANT` affects the **fingerprint** (it changes the native bundle
 > id / app name). `NAG_API_BASE_URL` and `EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY`
 > flow into the config's `extra` section, which is deliberately excluded from the
 > fingerprint (`ExpoConfigExtraSection` in `app/fingerprint.config.cjs`) — they
 > are JS-runtime config, not a native-compatibility input. Hashing them used to
-> make the runtimeVersion drift between where it was computed (the runner, with
-> those vars unset) and where EAS recomputed it server-side (with the profile's
-> hosted env applied), producing a "runtime version calculated on local machine
-> not equal to runtime version calculated during build" mismatch.
+> make the runtimeVersion drift between where it was computed (with those vars
+> unset) and where EAS recomputed it server-side (with the profile's hosted env
+> applied), producing a "runtime version calculated on local machine not equal to
+> runtime version calculated during build" mismatch.
 
 > **No local guard.** The workflow blocks an update with no matching build; a
-> local `eas update` does not. After `pnpm runtime-version`, check the runtimeVersion
-> in `app/fingerprint.generated.json` against your latest build before publishing.
+> local `eas update` does not. Check with
+> `APP_VARIANT=preview eas fingerprint:generate --platform ios` and compare
+> against your latest build's runtimeVersion before publishing.
 
 ## When you must rebuild instead of updating
 

@@ -3,8 +3,8 @@ name: EAS build
 on:
   workflow_dispatch:
     inputs:
-      profile:
-        description: EAS build profile
+      environment:
+        description: Target EAS environment (uses the same-named eas.json build profile)
         required: true
         type: choice
         default: preview
@@ -19,7 +19,7 @@ on:
         default: false
 
 concurrency:
-  group: eas-build-${{ github.ref }}-${{ inputs.profile }}
+  group: eas-build-${{ github.ref }}-${{ inputs.environment }}
   cancel-in-progress: false
 
 jobs:
@@ -30,48 +30,34 @@ jobs:
 
       - uses: ./.github/actions/node-setup
 
-      - name: Resolve profile
-        id: profile
+      - name: Resolve environment
+        id: environment
         env:
-          INPUT_PROFILE: ${{ github.event.inputs.profile }}
+          INPUT_ENVIRONMENT: ${{ github.event.inputs.environment }}
         run: |
-          if [ -n "$INPUT_PROFILE" ]; then
-            echo "value=$INPUT_PROFILE" >> "$GITHUB_OUTPUT"
+          if [ -n "$INPUT_ENVIRONMENT" ]; then
+            echo "value=$INPUT_ENVIRONMENT" >> "$GITHUB_OUTPUT"
           else
             echo "value=preview" >> "$GITHUB_OUTPUT"
           fi
 
-      # Resolve runtimeVersion on the runner BEFORE `eas build`. eas-cli reads
-      # app.config.ts here to record the build's runtimeVersion, and that record
-      # is what eas-update.yml's guard queries (build:list --runtime-version).
-      # fingerprint.generated.json is gitignored (not committed, not uploaded), so
-      # without this step app.config falls back to the sentinel and the record
-      # would never match a real update. The EAS server independently regenerates
-      # the same file via the eas-build-post-install hook (app/package.json) for
-      # the value embedded in the binary — both compute the identical hash from
-      # the same lockfile. APP_VARIANT comes from the profile's eas.json env (the
-      # single source of truth) because EAS applies that block server-side, not on
-      # the runner.
-      - name: Generate runtime version fingerprint
-        working-directory: app
-        run: |
-          PROFILE="${{ steps.profile.outputs.value }}"
-          APP_VARIANT=$(jq -re --arg p "$PROFILE" '.build[$p].env.APP_VARIANT' eas.json)
-          echo "Profile $PROFILE -> APP_VARIANT=$APP_VARIANT"
-          APP_VARIANT="$APP_VARIANT" node scripts/generate-runtime-version.mjs
+      # runtimeVersion uses the `fingerprint` policy (app.config.ts): EAS computes
+      # and embeds it server-side at build time, tuned by app/fingerprint.config.cjs.
+      # Nothing to pre-compute on the runner.
 
       # All builds run async (--no-wait). For production+submit, use EAS's
       # --auto-submit so the App Store Connect upload fires server-side once
-      # the build finishes, with no long-running CI job to babysit.
-      - name: EAS build (iOS, ${{ steps.profile.outputs.value }})
+      # the build finishes, with no long-running CI job to babysit. The
+      # environment name is also the eas.json build profile name (--profile).
+      - name: EAS build (iOS, ${{ steps.environment.outputs.value }})
         working-directory: app
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
           EXPO_APPLE_TEAM_ID: ${{ vars.EXPO_APPLE_TEAM_ID }}
         run: |
-          PROFILE="${{ steps.profile.outputs.value }}"
-          ARGS="--platform ios --profile $PROFILE --non-interactive --no-wait"
-          if [ "$PROFILE" = "production" ] && [ "${{ inputs.submit }}" = "true" ]; then
-            ARGS="$ARGS --auto-submit"
+          ENVIRONMENT="${{ steps.environment.outputs.value }}"
+          ARGS=(--platform ios --profile "$ENVIRONMENT" --non-interactive --no-wait)
+          if [ "$ENVIRONMENT" = "production" ] && [ "${{ inputs.submit }}" = "true" ]; then
+            ARGS+=(--auto-submit)
           fi
-          eas build $ARGS
+          eas build "${ARGS[@]}"

@@ -155,7 +155,7 @@ missing its usage string. `expo-notifications` does not need a usage string.
 
 Extend `.github/workflows/eas-build.yml`:
 
-- Add `production` to the profile input.
+- Add `production` to the `environment` input.
 - Final step: `eas submit --platform ios --profile production --non-interactive`.
 - Requires `EXPO_TOKEN` (already used for existing builds) and an EAS-stored
   App Store Connect API key (configured once via `eas credentials`).
