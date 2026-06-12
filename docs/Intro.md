@@ -186,8 +186,11 @@ The board is the default tab. An **"Open on day view"** toggle under
 Account → App settings switches the launch screen to the calendar's day
 view anchored on today instead. The preference is stored in SecureStore
 (`app/src/infrastructure/preferences.ts`), loaded before the first
-router render, and consulted as the tab navigator's initial route — so
-it applies from the next cold start, and a fresh install resets it.
+router render, and applied by a one-shot launch redirect in the board
+route (the app always launches at `/`, so the tab navigator's
+`initialRouteName` alone can't switch the launch screen). It applies
+from the next cold start, deep links take precedence over it, and a
+fresh install resets it.
 
 ## Habit detail: day selection and period-scoped lists
 

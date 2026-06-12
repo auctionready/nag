@@ -3,10 +3,11 @@ import { BottomTabBar } from "../../components/shell";
 import { getDefaultView } from "../../infrastructure/preferences";
 
 const TabsLayout = () => (
-  // `getDefaultView` is safe to read synchronously here — the root layout
-  // gates rendering on `bootstrapPreferences`. The navigator only consults
-  // `initialRouteName` on first mount, so later preference changes apply
-  // from the next cold start (deep links still override it).
+  // The actual launch redirect lives in `(tabs)/index.tsx` — the app
+  // always opens at "/", so `initialRouteName` can't switch the launch
+  // screen. It still anchors tab back-behaviour, so keep it aligned with
+  // the preference. Reading it synchronously is safe: the root layout
+  // gates rendering on `bootstrapPreferences`.
   <Tabs
     initialRouteName={getDefaultView() === "day" ? "calendar" : "index"}
     screenOptions={{ headerShown: false }}
