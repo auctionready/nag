@@ -36,30 +36,28 @@ pnpm check:app
 The backend test suite uses Testcontainers to spin up a Postgres 17 container.
 In sandboxes where Docker isn't available, set `NAG_TEST_PG_CONNECTION` to a
 local Postgres connection string and `PostgresFixture` will skip Testcontainers
-and target it directly. Setup once per fresh sandbox:
+and target that instance directly.
+
+Whatever database the connection string names, the fixture always creates and
+runs against a dedicated `nag_auto_test` database on that instance (it connects
+to the `postgres` maintenance db to create it), so it never writes into the
+database you point it at. The connecting role just needs `CREATEDB`. Setup once
+per fresh sandbox:
 
 ```bash
 apt-get install -y postgresql-16   # pg17 if PGDG is reachable, otherwise 16
 pg_ctlcluster 16 main start
 sudo -u postgres psql -c "CREATE USER nag WITH PASSWORD 'nag' SUPERUSER;"
-sudo -u postgres psql -c "CREATE DATABASE nag OWNER nag;"
 ```
 
-Then before each run, drop any test schemas the previous run left behind
-(local Postgres is shared across runs, unlike a per-session container).
-Test classes use either an `api_*` or `proj_*` schema:
+Local Postgres is shared across runs (unlike a per-session container), so test
+schemas accumulate inside `nag_auto_test`. Either drop the whole database, or
+drop the leftover schemas (test classes use an `api_*` or `proj_*` schema)
+before each run:
 
 ```bash
-PGPASSWORD=nag psql -h localhost -U nag -d nag -c "DO \$\$
-  DECLARE r record;
-  BEGIN
-    FOR r IN SELECT schema_name FROM information_schema.schemata
-             WHERE schema_name LIKE 'api_%' OR schema_name LIKE 'proj_%'
-    LOOP
-      EXECUTE 'DROP SCHEMA IF EXISTS ' || quote_ident(r.schema_name) || ' CASCADE';
-    END LOOP;
-  END \$\$;"
-NAG_TEST_PG_CONNECTION="Host=localhost;Database=nag;Username=nag;Password=nag" \
+PGPASSWORD=nag psql -h localhost -U nag -d postgres -c "DROP DATABASE IF EXISTS nag_auto_test;"
+NAG_TEST_PG_CONNECTION="Host=localhost;Database=postgres;Username=nag;Password=nag" \
   dotnet test backend/Nag.Tests/Nag.Tests.csproj
 ```
 
