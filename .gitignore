@@ -18,3 +18,6 @@ backend/Nag.Api/OpenApi/openapi.json
 # Turborepo
 .turbo
 app/junit/results.xml
+
+# mise machine-local overrides
+mise.local.toml
