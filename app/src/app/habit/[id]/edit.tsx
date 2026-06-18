@@ -3,7 +3,7 @@ import { useLiveQuery } from "drizzle-orm/expo-sqlite";
 import { useEffect, useLayoutEffect, useMemo } from "react";
 import { db } from "../../../db";
 import { habitStatus } from "@nag/schema";
-import { habitById, goalForHabitFull, schedulesForGoal } from "@nag/core";
+import { habitById, goalForHabitFull, schedulesForHabit } from "@nag/core";
 import { dispatch } from "../../../infrastructure/dispatch";
 import {
   HabitForm,
@@ -49,20 +49,29 @@ const EditHabitScreen = () => {
     });
   }, [navigation, habitData, habitId, paused]);
 
+  // Both queries are keyed on the stable `habitId`, so they resolve
+  // independently and consistently. Keying the schedule lookup on the
+  // goal's integer id instead would race: the goal can load (regularity
+  // "week") a render before its schedules do, mounting the form as
+  // "weekly" instead of "scheduled" — and react-hook-form's defaultValues
+  // only apply on mount, so the wrong pill sticks.
   const { data: goals } = useLiveQuery(goalForHabitFull(db, habitId), [
     habitId,
   ]);
   const goalData = goals?.[0];
 
-  const goalId = goalData?.id ?? -1;
-  const { data: scheduleData } = useLiveQuery(schedulesForGoal(db, goalId), [
-    goalId,
+  const { data: scheduleData } = useLiveQuery(schedulesForHabit(db, habitId), [
+    habitId,
   ]);
 
-  const schedulesReady = scheduleData !== undefined;
+  // Wait for every query the form reads from — habit, goal, and schedules
+  // — before deriving initial values, so we never seed the form from a
+  // half-loaded snapshot.
+  const ready =
+    !!habitData && goals !== undefined && scheduleData !== undefined;
 
   const initialValues = useMemo<Partial<HabitFormData> | undefined>(() => {
-    if (!habitData || !schedulesReady) return undefined;
+    if (!habitData || !ready) return undefined;
     const hasSchedules = scheduleData && scheduleData.length > 0;
 
     // If DB regularity is "week" and has schedules, show as "scheduled" in the form
@@ -83,7 +92,7 @@ const EditHabitScreen = () => {
           }))
         : [{ hour: "9", minute: "00", days: 0, reminder: true }],
     };
-  }, [habitData, goalData, schedulesReady, scheduleData]);
+  }, [habitData, goalData, ready, scheduleData]);
 
   const onSubmit = async (values: HabitFormData) => {
     const goal = buildGoalPayload(values);
