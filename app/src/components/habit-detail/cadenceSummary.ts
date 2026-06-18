@@ -1,4 +1,5 @@
 import type { Regularity } from "@nag/schema";
+import { AllDays } from "@nag/core";
 import { formatTime, friendlyDaysLabel } from "../../components/formatters";
 
 interface SummaryInput {
@@ -25,12 +26,25 @@ export const cadenceSummary = ({
 }: SummaryInput): string | null => {
   if (regularity == null || frequency == null) return null;
 
-  const parts: string[] = [];
-  parts.push(cadenceLabel(regularity, frequency));
-
   // Distinct timed slots, in chronological order — keeps the caption stable
   // when the same time has multiple day-masks attached.
   const times = uniqueTimes(schedules);
+
+  // A scheduled habit whose every slot fires on all seven days is a *daily*
+  // habit, even though it's stored as a weekly goal with a popcount-derived
+  // frequency (7 for one slot, 14 for two, …). Labelling it "7× / wk" reads
+  // as weekly; collapse it to "daily" / "Nx / day" so the detail matches the
+  // tile chip's `everyDayTimeLabel` treatment.
+  const everyDay =
+    schedules.length > 0 && schedules.every((s) => coversEveryDay(s.days));
+
+  const parts: string[] = [];
+  parts.push(
+    everyDay
+      ? cadenceLabel("day", Math.max(times.length, 1))
+      : cadenceLabel(regularity, frequency),
+  );
+
   if (times.length > 0) {
     parts.push(
       times.map(([h, m]) => formatTime(h, m).toLowerCase()).join(" · "),
@@ -39,15 +53,26 @@ export const cadenceSummary = ({
 
   // Day mask only relevant when the user wrote one — we only show a
   // friendly summary, not arbitrary masks (those go in the schedule
-  // pills above the slots row).
-  const orMask = schedules.reduce((mask, s) => mask | (s.days ?? 0), 0);
-  if (orMask !== 0) {
-    const friendly = friendlyDaysLabel(orMask);
-    if (friendly && friendly !== "no days") parts.push(friendly);
+  // pills above the slots row). Skip it for every-day schedules: "daily"
+  // already says it, so appending "every day" would be redundant.
+  if (!everyDay) {
+    const orMask = schedules.reduce((mask, s) => mask | (s.days ?? 0), 0);
+    if (orMask !== 0) {
+      const friendly = friendlyDaysLabel(orMask);
+      if (friendly && friendly !== "no days") parts.push(friendly);
+    }
   }
 
   return parts.join(" · ");
 };
+
+/**
+ * Whether a schedule's day-mask fires on every day of the week. `AllDays`
+ * (all seven bits) is the value the schedule editor writes; a null/zero mask
+ * also means "every day" per `appliesOnDay`.
+ */
+const coversEveryDay = (days: number | null): boolean =>
+  days == null || days === 0 || days === AllDays;
 
 const uniqueTimes = (
   schedules: {
