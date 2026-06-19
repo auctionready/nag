@@ -42,10 +42,18 @@ describe("rendering", () => {
     expect(view.getByText("start nagging me")).toBeTruthy();
   });
 
-  it("renders 'save changes' label in edit mode", async () => {
-    const { getByText } = await render(
-      <HabitForm onSubmit={onSubmit} mode="edit" />,
+  it("renders 'save changes' label in edit mode once the form is dirty", async () => {
+    const { getByPlaceholderText, getByText } = await render(
+      <HabitForm
+        onSubmit={onSubmit}
+        mode="edit"
+        initialValues={{ title: "x" }}
+      />,
     );
+    await act(async () => {
+      await fireEvent.changeText(getByPlaceholderText("morning run"), "xy");
+      await flush();
+    });
     expect(getByText("save changes")).toBeTruthy();
   });
 
@@ -57,6 +65,88 @@ describe("rendering", () => {
       await flush();
     });
     expect(getByDisplayValue("Exercise")).toBeTruthy();
+  });
+});
+
+describe("actions visibility", () => {
+  it("always shows save and cancel in create mode", async () => {
+    const { getByText } = await render(<HabitForm onSubmit={onSubmit} />);
+    await act(async () => {});
+    expect(getByText("start nagging me")).toBeTruthy();
+    expect(getByText("cancel")).toBeTruthy();
+  });
+
+  it("hides the actions in edit mode while the form is pristine", async () => {
+    const { queryByText } = await render(
+      <HabitForm
+        onSubmit={onSubmit}
+        mode="edit"
+        initialValues={{ title: "Run" }}
+      />,
+    );
+    await act(async () => {
+      await flush();
+    });
+    expect(queryByText("save changes")).toBeNull();
+    expect(queryByText("cancel")).toBeNull();
+  });
+
+  it("reveals save and cancel in edit mode once a field changes", async () => {
+    const { getByPlaceholderText, getByText, queryByText } = await render(
+      <HabitForm
+        onSubmit={onSubmit}
+        mode="edit"
+        initialValues={{ title: "Run" }}
+      />,
+    );
+    await act(async () => {
+      await flush();
+    });
+    expect(queryByText("cancel")).toBeNull();
+    await act(async () => {
+      await fireEvent.changeText(
+        getByPlaceholderText("morning run"),
+        "Running",
+      );
+      await flush();
+    });
+    expect(getByText("save changes")).toBeTruthy();
+    expect(getByText("cancel")).toBeTruthy();
+  });
+
+  it("calls onCancel when cancel is pressed", async () => {
+    const onCancel = jest.fn();
+    const { getByText } = await render(
+      <HabitForm onSubmit={onSubmit} onCancel={onCancel} />,
+    );
+    await act(async () => {
+      await fireEvent.press(getByText("cancel"));
+    });
+    expect(onCancel).toHaveBeenCalledTimes(1);
+  });
+
+  it("reports dirty-state changes to the host", async () => {
+    const onDirtyChange = jest.fn();
+    const { getByPlaceholderText } = await render(
+      <HabitForm
+        onSubmit={onSubmit}
+        onDirtyChange={onDirtyChange}
+        mode="edit"
+        initialValues={{ title: "Run" }}
+      />,
+    );
+    await act(async () => {
+      await flush();
+    });
+    onDirtyChange.mockClear();
+    await act(async () => {
+      await fireEvent.changeText(
+        getByPlaceholderText("morning run"),
+        "Running",
+      );
+      await flush();
+    });
+    expect(onDirtyChange).toHaveBeenLastCalledWith(true);
   });
 });
 

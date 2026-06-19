@@ -13,12 +13,14 @@ import {
 import { HabitActions } from "../../../components/habit-actions";
 import type { HabitIconKind } from "../../../components/glyphs";
 import { buildGoalPayload } from "../../../operations";
+import { useUnsavedChangesPrompt } from "../../../hooks/useUnsavedChangesPrompt";
 
 const EditHabitScreen = () => {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const navigation = useNavigation();
   const habitId = id ?? "";
+  const { setDirty, allowLeave } = useUnsavedChangesPrompt();
 
   const { data: habits } = useLiveQuery(habitById(db, habitId), [habitId]);
   const habitData = habits?.[0];
@@ -32,12 +34,15 @@ const EditHabitScreen = () => {
   // would stack a duplicate detail and break the back button.
   useEffect(() => {
     if (!habitData || !archived) return;
+    // Archiving discards any in-progress edit, so skip the unsaved-changes
+    // prompt on the way out.
+    allowLeave();
     if (router.canGoBack()) {
       router.back();
     } else {
       router.replace(`/habit/${habitId}`);
     }
-  }, [habitData, archived, habitId, router]);
+  }, [habitData, archived, habitId, router, allowLeave]);
 
   // Header hamburger menu (pause / archive / delete). The smart
   // HabitActions component owns the lifecycle logic.
@@ -104,6 +109,12 @@ const EditHabitScreen = () => {
       icon: values.icon ?? null,
       goal: goal ?? null,
     });
+    allowLeave();
+    router.back();
+  };
+
+  const onCancel = () => {
+    allowLeave();
     router.back();
   };
 
@@ -119,6 +130,8 @@ const EditHabitScreen = () => {
       mode="edit"
       initialValues={initialValues}
       onSubmit={onSubmit}
+      onCancel={onCancel}
+      onDirtyChange={setDirty}
       banner=<StatusNote status={status} />
     />
   );

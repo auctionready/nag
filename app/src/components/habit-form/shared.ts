@@ -24,6 +24,13 @@ export type HabitFormData = {
 export interface HabitFormProps {
   initialValues?: Partial<HabitFormData>;
   onSubmit: (data: HabitFormData) => Promise<void>;
+  /** Discard the edit and leave. Wired to the cancel button. */
+  onCancel?: () => void;
+  /**
+   * Notifies the host screen whenever the form's dirty state changes, so it
+   * can prompt before a back-navigation drops unsaved changes.
+   */
+  onDirtyChange?: (dirty: boolean) => void;
   mode?: "create" | "edit";
   /** Optional content rendered at the top of the form (e.g. status note). */
   banner?: ReactNode;

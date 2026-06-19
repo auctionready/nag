@@ -1,6 +1,6 @@
 import { Alert, ScrollView, StyleSheet, View } from "react-native";
 import { useForm, Controller, useFieldArray, useWatch } from "react-hook-form";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { tokens } from "../theme";
 import {
   defaultValues,
@@ -12,6 +12,7 @@ import {
 import { AllDays } from "@nag/core";
 import { AdHocCard } from "./AdHocCard";
 import { CadencePills } from "./CadencePills";
+import { CancelButton } from "./CancelButton";
 import { ErrorText } from "./ErrorText";
 import { FrequencyCard } from "./FrequencyCard";
 import { IdentityCard } from "./IdentityCard";
@@ -23,6 +24,8 @@ import { SectionLabel } from "./SectionLabel";
 export const HabitForm = ({
   initialValues,
   onSubmit,
+  onCancel,
+  onDirtyChange,
   mode = "create",
   banner,
 }: HabitFormProps) => {
@@ -31,11 +34,17 @@ export const HabitForm = ({
     handleSubmit,
     setValue,
     getValues,
-    formState: { errors, isValid, isSubmitting },
+    formState: { errors, isValid, isSubmitting, isDirty },
   } = useForm<HabitFormData>({
     defaultValues: { ...defaultValues, ...initialValues },
     mode: "onChange",
   });
+
+  // Let the host screen know when there are unsaved changes so it can guard
+  // back-navigation. On create the screen always treats the form as in-flight.
+  useEffect(() => {
+    onDirtyChange?.(isDirty);
+  }, [isDirty, onDirtyChange]);
   const { fields, append, remove } = useFieldArray({
     control,
     name: "schedules",
@@ -58,10 +67,14 @@ export const HabitForm = ({
       setIsNewEntry(false);
       setEditingIndex(-1);
       if (newValue === "scheduled" && schedules.length === 0) {
-        setValue("schedules", [{ hour: "9", minute: "00", days: AllDays }]);
+        setValue("schedules", [{ hour: "9", minute: "00", days: AllDays }], {
+          shouldDirty: true,
+        });
       }
       if (hadSchedules && newValue !== "scheduled") {
-        setValue("schedules", [{ hour: "9", minute: "00", days: AllDays }]);
+        setValue("schedules", [{ hour: "9", minute: "00", days: AllDays }], {
+          shouldDirty: true,
+        });
       }
     };
 
@@ -85,10 +98,11 @@ export const HabitForm = ({
     if (isNewEntry) {
       append(data);
     } else {
-      setValue(`schedules.${editingIndex}.hour`, data.hour);
-      setValue(`schedules.${editingIndex}.minute`, data.minute);
-      setValue(`schedules.${editingIndex}.days`, data.days);
-      setValue(`schedules.${editingIndex}.reminder`, data.reminder);
+      const opts = { shouldDirty: true };
+      setValue(`schedules.${editingIndex}.hour`, data.hour, opts);
+      setValue(`schedules.${editingIndex}.minute`, data.minute, opts);
+      setValue(`schedules.${editingIndex}.days`, data.days, opts);
+      setValue(`schedules.${editingIndex}.reminder`, data.reminder, opts);
     }
     setIsNewEntry(false);
     setEditingIndex(-1);
@@ -111,6 +125,9 @@ export const HabitForm = ({
     watchedRegularity === "week" ||
     watchedRegularity === "month";
   const saveLabel = mode === "edit" ? "save changes" : "start nagging me";
+  // On create the actions are always available. On edit they only appear once
+  // there's something to save, so an untouched habit shows no footer at all.
+  const showActions = mode === "create" || isDirty;
 
   return (
     <View style={styles.outer}>
@@ -159,13 +176,16 @@ export const HabitForm = ({
         </View>
       </ScrollView>
 
-      <View style={styles.footer}>
-        <SaveButton
-          onPress={handleSubmit(onSubmit)}
-          disabled={!isValid || isSubmitting}
-          label={saveLabel}
-        />
-      </View>
+      {showActions && (
+        <View style={styles.footer}>
+          <CancelButton onPress={() => onCancel?.()} />
+          <SaveButton
+            onPress={handleSubmit(onSubmit)}
+            disabled={!isValid || isSubmitting}
+            label={saveLabel}
+          />
+        </View>
+      )}
 
       {(editingIndex >= 0 || isNewEntry) && (
         <ScheduleEditorModal
