@@ -80,6 +80,7 @@ export const schedulesForHabit = (db: AnyDb, habitId: string) =>
       dayOfMonth: schedule.dayOfMonth,
       hour: schedule.hour,
       minute: schedule.minute,
+      reminder: schedule.reminder,
     })
     .from(schedule)
     .innerJoin(goal, eq(schedule.goalId, goal.id))
