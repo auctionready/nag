@@ -1,2 +1,8 @@
+[tools]
+"npm:eas-cli" = "latest"
+
+[settings]
+lockfile = true
+
 [env]
 _.path = ["{{config_root}}/node_modules/.bin"]

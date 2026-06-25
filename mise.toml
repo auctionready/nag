@@ -1,8 +1,6 @@
 [tools]
-dotnet = "10"
 node = "24"
 pnpm = "11"
-"npm:eas-cli" = "latest"
 
 [settings]
 lockfile = true
