@@ -1,10 +1,11 @@
 [tools]
-dotnet = "10.0.301"
+dotnet = "10"
 node = "24"
+pnpm = "11"
 "npm:eas-cli" = "latest"
 
-[settings.node]
-corepack = true
+[settings]
+lockfile = true
 
 [env]
 _.path = ["{{config_root}}/node_modules/.bin"]
