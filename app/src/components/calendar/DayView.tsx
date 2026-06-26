@@ -48,6 +48,7 @@ export const DayView = ({
   const upcoming = by("upcoming");
   const scheduled = by("scheduled");
   const logged = by("done", "skip", "missed");
+  const unscheduled = by("unscheduled");
 
   if (items.length === 0) {
     return (
@@ -130,6 +131,20 @@ export const DayView = ({
           </View>
         </Section>
       )}
+
+      {unscheduled.length > 0 && (
+        <Section label="Unscheduled" count={unscheduled.length}>
+          {unscheduled.map((item) => (
+            <ActionRow
+              key={item.key}
+              item={item}
+              tone="soft"
+              primary={false}
+              onCheckIn={() => onCheckIn(item, checkInTimeFor(item))}
+            />
+          ))}
+        </Section>
+      )}
     </View>
   );
 };
@@ -167,7 +182,8 @@ interface ActionRowProps {
   tone: "orange" | "soft";
   primary: boolean;
   onCheckIn: () => void;
-  onSkip: () => void;
+  /** Omit to hide the skip button (e.g. unscheduled rows can't be skipped). */
+  onSkip?: () => void;
 }
 
 const slotMeta = (item: DayAgendaItem): string | undefined => {
@@ -213,21 +229,23 @@ const ActionRow = ({
       )}
     </View>
     <View style={styles.actionBtns}>
-      <Pressable
-        onPress={onSkip}
-        style={styles.skipBtn}
-        accessibilityRole="button"
-        accessibilityLabel={`Skip ${item.habitTitle}`}
-      >
-        <Svg width={15} height={15} viewBox="0 0 16 16" fill="none">
-          <Path
-            d="M4 4l8 8M12 4l-8 8"
-            stroke={tokens.mute}
-            strokeWidth={1.8}
-            strokeLinecap="round"
-          />
-        </Svg>
-      </Pressable>
+      {onSkip && (
+        <Pressable
+          onPress={onSkip}
+          style={styles.skipBtn}
+          accessibilityRole="button"
+          accessibilityLabel={`Skip ${item.habitTitle}`}
+        >
+          <Svg width={15} height={15} viewBox="0 0 16 16" fill="none">
+            <Path
+              d="M4 4l8 8M12 4l-8 8"
+              stroke={tokens.mute}
+              strokeWidth={1.8}
+              strokeLinecap="round"
+            />
+          </Svg>
+        </Pressable>
+      )}
       <Pressable
         onPress={onCheckIn}
         style={[styles.checkBtn, primary && styles.checkBtnPrimary]}
