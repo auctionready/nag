@@ -234,6 +234,71 @@ describe("createGetDayAgenda", () => {
     expect(agenda.items[1].checkInId).toBe("ci-extra");
   });
 
+  describe("unscheduled habits (no schedule rows)", () => {
+    it("emits an actionable unscheduled row on today when nothing's logged", () => {
+      const getDayAgenda = createGetDayAgenda({
+        habits: [water],
+        schedulesByHabit: new Map([["water", []]]),
+        checkInsByHabit: new Map(),
+      });
+      const agenda = getDayAgenda(today(), today(13));
+      expect(agenda.items).toHaveLength(1);
+      expect(agenda.items[0]).toMatchObject({
+        key: "water::unscheduled",
+        habitId: "water",
+        status: "unscheduled",
+      });
+      expect(agenda.items[0].slotHour).toBeUndefined();
+    });
+
+    it("shows the logged check-in instead once logged (no duplicate row)", () => {
+      const getDayAgenda = createGetDayAgenda({
+        habits: [water],
+        schedulesByHabit: new Map([["water", []]]),
+        checkInsByHabit: new Map([
+          ["water", [{ id: "ci-w", timestamp: today(10, 0), skipped: false }]],
+        ]),
+      });
+      const agenda = getDayAgenda(today(), today(13));
+      expect(agenda.items).toHaveLength(1);
+      expect(agenda.items[0].status).toBe("done");
+    });
+
+    it("emits an unscheduled row on a past day too (any day is loggable)", () => {
+      const getDayAgenda = createGetDayAgenda({
+        habits: [water],
+        schedulesByHabit: new Map([["water", []]]),
+        checkInsByHabit: new Map(),
+      });
+      const agenda = getDayAgenda(yesterday(), today(13));
+      expect(agenda.mode).toBe("past");
+      expect(agenda.items).toHaveLength(1);
+      expect(agenda.items[0].status).toBe("unscheduled");
+    });
+
+    it("does not emit an unscheduled row on a future day", () => {
+      const getDayAgenda = createGetDayAgenda({
+        habits: [water],
+        schedulesByHabit: new Map([["water", []]]),
+        checkInsByHabit: new Map(),
+      });
+      expect(getDayAgenda(tomorrow(), today(13)).items).toEqual([]);
+    });
+
+    it("does not treat a habit scheduled for other days as unscheduled", () => {
+      // Scheduled Sunday only (bit 0); today is Saturday → no slot today, but
+      // it IS scheduled for specific days, so no unscheduled row either.
+      const getDayAgenda = createGetDayAgenda({
+        habits: [pill],
+        schedulesByHabit: new Map([
+          ["pill", [{ days: 1 << 0, dayOfMonth: null, hour: 8, minute: 0 }]],
+        ]),
+        checkInsByHabit: new Map(),
+      });
+      expect(getDayAgenda(today(), today(13)).items).toEqual([]);
+    });
+  });
+
   it("keeps habits in input order", () => {
     const getDayAgenda = createGetDayAgenda({
       habits: [water, pill],
@@ -308,10 +373,15 @@ describe("agendaCheckInTime", () => {
     expect(ts).toEqual(today(9, 0));
   });
 
-  it("records a slotless item at now", () => {
+  it("records a slotless item at now when logged today", () => {
     const now = today(12, 30);
     const ts = agendaCheckInTime({}, today(), now);
     expect(ts).toBe(now);
+  });
+
+  it("records a slotless item at noon of the day when backfilling a past day", () => {
+    const ts = agendaCheckInTime({}, yesterday(), today(12, 30));
+    expect(ts).toEqual(yesterday(12, 0));
   });
 
   it("anchors the slot time to the agenda's day, not now's day", () => {

@@ -1,12 +1,14 @@
 [tools]
-dotnet = "10.0.301"
 node = "24"
-"npm:eas-cli" = "latest"
+pnpm = "11"
 
-[settings.node]
-corepack = true
+[settings]
+lockfile = true
 
 [env]
-_.path = ["{{config_root}}/node_modules/.bin"]
+# Put mise's (cwd-aware) shims on PATH so tools scoped to a child config —
+# notably `dotnet` in backend/mise.toml — resolve when turbo spawns a package
+# script in its own dir, which doesn't re-trigger mise's directory hook.
+_.path = ["{{config_root}}/node_modules/.bin", "{{env.HOME}}/.local/share/mise/shims"]
 TURBO_TEAM = "alan-4087s-projects"
 

@@ -7,7 +7,8 @@ export type DayAgendaItemStatus =
   | "done"
   | "skip"
   | "missed"
-  | "scheduled";
+  | "scheduled"
+  | "unscheduled";
 
 export type DayMode = "past" | "today" | "future";
 
@@ -243,6 +244,26 @@ export const createGetDayAgenda =
           loggedAt: extra.timestamp,
         });
       });
+      // Unscheduled habits — a goal with no schedule rows pinning it to a
+      // day/time — never produce slots, so they're otherwise invisible on the
+      // agenda. With no schedule, *any* day is a valid day to log them, so on
+      // today and past days surface a single actionable row when nothing's been
+      // logged yet (a logged check-in already shows above as a "done" extra),
+      // letting the user check it off ad-hoc. Future days stay read-only —
+      // there's nothing to log ahead of time.
+      if (
+        habitSchedules.length === 0 &&
+        result.mode !== "future" &&
+        result.extras.length === 0
+      ) {
+        items.push({
+          key: `${habit.id}::unscheduled`,
+          habitId: habit.id,
+          habitTitle: habit.title,
+          habitIcon: habit.icon,
+          status: "unscheduled",
+        });
+      }
     }
     return { items, mode };
   };
@@ -258,8 +279,11 @@ export const createGetDayAgenda =
  * overdue one overdue. Recording at the slot's exact time pins it to the
  * intended slot (distance 0).
  *
- * Slotless items (ad-hoc extras with no scheduled time) have no deemed time,
- * so they record at `now`.
+ * Slotless items (ad-hoc extras, unscheduled habits) have no deemed time.
+ * Logged on today they record at `now` (carrying the real wall-clock time);
+ * logged on another day — backfilling an unscheduled habit on a past day —
+ * they pin to noon of that day so the check-in lands on the day being viewed,
+ * not today.
  */
 export const agendaCheckInTime = (
   item: Pick<DayAgendaItem, "slotHour" | "slotMinute">,
@@ -267,7 +291,8 @@ export const agendaCheckInTime = (
   now: Date,
 ): Date => {
   if (item.slotHour === undefined || item.slotMinute === undefined) {
-    return now;
+    if (isSameCalendarDay(day, now)) return now;
+    return new Date(day.getFullYear(), day.getMonth(), day.getDate(), 12, 0);
   }
   return new Date(
     day.getFullYear(),
