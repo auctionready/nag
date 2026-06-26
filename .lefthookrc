@@ -1,0 +1,10 @@
+# Auto-sourced by the lefthook-generated git hook (the `. .lefthookrc` line it
+# writes into .git/hooks/*) before it runs the jobs.
+#
+# The pre-commit jobs call mise-managed tools (node, pnpm, dotnet). Those land
+# on PATH via `mise activate` in an interactive shell, but a commit made from a
+# git worktree / agent fork that never activated mise runs the hook in a plain
+# shell where pnpm/oxfmt/dotnet are all missing and every job fails. Putting
+# mise's shims on PATH makes them resolve. No-op when mise is already active or
+# not installed.
+command -v mise >/dev/null 2>&1 && eval "$(mise activate bash --shims)"
