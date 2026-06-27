@@ -1,0 +1,129 @@
+---
+import Base from "../layouts/Base.astro";
+
+// Last updated — bump this whenever the policy text changes.
+const updated = "27 June 2026";
+---
+
+<Base
+  title="Privacy — nag."
+  description="nag keeps your habits on your device. No account, no cloud, no tracking. The only data that leaves your phone is crash diagnostics."
+>
+  <!-- ──────── Page header ──────── -->
+  <section class="section-sm section-pt-lg">
+    <div class="wrap">
+      <div class="kicker">Privacy</div>
+      <h1 class="h-display" style="margin-top: 18px;">
+        your habits stay<br />
+        on your phone<span class="dot">.</span>
+      </h1>
+      <p class="lede" style="margin-top: 28px;">
+        nag is built to keep your data on your device. There is no account, no
+        cloud sync, and nothing to sell. The only thing that ever leaves your
+        phone is anonymous crash diagnostics — and this page explains exactly
+        what that is.
+      </p>
+    </div>
+  </section>
+
+  <!-- ──────── Policy body ──────── -->
+  <section class="section-pt-0" style="padding-bottom: 96px;">
+    <div class="wrap">
+      <div class="prose">
+        <p><em>Last updated: {updated}</em></p>
+
+        <h2>The short version</h2>
+        <p>
+          Your habits, check-ins, schedules, and reminders are stored only on
+          your iPhone. nag does not have an account system, does not upload your
+          data to a server, and does not track you across apps or websites. We
+          collect no personal information. The single exception is crash and
+          performance diagnostics, described below, which contain no personal
+          data and no information about your habits.
+        </p>
+
+        <h2>Data stored on your device</h2>
+        <p>
+          Everything you create in nag — your habits, their cadence and reminder
+          times, your check-ins and skips, and any habits you archive — is saved
+          in a private database on your device. This data is not transmitted to
+          us or to anyone else. We never see it.
+        </p>
+        <p>
+          Because this data lives only on your device, deleting the app removes
+          it. We have no copy to delete on your behalf, and we cannot recover it
+          for you.
+        </p>
+
+        <h2>Diagnostics we do collect</h2>
+        <p>
+          To find and fix crashes, nag uses <a
+            href="https://sentry.io/"
+            rel="noopener">Sentry</a
+          >, an error-monitoring service. When the app crashes or hits an error,
+          Sentry sends a diagnostic report that may include:
+        </p>
+        <ul>
+          <li>the type of error and a technical stack trace;</li>
+          <li>
+            your device model, operating-system version, and the nag app
+            version;
+          </li>
+          <li>
+            a trail of recent in-app technical events (for example, "a screen
+            opened") used to reproduce the problem.
+          </li>
+        </ul>
+        <p>
+          These reports are used solely to diagnose and fix problems. They do
+          not contain your habits, check-ins, or any personal information, and
+          we do not use them to identify you or to track you across other apps
+          or services. Sentry processes this data on our behalf; see Sentry's
+          own privacy documentation for how they handle it.
+        </p>
+
+        <h2>Notifications</h2>
+        <p>
+          nag's reminders are <strong>local notifications</strong> scheduled on your
+          device. If you grant notification permission, your reminders are created
+          and delivered entirely on your phone. nag does not use remote push notifications
+          and does not send any device token or notification data to a server.
+        </p>
+
+        <h2>What nag does not do</h2>
+        <ul>
+          <li>No accounts, logins, or profiles.</li>
+          <li>No advertising and no advertising identifiers.</li>
+          <li>No analytics or behavioural tracking.</li>
+          <li>
+            No selling or sharing of your data — there is nothing to sell.
+          </li>
+          <li>
+            No access to your location, contacts, photos, microphone, or camera.
+          </li>
+        </ul>
+
+        <h2>Children</h2>
+        <p>
+          nag is not directed at children under 13 and does not knowingly
+          collect personal information from anyone. Since the app collects no
+          personal information, this is true for users of every age.
+        </p>
+
+        <h2>Changes to this policy</h2>
+        <p>
+          If this policy changes, we will update the date at the top of this
+          page. Material changes will be reflected here before they take effect.
+        </p>
+
+        <h2>Contact</h2>
+        <p>
+          Questions about privacy in nag? Email <a
+            href="mailto:privacy@auctionready.co.nz"
+            >privacy@auctionready.co.nz</a
+          >.
+        </p>
+      </div>
+    </div>
+  </section>
+</Base>
