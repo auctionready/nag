@@ -30,6 +30,14 @@ jobs:
 
       - uses: ./.github/actions/node-setup
 
+      # node-setup runs mise at the repo root (node/pnpm). eas-cli is scoped to
+      # app/mise.toml, so install the app folder's tools too; the build step
+      # below runs `eas` from working-directory: app, where the cwd-aware shim
+      # resolves it.
+      - uses: jdx/mise-action@v4
+        with:
+          working_directory: app
+
       - name: Resolve environment
         id: environment
         env:
