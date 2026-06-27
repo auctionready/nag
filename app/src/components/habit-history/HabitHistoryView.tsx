@@ -1,6 +1,7 @@
 import { ScrollView, StyleSheet, Text, View } from "react-native";
 import { tokens } from "../../components/theme";
 import { HabitGlyph } from "../../components/glyphs";
+import { isLocalOnly } from "../../infrastructure/localOnly";
 import { HowAmIDoingCard } from "./HowAmIDoingCard";
 
 interface HabitHistoryViewProps {
@@ -40,7 +41,18 @@ export const HabitHistoryView = ({
           )}
         </View>
       </View>
-      <HowAmIDoingCard habitExternalId={habitExternalId} />
+      {isLocalOnly() ? (
+        <View style={styles.notice}>
+          <Text style={styles.noticeEyebrow}>how am i doing</Text>
+          <Text style={styles.noticeBody}>
+            Long-term history graphs arrive with cloud backup in a future
+            update. For now, each habit&apos;s recent check-ins live on the
+            habit&apos;s own screen.
+          </Text>
+        </View>
+      ) : (
+        <HowAmIDoingCard habitExternalId={habitExternalId} />
+      )}
     </ScrollView>
   );
 };
@@ -89,5 +101,26 @@ const styles = StyleSheet.create({
     fontSize: 10,
     color: tokens.mute,
     letterSpacing: 0.4,
+  },
+  notice: {
+    marginHorizontal: 14,
+    backgroundColor: tokens.surface,
+    borderWidth: 1,
+    borderColor: tokens.border,
+    borderRadius: 16,
+    padding: 14,
+    gap: 8,
+  },
+  noticeEyebrow: {
+    fontFamily: "JetBrainsMono",
+    fontSize: 9.5,
+    color: tokens.mute,
+    letterSpacing: 1.4,
+    textTransform: "uppercase",
+  },
+  noticeBody: {
+    fontSize: 14,
+    lineHeight: 20,
+    color: tokens.inkSoft,
   },
 });
