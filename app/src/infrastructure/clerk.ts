@@ -3,6 +3,7 @@ import * as SecureStore from "expo-secure-store";
 import type { TokenCache } from "@clerk/clerk-expo";
 import { log } from "./log";
 import { getAuthMode } from "./devOverrides";
+import { isLocalOnly } from "./localOnly";
 
 const logger = log("clerk");
 
@@ -14,12 +15,14 @@ const extra = (): Extra => (Constants.expoConfig?.extra as Extra) ?? {};
 
 /**
  * Effective Clerk publishable key for this session. Returns `null`
- * (so `<ClerkOrPassthrough>` skips `<ClerkProvider>` entirely) when
- * the session is in dev-auth mode, even if a key is set in env —
- * dev-auth talks to the local backend's `/dev/token` and never wants
- * Clerk in the picture.
+ * (so `<ClerkOrPassthrough>` skips `<ClerkProvider>` entirely) when:
+ * - local-only mode is on (production App Store builds) — the app never
+ *   talks to Clerk or the backend, even if a key leaks into env; or
+ * - the session is in dev-auth mode — dev-auth talks to the local
+ *   backend's `/dev/token` and never wants Clerk in the picture.
  */
 export const getClerkPublishableKey = (): string | null => {
+  if (isLocalOnly()) return null;
   if (getAuthMode() === "dev-auth") return null;
   const { clerkPublishableKey } = extra();
   return clerkPublishableKey && clerkPublishableKey.length > 0

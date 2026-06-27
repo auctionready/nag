@@ -1,10 +1,17 @@
 import { ScrollView, StyleSheet, Text, View } from "react-native";
 import { SignedInOrOut } from "../components/account";
+import { LocalOnlyAccountPanel } from "../components/account/LocalOnlyAccountPanel";
 import { tokens } from "../components/theme";
 import { isClerkConfigured } from "../infrastructure/clerk";
 import { getAuthMode } from "../infrastructure/devOverrides";
+import { isLocalOnly } from "../infrastructure/localOnly";
 
 export const AccountScreen = () => {
+  // Local-only (production App Store) builds: no sign-in, no backend.
+  // Checked first so it wins over dev-auth (in a dev build with the flag)
+  // and over the unconfigured branch (local-only forces `isClerkConfigured`
+  // false).
+  if (isLocalOnly()) return <LocalOnlyAccountPanel />;
   if (__DEV__ && getAuthMode() === "dev-auth") {
     // Lazy-required so Metro drops the dev-auth panel (and its
     // /dev/token + ensureDevAuthRegistered imports) from prod bundles.

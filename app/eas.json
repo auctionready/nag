@@ -32,6 +32,7 @@
       "channel": "production",
       "env": {
         "APP_VARIANT": "production",
+        "EXPO_PUBLIC_LOCAL_ONLY": "true",
         "EXPO_PUBLIC_SIGNIN_PROVIDERS": "email",
         "SENTRY_ALLOW_FAILURE": "true"
       },
