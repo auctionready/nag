@@ -34,6 +34,12 @@ jobs:
 
       - uses: ./.github/actions/node-setup
 
+      # eas-cli is scoped to app/mise.toml; install the app folder's tools so the
+      # bare `eas` calls below (working-directory: app) resolve via mise.
+      - uses: jdx/mise-action@v4
+        with:
+          working_directory: app
+
       # `eas update` does NOT read a build profile's eas.json `env` block, so the
       # published JS bundle must be built with the same env the target build used
       # or it will mismatch (config + fingerprint runtimeVersion). The environment
