@@ -84,6 +84,13 @@ export type SyncUiStatus =
   | "halted"
   | "paused";
 
+/**
+ * Outcome of {@link SyncStatusContextValue.drainOutbox}. The dispatcher's own
+ * terminal states plus two gating reasons the drain never started:
+ * `"anonymous"` (no account to sync to) and `"disabled"` (sync not configured).
+ */
+export type DrainOutboxStatus = DispatchStatus | "anonymous" | "disabled";
+
 export type SyncStatusContextValue = {
   status: SyncUiStatus;
   pendingCount: number;
@@ -106,6 +113,19 @@ export type SyncStatusContextValue = {
    */
   kickSync: (source: string) => void;
   /**
+   * Awaitable push-only flush of the outbox. Resolves once every pending
+   * envelope has reached the server (`"idle"`), the queue stops on a
+   * non-retriable failure (`"halted"`), the user has paused (`"paused"`),
+   * or the network gives up (`"offline"`) — or immediately with
+   * `"anonymous"`/`"disabled"` when there's nothing to drain to. Unlike
+   * `kickSync` (fire-and-forget, one dispatcher batch then pull-sync), this
+   * loops until the queue is empty and skips the pull. Sign-in flows that
+   * must make local data canonical on the server *before* the user moves on
+   * await this — see the "Use this device's data" take-over, where signing
+   * into a second device right after would otherwise pull an empty snapshot.
+   */
+  drainOutbox: () => Promise<DrainOutboxStatus>;
+  /**
    * True when no `accountId` is persisted yet — i.e. the user has never
    * signed in on this install, or has just signed out via
    * `clearLocalAuth`. The dispatcher / pull-sync are deliberately not
@@ -125,6 +145,7 @@ const SyncStatusContext = createContext<SyncStatusContextValue>({
   resume: async () => {},
   pause: async () => {},
   kickSync: () => {},
+  drainOutbox: async () => "disabled",
   // Default true so the sync indicators stay hidden during the brief
   // pre-mount window where the real state hasn't been resolved yet.
   isAnonymous: true,
@@ -233,9 +254,12 @@ export const SyncStatusProvider = ({ children }: PropsWithChildren) => {
   const runIdRef = useRef(0);
   const activeRunRef = useRef<number | null>(null);
 
-  const runWithSingleflight = useMemo(() => {
-    if (!enabled) return async () => {};
-    const dispatcher = createDispatcher({
+  // Single dispatcher / pull-sync instance per provider mount, hoisted out
+  // of `runWithSingleflight` so `drainOutbox` can reuse the same dispatcher
+  // (and its post/onError wiring) instead of building a throwaway one.
+  const dispatcher = useMemo(() => {
+    if (!enabled) return null;
+    return createDispatcher({
       db,
       post: postEvents,
       onError: (err) => {
@@ -250,7 +274,11 @@ export const SyncStatusProvider = ({ children }: PropsWithChildren) => {
         error: (m, ...a) => logger.error(m, ...a),
       },
     });
-    const pullSync = createPullSync({
+  }, [enabled]);
+
+  const pullSync = useMemo(() => {
+    if (!enabled) return null;
+    return createPullSync({
       db,
       getSync,
       log: {
@@ -259,6 +287,10 @@ export const SyncStatusProvider = ({ children }: PropsWithChildren) => {
         error: (m, ...a) => logger.error(m, ...a),
       },
     });
+  }, [enabled]);
+
+  const runWithSingleflight = useMemo(() => {
+    if (!enabled || !dispatcher || !pullSync) return async () => {};
     const inner = async () => {
       const runId = ++runIdRef.current;
       activeRunRef.current = runId;
@@ -394,7 +426,7 @@ export const SyncStatusProvider = ({ children }: PropsWithChildren) => {
       }
     };
     return makeSingleflight(inner);
-  }, [enabled, refreshCounts, setStatus]);
+  }, [enabled, dispatcher, pullSync, refreshCounts, setStatus]);
 
   const kick = useCallback(
     (source: string) => {
@@ -426,6 +458,63 @@ export const SyncStatusProvider = ({ children }: PropsWithChildren) => {
     },
     [enabled, runWithSingleflight],
   );
+
+  // Awaitable push-only drain: loop `dispatcher.run()` until the outbox is
+  // empty (`idle`) or hits a sticky stop (`halted`/`paused`/`offline`).
+  // Bypasses the singleflight wrapper on purpose — that wrapper can hand back
+  // a stale in-flight promise that predates the just-claimed account, or tack
+  // on a pull-sync we don't want here. Concurrent `dispatcher.run()` calls are
+  // safe: POST /events is idempotent on envelopeId and `markSent` advances the
+  // server sequence via MAX(...).
+  const drainOutbox = useCallback(async (): Promise<DrainOutboxStatus> => {
+    if (!enabled || !dispatcher) {
+      logger.debug("drainOutbox: disabled");
+      return "disabled";
+    }
+    const accountId = await getAccountId(db);
+    if (!accountId) {
+      logger.debug("drainOutbox: anonymous (no accountId)");
+      return "anonymous";
+    }
+    if (!onlineRef.current) {
+      logger.debug("drainOutbox: offline (onlineRef false)");
+      return "offline";
+    }
+    report("nag.sync.drainOutbox start", "info", { accountId });
+    setStatus("syncing", "drainOutbox:start");
+    const started = Date.now();
+    try {
+      // `idle` means the last batch came back empty, so the queue is fully
+      // drained. `halted`/`paused`/`offline` are sticky and need user action.
+      // Cap the loop so a server that keeps 200-acking without advancing the
+      // pending rows can't spin forever.
+      const MAX_BATCHES = 50;
+      let result: DispatchStatus = "idle";
+      for (let i = 0; i < MAX_BATCHES; i++) {
+        result = await dispatcher.run();
+        if (result !== "idle") break;
+        const remaining = await countPending(db);
+        if (remaining === 0) break;
+        logger.debug(
+          `drainOutbox: batch ${i + 1} idle but ${remaining} pending — looping`,
+        );
+      }
+      logger.info(`drainOutbox: result=${result} (${Date.now() - started}ms)`);
+      if (result === "halted") setStatus("halted", "drainOutbox:halted");
+      else if (result === "paused") setStatus("paused", "drainOutbox:paused");
+      else if (result === "offline")
+        setStatus("offline", "drainOutbox:offline");
+      else setStatus("idle", "drainOutbox:idle");
+      return result;
+    } catch (e) {
+      logger.error(`drainOutbox threw (${Date.now() - started}ms)`, e);
+      Sentry.captureException(e, { tags: { area: "sync" } });
+      setStatus("offline", "drainOutbox:catch");
+      return "offline";
+    } finally {
+      await refreshCounts();
+    }
+  }, [enabled, dispatcher, refreshCounts, setStatus]);
 
   // NetInfo subscription: track `onlineRef` and kick when we transition
   // back to online. Deliberately does NOT call `setStatus("offline")` —
@@ -619,6 +708,7 @@ export const SyncStatusProvider = ({ children }: PropsWithChildren) => {
       resume,
       pause,
       kickSync,
+      drainOutbox,
       isAnonymous,
     }),
     [
@@ -630,6 +720,7 @@ export const SyncStatusProvider = ({ children }: PropsWithChildren) => {
       resume,
       pause,
       kickSync,
+      drainOutbox,
       isAnonymous,
     ],
   );

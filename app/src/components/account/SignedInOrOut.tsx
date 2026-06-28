@@ -20,7 +20,7 @@ const logger = log("account");
 export const SignedInOrOut = () => {
   const { isLoaded, isSignedIn, signOut, getToken } = useAuth();
   const { user } = useUser();
-  const { kickSync } = useSyncStatus();
+  const { kickSync, drainOutbox } = useSyncStatus();
   const [status, setStatus] = React.useState<UpgradeStatus>({ kind: "idle" });
 
   // Tracks whether we've already kicked off an upgrade for the current
@@ -159,6 +159,7 @@ export const SignedInOrOut = () => {
             idpToken,
             idpSubject: user?.id ?? null,
             kickSync,
+            drainOutbox,
             signOut,
             setStatus,
             onCancelled: () => {
@@ -175,7 +176,15 @@ export const SignedInOrOut = () => {
         setStatus({ kind: "fail", message });
       }
     })();
-  }, [isLoaded, isSignedIn, user?.id, getToken, kickSync, signOut]);
+  }, [
+    isLoaded,
+    isSignedIn,
+    user?.id,
+    getToken,
+    kickSync,
+    drainOutbox,
+    signOut,
+  ]);
 
   // Sign-out is a confirmation dialog with two destructive choices —
   // "Keep on this device" (delete the server-side account, preserve

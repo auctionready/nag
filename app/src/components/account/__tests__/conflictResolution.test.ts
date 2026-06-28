@@ -1,4 +1,5 @@
 import { Alert } from "react-native";
+import * as Sentry from "@sentry/react-native";
 import { runPairFallback } from "../conflictResolution";
 
 import {
@@ -52,6 +53,11 @@ jest.mock("@nag/schema", () => ({
   habit: { id: "id" },
 }));
 
+jest.mock("@sentry/react-native", () => ({
+  captureMessage: jest.fn(),
+  captureException: jest.fn(),
+}));
+
 type AlertButton = { text: string; onPress?: () => void };
 type AlertSpy = jest.SpiedFunction<typeof Alert.alert>;
 
@@ -91,13 +97,23 @@ const flush = () =>
 
 beforeEach(() => {
   jest.clearAllMocks();
+  // Fake timers so the post-pair empty-snapshot probe (a real 10s setTimeout)
+  // is deterministic and never leaks an open handle. `setImmediate` stays real
+  // so `flush()` still drains the microtask/immediate queue.
+  jest.useFakeTimers({ doNotFake: ["setImmediate"] });
   setLocalHabits([]);
+});
+
+afterEach(() => {
+  jest.clearAllTimers();
+  jest.useRealTimers();
 });
 
 describe("runPairFallback", () => {
   let alertSpy: AlertSpy;
   let signOut: jest.Mock;
   let kickSync: jest.Mock;
+  let drainOutbox: jest.Mock;
   let setStatus: jest.Mock;
   let onCancelled: jest.Mock;
 
@@ -105,6 +121,7 @@ describe("runPairFallback", () => {
     alertSpy = jest.spyOn(Alert, "alert").mockImplementation(() => {});
     signOut = jest.fn().mockResolvedValue(undefined);
     kickSync = jest.fn();
+    drainOutbox = jest.fn().mockResolvedValue("idle");
     setStatus = jest.fn();
     onCancelled = jest.fn();
   });
@@ -119,6 +136,7 @@ describe("runPairFallback", () => {
       idpToken: "google-token",
       idpSubject: "google-sub",
       kickSync,
+      drainOutbox,
       signOut,
       setStatus,
       onCancelled,
@@ -144,6 +162,27 @@ describe("runPairFallback", () => {
     expect(mockSetIdpSubject).toHaveBeenCalledWith(mockDb, "google-sub");
     expect(setStatus).toHaveBeenLastCalledWith({ kind: "ok" });
     expect(kickSync).toHaveBeenCalledWith("post-pair");
+  });
+
+  it("silent pair that stays empty → warns to Sentry after the probe window", async () => {
+    setLocalHabits([]);
+    (mockPairDevice as jest.Mock).mockResolvedValue({
+      ok: true,
+      accountId: "existing-acc",
+      deviceToken: "new-tok",
+      registeredAt: new Date("2026-05-01T00:00:00Z"),
+    });
+
+    await run();
+    // Before the probe fires, no warning yet.
+    expect(Sentry.captureMessage).not.toHaveBeenCalled();
+    jest.advanceTimersByTime(10_000);
+    await flush();
+
+    expect(Sentry.captureMessage).toHaveBeenCalledWith(
+      "second-device pair: empty server snapshot",
+      "warning",
+    );
   });
 
   it("has local habits + Cancel → signs out of Clerk, resets guard, status idle", async () => {
@@ -227,8 +266,61 @@ describe("runPairFallback", () => {
       idpToken: "google-token",
     });
     expect(mockSetIdpSubject).toHaveBeenCalledWith(mockDb, "google-sub");
+    // The outbox is drained before success is reported, so a second device
+    // signing in immediately can't pull an empty snapshot.
+    expect(drainOutbox).toHaveBeenCalledTimes(1);
+    expect(drainOutbox.mock.invocationCallOrder[0]).toBeLessThan(
+      kickSync.mock.invocationCallOrder[0],
+    );
     expect(setStatus).toHaveBeenLastCalledWith({ kind: "ok" });
     expect(kickSync).toHaveBeenCalledWith("post-take-over");
+  });
+
+  it("has local habits + Use this device's data + drain halts → status fail, no take-over kick", async () => {
+    setLocalHabits([{ id: "habit-x" }]);
+    (mockReleaseClerkIdentity as jest.Mock).mockResolvedValue({ ok: true });
+    (mockUpgradeAccount as jest.Mock).mockResolvedValue({
+      ok: true,
+      idpSubject: "google-sub",
+      upgradedAt: new Date("2026-05-01T00:00:00Z"),
+    });
+    drainOutbox.mockResolvedValue("halted");
+
+    const promise = run();
+    await flush();
+    pressAlertButton(alertSpy, "Use this device's data");
+    await promise;
+
+    expect(mockSetIdpSubject).toHaveBeenCalledWith(mockDb, "google-sub");
+    expect(setStatus).toHaveBeenLastCalledWith({
+      kind: "fail",
+      message:
+        "couldn't upload your data — open the sync panel and tap Resume to retry",
+    });
+    expect(kickSync).not.toHaveBeenCalled();
+  });
+
+  it("has local habits + Use this device's data + drain offline → status fail, no take-over kick", async () => {
+    setLocalHabits([{ id: "habit-x" }]);
+    (mockReleaseClerkIdentity as jest.Mock).mockResolvedValue({ ok: true });
+    (mockUpgradeAccount as jest.Mock).mockResolvedValue({
+      ok: true,
+      idpSubject: "google-sub",
+      upgradedAt: new Date("2026-05-01T00:00:00Z"),
+    });
+    drainOutbox.mockResolvedValue("offline");
+
+    const promise = run();
+    await flush();
+    pressAlertButton(alertSpy, "Use this device's data");
+    await promise;
+
+    expect(setStatus).toHaveBeenLastCalledWith({
+      kind: "fail",
+      message:
+        "couldn't upload your data — check your connection and try again",
+    });
+    expect(kickSync).not.toHaveBeenCalled();
   });
 
   it("has local habits + Use this device's data + release fails → status fail, upgrade not attempted", async () => {
