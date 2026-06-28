@@ -1,5 +1,6 @@
 import React from "react";
 import { Alert } from "react-native";
+import * as Sentry from "@sentry/react-native";
 import { setIdpSubject, switchLocalAccount } from "@nag/core";
 import { habit } from "@nag/schema";
 import { db } from "../../db";
@@ -10,7 +11,13 @@ import {
 } from "../../infrastructure/apiClient";
 import { log } from "../../infrastructure/log";
 import { deviceTokenStore } from "../../infrastructure/tokenStore";
+import type { DrainOutboxStatus } from "../../infrastructure/syncStatus";
 import type { ConflictChoice, UpgradeStatus } from "./types";
+
+// How long to wait after pairing into an existing account before warning that
+// the local DB is still empty — a rough upper bound on one push+pull
+// round-trip. If nothing has landed by then it almost certainly isn't coming.
+const EMPTY_SNAPSHOT_PROBE_MS = 10_000;
 
 const logger = log("account");
 
@@ -32,6 +39,7 @@ export const runPairFallback = async ({
   idpToken,
   idpSubject,
   kickSync,
+  drainOutbox,
   signOut,
   setStatus,
   onCancelled,
@@ -40,6 +48,7 @@ export const runPairFallback = async ({
   idpToken: string;
   idpSubject: string | null;
   kickSync: (source: string) => void;
+  drainOutbox: () => Promise<DrainOutboxStatus>;
   signOut: () => Promise<void>;
   setStatus: React.Dispatch<React.SetStateAction<UpgradeStatus>>;
   onCancelled: () => void;
@@ -84,6 +93,7 @@ export const runPairFallback = async ({
   await runReplaceServer({
     idpToken,
     kickSync,
+    drainOutbox,
     setStatus,
   });
 };
@@ -125,23 +135,52 @@ export const runReplaceLocal = async ({
   );
   setStatus({ kind: "ok" });
   kickSync("post-pair");
+
+  // Observability for "paired but the board is still empty" — the mirror
+  // image of the take-over race this change fixes: if the *other* device's
+  // upgrade shipped before the outbox-drain fix, the just-claimed account
+  // can be empty on the server, so pull-sync hydrates nothing. Without this
+  // signal it looks like a silent client bug.
+  setTimeout(() => {
+    void (async () => {
+      try {
+        const rows = await db.select({ id: habit.id }).from(habit).limit(1);
+        if (rows.length === 0) {
+          logger.warn(
+            `paired into accountId=${paired.accountId} but local DB still empty after ${EMPTY_SNAPSHOT_PROBE_MS}ms — server snapshot was empty`,
+          );
+          Sentry.captureMessage(
+            "second-device pair: empty server snapshot",
+            "warning",
+          );
+        }
+      } catch (err) {
+        logger.warn("post-pair empty-snapshot probe threw", err);
+      }
+    })();
+  }, EMPTY_SNAPSHOT_PROBE_MS);
 };
 
 /**
  * "Use this device's data" path — take over the Clerk identity from
  * whatever account currently holds it and bind it to this device's
  * anonymous account. Two server calls in sequence: explicitly release
- * the existing binding, then bind on the caller. Local data is
- * preserved as-is; the existing outbox flushes the device's local
- * events to the server normally afterwards.
+ * the existing binding, then bind on the caller. Local data is preserved
+ * as-is, then the outbox is **drained inline** so this device's events are
+ * canonical on the server *before* we report success — otherwise the user
+ * could sign in on a second device immediately and pull an empty snapshot
+ * from the just-claimed account, because the events hadn't finished
+ * uploading yet.
  */
 export const runReplaceServer = async ({
   idpToken,
   kickSync,
+  drainOutbox,
   setStatus,
 }: {
   idpToken: string;
   kickSync: (source: string) => void;
+  drainOutbox: () => Promise<DrainOutboxStatus>;
   setStatus: React.Dispatch<React.SetStateAction<UpgradeStatus>>;
 }): Promise<void> => {
   const released = await releaseClerkIdentity({ idpToken });
@@ -155,7 +194,29 @@ export const runReplaceServer = async ({
     return;
   }
   await setIdpSubject(db, claimed.idpSubject);
-  logger.info("identity claimed onto local account — kicking sync");
+
+  logger.info("identity claimed onto local account — draining outbox");
+  const drain = await drainOutbox();
+  if (drain === "halted" || drain === "paused") {
+    setStatus({
+      kind: "fail",
+      message:
+        "couldn't upload your data — open the sync panel and tap Resume to retry",
+    });
+    return;
+  }
+  if (drain === "offline") {
+    setStatus({
+      kind: "fail",
+      message:
+        "couldn't upload your data — check your connection and try again",
+    });
+    return;
+  }
+  // "anonymous"/"disabled" shouldn't be reachable here — we just bound an
+  // identity and the API is configured — but treat them as success and let
+  // kickSync recover if the dispatcher gating disagrees.
+  logger.info(`outbox drained (${drain}) — kicking pull-sync`);
   setStatus({ kind: "ok" });
   kickSync("post-take-over");
 };
