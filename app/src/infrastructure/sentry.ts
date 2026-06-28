@@ -12,18 +12,15 @@ Sentry.init({
 
   enableLogs: true,
 
-  replaysSessionSampleRate: 0,
-  replaysOnErrorSampleRate: 1,
+  // Session Replay is intentionally disabled: we don't capture screen
+  // recordings (even masked) on errors. No replay integration, no replay
+  // sampling.
   // Sample all traces in dev/preview so we can see startup bottlenecks; sample a
   // tenth of production traces to keep event volume reasonable.
   profilesSampleRate: 1.0,
   tracesSampleRate:
     __DEV__ || process.env.APP_VARIANT === "preview" ? 1.0 : 0.1,
-  integrations: [
-    Sentry.mobileReplayIntegration(),
-    Sentry.reactNativeTracingIntegration(),
-    navigationIntegration,
-  ],
+  integrations: [Sentry.reactNativeTracingIntegration(), navigationIntegration],
   // Axios attaches request/response bodies and the `Authorization` header
   // to its error objects. `captureException` (called from our global
   // error handlers) would otherwise ship the live device bearer or a
