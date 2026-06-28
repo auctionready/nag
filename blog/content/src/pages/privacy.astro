@@ -1,0 +1,60 @@
+---
+import Base from "../layouts/Base.astro";
+
+// Last updated — bump this whenever the policy text changes.
+const updated = "27 June 2026";
+---
+
+<Base
+  title="Privacy — nag."
+  description="nag keeps your habits on your device. No account, no cloud, no tracking. The only data that leaves your phone is anonymous diagnostics (crash, performance, and technical logs)."
+>
+  <!-- ──────── Page header ──────── -->
+  <section class="section-sm section-pt-lg">
+    <div class="wrap">
+      <div class="kicker">Privacy</div>
+      <h1 class="h-display" style="margin-top: 18px;">
+        your habits stay<br />
+        on your phone<span class="dot">.</span>
+      </h1>
+      <p class="lede" style="margin-top: 28px;">
+        No account, no cloud, nothing to sell. Your data stays on your device.
+        The only thing that leaves is anonymous diagnostics — and that's the
+        whole story.
+      </p>
+    </div>
+  </section>
+
+  <!-- ──────── Policy body ──────── -->
+  <section class="section-pt-0" style="padding-bottom: 96px;">
+    <div class="wrap">
+      <div class="prose">
+        <p><em>Last updated: {updated}</em></p>
+
+        <h2>On your device</h2>
+        <p>
+          Your habits, check-ins, and reminders live only on your iPhone, and
+          reminders are scheduled locally. None of it is sent to us or anyone
+          else, and deleting the app deletes it for good.
+        </p>
+
+        <h2>Diagnostics</h2>
+        <p>
+          nag sends anonymous diagnostics via
+          <a href="https://sentry.io/" rel="noopener">Sentry</a> to stay stable and
+          fast: crash reports and a sampled amount of performance and technical data
+          — for example, spotting when the app stalls or is slow to open. It never
+          includes your habits, notes, or any personal information, and is never used
+          to identify or track you.
+        </p>
+
+        <h2>What nag never does</h2>
+        <p>
+          No accounts, ads, analytics, behavioural or cross-app tracking, data
+          selling, or access to your location, contacts, photos, microphone, or
+          camera.
+        </p>
+      </div>
+    </div>
+  </section>
+</Base>
