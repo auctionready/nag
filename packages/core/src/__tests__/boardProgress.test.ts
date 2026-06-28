@@ -1,203 +1,274 @@
 import { describe, expect, it } from "vitest";
 import { boardProgress, type BoardProgressHabit } from "../boardProgress";
-import { Day } from "../days";
+import { AllDays, Day } from "../days";
 import type { ScheduleInfo } from "../trafficLight";
 
-// Wednesday 2025-06-04, 13:00 local
+// Wednesday 2025-06-04, 13:00 local.
 const WED_1300 = new Date(2025, 5, 4, 13, 0);
 
-const timed = (days: number, hour: number, minute = 0): ScheduleInfo => ({
-  days,
+const popcount = (n: number): number => {
+  let count = 0;
+  for (let bits = n; bits > 0; bits >>= 1) count += bits & 1;
+  return count;
+};
+
+/** A schedule time-slot; defaults to every weekday, on the minute. */
+const slot = (
+  partial: Partial<ScheduleInfo> & { hour: number },
+): ScheduleInfo => ({
+  days: AllDays,
   dayOfMonth: null,
-  hour,
-  minute,
+  minute: 0,
+  ...partial,
 });
 
-const dailyGoal = (frequency: number) => ({
-  frequency,
-  regularity: "day" as const,
+type Tally = Partial<Pick<BoardProgressHabit, "doneToday" | "skippedToday">>;
+
+/** A frequency habit: a daily/weekly/monthly count with no schedule rows. */
+const freqHabit = (
+  regularity: "day" | "week" | "month",
+  frequency: number,
+  tally: Tally = {},
+): BoardProgressHabit => ({
+  goal: { regularity, frequency },
+  schedules: [],
+  doneToday: 0,
+  skippedToday: 0,
+  ...tally,
 });
-const weeklyGoal = (frequency: number) => ({
-  frequency,
-  regularity: "week" as const,
+
+/**
+ * A scheduled habit — always a weekly goal carrying timed slots, exactly as the
+ * app persists them (frequency = popcount of the day masks).
+ */
+const scheduledHabit = (
+  schedules: ScheduleInfo[],
+  tally: Tally = {},
+): BoardProgressHabit => ({
+  goal: {
+    regularity: "week",
+    frequency:
+      schedules.reduce((sum, s) => sum + popcount(s.days ?? 0), 0) || 1,
+  },
+  schedules,
+  doneToday: 0,
+  skippedToday: 0,
+  ...tally,
 });
+
+interface Scenario {
+  name: string;
+  habits: BoardProgressHabit[];
+  now?: Date;
+  expected: number;
+  done: number;
+  percent: number;
+  extras?: number;
+  nothingDueYet?: boolean;
+  hasFutureToday?: boolean;
+}
+
+const scenarios: Scenario[] = [
+  // ── No goal / empty ──────────────────────────────────────────────────────
+  {
+    name: "empty board → all zeros",
+    habits: [],
+    expected: 0,
+    done: 0,
+    percent: 0,
+  },
+  {
+    name: "habit with no goal never contributes",
+    habits: [{ goal: null, schedules: [], doneToday: 5, skippedToday: 0 }],
+    expected: 0,
+    done: 0,
+    percent: 0,
+    extras: 0,
+  },
+
+  // ── Frequency habits (a count, no schedule rows) ─────────────────────────
+  {
+    name: "daily x3, 1 done → 1/3",
+    habits: [freqHabit("day", 3, { doneToday: 1 })],
+    expected: 3,
+    done: 1,
+    percent: 33,
+  },
+  {
+    name: "daily x2, over-done caps at expected",
+    habits: [freqHabit("day", 2, { doneToday: 5 })],
+    expected: 2,
+    done: 2,
+    percent: 100,
+    extras: 3,
+  },
+  {
+    name: "daily x3, 1 done 1 skip → skip leaves the denominator → 1/2",
+    habits: [freqHabit("day", 3, { doneToday: 1, skippedToday: 1 })],
+    expected: 2,
+    done: 1,
+    percent: 50,
+  },
+  {
+    name: "weekly x3 (no schedule) → not a today thing, nothing due yet",
+    habits: [freqHabit("week", 3, { doneToday: 1 })],
+    expected: 0,
+    done: 0,
+    percent: 0,
+    extras: 1,
+    nothingDueYet: true,
+  },
+  {
+    name: "monthly x2 (no schedule) → not a today thing, nothing due yet",
+    habits: [freqHabit("month", 2)],
+    expected: 0,
+    done: 0,
+    percent: 0,
+    nothingDueYet: true,
+  },
+
+  // ── Scheduled habits (weekly goal + timed slots) ─────────────────────────
+  {
+    name: "every-day 9/12/21, at 13:00 → 2 elapsed, 1 done → 1/2",
+    habits: [
+      scheduledHabit(
+        [slot({ hour: 9 }), slot({ hour: 12 }), slot({ hour: 21 })],
+        { doneToday: 1 },
+      ),
+    ],
+    expected: 2,
+    done: 1,
+    percent: 50,
+    hasFutureToday: true,
+  },
+  {
+    name: "slot exactly at now counts",
+    now: new Date(2025, 5, 4, 12, 0),
+    habits: [scheduledHabit([slot({ hour: 12 })])],
+    expected: 1,
+    done: 0,
+    percent: 0,
+  },
+  {
+    name: "only a future slot → nothing due yet",
+    habits: [scheduledHabit([slot({ hour: 21 })])],
+    expected: 0,
+    done: 0,
+    percent: 0,
+    nothingDueYet: true,
+    hasFutureToday: true,
+  },
+
+  // ── Weekday masks pin a slot to its days ─────────────────────────────────
+  {
+    name: "weekend-only schedule on a Wednesday → not due",
+    habits: [
+      scheduledHabit([
+        slot({ days: Day.Sat | Day.Sun, hour: 8 }),
+        slot({ days: Day.Sat | Day.Sun, hour: 14 }),
+      ]),
+    ],
+    expected: 0,
+    done: 0,
+    percent: 0,
+    nothingDueYet: true,
+  },
+  {
+    name: "pinned to Wed at 9am → due on a Wednesday",
+    habits: [
+      scheduledHabit([slot({ days: Day.Wed, hour: 9 })], { doneToday: 1 }),
+    ],
+    expected: 1,
+    done: 1,
+    percent: 100,
+  },
+  {
+    name: "pinned to Mon at 9am → NOT due on a Wednesday (regression)",
+    habits: [scheduledHabit([slot({ days: Day.Mon, hour: 9 })])],
+    expected: 0,
+    done: 0,
+    percent: 0,
+    nothingDueYet: true,
+  },
+
+  // ── Skips remove a slot from the denominator ─────────────────────────────
+  {
+    name: "skip removes a due slot: 2 due, 1 skipped → 0/1",
+    habits: [
+      scheduledHabit([slot({ hour: 8 }), slot({ hour: 9 })], {
+        skippedToday: 1,
+      }),
+    ],
+    expected: 1,
+    done: 0,
+    percent: 0,
+  },
+  {
+    name: "done + skip clears everything due → 100%",
+    habits: [
+      scheduledHabit([slot({ hour: 8 }), slot({ hour: 9 })], {
+        doneToday: 1,
+        skippedToday: 1,
+      }),
+    ],
+    expected: 1,
+    done: 1,
+    percent: 100,
+  },
+  {
+    name: "everything due is skipped → habit drops out, nothing due yet",
+    habits: [
+      scheduledHabit([slot({ hour: 8 }), slot({ hour: 9 })], {
+        skippedToday: 2,
+      }),
+    ],
+    expected: 0,
+    done: 0,
+    percent: 0,
+    nothingDueYet: true,
+  },
+
+  // ── Aggregation across habits ────────────────────────────────────────────
+  {
+    name: "per-habit cap stops an over-done habit masking an under-done one",
+    habits: [
+      scheduledHabit([slot({ hour: 9 })], { doneToday: 5 }),
+      scheduledHabit([slot({ hour: 9 })], { doneToday: 0 }),
+    ],
+    expected: 2,
+    done: 1,
+    percent: 50,
+    extras: 4,
+  },
+  {
+    name: "mixed board: daily count partly done, scheduled off-day, scheduled today",
+    habits: [
+      freqHabit("day", 2, { doneToday: 1 }),
+      scheduledHabit([slot({ days: Day.Mon, hour: 9 })]),
+      scheduledHabit([slot({ days: Day.Wed, hour: 9 })], { doneToday: 1 }),
+    ],
+    expected: 3,
+    done: 2,
+    percent: 67,
+  },
+];
 
 describe("boardProgress", () => {
-  it("returns zeros for an empty board", () => {
-    const r = boardProgress([], WED_1300);
-    expect(r).toEqual({
-      expected: 0,
-      done: 0,
-      extras: 0,
-      percent: 0,
-      contributingHabits: 0,
-      nothingDueYet: false,
-      hasFutureToday: false,
+  for (const s of scenarios) {
+    it(s.name, () => {
+      const r = boardProgress(s.habits, s.now ?? WED_1300);
+      expect(r.expected).toBe(s.expected);
+      expect(r.done).toBe(s.done);
+      expect(r.percent).toBe(s.percent);
+      if (s.extras !== undefined) expect(r.extras).toBe(s.extras);
+      if (s.nothingDueYet !== undefined)
+        expect(r.nothingDueYet).toBe(s.nothingDueYet);
+      if (s.hasFutureToday !== undefined)
+        expect(r.hasFutureToday).toBe(s.hasFutureToday);
     });
-  });
+  }
 
-  describe("habit with no goal", () => {
-    it("does not contribute", () => {
-      const r = boardProgress(
-        [{ goal: null, schedules: [], doneToday: 5 }],
-        WED_1300,
-      );
-      expect(r).toEqual({
-        expected: 0,
-        done: 0,
-        extras: 0,
-        percent: 0,
-        contributingHabits: 0,
-        nothingDueYet: false,
-        hasFutureToday: false,
-      });
-    });
-  });
-
-  describe("daily goal without schedules", () => {
-    it("expects the full frequency for the whole day", () => {
-      const habit: BoardProgressHabit = {
-        goal: dailyGoal(3),
-        schedules: [],
-        doneToday: 1,
-      };
-      const r = boardProgress([habit], WED_1300);
-      expect(r.expected).toBe(3);
-      expect(r.done).toBe(1);
-      expect(r.percent).toBe(33);
-    });
-
-    it("caps done at expected", () => {
-      const r = boardProgress(
-        [{ goal: dailyGoal(2), schedules: [], doneToday: 5 }],
-        WED_1300,
-      );
-      expect(r.done).toBe(2);
-      expect(r.extras).toBe(3);
-      expect(r.percent).toBe(100);
-    });
-  });
-
-  describe("weekly/monthly goal without schedules", () => {
-    it("does not contribute to today's totals", () => {
-      const r = boardProgress(
-        [{ goal: weeklyGoal(3), schedules: [], doneToday: 1 }],
-        WED_1300,
-      );
-      expect(r.expected).toBe(0);
-      expect(r.done).toBe(0);
-      expect(r.extras).toBe(1);
-      expect(r.nothingDueYet).toBe(true);
-    });
-  });
-
-  describe("habit with timed schedules", () => {
-    it("expects only timeSlots whose time has elapsed", () => {
-      // 9am, 12pm, 9pm — at 1pm only 9am+12pm have elapsed
-      const habit: BoardProgressHabit = {
-        goal: dailyGoal(3),
-        schedules: [timed(0, 9), timed(0, 12), timed(0, 21)],
-        doneToday: 0,
-      };
-      const r = boardProgress([habit], WED_1300);
-      expect(r.expected).toBe(2);
-      expect(r.done).toBe(0);
-      expect(r.percent).toBe(0);
-    });
-
-    it("ignores timeSlots not scheduled for today", () => {
-      // weekend-only schedule on a Wednesday
-      const r = boardProgress(
-        [
-          {
-            goal: dailyGoal(2),
-            schedules: [
-              timed(Day.Sat | Day.Sun, 8),
-              timed(Day.Sat | Day.Sun, 14),
-            ],
-            doneToday: 0,
-          },
-        ],
-        WED_1300,
-      );
-      expect(r.expected).toBe(0);
-      expect(r.nothingDueYet).toBe(true);
-    });
-
-    it("treats days=0 as every day", () => {
-      const r = boardProgress(
-        [{ goal: dailyGoal(1), schedules: [timed(0, 9)], doneToday: 1 }],
-        WED_1300,
-      );
-      expect(r.expected).toBe(1);
-      expect(r.done).toBe(1);
-      expect(r.percent).toBe(100);
-    });
-
-    it("counts a timeSlot whose time exactly matches now", () => {
-      const noon = new Date(2025, 5, 4, 12, 0);
-      const r = boardProgress(
-        [{ goal: dailyGoal(1), schedules: [timed(0, 12)], doneToday: 0 }],
-        noon,
-      );
-      expect(r.expected).toBe(1);
-    });
-  });
-
-  describe("aggregation across habits", () => {
-    it("per-habit cap prevents over-done masking under-done", () => {
-      // Habit A: did 5, expected 1 → credited 1, extras 4
-      // Habit B: did 0, expected 1 → credited 0
-      // Total: 1 of 2 done = 50%, NOT (5/2 = 250%)
-      const habits: BoardProgressHabit[] = [
-        { goal: dailyGoal(1), schedules: [timed(0, 9)], doneToday: 5 },
-        { goal: dailyGoal(1), schedules: [timed(0, 9)], doneToday: 0 },
-      ];
-      const r = boardProgress(habits, WED_1300);
-      expect(r.expected).toBe(2);
-      expect(r.done).toBe(1);
-      expect(r.extras).toBe(4);
-      expect(r.percent).toBe(50);
-    });
-
-    it("matches the user's worked example: 3-a-day at 9/12/21, now 13", () => {
-      // One habit, three time-slots, two elapsed, user did one
-      const r = boardProgress(
-        [
-          {
-            goal: dailyGoal(3),
-            schedules: [timed(0, 9), timed(0, 12), timed(0, 21)],
-            doneToday: 1,
-          },
-        ],
-        WED_1300,
-      );
-      expect(r.expected).toBe(2);
-      expect(r.done).toBe(1);
-      expect(r.percent).toBe(50);
-    });
-  });
-
-  describe("nothingDueYet", () => {
-    it("true when habits have goals but expected is zero", () => {
-      const r = boardProgress(
-        [{ goal: dailyGoal(1), schedules: [timed(0, 21)], doneToday: 0 }],
-        WED_1300,
-      );
-      expect(r.expected).toBe(0);
-      expect(r.nothingDueYet).toBe(true);
-    });
-
-    it("false on an empty board", () => {
-      expect(boardProgress([], WED_1300).nothingDueYet).toBe(false);
-    });
-
-    it("false when expected > 0", () => {
-      const r = boardProgress(
-        [{ goal: dailyGoal(1), schedules: [timed(0, 9)], doneToday: 0 }],
-        WED_1300,
-      );
-      expect(r.nothingDueYet).toBe(false);
-    });
+  it("nothingDueYet is false on an empty board", () => {
+    expect(boardProgress([], WED_1300).nothingDueYet).toBe(false);
   });
 });

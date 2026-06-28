@@ -71,15 +71,17 @@ export const useBoardProgress = (habitIds: string[]): BoardProgress => {
       schedulesByHabit.set(s.habitId, list);
     }
     const doneByHabit = new Map<string, number>();
+    const skippedByHabit = new Map<string, number>();
     for (const c of checkIns ?? []) {
-      if (c.skipped) continue;
-      doneByHabit.set(c.habitId, (doneByHabit.get(c.habitId) ?? 0) + 1);
+      const tally = c.skipped ? skippedByHabit : doneByHabit;
+      tally.set(c.habitId, (tally.get(c.habitId) ?? 0) + 1);
     }
 
     const inputs: BoardProgressHabit[] = habitIds.map((id) => ({
       goal: goalByHabit.get(id) ?? null,
       schedules: schedulesByHabit.get(id) ?? [],
       doneToday: doneByHabit.get(id) ?? 0,
+      skippedToday: skippedByHabit.get(id) ?? 0,
     }));
 
     const result = boardProgress(inputs, now);

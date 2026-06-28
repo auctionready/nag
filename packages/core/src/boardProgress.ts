@@ -1,4 +1,5 @@
 import type { Regularity } from "@nag/schema";
+import { appliesOnDay } from "./days";
 import type { ScheduleInfo } from "./trafficLight";
 
 export interface BoardProgressHabit {
@@ -6,10 +7,12 @@ export interface BoardProgressHabit {
   schedules: ScheduleInfo[];
   /** Non-skipped check-ins recorded today. */
   doneToday: number;
+  /** Skipped check-ins recorded today. */
+  skippedToday: number;
 }
 
 export interface BoardProgressResult {
-  /** Sum across habits of time-slots that should be done by `now`. */
+  /** Sum across habits of time-slots due today by `now`, minus those skipped. */
   expected: number;
   /** Sum across habits of doneToday, capped per-habit by that habit's expected. */
   done: number;
@@ -27,11 +30,17 @@ export interface BoardProgressResult {
 
 /**
  * Aggregates today's progress across the board. Per-habit expectation:
- *   - timed schedules → expected = today's time-slots whose hh:mm ≤ now
- *     (off-day or no time-slots-elapsed-yet ⇒ contributes 0)
+ *   - scheduled habit (timed schedules) → expected = today's time-slots whose
+ *     weekday matches and whose hh:mm ≤ now (off-day slots contribute 0). The
+ *     app only ever produces scheduled habits as weekly goals with a non-zero
+ *     `days` mask, so the weekday filter is what pins a slot to today.
  *   - no schedules + daily goal → expected = goal.frequency for the whole day
  *   - no schedules + weekly/monthly goal → contributes 0 (not a today thing)
  *   - no goal → contributes 0
+ *
+ * Skips resolve a due slot the same way a check-in does, but earn no credit:
+ * each skip removes one outstanding slot from `expected` so skipping never drags
+ * the percentage down (a fully-skipped habit drops out entirely).
  *
  * Done is capped per-habit by that habit's expected so over-done habits don't
  * mask under-done ones in the aggregate.
@@ -40,7 +49,6 @@ export const boardProgress = (
   habits: BoardProgressHabit[],
   now: Date,
 ): BoardProgressResult => {
-  const todayBit = 1 << now.getDay();
   const nowMinutes = now.getHours() * 60 + now.getMinutes();
 
   let expected = 0;
@@ -54,31 +62,36 @@ export const boardProgress = (
     if (!h.goal || h.goal.frequency <= 0) continue;
     anyGoaled = true;
 
-    let habitExpected = 0;
+    // Slots due today whose time has already elapsed.
+    let dueByNow = 0;
     if (h.schedules.length === 0) {
-      if (h.goal.regularity === "day") {
-        habitExpected = h.goal.frequency;
-      }
+      if (h.goal.regularity === "day") dueByNow = h.goal.frequency;
     } else {
       for (const s of h.schedules) {
         if (s.hour === null || s.hour === undefined) continue;
-        const days = s.days ?? 0;
-        if (days !== 0 && (days & todayBit) === 0) continue;
-        const timeSlotMinutes = s.hour * 60 + (s.minute ?? 0);
-        if (timeSlotMinutes <= nowMinutes) habitExpected += 1;
+        if (!appliesOnDay(s.days, now)) continue;
+        const slotMinutes = s.hour * 60 + (s.minute ?? 0);
+        if (slotMinutes <= nowMinutes) dueByNow += 1;
         else hasFutureToday = true;
       }
     }
 
-    if (habitExpected === 0) {
+    if (dueByNow === 0) {
       extras += h.doneToday;
       continue;
     }
 
-    const credited = Math.min(h.doneToday, habitExpected);
+    // Credit check-ins, then let skips clear the remaining outstanding slots so
+    // they leave the denominator entirely.
+    const credited = Math.min(h.doneToday, dueByNow);
+    const skipsResolved = Math.min(h.skippedToday, dueByNow - credited);
+    const habitExpected = dueByNow - skipsResolved;
+
+    extras += Math.max(0, h.doneToday - credited);
+    if (habitExpected === 0) continue;
+
     expected += habitExpected;
     done += credited;
-    extras += Math.max(0, h.doneToday - habitExpected);
     contributingHabits += 1;
   }
 
