@@ -7,7 +7,7 @@ const updated = "27 June 2026";
 
 <Base
   title="Privacy — nag."
-  description="nag keeps your habits on your device. No account, no cloud, no tracking. The only data that leaves your phone is crash diagnostics."
+  description="nag keeps your habits on your device. No account, no cloud, no tracking. The only data that leaves your phone is anonymous diagnostics (crash, performance, and technical logs)."
 >
   <!-- ──────── Page header ──────── -->
   <section class="section-sm section-pt-lg">
@@ -20,8 +20,8 @@ const updated = "27 June 2026";
       <p class="lede" style="margin-top: 28px;">
         nag is built to keep your data on your device. There is no account, no
         cloud sync, and nothing to sell. The only thing that ever leaves your
-        phone is anonymous crash diagnostics — and this page explains exactly
-        what that is.
+        phone is anonymous diagnostics — crash reports plus some performance and
+        technical logs — and this page explains exactly what that is.
       </p>
     </div>
   </section>
@@ -37,9 +37,9 @@ const updated = "27 June 2026";
           Your habits, check-ins, schedules, and reminders are stored only on
           your iPhone. nag does not have an account system, does not upload your
           data to a server, and does not track you across apps or websites. We
-          collect no personal information. The single exception is crash and
-          performance diagnostics, described below, which contain no personal
-          data and no information about your habits.
+          collect no personal information. The single exception is anonymous
+          diagnostics — crash, performance, and technical logs, described below
+          — which contain no personal data and no information about your habits.
         </p>
 
         <h2>Data stored on your device</h2>
@@ -57,27 +57,32 @@ const updated = "27 June 2026";
 
         <h2>Diagnostics we do collect</h2>
         <p>
-          To find and fix crashes, nag uses <a
-            href="https://sentry.io/"
-            rel="noopener">Sentry</a
-          >, an error-monitoring service. When the app crashes or hits an error,
-          Sentry sends a diagnostic report that may include:
+          nag uses <a href="https://sentry.io/" rel="noopener">Sentry</a> to monitor
+          the app's stability and performance. Some of this is sent during normal
+          use — not only when something goes wrong:
         </p>
         <ul>
-          <li>the type of error and a technical stack trace;</li>
           <li>
-            your device model, operating-system version, and the nag app
-            version;
+            <strong>Performance and technical logs.</strong> A sampled portion of
+            timing data (how long screens and operations take) and technical operational
+            logs (for example, "a sync run completed" or "a screen opened"), used
+            to spot slowdowns and bugs.
           </li>
           <li>
-            a trail of recent in-app technical events (for example, "a screen
-            opened") used to reproduce the problem.
+            <strong>Crash and error reports.</strong> When the app crashes or hits
+            an error: the error type and a technical stack trace, plus a short replay
+            of the moments before it — with all on-screen text and images masked —
+            to help reproduce the problem.
+          </li>
+          <li>
+            <strong>Basic device info.</strong> Your device model, operating-system
+            version, and the nag app version, attached to the above.
           </li>
         </ul>
         <p>
-          These reports are used solely to diagnose and fix problems. They do
-          not contain your habits, check-ins, or any personal information, and
-          we do not use them to identify you or to track you across other apps
+          This data is used solely to keep the app stable and fast. It does not
+          contain your habits, check-ins, notes, or any personal information,
+          and we do not use it to identify you or to track you across other apps
           or services. Sentry processes this data on our behalf; see Sentry's
           own privacy documentation for how they handle it.
         </p>
@@ -94,7 +99,11 @@ const updated = "27 June 2026";
         <ul>
           <li>No accounts, logins, or profiles.</li>
           <li>No advertising and no advertising identifiers.</li>
-          <li>No analytics or behavioural tracking.</li>
+          <li>
+            No product analytics, behavioural profiling, or cross-app tracking.
+            (The diagnostics above are technical only — stability and
+            performance.)
+          </li>
           <li>
             No selling or sharing of your data — there is nothing to sell.
           </li>
