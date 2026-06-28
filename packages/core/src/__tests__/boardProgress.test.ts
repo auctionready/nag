@@ -1,38 +1,59 @@
 import { describe, expect, it } from "vitest";
 import { boardProgress, type BoardProgressHabit } from "../boardProgress";
-import { Day } from "../days";
+import { AllDays, Day } from "../days";
 import type { ScheduleInfo } from "../trafficLight";
 
-// Wednesday 2025-06-04, 13:00 local. The 4th of the month, weekday Wed.
-const WED_4TH_1300 = new Date(2025, 5, 4, 13, 0);
+// Wednesday 2025-06-04, 13:00 local.
+const WED_1300 = new Date(2025, 5, 4, 13, 0);
 
+const popcount = (n: number): number => {
+  let count = 0;
+  for (let bits = n; bits > 0; bits >>= 1) count += bits & 1;
+  return count;
+};
+
+/** A schedule time-slot; defaults to every weekday, on the minute. */
 const slot = (
   partial: Partial<ScheduleInfo> & { hour: number },
 ): ScheduleInfo => ({
-  days: 0,
+  days: AllDays,
   dayOfMonth: null,
   minute: 0,
   ...partial,
 });
 
-const habit = (
-  partial: Partial<BoardProgressHabit> & {
-    goal: BoardProgressHabit["goal"];
-  },
+type Tally = Partial<Pick<BoardProgressHabit, "doneToday" | "skippedToday">>;
+
+/** A frequency habit: a daily/weekly/monthly count with no schedule rows. */
+const freqHabit = (
+  regularity: "day" | "week" | "month",
+  frequency: number,
+  tally: Tally = {},
 ): BoardProgressHabit => ({
+  goal: { regularity, frequency },
   schedules: [],
   doneToday: 0,
   skippedToday: 0,
-  ...partial,
+  ...tally,
 });
 
-const daily = (frequency: number) => ({
-  frequency,
-  regularity: "day" as const,
-});
-const weekly = (frequency: number) => ({
-  frequency,
-  regularity: "week" as const,
+/**
+ * A scheduled habit — always a weekly goal carrying timed slots, exactly as the
+ * app persists them (frequency = popcount of the day masks).
+ */
+const scheduledHabit = (
+  schedules: ScheduleInfo[],
+  tally: Tally = {},
+): BoardProgressHabit => ({
+  goal: {
+    regularity: "week",
+    frequency:
+      schedules.reduce((sum, s) => sum + popcount(s.days ?? 0), 0) || 1,
+  },
+  schedules,
+  doneToday: 0,
+  skippedToday: 0,
+  ...tally,
 });
 
 interface Scenario {
@@ -58,50 +79,62 @@ const scenarios: Scenario[] = [
   },
   {
     name: "habit with no goal never contributes",
-    habits: [habit({ goal: null, doneToday: 5 })],
+    habits: [{ goal: null, schedules: [], doneToday: 5, skippedToday: 0 }],
     expected: 0,
     done: 0,
     percent: 0,
     extras: 0,
   },
 
-  // ── Daily, no schedule (full frequency due all day) ──────────────────────
+  // ── Frequency habits (a count, no schedule rows) ─────────────────────────
   {
-    name: "daily x3, no schedule, 1 done → 1/3",
-    habits: [habit({ goal: daily(3), doneToday: 1 })],
+    name: "daily x3, 1 done → 1/3",
+    habits: [freqHabit("day", 3, { doneToday: 1 })],
     expected: 3,
     done: 1,
     percent: 33,
   },
   {
-    name: "daily x2, no schedule, over-done caps at expected",
-    habits: [habit({ goal: daily(2), doneToday: 5 })],
+    name: "daily x2, over-done caps at expected",
+    habits: [freqHabit("day", 2, { doneToday: 5 })],
     expected: 2,
     done: 2,
     percent: 100,
     extras: 3,
   },
-
-  // ── Weekly / monthly with no schedule (not a today thing) ────────────────
   {
-    name: "weekly x3, no schedule → contributes 0, nothing due yet",
-    habits: [habit({ goal: weekly(3), doneToday: 1 })],
+    name: "daily x3, 1 done 1 skip → skip leaves the denominator → 1/2",
+    habits: [freqHabit("day", 3, { doneToday: 1, skippedToday: 1 })],
+    expected: 2,
+    done: 1,
+    percent: 50,
+  },
+  {
+    name: "weekly x3 (no schedule) → not a today thing, nothing due yet",
+    habits: [freqHabit("week", 3, { doneToday: 1 })],
     expected: 0,
     done: 0,
     percent: 0,
     extras: 1,
     nothingDueYet: true,
   },
-
-  // ── Daily timed schedules (elapsed-by-now ramp) ──────────────────────────
   {
-    name: "daily 9/12/21, at 13:00 → 2 elapsed, 1 done → 1/2",
+    name: "monthly x2 (no schedule) → not a today thing, nothing due yet",
+    habits: [freqHabit("month", 2)],
+    expected: 0,
+    done: 0,
+    percent: 0,
+    nothingDueYet: true,
+  },
+
+  // ── Scheduled habits (weekly goal + timed slots) ─────────────────────────
+  {
+    name: "every-day 9/12/21, at 13:00 → 2 elapsed, 1 done → 1/2",
     habits: [
-      habit({
-        goal: daily(3),
-        schedules: [slot({ hour: 9 }), slot({ hour: 12 }), slot({ hour: 21 })],
-        doneToday: 1,
-      }),
+      scheduledHabit(
+        [slot({ hour: 9 }), slot({ hour: 12 }), slot({ hour: 21 })],
+        { doneToday: 1 },
+      ),
     ],
     expected: 2,
     done: 1,
@@ -109,16 +142,16 @@ const scenarios: Scenario[] = [
     hasFutureToday: true,
   },
   {
-    name: "daily slot exactly at now counts",
+    name: "slot exactly at now counts",
     now: new Date(2025, 5, 4, 12, 0),
-    habits: [habit({ goal: daily(1), schedules: [slot({ hour: 12 })] })],
+    habits: [scheduledHabit([slot({ hour: 12 })])],
     expected: 1,
     done: 0,
     percent: 0,
   },
   {
-    name: "daily, only a future slot → nothing due yet",
-    habits: [habit({ goal: daily(1), schedules: [slot({ hour: 21 })] })],
+    name: "only a future slot → nothing due yet",
+    habits: [scheduledHabit([slot({ hour: 21 })])],
     expected: 0,
     done: 0,
     percent: 0,
@@ -126,17 +159,14 @@ const scenarios: Scenario[] = [
     hasFutureToday: true,
   },
 
-  // ── Weekday-pinned schedules honour the day-of-week ──────────────────────
+  // ── Weekday masks pin a slot to its days ─────────────────────────────────
   {
     name: "weekend-only schedule on a Wednesday → not due",
     habits: [
-      habit({
-        goal: daily(2),
-        schedules: [
-          slot({ days: Day.Sat | Day.Sun, hour: 8 }),
-          slot({ days: Day.Sat | Day.Sun, hour: 14 }),
-        ],
-      }),
+      scheduledHabit([
+        slot({ days: Day.Sat | Day.Sun, hour: 8 }),
+        slot({ days: Day.Sat | Day.Sun, hour: 14 }),
+      ]),
     ],
     expected: 0,
     done: 0,
@@ -144,41 +174,17 @@ const scenarios: Scenario[] = [
     nothingDueYet: true,
   },
   {
-    name: "weekly pinned to Wed at 9am → due on a Wednesday",
+    name: "pinned to Wed at 9am → due on a Wednesday",
     habits: [
-      habit({
-        goal: weekly(1),
-        schedules: [slot({ days: Day.Wed, hour: 9 })],
-        doneToday: 1,
-      }),
+      scheduledHabit([slot({ days: Day.Wed, hour: 9 })], { doneToday: 1 }),
     ],
     expected: 1,
     done: 1,
     percent: 100,
   },
   {
-    name: "weekly pinned to Mon at 9am → NOT due on a Wednesday (regression)",
-    habits: [
-      habit({
-        goal: weekly(1),
-        schedules: [slot({ days: Day.Mon, hour: 9 })],
-      }),
-    ],
-    expected: 0,
-    done: 0,
-    percent: 0,
-    nothingDueYet: true,
-  },
-
-  // ── Floating weekly with a time (unsupported) → never due ────────────────
-  {
-    name: "floating weekly with a 9am reminder is not due every day (regression)",
-    habits: [
-      habit({
-        goal: weekly(3),
-        schedules: [slot({ hour: 9 })],
-      }),
-    ],
+    name: "pinned to Mon at 9am → NOT due on a Wednesday (regression)",
+    habits: [scheduledHabit([slot({ days: Day.Mon, hour: 9 })])],
     expected: 0,
     done: 0,
     percent: 0,
@@ -189,9 +195,7 @@ const scenarios: Scenario[] = [
   {
     name: "skip removes a due slot: 2 due, 1 skipped → 0/1",
     habits: [
-      habit({
-        goal: daily(2),
-        schedules: [slot({ hour: 8 }), slot({ hour: 9 })],
+      scheduledHabit([slot({ hour: 8 }), slot({ hour: 9 })], {
         skippedToday: 1,
       }),
     ],
@@ -202,9 +206,7 @@ const scenarios: Scenario[] = [
   {
     name: "done + skip clears everything due → 100%",
     habits: [
-      habit({
-        goal: daily(2),
-        schedules: [slot({ hour: 8 }), slot({ hour: 9 })],
+      scheduledHabit([slot({ hour: 8 }), slot({ hour: 9 })], {
         doneToday: 1,
         skippedToday: 1,
       }),
@@ -216,9 +218,7 @@ const scenarios: Scenario[] = [
   {
     name: "everything due is skipped → habit drops out, nothing due yet",
     habits: [
-      habit({
-        goal: daily(2),
-        schedules: [slot({ hour: 8 }), slot({ hour: 9 })],
+      scheduledHabit([slot({ hour: 8 }), slot({ hour: 9 })], {
         skippedToday: 2,
       }),
     ],
@@ -227,20 +227,13 @@ const scenarios: Scenario[] = [
     percent: 0,
     nothingDueYet: true,
   },
-  {
-    name: "no-schedule daily skipped down: x3, 1 done 1 skip → 1/2",
-    habits: [habit({ goal: daily(3), doneToday: 1, skippedToday: 1 })],
-    expected: 2,
-    done: 1,
-    percent: 50,
-  },
 
   // ── Aggregation across habits ────────────────────────────────────────────
   {
     name: "per-habit cap stops an over-done habit masking an under-done one",
     habits: [
-      habit({ goal: daily(1), schedules: [slot({ hour: 9 })], doneToday: 5 }),
-      habit({ goal: daily(1), schedules: [slot({ hour: 9 })], doneToday: 0 }),
+      scheduledHabit([slot({ hour: 9 })], { doneToday: 5 }),
+      scheduledHabit([slot({ hour: 9 })], { doneToday: 0 }),
     ],
     expected: 2,
     done: 1,
@@ -248,26 +241,22 @@ const scenarios: Scenario[] = [
     extras: 4,
   },
   {
-    name: "mixed board: daily due, weekly off-day, weekly today",
+    name: "mixed board: daily count partly done, scheduled off-day, scheduled today",
     habits: [
-      habit({ goal: daily(2), schedules: [slot({ hour: 9 })], doneToday: 1 }),
-      habit({ goal: weekly(1), schedules: [slot({ days: Day.Mon, hour: 9 })] }),
-      habit({
-        goal: weekly(1),
-        schedules: [slot({ days: Day.Wed, hour: 9 })],
-        doneToday: 1,
-      }),
+      freqHabit("day", 2, { doneToday: 1 }),
+      scheduledHabit([slot({ days: Day.Mon, hour: 9 })]),
+      scheduledHabit([slot({ days: Day.Wed, hour: 9 })], { doneToday: 1 }),
     ],
-    expected: 2,
+    expected: 3,
     done: 2,
-    percent: 100,
+    percent: 67,
   },
 ];
 
 describe("boardProgress", () => {
   for (const s of scenarios) {
     it(s.name, () => {
-      const r = boardProgress(s.habits, s.now ?? WED_4TH_1300);
+      const r = boardProgress(s.habits, s.now ?? WED_1300);
       expect(r.expected).toBe(s.expected);
       expect(r.done).toBe(s.done);
       expect(r.percent).toBe(s.percent);
@@ -280,6 +269,6 @@ describe("boardProgress", () => {
   }
 
   it("nothingDueYet is false on an empty board", () => {
-    expect(boardProgress([], WED_4TH_1300).nothingDueYet).toBe(false);
+    expect(boardProgress([], WED_1300).nothingDueYet).toBe(false);
   });
 });

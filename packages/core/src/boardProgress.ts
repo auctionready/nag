@@ -29,26 +29,11 @@ export interface BoardProgressResult {
 }
 
 /**
- * Whether one schedule row is meant to happen on `now`'s calendar day, honouring
- * the goal's regularity:
- *   - `days` bitmask non-zero (weekday pin) → only on those weekdays
- *   - otherwise (floating) → only for daily goals; a floating weekly schedule
- *     isn't a supported config and is treated as not-due so it can't inflate the
- *     board denominator every day. (Monthly schedules aren't a supported config.)
- */
-const slotDueToday = (
-  s: ScheduleInfo,
-  regularity: Regularity,
-  now: Date,
-): boolean => {
-  if ((s.days ?? 0) !== 0) return appliesOnDay(s.days, now);
-  return regularity === "day";
-};
-
-/**
  * Aggregates today's progress across the board. Per-habit expectation:
- *   - timed schedules → expected = today's due time-slots whose hh:mm ≤ now
- *     (regularity-aware via {@link slotDueToday}; off-day slots contribute 0)
+ *   - scheduled habit (timed schedules) → expected = today's time-slots whose
+ *     weekday matches and whose hh:mm ≤ now (off-day slots contribute 0). The
+ *     app only ever produces scheduled habits as weekly goals with a non-zero
+ *     `days` mask, so the weekday filter is what pins a slot to today.
  *   - no schedules + daily goal → expected = goal.frequency for the whole day
  *   - no schedules + weekly/monthly goal → contributes 0 (not a today thing)
  *   - no goal → contributes 0
@@ -84,7 +69,7 @@ export const boardProgress = (
     } else {
       for (const s of h.schedules) {
         if (s.hour === null || s.hour === undefined) continue;
-        if (!slotDueToday(s, h.goal.regularity, now)) continue;
+        if (!appliesOnDay(s.days, now)) continue;
         const slotMinutes = s.hour * 60 + (s.minute ?? 0);
         if (slotMinutes <= nowMinutes) dueByNow += 1;
         else hasFutureToday = true;
