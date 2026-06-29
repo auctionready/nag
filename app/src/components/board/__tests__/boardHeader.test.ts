@@ -9,8 +9,8 @@ const result = (
   extras: 0,
   percent: 0,
   contributingHabits: 0,
-  nothingDueYet: false,
-  hasFutureToday: false,
+  nothingDue: false,
+  doneEarly: 0,
   ...overrides,
 });
 
@@ -38,121 +38,98 @@ describe("boardHeader", () => {
     });
   });
 
-  describe("schedules ahead of now, none yet due", () => {
-    it("shows nothing-due-yet copy", () => {
-      expect(
-        display(result({ nothingDueYet: true, hasFutureToday: true }), 1),
-      ).toEqual({
-        header: "0% so far",
-        subheader: "nothing due yet.",
+  describe("nothing scheduled for today", () => {
+    it("shows nothing-due copy", () => {
+      expect(display(result({ nothingDue: true }), 1)).toEqual({
+        header: "0% today",
+        subheader: "nothing due today.",
       });
     });
 
-    it("acknowledges check-ins done before any slot was due", () => {
-      expect(
-        display(
-          result({ nothingDueYet: true, hasFutureToday: true, extras: 2 }),
-          1,
-        ),
-      ).toEqual({
-        header: "0% so far",
-        subheader: "2 done early. nothing due yet.",
+    it("acknowledges check-ins on a habit not due today", () => {
+      expect(display(result({ nothingDue: true, extras: 2 }), 1)).toEqual({
+        header: "0% today",
+        subheader: "2 done. nothing else due today.",
       });
     });
   });
 
-  describe("partial progress with more scheduled later today", () => {
-    it("nothing done yet — nags", () => {
-      expect(
-        display(
-          result({ expected: 2, done: 0, percent: 0, hasFutureToday: true }),
-          1,
-        ),
-      ).toEqual({
-        header: "0% so far",
-        subheader: "0 of 2 due. tick tick tick.",
+  describe("partial progress", () => {
+    it("nothing done yet", () => {
+      expect(display(result({ expected: 2, done: 0, percent: 0 }), 1)).toEqual({
+        header: "0% today",
+        subheader: "0 of 2 due.",
       });
     });
 
     it("some done, more remain", () => {
-      expect(
-        display(
-          result({ expected: 3, done: 1, percent: 33, hasFutureToday: true }),
-          1,
-        ),
-      ).toEqual({
-        header: "33% so far",
-        subheader: "1 of 3 done. 2 to go.",
-      });
+      expect(display(result({ expected: 3, done: 1, percent: 33 }), 1)).toEqual(
+        {
+          header: "33% today",
+          subheader: "1 of 3 done. 2 to go.",
+        },
+      );
     });
 
     it("one to go uses singular copy", () => {
+      expect(display(result({ expected: 2, done: 1, percent: 50 }), 1)).toEqual(
+        {
+          header: "50% today",
+          subheader: "1 of 2 done. one to go.",
+        },
+      );
+    });
+
+    it("notes early check-ins while still short of the goal", () => {
       expect(
-        display(
-          result({ expected: 2, done: 1, percent: 50, hasFutureToday: true }),
-          1,
-        ),
+        display(result({ expected: 3, done: 1, percent: 33, doneEarly: 1 }), 1),
       ).toEqual({
-        header: "50% so far",
-        subheader: "1 of 2 done. one to go.",
+        header: "33% today",
+        subheader: "1 of 3 done (1 early). 2 to go.",
       });
     });
   });
 
-  describe("caught up but more is scheduled later today", () => {
-    it("does not say 'all done' yet", () => {
-      expect(
-        display(
-          result({ expected: 1, done: 1, percent: 100, hasFutureToday: true }),
-          1,
-        ),
-      ).toEqual({
-        header: "100% so far",
-        subheader: "caught up. nice.",
-      });
-    });
-
-    it("calls out extras done", () => {
-      expect(
-        display(
-          result({
-            expected: 1,
-            done: 1,
-            percent: 100,
-            extras: 2,
-            hasFutureToday: true,
-          }),
-          1,
-        ),
-      ).toEqual({
-        header: "100% so far",
-        subheader: "caught up. 2 extra done.",
-      });
-    });
-  });
-
-  describe("nothing more scheduled today", () => {
+  describe("all done", () => {
     it("says 'all done' when caught up", () => {
       expect(
-        display(
-          result({ expected: 2, done: 2, percent: 100, hasFutureToday: false }),
-          1,
-        ),
+        display(result({ expected: 2, done: 2, percent: 100 }), 1),
       ).toEqual({
         header: "100% today",
         subheader: "all done. nice.",
       });
     });
 
-    it("daily-no-schedule habit short of goal", () => {
+    it("calls out extras done", () => {
+      expect(
+        display(result({ expected: 1, done: 1, percent: 100, extras: 2 }), 1),
+      ).toEqual({
+        header: "100% today",
+        subheader: "all done. 2 extra done.",
+      });
+    });
+
+    it("says 'all done early' when every check-in was ahead of its slot", () => {
       expect(
         display(
-          result({ expected: 3, done: 1, percent: 33, hasFutureToday: false }),
+          result({ expected: 1, done: 1, percent: 100, doneEarly: 1 }),
           1,
         ),
       ).toEqual({
-        header: "33% today",
-        subheader: "1 of 3 done. 2 to go.",
+        header: "100% today",
+        subheader: "all done early. nice.",
+      });
+    });
+
+    it("counts the early ones when only some were ahead", () => {
+      expect(
+        display(
+          result({ expected: 2, done: 2, percent: 100, doneEarly: 1 }),
+          1,
+        ),
+      ).toEqual({
+        header: "100% today",
+        subheader: "all done. 1 early.",
       });
     });
   });
