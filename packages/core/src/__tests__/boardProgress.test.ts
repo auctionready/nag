@@ -3,7 +3,8 @@ import { boardProgress, type BoardProgressHabit } from "../boardProgress";
 import { AllDays, Day } from "../days";
 import type { ScheduleInfo } from "../trafficLight";
 
-// Wednesday 2025-06-04, 13:00 local.
+// Wednesday 2025-06-04, 13:00 local. The time of day is deliberately *before*
+// some of the slots below — the metric must ignore clock time entirely.
 const WED_1300 = new Date(2025, 5, 4, 13, 0);
 
 const popcount = (n: number): number => {
@@ -12,7 +13,7 @@ const popcount = (n: number): number => {
   return count;
 };
 
-/** A schedule time-slot; defaults to every weekday, on the minute. */
+/** A schedule time-slot; defaults to every weekday. */
 const slot = (
   partial: Partial<ScheduleInfo> & { hour: number },
 ): ScheduleInfo => ({
@@ -64,8 +65,8 @@ interface Scenario {
   done: number;
   percent: number;
   extras?: number;
-  nothingDueYet?: boolean;
-  hasFutureToday?: boolean;
+  nothingDue?: boolean;
+  doneEarly?: number;
 }
 
 const scenarios: Scenario[] = [
@@ -84,6 +85,49 @@ const scenarios: Scenario[] = [
     done: 0,
     percent: 0,
     extras: 0,
+  },
+
+  // ── Time of day is ignored — the reported bug ────────────────────────────
+  {
+    name: "a 9:30pm slot checked in at 1pm → 100% (clock ignored), flagged early",
+    habits: [
+      scheduledHabit([slot({ hour: 21, minute: 30 })], { doneToday: 1 }),
+    ],
+    expected: 1,
+    done: 1,
+    percent: 100,
+    doneEarly: 1,
+  },
+  {
+    name: "a 9:30pm slot not yet done → still counts as due today",
+    habits: [scheduledHabit([slot({ hour: 21, minute: 30 })])],
+    expected: 1,
+    done: 0,
+    percent: 0,
+    doneEarly: 0,
+  },
+  {
+    name: "morning + evening, both checked in at midday → 100%, evening is early",
+    habits: [
+      scheduledHabit([slot({ hour: 9 }), slot({ hour: 21 })], { doneToday: 2 }),
+    ],
+    expected: 2,
+    done: 2,
+    percent: 100,
+    doneEarly: 1,
+  },
+  {
+    name: "every-day 9/12/21 → all 3 due regardless of time, 1 done → 1/3, not early",
+    habits: [
+      scheduledHabit(
+        [slot({ hour: 9 }), slot({ hour: 12 }), slot({ hour: 21 })],
+        { doneToday: 1 },
+      ),
+    ],
+    expected: 3,
+    done: 1,
+    percent: 33,
+    doneEarly: 0,
   },
 
   // ── Frequency habits (a count, no schedule rows) ─────────────────────────
@@ -110,53 +154,21 @@ const scenarios: Scenario[] = [
     percent: 50,
   },
   {
-    name: "weekly x3 (no schedule) → not a today thing, nothing due yet",
+    name: "weekly x3 (no schedule) → not a today thing, nothing due",
     habits: [freqHabit("week", 3, { doneToday: 1 })],
     expected: 0,
     done: 0,
     percent: 0,
     extras: 1,
-    nothingDueYet: true,
+    nothingDue: true,
   },
   {
-    name: "monthly x2 (no schedule) → not a today thing, nothing due yet",
+    name: "monthly x2 (no schedule) → not a today thing, nothing due",
     habits: [freqHabit("month", 2)],
     expected: 0,
     done: 0,
     percent: 0,
-    nothingDueYet: true,
-  },
-
-  // ── Scheduled habits (weekly goal + timed slots) ─────────────────────────
-  {
-    name: "every-day 9/12/21, at 13:00 → 2 elapsed, 1 done → 1/2",
-    habits: [
-      scheduledHabit(
-        [slot({ hour: 9 }), slot({ hour: 12 }), slot({ hour: 21 })],
-        { doneToday: 1 },
-      ),
-    ],
-    expected: 2,
-    done: 1,
-    percent: 50,
-    hasFutureToday: true,
-  },
-  {
-    name: "slot exactly at now counts",
-    now: new Date(2025, 5, 4, 12, 0),
-    habits: [scheduledHabit([slot({ hour: 12 })])],
-    expected: 1,
-    done: 0,
-    percent: 0,
-  },
-  {
-    name: "only a future slot → nothing due yet",
-    habits: [scheduledHabit([slot({ hour: 21 })])],
-    expected: 0,
-    done: 0,
-    percent: 0,
-    nothingDueYet: true,
-    hasFutureToday: true,
+    nothingDue: true,
   },
 
   // ── Weekday masks pin a slot to its days ─────────────────────────────────
@@ -171,10 +183,10 @@ const scenarios: Scenario[] = [
     expected: 0,
     done: 0,
     percent: 0,
-    nothingDueYet: true,
+    nothingDue: true,
   },
   {
-    name: "pinned to Wed at 9am → due on a Wednesday",
+    name: "pinned to Wed → due on a Wednesday",
     habits: [
       scheduledHabit([slot({ days: Day.Wed, hour: 9 })], { doneToday: 1 }),
     ],
@@ -183,12 +195,12 @@ const scenarios: Scenario[] = [
     percent: 100,
   },
   {
-    name: "pinned to Mon at 9am → NOT due on a Wednesday (regression)",
+    name: "pinned to Mon → NOT due on a Wednesday (regression)",
     habits: [scheduledHabit([slot({ days: Day.Mon, hour: 9 })])],
     expected: 0,
     done: 0,
     percent: 0,
-    nothingDueYet: true,
+    nothingDue: true,
   },
 
   // ── Skips remove a slot from the denominator ─────────────────────────────
@@ -216,7 +228,7 @@ const scenarios: Scenario[] = [
     percent: 100,
   },
   {
-    name: "everything due is skipped → habit drops out, nothing due yet",
+    name: "everything due is skipped → habit drops out, nothing due",
     habits: [
       scheduledHabit([slot({ hour: 8 }), slot({ hour: 9 })], {
         skippedToday: 2,
@@ -225,7 +237,7 @@ const scenarios: Scenario[] = [
     expected: 0,
     done: 0,
     percent: 0,
-    nothingDueYet: true,
+    nothingDue: true,
   },
 
   // ── Aggregation across habits ────────────────────────────────────────────
@@ -261,14 +273,12 @@ describe("boardProgress", () => {
       expect(r.done).toBe(s.done);
       expect(r.percent).toBe(s.percent);
       if (s.extras !== undefined) expect(r.extras).toBe(s.extras);
-      if (s.nothingDueYet !== undefined)
-        expect(r.nothingDueYet).toBe(s.nothingDueYet);
-      if (s.hasFutureToday !== undefined)
-        expect(r.hasFutureToday).toBe(s.hasFutureToday);
+      if (s.nothingDue !== undefined) expect(r.nothingDue).toBe(s.nothingDue);
+      if (s.doneEarly !== undefined) expect(r.doneEarly).toBe(s.doneEarly);
     });
   }
 
-  it("nothingDueYet is false on an empty board", () => {
-    expect(boardProgress([], WED_1300).nothingDueYet).toBe(false);
+  it("nothingDue is false on an empty board", () => {
+    expect(boardProgress([], WED_1300).nothingDue).toBe(false);
   });
 });
