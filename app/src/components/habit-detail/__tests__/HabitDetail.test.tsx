@@ -93,6 +93,47 @@ describe("HabitDetail", () => {
       expect(view.getByLabelText("Skip")).toBeTruthy();
     });
 
+    it("shows Skip when a scheduled slot is still owed today, even with the period target met", async () => {
+      // Frequency met (showSkip=false from the parent) but an 18:00 slot is
+      // still upcoming at 10:00 — the user should still be able to skip it.
+      const view = await render(
+        <HabitDetail
+          {...baseProps}
+          regularity="day"
+          frequency={1}
+          schedules={[{ days: null, dayOfMonth: null, hour: 18, minute: 0 }]}
+          showSkip={false}
+        />,
+        sundayAt(10),
+      );
+      expect(view.getByLabelText("Skip")).toBeTruthy();
+    });
+
+    it("hides Skip once today's scheduled slots are all filled", async () => {
+      // The only slot (08:00) is already checked in, so nothing is owed today
+      // and the period target is met → no footer Skip.
+      const view = await render(
+        <HabitDetail
+          {...baseProps}
+          regularity="day"
+          frequency={1}
+          schedules={[{ days: null, dayOfMonth: null, hour: 8, minute: 0 }]}
+          showSkip={false}
+          checkIns={[
+            {
+              id: "ci-1",
+              timestamp: sundayAt(8),
+              createdAt: sundayAt(8),
+              updatedAt: sundayAt(8),
+              skipped: null,
+            },
+          ]}
+        />,
+        sundayAt(10),
+      );
+      expect(view.queryByLabelText("Skip")).toBeNull();
+    });
+
     it("Check-in calls onCheckInAt with a fresh Date", async () => {
       const view = await render(<HabitDetail {...baseProps} />);
       const before = Date.now();

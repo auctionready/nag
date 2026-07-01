@@ -302,6 +302,15 @@ const DetailView = ({
   const slotsForDay = snap.timeSlots?.timeSlots ?? [];
   const cardIsToday = isSameCalendarDay(cardAnchor, now);
 
+  // A scheduled slot still owed today — upcoming (due later today) or missed
+  // (earlier today, unlogged) — stays skippable even once the period's
+  // frequency target is met. Without this, a goal due later today offers no
+  // footer Skip once the count is satisfied. Guarded to today so past days
+  // aren't retro-skippable via the footer and future days stay untouched.
+  const hasOwedSlotToday =
+    cardIsToday &&
+    slotsForDay.some((s) => s.status === "upcoming" || s.status === "missed");
+
   type PickerIntent =
     | { kind: "edit"; checkInId: string }
     | { kind: "new-checkin" }
@@ -482,10 +491,12 @@ const DetailView = ({
         <ArchivedFooter />
       ) : (
         <ActionFooter
-          // Skipping is meaningless on an off-day (nothing was due), so the
-          // Skip action is hidden there — matching the edit modal. The
-          // primary action also reframes as an off-day "bonus".
-          showSkip={showSkip && !activeOffDay}
+          // Skip shows when the period target isn't met yet, or when a
+          // scheduled slot is still owed today (so a goal due later today can
+          // be skipped ahead of time). Skipping is meaningless on an off-day
+          // (nothing was due), so it's hidden there — matching the edit modal.
+          // The primary action also reframes as an off-day "bonus".
+          showSkip={(showSkip || hasOwedSlotToday) && !activeOffDay}
           offDay={activeOffDay}
           onCheckIn={handleCheckInTap}
           onLongPressCheckIn={handleCheckInLongPress}
