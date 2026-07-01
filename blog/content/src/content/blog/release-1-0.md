@@ -145,8 +145,10 @@ considered, briefly built, immediately deleted), and a paid tier.
 Honestly, less than you'd think. The main 1.1 work is sync between
 platforms — currently each platform syncs to its own cloud only.
 Beyond that, I'd like to add a desktop "ok do it." companion that
-lives in your menu bar. [Subscribe to the blog](#) if you
-want to hear when it ships.
+lives in your menu bar.
+
+<!-- Subscribe link disabled until there's a real signup:
+[Subscribe to the blog](#) if you want to hear when it ships. -->
 
 Thanks to everyone who tested through the beta. You absolutely
 nagged me into this.
@@ -154,6 +156,6 @@ nagged me into this.
 ---
 
 <p style="font-family: var(--mono); font-size: 14px; color: var(--nag-mute);">
-  Filed under: <a href="#" style="color: var(--nag-orange);">releases</a>.
+  <!-- Filed under: <a href="#" style="color: var(--nag-orange);">releases</a>. -->
   Permalink: <code>/blog/release-1-0</code>.
 </p>
