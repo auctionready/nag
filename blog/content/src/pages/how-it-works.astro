@@ -621,11 +621,12 @@ import WeekStrip from "../components/WeekStrip.astro";
           <h2 class="h-1" style="margin-top: 12px;">
             Reasonable questions<span class="dot">.</span>
           </h2>
-          <p class="body" style="margin-top: 22px;">
-            Not seeing yours? <a href="#" style="color: var(--nag-orange);"
-              >Email me</a
-            >.
-          </p>
+          {/* Contact line disabled until there's an email link to point at */}
+          {
+            /* <p class="body" style="margin-top: 22px;">
+            Not seeing yours? <a href="#" style="color: var(--nag-orange);">Email me</a>.
+          </p> */
+          }
         </div>
 
         <div class="faq">
@@ -728,7 +729,8 @@ import WeekStrip from "../components/WeekStrip.astro";
         <div class="right">
           <p>Free · iOS</p>
           <div class="cta-row">
-            <a href="#" class="btn btn-ink">↓ App Store</a>
+            {/* App Store link disabled until we have a real URL */}
+            {/* <a href="#" class="btn btn-ink">↓ App Store</a> */}
           </div>
         </div>
       </div>

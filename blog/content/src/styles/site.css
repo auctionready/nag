@@ -1877,7 +1877,7 @@ section {
 }
 .footer-grid {
   display: grid;
-  grid-template-columns: 2fr 1fr 1fr 1fr;
+  grid-template-columns: 2fr 1fr 1fr;
   gap: 32px;
   padding-bottom: 56px;
   border-bottom: 1px solid rgba(255, 248, 240, 0.12);
