@@ -1,6 +1,8 @@
 import { LayoutAnimation, StyleSheet, Text, View } from "react-native";
 import { isOffDay } from "@nag/core";
 import { tokens } from "../../components/theme";
+import { timeToken } from "../../components/formatters";
+import { use24HourClock } from "../../infrastructure/preferences";
 import { CheckInRow } from "./CheckInRow";
 import type { RecentCheckInItem } from "./types";
 
@@ -26,9 +28,6 @@ interface CheckInsCardProps {
   onEditTimestamp?: (id: string, timestamp: Date) => void;
 }
 
-const TIME_ONLY = "h:mm a";
-const FULL_FMT = "EEE, MMM d, yyyy h:mm a";
-
 /**
  * The day-scoped "check-ins" panel. Empty days render an inline hint
  * pointing at the long-press affordance on the action footer below.
@@ -45,7 +44,8 @@ export const CheckInsCard = ({
   onRemove,
   onEditTimestamp,
 }: CheckInsCardProps) => {
-  const fmt = singleDay ? TIME_ONLY : FULL_FMT;
+  const time = timeToken(use24HourClock());
+  const fmt = singleDay ? time : `EEE, MMM d, yyyy ${time}`;
 
   const handleRemove = (id: string) => {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);

@@ -5,6 +5,8 @@ import { format } from "date-fns";
 import { isSameCalendarDay } from "@nag/core";
 import { EditGlyph, TrashGlyph } from "../../components/glyphs";
 import { tokens } from "../../components/theme";
+import { timeToken } from "../../components/formatters";
+import { use24HourClock } from "../../infrastructure/preferences";
 import type { RecentCheckInItem } from "./types";
 
 interface CheckInRowProps {
@@ -17,8 +19,6 @@ interface CheckInRowProps {
   onEdit?: () => void;
 }
 
-const TIME_ONLY = "h:mm a";
-const FULL_FMT = "EEE, MMM d, yyyy h:mm a";
 const BACKFILL_THRESHOLD_MS = 60_000;
 const EDITED_THRESHOLD_MS = 1_000;
 
@@ -28,11 +28,12 @@ const wasBackFilled = ({ timestamp, createdAt }: RecentCheckInItem) =>
 const wasEdited = ({ createdAt, updatedAt }: RecentCheckInItem) =>
   updatedAt.getTime() - createdAt.getTime() >= EDITED_THRESHOLD_MS;
 
-const recordedFmt = (deemed: Date, recorded: Date): string => {
-  if (isSameCalendarDay(deemed, recorded)) return TIME_ONLY;
-  if (deemed.getFullYear() !== recorded.getFullYear()) return FULL_FMT;
-  if (deemed.getMonth() !== recorded.getMonth()) return "EEE, MMM d, h:mm a";
-  return "EEE d, h:mm a";
+const recordedFmt = (deemed: Date, recorded: Date, time: string): string => {
+  if (isSameCalendarDay(deemed, recorded)) return time;
+  if (deemed.getFullYear() !== recorded.getFullYear())
+    return `EEE, MMM d, yyyy ${time}`;
+  if (deemed.getMonth() !== recorded.getMonth()) return `EEE, MMM d, ${time}`;
+  return `EEE d, ${time}`;
 };
 
 /**
@@ -63,6 +64,7 @@ export const CheckInRow = ({
       : "logged";
   const showRecorded = wasBackFilled(entry);
   const showEdited = wasEdited(entry);
+  const time = timeToken(use24HourClock());
 
   return (
     <Swipeable
@@ -123,7 +125,7 @@ export const CheckInRow = ({
               edited{" "}
               {format(
                 entry.updatedAt,
-                recordedFmt(entry.timestamp, entry.updatedAt),
+                recordedFmt(entry.timestamp, entry.updatedAt, time),
               )}
             </Text>
           ) : showRecorded ? (
@@ -131,7 +133,7 @@ export const CheckInRow = ({
               recorded{" "}
               {format(
                 entry.createdAt,
-                recordedFmt(entry.timestamp, entry.createdAt),
+                recordedFmt(entry.timestamp, entry.createdAt, time),
               )}
             </Text>
           ) : null}

@@ -20,6 +20,8 @@ interface ChipInputs {
   multiTimeSlotPerDay: boolean;
   /** All schedule rows for the habit (specific days/times). */
   schedules: ScheduleInfo[];
+  /** 24-hour clock preference — affects the "7:30 PM daily" label. */
+  clock24: boolean;
 }
 
 const ALL_DAYS_MASK = 0x7f;
@@ -29,12 +31,15 @@ const ALL_DAYS_MASK = 0x7f;
  * specific time, return a concise "7:30 PM daily" label — more useful on
  * the tile than the cadence-derived "7× / wk".
  */
-const everyDayTimeLabel = (schedules: ScheduleInfo[]): string | null => {
+const everyDayTimeLabel = (
+  schedules: ScheduleInfo[],
+  clock24: boolean,
+): string | null => {
   if (schedules.length !== 1) return null;
   const s = schedules[0];
   if (s.days !== ALL_DAYS_MASK) return null;
   if (s.hour == null || s.minute == null) return null;
-  return `${formatTime(s.hour, s.minute)} daily`;
+  return `${formatTime(s.hour, s.minute, clock24)} daily`;
 };
 
 /**
@@ -61,10 +66,11 @@ export const computeChipState = ({
   periodCheckInCount,
   multiTimeSlotPerDay,
   schedules,
+  clock24,
 }: ChipInputs): TileChipState | null => {
   if (!goal) return null;
 
-  const dailyTime = everyDayTimeLabel(schedules);
+  const dailyTime = everyDayTimeLabel(schedules, clock24);
   const isUnscheduled = schedules.length === 0;
 
   if (goal.regularity === "day" && goal.frequency > 1) {

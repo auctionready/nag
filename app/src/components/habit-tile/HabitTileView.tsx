@@ -13,6 +13,7 @@ import type { TimeSlotDotState } from "./timeSlotDotState";
 import { TileProgressChip, computeChipState } from "./TileProgressChip";
 import { HabitGlyph, type HabitIconKind } from "../../components/glyphs";
 import { tokens } from "../../components/theme";
+import { use24HourClock } from "../../infrastructure/preferences";
 
 export interface HabitTileViewProps {
   id: string;
@@ -90,12 +91,14 @@ export const HabitTileView = ({
     [handleCheckIn, paused],
   );
 
+  const clock24 = use24HourClock();
   const chipState = computeChipState({
     goal,
     todayTimeSlots,
     periodCheckInCount,
     multiTimeSlotPerDay,
     schedules,
+    clock24,
   });
   const last = recent[0]?.timestamp;
   const lastLabel = last ? `${formatDistanceToNowStrict(last)} ago` : undefined;

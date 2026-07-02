@@ -64,6 +64,21 @@ export const iconDayView = () => (
     <Path d="M4.5 8.5h5" />
   </Svg>
 );
+export const iconClock = () => (
+  <Svg
+    width={14}
+    height={14}
+    viewBox="0 0 14 14"
+    fill="none"
+    stroke={tokens.ink}
+    strokeWidth={1.5}
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <Circle cx={7} cy={7} r={5.5} />
+    <Path d="M7 4v3l2 1.5" />
+  </Svg>
+);
 export const iconAbout = () => (
   <Svg
     width={14}

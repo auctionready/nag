@@ -4,6 +4,8 @@ import { addDays, format, isAfter, isSameDay } from "date-fns";
 import Svg, { Path } from "react-native-svg";
 import { tokens } from "../theme";
 import { HabitGlyph } from "../glyphs";
+import { timeToken } from "../formatters";
+import { use24HourClock } from "../../infrastructure/preferences";
 import type {
   CalendarHabit,
   DayCheckInGroup,
@@ -405,6 +407,7 @@ interface SlotPillsProps {
 }
 
 const SlotPills = ({ checkIns, emptyText }: SlotPillsProps) => {
+  const fmt = timeToken(use24HourClock());
   if (checkIns.length === 0) {
     return <Text style={styles.noSlotsText}>{emptyText}</Text>;
   }
@@ -427,7 +430,7 @@ const SlotPills = ({ checkIns, emptyText }: SlotPillsProps) => {
               c.skipped && styles.slotPillTextSkip,
             ]}
           >
-            {format(c.timestamp, "h:mm a")}
+            {format(c.timestamp, fmt)}
           </Text>
         </View>
       ))}

@@ -14,6 +14,7 @@ import {
   epochMinuteToDate,
   useCurrentEpochMinute,
 } from "../../infrastructure/today";
+import { use24HourClock } from "../../infrastructure/preferences";
 import { complianceColors } from "../../components/compliance";
 import { tokens } from "../../components/theme";
 import { DetailHeader } from "./DetailHeader";
@@ -121,9 +122,10 @@ export const HabitDetail = ({
   const epochMinute = useCurrentEpochMinute();
   const now = useMemo(() => epochMinuteToDate(epochMinute), [epochMinute]);
 
+  const clock24 = use24HourClock();
   const summary = useMemo(
-    () => cadenceSummary({ regularity, frequency, schedules }),
-    [regularity, frequency, schedules],
+    () => cadenceSummary({ regularity, frequency, schedules, clock24 }),
+    [regularity, frequency, schedules, clock24],
   );
 
   if (loading) {

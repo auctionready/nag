@@ -10,6 +10,8 @@ interface SummaryInput {
     hour?: number | null;
     minute?: number | null;
   }[];
+  /** 24-hour clock preference — affects the time-of-day pills. */
+  clock24?: boolean;
 }
 
 /**
@@ -23,6 +25,7 @@ export const cadenceSummary = ({
   regularity,
   frequency,
   schedules,
+  clock24 = false,
 }: SummaryInput): string | null => {
   if (regularity == null || frequency == null) return null;
 
@@ -47,7 +50,9 @@ export const cadenceSummary = ({
 
   if (times.length > 0) {
     parts.push(
-      times.map(([h, m]) => formatTime(h, m).toLowerCase()).join(" · "),
+      times
+        .map(([h, m]) => formatTime(h, m, clock24).toLowerCase())
+        .join(" · "),
     );
   }
 

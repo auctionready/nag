@@ -1,4 +1,4 @@
-import { cadenceLabel, formatTime } from "../displayFormatters";
+import { cadenceLabel, formatTime, timeToken } from "../displayFormatters";
 
 const goal = (regularity: "day" | "week" | "month", frequency: number) => ({
   regularity,
@@ -38,5 +38,24 @@ describe("formatTime", () => {
 
   it("pads minutes with leading zero", () => {
     expect(formatTime(8, 5)).toBe("8:05 AM");
+  });
+
+  describe("24-hour clock", () => {
+    it("formats with a padded hour and no suffix", () => {
+      expect(formatTime(9, 30, true)).toBe("09:30");
+      expect(formatTime(14, 5, true)).toBe("14:05");
+    });
+
+    it("formats noon and midnight numerically", () => {
+      expect(formatTime(12, 0, true)).toBe("12:00");
+      expect(formatTime(0, 0, true)).toBe("00:00");
+    });
+  });
+});
+
+describe("timeToken", () => {
+  it("picks the date-fns token for each clock", () => {
+    expect(timeToken(false)).toBe("h:mm a");
+    expect(timeToken(true)).toBe("HH:mm");
   });
 });

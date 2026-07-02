@@ -50,6 +50,17 @@ describe("cadenceSummary", () => {
       ).toBe("daily · 8:00 am");
     });
 
+    it("uses the 24-hour clock when the preference is on", () => {
+      expect(
+        cadenceSummary({
+          regularity: "week",
+          frequency: 7,
+          schedules: [{ days: AllDays, hour: 20, minute: 0 }],
+          clock24: true,
+        }),
+      ).toBe("daily · 20:00");
+    });
+
     it("treats a null/zero day-mask as every day", () => {
       expect(
         cadenceSummary({

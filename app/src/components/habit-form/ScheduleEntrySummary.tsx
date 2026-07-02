@@ -5,6 +5,7 @@ import { BellToggle } from "./BellToggle";
 import { ClockBadge } from "./ClockBadge";
 import { WeekdayPills } from "./WeekdayPills";
 import { formatTime, friendlyDaysLabel } from "../formatters";
+import { use24HourClock } from "../../infrastructure/preferences";
 import { parseFormTime, type HabitFormData } from "./shared";
 
 interface ScheduleEntrySummaryProps {
@@ -26,8 +27,10 @@ export const ScheduleEntrySummary = ({
   const reminder =
     useWatch({ control, name: `schedules.${index}.reminder` }) !== false;
 
+  const clock24 = use24HourClock();
   const { hour: h, minute: m } = parseFormTime(hour, minute);
-  const time = formatTime(h, m);
+  const time = formatTime(h, m, clock24);
+  // No meridiem to split off in 24-hour mode.
   const [timeBody, period] = time.split(" ");
   const summary = friendlyDaysLabel(days);
 
@@ -38,7 +41,9 @@ export const ScheduleEntrySummary = ({
         <View style={styles.topLine}>
           <View style={styles.timeBlock}>
             <Text style={styles.timeText}>{timeBody}</Text>
-            <Text style={styles.periodText}>{period.toLowerCase()}</Text>
+            {period != null && (
+              <Text style={styles.periodText}>{period.toLowerCase()}</Text>
+            )}
           </View>
           {summary ? (
             <View style={styles.summaryBlock}>

@@ -23,13 +23,28 @@ export const cadenceLabel = (goal: {
   return `${goal.frequency}× / ${periodWordShort[goal.regularity]}`;
 };
 
-/** 24-hour hour/minute → 12-hour label, e.g. `9:00 AM`. */
-export const formatTime = (hour: number, minute: number): string => {
+/**
+ * Hour/minute → clock label: `9:00 AM`, or `09:00` when the 24-hour
+ * clock preference is on (zero-padded, no suffix).
+ */
+export const formatTime = (
+  hour: number,
+  minute: number,
+  use24Hour = false,
+): string => {
   const m = String(minute).padStart(2, "0");
+  if (use24Hour) return `${String(hour).padStart(2, "0")}:${m}`;
   const period = hour >= 12 ? "PM" : "AM";
   const h12 = hour % 12 || 12;
   return `${h12}:${m} ${period}`;
 };
+
+/**
+ * date-fns time-of-day token honouring the 24-hour clock preference —
+ * for call sites that compose their own format strings.
+ */
+export const timeToken = (use24Hour: boolean): string =>
+  use24Hour ? "HH:mm" : "h:mm a";
 
 /**
  * Friendly summary for a day-mask — `every day` / `weekdays` / `weekends` /

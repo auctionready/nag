@@ -32,7 +32,11 @@ export const SettingsGroups = () => {
         toggleOn={defaultView === "day"}
         onPress={() => setDefaultView(defaultView === "day" ? "board" : "day")}
       />
-      <Row icon={iconAppearance()} label="Appearance" disabled />
+      <Row
+        icon={iconAppearance()}
+        label="Appearance"
+        onPress={() => router.navigate("/appearance")}
+      />
       <Row icon={iconSkip()} label="Enable skipping" toggle disabled />
       <Row
         icon={iconArchive()}

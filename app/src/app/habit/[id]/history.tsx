@@ -6,6 +6,7 @@ import { habitById, goalForHabitFull, schedulesForHabit } from "@nag/core";
 import { tokens } from "../../../components/theme";
 import { DetailHeader } from "../../../components/habit-detail/DetailHeader";
 import { cadenceSummary } from "../../../components/habit-detail/cadenceSummary";
+import { use24HourClock } from "../../../infrastructure/preferences";
 import { HabitHistoryView } from "../../../components/habit-history";
 
 const HabitHistoryScreen = () => {
@@ -26,10 +27,12 @@ const HabitHistoryScreen = () => {
   ]);
   const schedules = scheduleRows ?? [];
 
+  const clock24 = use24HourClock();
   const summary = cadenceSummary({
     regularity: goalData?.regularity ?? null,
     frequency: goalData?.frequency ?? null,
     schedules,
+    clock24,
   });
 
   return (

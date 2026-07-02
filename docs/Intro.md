@@ -177,7 +177,7 @@ Monday, not as the time you actually tapped the chip. See
 The app's three top-level destinations — the home board ("today"), the
 calendar, and account ("me") — live in a bottom tab bar
 (`app/src/app/(tabs)/`). Deeper screens (habit detail, add/edit habit,
-archived habits, about) remain stack screens pushed above the tabs, so
+archived habits, appearance, about) remain stack screens pushed above the tabs, so
 they get a standard back button and hide the tab bar. Route paths are
 unchanged by the tab grouping: notification deep links still target
 `/calendar?view=day&day=YYYY-MM-DD`.
@@ -191,6 +191,15 @@ route (the app always launches at `/`, so the tab navigator's
 `initialRouteName` alone can't switch the launch screen). It applies
 from the next cold start, deep links take precedence over it, and a
 fresh install resets it.
+
+An **Appearance** screen (Account → App settings → Appearance) holds
+display-only preferences. Its **"24-hour clock"** toggle switches every
+displayed time between "7:30 pm" and "19:30". It shares the SecureStore
+preference module above, but seeds from the device's 12/24-hour
+convention (`expo-localization`) on each launch until the user flips the
+toggle, after which the explicit choice is persisted and wins. It
+affects display formatting only — the native time pickers keep following
+the OS setting, and notification bodies contain no clock times.
 
 ## Habit detail: day selection and period-scoped lists
 

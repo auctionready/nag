@@ -7,6 +7,7 @@ import {
 } from "@nag/core";
 import { tokens } from "../theme";
 import { HabitGlyph } from "../glyphs";
+import { use24HourClock } from "../../infrastructure/preferences";
 import type { DayAgenda, DayAgendaItem } from "./useCalendarData";
 
 interface DayViewProps {
@@ -186,10 +187,13 @@ interface ActionRowProps {
   onSkip?: () => void;
 }
 
-const slotMeta = (item: DayAgendaItem): string | undefined => {
+const slotMeta = (
+  item: DayAgendaItem,
+  clock24: boolean,
+): string | undefined => {
   if (item.slotHour === undefined || item.slotMinute === undefined)
     return undefined;
-  return formatTimeSlotTime(item.slotHour, item.slotMinute);
+  return formatTimeSlotTime(item.slotHour, item.slotMinute, clock24);
 };
 
 const ActionRow = ({
@@ -198,73 +202,76 @@ const ActionRow = ({
   primary,
   onCheckIn,
   onSkip,
-}: ActionRowProps) => (
-  <View style={[styles.actionRow, tone === "orange" && styles.actionRowOrange]}>
+}: ActionRowProps) => {
+  const meta = slotMeta(item, use24HourClock());
+  return (
     <View
-      style={[
-        styles.iconTile,
-        tone === "orange" ? styles.iconTileOrange : styles.iconTileSoft,
-      ]}
+      style={[styles.actionRow, tone === "orange" && styles.actionRowOrange]}
     >
-      <HabitGlyph
-        kind={item.habitIcon ?? "check"}
-        size={17}
-        color={tone === "orange" ? tokens.orange : tokens.ink}
-        style="line"
-      />
-    </View>
-    <View style={styles.actionTextCol}>
-      <View style={styles.actionTitleRow}>
-        <Text style={styles.actionTitle} numberOfLines={1}>
-          {item.habitTitle}
-        </Text>
-        {item.status === "overdue" && (
-          <View style={styles.overduePill}>
-            <Text style={styles.overduePillText}>overdue</Text>
-          </View>
-        )}
+      <View
+        style={[
+          styles.iconTile,
+          tone === "orange" ? styles.iconTileOrange : styles.iconTileSoft,
+        ]}
+      >
+        <HabitGlyph
+          kind={item.habitIcon ?? "check"}
+          size={17}
+          color={tone === "orange" ? tokens.orange : tokens.ink}
+          style="line"
+        />
       </View>
-      {slotMeta(item) && (
-        <Text style={styles.actionMeta}>{slotMeta(item)}</Text>
-      )}
-    </View>
-    <View style={styles.actionBtns}>
-      {onSkip && (
+      <View style={styles.actionTextCol}>
+        <View style={styles.actionTitleRow}>
+          <Text style={styles.actionTitle} numberOfLines={1}>
+            {item.habitTitle}
+          </Text>
+          {item.status === "overdue" && (
+            <View style={styles.overduePill}>
+              <Text style={styles.overduePillText}>overdue</Text>
+            </View>
+          )}
+        </View>
+        {meta && <Text style={styles.actionMeta}>{meta}</Text>}
+      </View>
+      <View style={styles.actionBtns}>
+        {onSkip && (
+          <Pressable
+            onPress={onSkip}
+            style={styles.skipBtn}
+            accessibilityRole="button"
+            accessibilityLabel={`Skip ${item.habitTitle}`}
+          >
+            <Svg width={15} height={15} viewBox="0 0 16 16" fill="none">
+              <Path
+                d="M4 4l8 8M12 4l-8 8"
+                stroke={tokens.mute}
+                strokeWidth={1.8}
+                strokeLinecap="round"
+              />
+            </Svg>
+          </Pressable>
+        )}
         <Pressable
-          onPress={onSkip}
-          style={styles.skipBtn}
+          onPress={onCheckIn}
+          style={[styles.checkBtn, primary && styles.checkBtnPrimary]}
           accessibilityRole="button"
-          accessibilityLabel={`Skip ${item.habitTitle}`}
+          accessibilityLabel={`Check in ${item.habitTitle}`}
         >
-          <Svg width={15} height={15} viewBox="0 0 16 16" fill="none">
+          <Svg width={16} height={16} viewBox="0 0 16 16" fill="none">
             <Path
-              d="M4 4l8 8M12 4l-8 8"
-              stroke={tokens.mute}
-              strokeWidth={1.8}
+              d="M3 8.4L6.4 11.8L13 5"
+              stroke={primary ? tokens.cream : tokens.ink}
+              strokeWidth={2}
               strokeLinecap="round"
+              strokeLinejoin="round"
             />
           </Svg>
         </Pressable>
-      )}
-      <Pressable
-        onPress={onCheckIn}
-        style={[styles.checkBtn, primary && styles.checkBtnPrimary]}
-        accessibilityRole="button"
-        accessibilityLabel={`Check in ${item.habitTitle}`}
-      >
-        <Svg width={16} height={16} viewBox="0 0 16 16" fill="none">
-          <Path
-            d="M3 8.4L6.4 11.8L13 5"
-            stroke={primary ? tokens.cream : tokens.ink}
-            strokeWidth={2}
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-        </Svg>
-      </Pressable>
+      </View>
     </View>
-  </View>
-);
+  );
+};
 
 // ── Scheduled row (future, read-only) ────────────────────────────
 
@@ -273,24 +280,27 @@ interface ScheduledRowProps {
   last: boolean;
 }
 
-const ScheduledRow = ({ item, last }: ScheduledRowProps) => (
-  <View style={[styles.staticRow, !last && styles.staticRowDivider]}>
-    <View style={styles.staticStateGlyph}>
-      <HabitGlyph
-        kind={item.habitIcon ?? "check"}
-        size={12}
-        color={tokens.mute}
-        style="line"
-      />
+const ScheduledRow = ({ item, last }: ScheduledRowProps) => {
+  const meta = slotMeta(item, use24HourClock());
+  return (
+    <View style={[styles.staticRow, !last && styles.staticRowDivider]}>
+      <View style={styles.staticStateGlyph}>
+        <HabitGlyph
+          kind={item.habitIcon ?? "check"}
+          size={12}
+          color={tokens.mute}
+          style="line"
+        />
+      </View>
+      <View style={styles.staticTextCol}>
+        <Text style={styles.staticTitle} numberOfLines={1}>
+          {item.habitTitle}
+        </Text>
+      </View>
+      {meta && <Text style={styles.staticMeta}>{meta}</Text>}
     </View>
-    <View style={styles.staticTextCol}>
-      <Text style={styles.staticTitle} numberOfLines={1}>
-        {item.habitTitle}
-      </Text>
-    </View>
-    {slotMeta(item) && <Text style={styles.staticMeta}>{slotMeta(item)}</Text>}
-  </View>
-);
+  );
+};
 
 // ── Logged row (done / skip / missed) ────────────────────────────
 
@@ -309,6 +319,8 @@ const LoggedRow = ({
   onCheckIn,
   onUndo,
 }: LoggedRowProps) => {
+  const clock24 = use24HourClock();
+  const meta = slotMeta(item, clock24);
   const isDone = item.status === "done";
   const isMissed = item.status === "missed";
   const isSkip = item.status === "skip";
@@ -362,15 +374,13 @@ const LoggedRow = ({
         >
           {item.habitTitle}
         </Text>
-        {slotMeta(item) && (
-          <Text style={styles.loggedSlot}>{slotMeta(item)}</Text>
-        )}
+        {meta && <Text style={styles.loggedSlot}>{meta}</Text>}
       </View>
       <Text style={[styles.loggedMeta, isMissed && styles.loggedMetaMissed]}>
         {isMissed
           ? "missed"
           : item.loggedAt
-            ? formatTimeOfDay(item.loggedAt)
+            ? formatTimeOfDay(item.loggedAt, clock24)
             : ""}
       </Text>
       {isMissed && actionable && (

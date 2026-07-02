@@ -3,6 +3,7 @@ import { Animated, Pressable, StyleSheet, Text, View } from "react-native";
 import Svg, { Circle, Path } from "react-native-svg";
 import { tokens } from "../../../components/theme";
 import { formatTime } from "../../../components/formatters";
+import { use24HourClock } from "../../../infrastructure/preferences";
 
 export type TimeSlotPillState = "done" | "pending" | "owed" | "skipped";
 
@@ -37,10 +38,12 @@ export const TimeSlotPill = forwardRef<View, TimeSlotPillProps>(
   ({ hour, minute, state, onPress, active }, ref) => {
     const interactive = onPress != null;
     const palette = paletteFor(state);
-    const label = formatTime(hour, minute);
+    const clock24 = use24HourClock();
+    const label = formatTime(hour, minute, clock24);
 
-    // formatTime returns "h:mm AM/PM" — split so we can mono-style the time
-    // and uppercase-mute the meridiem next to it.
+    // 12-hour formatTime returns "h:mm AM/PM" — split so we can mono-style
+    // the time and uppercase-mute the meridiem next to it. In 24-hour mode
+    // there's no suffix and the split leaves meridiem undefined.
     const [time, meridiem] = label.split(" ");
 
     // Pulse the pill whenever its visual state flips (e.g. owed → done
@@ -93,9 +96,11 @@ export const TimeSlotPill = forwardRef<View, TimeSlotPillProps>(
           >
             {time}
           </Text>
-          <Text style={[styles.meridiem, { color: palette.fg }]}>
-            {meridiem}
-          </Text>
+          {meridiem != null && (
+            <Text style={[styles.meridiem, { color: palette.fg }]}>
+              {meridiem}
+            </Text>
+          )}
         </Pressable>
       </Animated.View>
     );

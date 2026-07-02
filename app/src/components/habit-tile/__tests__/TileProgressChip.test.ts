@@ -36,6 +36,7 @@ const inputs = (overrides: {
   schedules?: ScheduleInfo[];
   /** Convenience: equivalent to `schedules: [someDaysAt(0b0101010, 9, 0)]`. */
   hasSchedules?: boolean;
+  clock24?: boolean;
 }) => {
   const { hasSchedules, schedules, ...rest } = overrides;
   return {
@@ -43,6 +44,7 @@ const inputs = (overrides: {
     periodCheckInCount: 0,
     multiTimeSlotPerDay: false,
     schedules: schedules ?? (hasSchedules ? [someDaysAt(0b0101010, 9, 0)] : []),
+    clock24: false,
     ...rest,
   };
 };
@@ -209,6 +211,18 @@ describe("computeChipState", () => {
           }),
         ),
       ).toEqual({ kind: "label", text: "7:00 AM daily" });
+    });
+
+    it("uses the 24-hour clock when the preference is on", () => {
+      expect(
+        computeChipState(
+          inputs({
+            goal: goal("week", 7),
+            schedules: [everyDayAt(19, 30)],
+            clock24: true,
+          }),
+        ),
+      ).toEqual({ kind: "label", text: "19:30 daily" });
     });
 
     it("does not apply when the schedule covers fewer than 7 days", () => {
