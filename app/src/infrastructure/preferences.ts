@@ -1,6 +1,6 @@
 import { useSyncExternalStore } from "react";
 import * as SecureStore from "expo-secure-store";
-import { getCalendars } from "expo-localization";
+import { deviceUses24HourClock } from "./deviceClock";
 import { log } from "./log";
 
 /**
@@ -27,21 +27,12 @@ let defaultView: DefaultView = "board";
 let clock24 = false;
 const listeners = new Set<() => void>();
 
-const deviceClock24 = (): boolean => {
-  try {
-    return getCalendars()[0]?.uses24hourClock ?? false;
-  } catch (error) {
-    logger.warn("expo-localization read failed; assuming 12-hour clock", error);
-    return false;
-  }
-};
-
 /**
  * Load persisted preferences into the module cache. Call once at app
  * start, before the first router render.
  */
 export const bootstrapPreferences = async (): Promise<void> => {
-  clock24 = deviceClock24();
+  clock24 = deviceUses24HourClock();
   try {
     const [storedView, storedClock] = await Promise.all([
       SecureStore.getItemAsync(DEFAULT_VIEW_KEY),

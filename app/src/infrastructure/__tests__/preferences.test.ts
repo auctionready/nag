@@ -3,8 +3,10 @@ jest.mock("expo-secure-store", () => ({
   setItemAsync: jest.fn(() => Promise.resolve()),
 }));
 
-jest.mock("expo-localization", () => ({
-  getCalendars: jest.fn(() => [{ uses24hourClock: false }]),
+// Device-clock detection is exercised in deviceClock.test.ts; here we mock it
+// so preferences tests can drive the device convention directly.
+jest.mock("../deviceClock", () => ({
+  deviceUses24HourClock: jest.fn(() => false),
 }));
 
 type Prefs = typeof import("../preferences");
@@ -12,14 +14,14 @@ type Store = {
   getItemAsync: jest.Mock;
   setItemAsync: jest.Mock;
 };
-type Localization = {
-  getCalendars: jest.Mock;
+type DeviceClock = {
+  deviceUses24HourClock: jest.Mock;
 };
 
 describe("preferences", () => {
   let prefs: Prefs;
   let store: Store;
-  let localization: Localization;
+  let deviceClock: DeviceClock;
 
   // Module-level cache means each scenario needs a fresh module instance —
   // and a fresh module sees a fresh copy of the SecureStore mock, so the
@@ -27,7 +29,8 @@ describe("preferences", () => {
   beforeEach(() => {
     jest.resetModules();
     store = require("expo-secure-store") as Store;
-    localization = require("expo-localization") as Localization;
+    deviceClock = require("../deviceClock") as DeviceClock;
+    deviceClock.deviceUses24HourClock.mockReturnValue(false);
     prefs = require("../preferences") as Prefs;
   });
 
@@ -61,13 +64,13 @@ describe("preferences", () => {
     });
 
     it("seeds the clock from the device when nothing is stored", async () => {
-      localization.getCalendars.mockReturnValue([{ uses24hourClock: true }]);
+      deviceClock.deviceUses24HourClock.mockReturnValue(true);
       await prefs.bootstrapPreferences();
       expect(prefs.get24HourClock()).toBe(true);
     });
 
     it("prefers a stored clock value over the device convention", async () => {
-      localization.getCalendars.mockReturnValue([{ uses24hourClock: true }]);
+      deviceClock.deviceUses24HourClock.mockReturnValue(true);
       store.getItemAsync.mockImplementation((key: string) =>
         Promise.resolve(
           key === "nag.preference.use24HourClock" ? "false" : null,
@@ -78,16 +81,10 @@ describe("preferences", () => {
     });
 
     it("keeps the device convention when SecureStore read fails", async () => {
-      localization.getCalendars.mockReturnValue([{ uses24hourClock: true }]);
+      deviceClock.deviceUses24HourClock.mockReturnValue(true);
       store.getItemAsync.mockRejectedValue(new Error("keychain unavailable"));
       await prefs.bootstrapPreferences();
       expect(prefs.get24HourClock()).toBe(true);
-    });
-
-    it("assumes 12-hour when the device convention is unknown", async () => {
-      localization.getCalendars.mockReturnValue([{ uses24hourClock: null }]);
-      await prefs.bootstrapPreferences();
-      expect(prefs.get24HourClock()).toBe(false);
     });
   });
 
