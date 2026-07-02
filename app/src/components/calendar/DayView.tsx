@@ -27,6 +27,7 @@ interface DayViewProps {
 /**
  * Day-view agenda. Groups items into four sections:
  *   - Needs you (overdue, accent)
+ *   - Due now (just reached its time, softer accent)
  *   - Later today (upcoming, soft)
  *   - Scheduled (future-day, read-only)
  *   - Logged (done / skip / missed) — labelled "Record" on past days
@@ -46,6 +47,7 @@ export const DayView = ({
   const by = (...st: DayAgendaItem["status"][]) =>
     items.filter((i) => st.includes(i.status));
   const overdue = by("overdue");
+  const due = by("due");
   const upcoming = by("upcoming");
   const scheduled = by("scheduled");
   const logged = by("done", "skip", "missed");
@@ -70,12 +72,27 @@ export const DayView = ({
   return (
     <View style={styles.container}>
       {overdue.length > 0 && (
-        <Section label="Needs you" count={overdue.length} accent>
+        <Section label="Needs you" count={overdue.length} emphasis="overdue">
           {overdue.map((item) => (
             <ActionRow
               key={item.key}
               item={item}
               tone="orange"
+              primary
+              onCheckIn={() => onCheckIn(item, checkInTimeFor(item))}
+              onSkip={() => onSkip(item, checkInTimeFor(item))}
+            />
+          ))}
+        </Section>
+      )}
+
+      {due.length > 0 && (
+        <Section label="Due now" count={due.length} emphasis="due">
+          {due.map((item) => (
+            <ActionRow
+              key={item.key}
+              item={item}
+              tone="due"
               primary
               onCheckIn={() => onCheckIn(item, checkInTimeFor(item))}
               onSkip={() => onSkip(item, checkInTimeFor(item))}
@@ -155,32 +172,55 @@ export const DayView = ({
 interface SectionProps {
   label: string;
   count: number;
-  accent?: boolean;
+  /** Colour emphasis for the eyebrow + count pill. Omit for neutral. */
+  emphasis?: "overdue" | "due";
   children: React.ReactNode;
 }
 
-const Section = ({ label, count, accent, children }: SectionProps) => (
-  <View style={styles.section}>
-    <View style={styles.eyebrowRow}>
-      <Text style={[styles.eyebrow, accent && styles.eyebrowAccent]}>
-        {label}
-      </Text>
-      <View style={[styles.countPill, accent && styles.countPillAccent]}>
-        <Text style={[styles.countLabel, accent && styles.countLabelAccent]}>
-          {count}
+const Section = ({ label, count, emphasis, children }: SectionProps) => {
+  const strong = emphasis === "overdue";
+  const soft = emphasis === "due";
+  return (
+    <View style={styles.section}>
+      <View style={styles.eyebrowRow}>
+        <Text
+          style={[
+            styles.eyebrow,
+            strong && styles.eyebrowAccent,
+            soft && styles.eyebrowDue,
+          ]}
+        >
+          {label}
         </Text>
+        <View
+          style={[
+            styles.countPill,
+            strong && styles.countPillAccent,
+            soft && styles.countPillDue,
+          ]}
+        >
+          <Text
+            style={[
+              styles.countLabel,
+              strong && styles.countLabelAccent,
+              soft && styles.countLabelDue,
+            ]}
+          >
+            {count}
+          </Text>
+        </View>
+        <View style={styles.eyebrowRule} />
       </View>
-      <View style={styles.eyebrowRule} />
+      <View style={styles.sectionBody}>{children}</View>
     </View>
-    <View style={styles.sectionBody}>{children}</View>
-  </View>
-);
+  );
+};
 
 // ── Action row (overdue / upcoming) ──────────────────────────────
 
 interface ActionRowProps {
   item: DayAgendaItem;
-  tone: "orange" | "soft";
+  tone: "orange" | "due" | "soft";
   primary: boolean;
   onCheckIn: () => void;
   /** Omit to hide the skip button (e.g. unscheduled rows can't be skipped). */
@@ -206,18 +246,24 @@ const ActionRow = ({
   const meta = slotMeta(item, use24HourClock());
   return (
     <View
-      style={[styles.actionRow, tone === "orange" && styles.actionRowOrange]}
+      style={[
+        styles.actionRow,
+        tone === "orange" && styles.actionRowOrange,
+        tone === "due" && styles.actionRowDue,
+      ]}
     >
       <View
         style={[
           styles.iconTile,
-          tone === "orange" ? styles.iconTileOrange : styles.iconTileSoft,
+          tone === "orange" && styles.iconTileOrange,
+          tone === "due" && styles.iconTileDue,
+          tone === "soft" && styles.iconTileSoft,
         ]}
       >
         <HabitGlyph
           kind={item.habitIcon ?? "check"}
           size={17}
-          color={tone === "orange" ? tokens.orange : tokens.ink}
+          color={tone === "soft" ? tokens.ink : tokens.orange}
           style="line"
         />
       </View>
@@ -229,6 +275,11 @@ const ActionRow = ({
           {item.status === "overdue" && (
             <View style={styles.overduePill}>
               <Text style={styles.overduePillText}>overdue</Text>
+            </View>
+          )}
+          {item.status === "due" && (
+            <View style={styles.duePill}>
+              <Text style={styles.duePillText}>due</Text>
             </View>
           )}
         </View>
@@ -460,6 +511,9 @@ const styles = StyleSheet.create({
   eyebrowAccent: {
     color: tokens.orange,
   },
+  eyebrowDue: {
+    color: "rgba(255,90,54,0.75)",
+  },
   eyebrowRule: {
     flex: 1,
     height: 1,
@@ -474,6 +528,9 @@ const styles = StyleSheet.create({
   countPillAccent: {
     backgroundColor: "rgba(255,90,54,0.12)",
   },
+  countPillDue: {
+    backgroundColor: "rgba(255,90,54,0.07)",
+  },
   countLabel: {
     fontFamily: "JetBrainsMono",
     fontSize: 9,
@@ -483,6 +540,9 @@ const styles = StyleSheet.create({
   },
   countLabelAccent: {
     color: tokens.orange,
+  },
+  countLabelDue: {
+    color: "rgba(255,90,54,0.75)",
   },
   sectionBody: {
     gap: 8,
@@ -503,6 +563,11 @@ const styles = StyleSheet.create({
     borderLeftWidth: 3,
     borderLeftColor: tokens.orange,
   },
+  actionRowDue: {
+    borderColor: "rgba(255,90,54,0.2)",
+    borderLeftWidth: 3,
+    borderLeftColor: "rgba(255,90,54,0.55)",
+  },
   iconTile: {
     width: 34,
     height: 34,
@@ -515,6 +580,9 @@ const styles = StyleSheet.create({
   },
   iconTileOrange: {
     backgroundColor: "rgba(255,90,54,0.12)",
+  },
+  iconTileDue: {
+    backgroundColor: "rgba(255,90,54,0.07)",
   },
   actionTextCol: {
     flex: 1,
@@ -543,6 +611,21 @@ const styles = StyleSheet.create({
     fontSize: 9,
     fontWeight: "700",
     color: tokens.cream,
+    letterSpacing: 0.8,
+    textTransform: "uppercase",
+    lineHeight: 12,
+  },
+  duePill: {
+    backgroundColor: "rgba(255,90,54,0.12)",
+    borderRadius: 999,
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+  },
+  duePillText: {
+    fontFamily: "JetBrainsMono",
+    fontSize: 9,
+    fontWeight: "700",
+    color: tokens.orange,
     letterSpacing: 0.8,
     textTransform: "uppercase",
     lineHeight: 12,

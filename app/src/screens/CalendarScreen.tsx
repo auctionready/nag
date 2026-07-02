@@ -96,10 +96,12 @@ const daySummary = (agenda: {
       : `${done} done · all on track`;
   }
   const overdue = count("overdue");
+  const due = count("due");
   const upcoming = count("upcoming");
   const done = count("done");
   const parts: string[] = [];
   if (overdue > 0) parts.push(`${overdue} overdue`);
+  if (due > 0) parts.push(`${due} due`);
   if (upcoming > 0) parts.push(`${upcoming} upcoming`);
   parts.push(`${done} logged`);
   return parts.join(" · ");

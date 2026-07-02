@@ -27,7 +27,7 @@ export const SettingsGroups = () => {
     <Group title="App settings">
       <Row
         icon={iconDayView()}
-        label="Open on day view"
+        label="Open on calendar"
         toggle
         toggleOn={defaultView === "day"}
         onPress={() => setDefaultView(defaultView === "day" ? "board" : "day")}

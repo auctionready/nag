@@ -34,6 +34,38 @@ describe("buildDayAgenda", () => {
       expect(result.slots[0].status).toBe("upcoming");
     });
 
+    it("marks a slot just past its time as due, not overdue", () => {
+      // 13:00 slot, now 13:20 — 20 min elapsed, within the 30 min window.
+      const result = buildDayAgenda({
+        schedules: [{ days: 0, dayOfMonth: null, hour: 13, minute: 0 }],
+        checkIns: [],
+        day: today(),
+        now: today(13, 20),
+      });
+      expect(result.slots[0].status).toBe("due");
+    });
+
+    it("marks a slot at exactly its time as due", () => {
+      const result = buildDayAgenda({
+        schedules: [{ days: 0, dayOfMonth: null, hour: 13, minute: 0 }],
+        checkIns: [],
+        day: today(),
+        now: today(13, 0),
+      });
+      expect(result.slots[0].status).toBe("due");
+    });
+
+    it("escalates to overdue once the grace window has passed", () => {
+      // 13:00 slot, now 13:31 — 31 min elapsed, just past the 30 min window.
+      const result = buildDayAgenda({
+        schedules: [{ days: 0, dayOfMonth: null, hour: 13, minute: 0 }],
+        checkIns: [],
+        day: today(),
+        now: today(13, 31),
+      });
+      expect(result.slots[0].status).toBe("overdue");
+    });
+
     it("matches a check-in to its nearest slot as done", () => {
       const result = buildDayAgenda({
         schedules: [{ days: 0, dayOfMonth: null, hour: 8, minute: 0 }],

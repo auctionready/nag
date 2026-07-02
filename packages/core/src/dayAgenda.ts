@@ -3,12 +3,20 @@ import type { ScheduleInfo } from "./trafficLight/types";
 
 export type DayAgendaItemStatus =
   | "overdue"
+  | "due"
   | "upcoming"
   | "done"
   | "skip"
   | "missed"
   | "scheduled"
   | "unscheduled";
+
+/**
+ * Grace window (minutes) after a slot's scheduled time during which it reads
+ * as "due" rather than "overdue". A slot unlogged for longer than this
+ * escalates from "due" to "overdue".
+ */
+export const DUE_WINDOW_MIN = 30;
 
 export type DayMode = "past" | "today" | "future";
 
@@ -92,7 +100,8 @@ const startOfCalendarDay = (d: Date): Date =>
  * relationship to `now`:
  *
  *   - past:    matched → done/skip · unmatched → missed
- *   - today:   matched → done/skip · unmatched → overdue (past time) or upcoming
+ *   - today:   matched → done/skip · unmatched → upcoming (before its time),
+ *              due (within DUE_WINDOW_MIN of its time) or overdue (past that)
  *   - future:  matched → done/skip · unmatched → scheduled
  *
  * Check-ins beyond the number of slots fall into `extras`.
@@ -167,12 +176,10 @@ export const buildDayAgenda = ({
     if (mode === "future") {
       return { hour: slot.hour, minute: slot.minute, status: "scheduled" };
     }
-    const slotMin = slot.hour * 60 + slot.minute;
-    return {
-      hour: slot.hour,
-      minute: slot.minute,
-      status: slotMin <= nowMinutes ? "overdue" : "upcoming",
-    };
+    const elapsed = nowMinutes - (slot.hour * 60 + slot.minute);
+    const status: DayAgendaItemStatus =
+      elapsed < 0 ? "upcoming" : elapsed <= DUE_WINDOW_MIN ? "due" : "overdue";
+    return { hour: slot.hour, minute: slot.minute, status };
   });
 
   const matchedCheckIns = new Set(
